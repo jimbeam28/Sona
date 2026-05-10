@@ -157,11 +157,11 @@
           "name": "基础播放控制",
           "design_doc": "module-player.md §3.2",
           "impl_tasks": ["F-029", "F-040"],
-          "impl_status": "pending",
+          "impl_status": "done",
           "test_tasks": ["F-063", "F-064"],
           "test_cases": ["PLY-T08", "PLY-T09", "PLY-T10", "PLY-T11", "PLY-T12", "PLY-T13", "PLY-T14", "PLY-T15", "PLY-T16", "PLY-T17", "PLY-T18", "PLY-T19", "PLY-T55", "PLY-T56", "PLY-T57", "PLY-T58"],
-          "test_impl_status": "pending",
-          "test_pass_status": "pending"
+          "test_impl_status": "done",
+          "test_pass_status": "passed"
         },
         "PLY-03": {
           "name": "后台播放",

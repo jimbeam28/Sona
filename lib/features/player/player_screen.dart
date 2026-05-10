@@ -178,7 +178,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         children: [
           const Spacer(),
           // Large music icon
-          _NowPlayingIcon(),
+          const _NowPlayingIcon(),
           const SizedBox(height: 24),
           // File name
           Text(
@@ -197,12 +197,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 .bodyMedium
                 ?.copyWith(color: Colors.grey),
           ),
-          const SizedBox(height: 32),
-          // Play / Pause button
-          _PlayPauseButton(),
           const SizedBox(height: 24),
-          // Time display
-          _TimeDisplay(),
+          // Progress slider with integrated time display
+          const _ProgressSlider(),
+          const SizedBox(height: 16),
+          // Playback controls: skip back, play/pause, skip forward
+          const _PlaybackControls(),
+          const SizedBox(height: 16),
+          // Speed control
+          const _SpeedControl(),
           const Spacer(),
         ],
       ),
@@ -275,6 +278,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
 /// Animated music icon that pulses while playing.
 class _NowPlayingIcon extends ConsumerWidget {
+  const _NowPlayingIcon({super.key});
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final player = ref.watch(audioPlayerProvider);
@@ -295,75 +300,269 @@ class _NowPlayingIcon extends ConsumerWidget {
   }
 }
 
-// ── Play / Pause Button ────────────────────────────────────────────────────────
+// ── Progress Slider ────────────────────────────────────────────────────────────
 
-/// Play / pause toggle button.
-class _PlayPauseButton extends ConsumerWidget {
+/// Progress bar with current position and total duration labels.
+///
+/// Uses [AudioPlayer.positionStream] and [AudioPlayer.durationStream] for
+/// reactive updates.  Dragging the slider calls [AudioPlayer.seek] on release.
+/// PLY-T57~T58.
+class _ProgressSlider extends ConsumerStatefulWidget {
+  const _ProgressSlider();
+
+  @override
+  ConsumerState<_ProgressSlider> createState() => _ProgressSliderState();
+}
+
+class _ProgressSliderState extends ConsumerState<_ProgressSlider> {
+  /// Whether the user is currently dragging the slider.
+  bool _isDragging = false;
+
+  /// Temporary position used while dragging to avoid position-stream jitter.
+  double _dragValue = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final player = ref.watch(audioPlayerProvider);
+
+    return Column(
+      children: [
+        // Slider
+        StreamBuilder<Duration>(
+          stream: player.positionStream,
+          builder: (context, posSnapshot) {
+            final position = posSnapshot.data ?? Duration.zero;
+
+            return StreamBuilder<Duration?>(
+              stream: player.durationStream,
+              builder: (context, durSnapshot) {
+                final duration = durSnapshot.data;
+                if (duration == null || duration == Duration.zero) {
+                  return const Slider(
+                    value: 0,
+                    onChanged: null, // disabled until we know the duration
+                  );
+                }
+
+                final maxMs = duration.inMilliseconds.toDouble();
+                final rawValue = _isDragging
+                    ? _dragValue
+                    : position.inMilliseconds.toDouble().clamp(0, maxMs);
+                final double value = rawValue.toDouble();
+
+                return Slider(
+                  value: value,
+                  min: 0,
+                  max: maxMs,
+                  onChanged: (v) {
+                    setState(() {
+                      _isDragging = true;
+                      _dragValue = v;
+                    });
+                  },
+                  onChangeEnd: (v) {
+                    setState(() => _isDragging = false);
+                    player.seek(Duration(milliseconds: v.round()));
+                  },
+                );
+              },
+            );
+          },
+        ),
+        // Time labels
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            StreamBuilder<Duration>(
+              stream: player.positionStream,
+              builder: (context, snapshot) {
+                return Text(
+                  formatDuration(snapshot.data ?? Duration.zero),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                );
+              },
+            ),
+            StreamBuilder<Duration?>(
+              stream: player.durationStream,
+              builder: (context, snapshot) {
+                return Text(
+                  formatDuration(snapshot.data),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                );
+              },
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+// ── Playback Controls ──────────────────────────────────────────────────────────
+
+/// Row of playback controls: skip backward, play/pause, skip forward.
+/// PLY-T55~T56.
+class _PlaybackControls extends ConsumerWidget {
+  const _PlaybackControls();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final player = ref.watch(audioPlayerProvider);
+    final seekStep = ref.watch(seekStepProvider);
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        // Skip backward
+        _buildSkipButton(
+          context: context,
+          icon: Icons.replay_10,
+          tooltip: '后退 ${seekStep}s',
+          onPressed: () {
+            final position = player.position;
+            final skipTarget = skipBackward(position, seconds: seekStep);
+            player.seek(skipTarget);
+          },
+        ),
+        const SizedBox(width: 24),
+        // Play / Pause
+        StreamBuilder<PlayerState>(
+          stream: player.playerStateStream,
+          builder: (context, snapshot) {
+            final isPlaying = snapshot.data?.playing ?? false;
+            return IconButton.filled(
+              onPressed: () {
+                if (isPlaying) {
+                  player.pause();
+                } else {
+                  player.play();
+                }
+              },
+              iconSize: 64,
+              icon: Icon(isPlaying ? Icons.pause : Icons.play_arrow),
+              style: IconButton.styleFrom(
+                minimumSize: const Size(80, 80),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(40),
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(width: 24),
+        // Skip forward
+        _buildSkipButton(
+          context: context,
+          icon: Icons.forward_30,
+          tooltip: '前进 ${seekStep}s',
+          onPressed: () {
+            final position = player.position;
+            final duration = player.duration ?? Duration.zero;
+            final skipTarget =
+                skipForward(position, duration, seconds: seekStep);
+            player.seek(skipTarget);
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSkipButton({
+    required BuildContext context,
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return IconButton(
+      onPressed: onPressed,
+      iconSize: 36,
+      icon: Icon(icon),
+      tooltip: tooltip,
+    );
+  }
+}
+
+// ── Speed Control ──────────────────────────────────────────────────────────────
+
+/// Speed display button with speed selector dialog.
+/// PLY-T17.
+class _SpeedControl extends ConsumerWidget {
+  const _SpeedControl();
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final player = ref.watch(audioPlayerProvider);
 
-    return StreamBuilder<PlayerState>(
-      stream: player.playerStateStream,
+    return StreamBuilder<double>(
+      stream: player.speedStream,
       builder: (context, snapshot) {
-        final isPlaying = snapshot.data?.playing ?? false;
+        final currentSpeed = snapshot.data ?? 1.0;
 
-        return IconButton.filled(
-          onPressed: () {
-            if (isPlaying) {
-              player.pause();
-            } else {
-              player.play();
-            }
-          },
-          iconSize: 64,
-          icon: Icon(isPlaying ? Icons.pause : Icons.play_arrow),
-          style: IconButton.styleFrom(
-            minimumSize: const Size(80, 80),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(40),
-            ),
+        return OutlinedButton.icon(
+          onPressed: () => _showSpeedSelector(context, player, currentSpeed),
+          icon: const Icon(Icons.speed, size: 20),
+          label: Text('${currentSpeed}x'),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           ),
         );
       },
     );
   }
-}
 
-// ── Time Display ───────────────────────────────────────────────────────────────
-
-/// Current position and total duration display.
-class _TimeDisplay extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final player = ref.watch(audioPlayerProvider);
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        StreamBuilder<Duration>(
-          stream: player.positionStream,
-          builder: (context, snapshot) {
-            return Text(
-              formatDuration(snapshot.data ?? Duration.zero),
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontFeatures: const [FontFeature.tabularFigures()],
+  void _showSpeedSelector(
+    BuildContext context,
+    AudioPlayer player,
+    double currentSpeed,
+  ) {
+    showModalBottomSheet<double>(
+      context: context,
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text(
+                  '播放速度',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
                   ),
-            );
-          },
-        ),
-        StreamBuilder<Duration?>(
-          stream: player.durationStream,
-          builder: (context, snapshot) {
-            return Text(
-              formatDuration(snapshot.data),
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-            );
-          },
-        ),
-      ],
+                ),
+              ),
+              const Divider(height: 1),
+              ...speedOptions.map((speed) {
+                final isSelected = (speed - currentSpeed).abs() < 0.01;
+                return ListTile(
+                  leading: isSelected
+                      ? Icon(Icons.check,
+                          color: Theme.of(context).colorScheme.primary)
+                      : const SizedBox(width: 24),
+                  title: Text('${speed}x'),
+                  trailing: isSelected
+                      ? Text('当前',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).colorScheme.primary,
+                          ))
+                      : null,
+                  onTap: () {
+                    player.setSpeed(speed);
+                    Navigator.of(ctx).pop();
+                  },
+                );
+              }),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
     );
   }
 }

@@ -314,3 +314,25 @@
 - AudioSource 通过 just_audio 的 AudioSource.uri 自定义 headers 实现 Basic Auth
 - 路径段级别 URL 编码支持空格、中文、特殊字符
 - PlayerLoadState 状态机：idle → loading → ready | error（含 auth 错误标记）
+
+---
+
+## [2026-05-10 17:43] PLY-02 - 基础播放控制
+
+**模块**: Player
+**状态**: ✅ 成功
+
+### 实现文件
+- `lib/features/player/player_provider.dart` — 添加 clampSeek/skipForward/skipBackward 工具函数、seekStepProvider、speedOptions
+- `lib/features/player/player_screen.dart` — 进度条滑块、播放控制按钮、速度选择器、时间显示
+
+### 测试文件
+- `test/features/player/ply_02_test.dart` — 测试用例 71 个（PLY-T08 ~ PLY-T19 + PLY-T55 ~ PLY-T60）
+
+### 测试结果
+- 通过: 202 / 总计: 202（Connection 43 + Browser 59 + Player 100）
+
+### 备注
+- 快进/快退逻辑使用纯函数实现，便于单元测试
+- 进度滑块处理拖动状态避免流抖动
+- 速度选择器支持 6 个档位（0.5x ~ 2.0x）
