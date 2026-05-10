@@ -177,11 +177,11 @@
           "name": "锁屏/通知栏媒体控件",
           "design_doc": "module-player.md §3.4",
           "impl_tasks": ["F-033", "F-034"],
-          "impl_status": "pending",
+          "impl_status": "done",
           "test_tasks": ["F-063"],
           "test_cases": ["PLY-T24", "PLY-T25", "PLY-T26", "PLY-T27", "PLY-T28", "PLY-T29"],
-          "test_impl_status": "pending",
-          "test_pass_status": "pending"
+          "test_impl_status": "done",
+          "test_pass_status": "passed"
         },
         "PLY-05": {
           "name": "播放队列管理",

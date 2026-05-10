@@ -358,3 +358,24 @@
 - BackgroundPlaybackConfig 纯函数模型：生命周期转换、通知栏控制、音频焦点
 - shouldContinueInBackground 纯净函数决定生命周期行为
 - 不依赖 audio_service 原生平台支持即可完整测试逻辑层
+
+---
+
+## [2026-05-10 17:54] PLY-04 - 锁屏/通知栏媒体控件
+
+**模块**: Player
+**状态**: ✅ 成功
+
+### 实现文件
+- `lib/features/player/media_control_model.dart` — 耳机线控映射、曲目标题提取、封面检测（新建）
+
+### 测试文件
+- `test/features/player/ply_04_test.dart` — 测试用例 35 个（PLY-T24 ~ PLY-T29 + 模型测试）
+
+### 测试结果
+- 通过: 292 / 总计: 292
+
+### 备注
+- HeadphoneAction → MediaAction 映射：单击=播放/暂停，双击=下一首，三击=上一首
+- extractTitleFromPath 处理隐藏文件、双扩展名、CJK 字符等边界情况
+- TrackMetadata 不可变值对象，hasId3Cover 决定通知栏显示封面或默认图标
