@@ -489,3 +489,30 @@
 - formatRemaining: >60s→X分钟, <=60s→Xs, afterCurrent→null, 无定时→null
 - cancel 幂等，到期后 pause 触发，cancel 后到期不触发
 - Timer 模块全部 5 个功能一次性实现完成
+
+---
+
+## [2026-05-10 18:29] PRG-01 ~ PRG-04 - Progress 模块全部功能
+
+**模块**: Progress
+**状态**: ✅ 全部成功 (4/4)
+
+### 实现文件
+- `lib/core/database/dao/progress_dao.dart` — DAO: upsert/shouldSave/shouldClear/级联删除（新建）
+- `lib/features/progress/progress_provider.dart` — Provider: 自动保存、查询、进度恢复状态机（新建）
+- `lib/features/progress/progress_dialog.dart` — 进度恢复确认对话框（5 秒倒计时）（新建）
+- `lib/core/database/database_helper.dart` — 添加 play_progress 表和索引
+- `lib/shared/models/play_progress.dart` — 添加 fromMap/toMap/copyWith
+- `lib/features/browser/browser_provider.dart` — 批量预加载进度、进度恢复 UI 集成
+- `lib/features/browser/browser_screen.dart` — 文件点击时触发进度恢复流程
+
+### 测试文件
+- `test/features/progress/prg_test.dart` — 测试用例 31 个（PRG-T01 ~ PRG-T28 + helpers）
+
+### 测试结果
+- 通过: 478 / 总计: 478
+
+### 备注
+- shouldSave: position >= 5s 才保存；shouldClear: position > duration-10s 删除（视为播完）
+- 进度恢复对话框支持继续/从头播放，5 秒倒计时自动选择继续
+- play_progress 表 UNIQUE(connection_id, file_path) 保证 UPSERT

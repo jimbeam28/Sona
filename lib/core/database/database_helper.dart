@@ -42,6 +42,24 @@ class DatabaseHelper {
         updated_at  INTEGER NOT NULL
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE play_progress (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        connection_id  INTEGER NOT NULL,
+        file_path      TEXT NOT NULL,
+        position_ms    INTEGER NOT NULL DEFAULT 0,
+        duration_ms    INTEGER,
+        last_played_at INTEGER NOT NULL,
+        UNIQUE(connection_id, file_path),
+        FOREIGN KEY(connection_id) REFERENCES connections(id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE INDEX idx_progress_lookup
+      ON play_progress(connection_id, file_path)
+    ''');
   }
 
   // Exposed for testing (e.g. sqflite_ffi in-memory db)

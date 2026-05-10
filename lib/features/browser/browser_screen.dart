@@ -16,6 +16,8 @@ import '../../shared/models/nas_file.dart';
 import '../../shared/models/play_progress.dart';
 import '../../shared/models/play_queue.dart';
 import '../player/widgets/mini_player_bar.dart';
+import '../progress/progress_dialog.dart';
+import '../progress/progress_provider.dart';
 import 'browser_provider.dart';
 import 'widgets/breadcrumb_bar.dart';
 import 'widgets/file_list_item.dart';
@@ -29,6 +31,13 @@ class BrowserScreen extends ConsumerWidget {
     final currentPath = navStack.last;
 
     final contentsAsync = ref.watch(directoryContentsProvider(currentPath));
+
+    // When directory contents load, trigger progress loading in background
+    ref.listen(directoryContentsProvider(currentPath), (prev, next) {
+      if (next.hasValue) {
+        ref.invalidate(loadProgressForDirectoryProvider(currentPath));
+      }
+    });
 
     return PopScope(
       canPop: navStack.length <= 1,
@@ -138,8 +147,7 @@ class BrowserScreen extends ConsumerWidget {
                           .indexWhere((f) => f.path == tappedFile.path);
                       if (startIndex < 0) return;
 
-                      // Check for saved playback progress (placeholder — always
-                      // null until the Progress module is built).
+                      // Check for saved playback progress
                       final progress =
                           ref.read(playProgressProvider(tappedFile.path));
 
@@ -148,20 +156,20 @@ class BrowserScreen extends ConsumerWidget {
                       final goRouter = GoRouter.of(context);
 
                       if (progress != null) {
-                        _showProgressResumeDialog(
+                        // PRG-03: Show resume dialog with countdown timer.
+                        // Dialog returns true=continue, false=start over,
+                        // null=dismissed.
+                        final container =
+                            ProviderScope.containerOf(context);
+                        // ignore: discarded_futures
+                        showProgressResumeDialog(
                           context,
+                          container,
                           progress,
-                          () {
-                            final queue = PlayQueue(
-                              files: audioFiles,
-                              currentIndex: startIndex,
-                            );
-                            ref
-                                .read(currentPlayQueueProvider.notifier)
-                                .state = queue;
-                            goRouter.go('/player');
-                          },
-                          () {
+                        ).then((continuePlayback) {
+                          if (!context.mounted) return;
+                          if (continuePlayback == true) {
+                            // Resume from saved position
                             final queue = PlayQueue(
                               files: audioFiles,
                               currentIndex: startIndex,
@@ -171,8 +179,25 @@ class BrowserScreen extends ConsumerWidget {
                                 .read(currentPlayQueueProvider.notifier)
                                 .state = queue;
                             goRouter.go('/player');
-                          },
-                        );
+                          } else {
+                            // Start from beginning (or dialog dismissed)
+                            // PRG-T20: also delete progress on start-over
+                            if (continuePlayback == false) {
+                              ref.read(clearProgressProvider)(
+                                connectionId: progress.connectionId,
+                                filePath: progress.filePath,
+                              );
+                            }
+                            final queue = PlayQueue(
+                              files: audioFiles,
+                              currentIndex: startIndex,
+                            );
+                            ref
+                                .read(currentPlayQueueProvider.notifier)
+                                .state = queue;
+                            goRouter.go('/player');
+                          }
+                        });
                       } else {
                         // No saved progress — play from beginning.
                         final queue = PlayQueue(
@@ -372,45 +397,4 @@ class _SortMenuItem extends StatelessWidget {
       ],
     );
   }
-}
-
-// ── Progress resume dialog ────────────────────────────────────────────────────────
-
-/// Shows a confirmation dialog asking the user whether to resume playback
-/// from the saved position or start over from the beginning.
-///
-/// [progress] provides the saved position for display.
-/// [onStartOver] is called when the user chooses "从头播放".
-/// [onContinue] is called when the user chooses "继续播放".
-void _showProgressResumeDialog(
-  BuildContext context,
-  PlayProgress progress,
-  VoidCallback onStartOver,
-  VoidCallback onContinue,
-) {
-  showDialog<void>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('恢复播放'),
-      content: Text(
-        '上次播放到 ${progress.formattedPosition}，是否从此处继续？',
-      ),
-      actions: [
-        TextButton(
-          onPressed: () {
-            Navigator.of(ctx).pop();
-            onStartOver();
-          },
-          child: const Text('从头播放'),
-        ),
-        FilledButton(
-          onPressed: () {
-            Navigator.of(ctx).pop();
-            onContinue();
-          },
-          child: const Text('继续播放'),
-        ),
-      ],
-    ),
-  );
 }

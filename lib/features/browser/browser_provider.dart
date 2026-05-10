@@ -12,6 +12,7 @@ import '../../shared/models/nas_file.dart';
 import '../../shared/models/play_progress.dart';
 import '../../shared/models/play_queue.dart';
 import '../connection/connection_provider.dart';
+import '../progress/progress_provider.dart';
 
 // ── Sort option ────────────────────────────────────────────────────────────────────
 
@@ -283,11 +284,58 @@ final currentPlayQueueProvider = StateProvider<PlayQueue?>((ref) => null);
 
 // ── Playback progress lookup ──────────────────────────────────────────────────────
 
+/// In-memory cache of progress records for files in the current directory.
+///
+/// Populated by [loadProgressForDirectoryProvider] when a directory is loaded.
+/// Keyed by file path.  Value is the [PlayProgress] record or `null` when no
+/// progress has been saved for that file.
+final _progressRegistryProvider =
+    StateProvider<Map<String, PlayProgress?>>((ref) => {});
+
+/// Loads progress records for all audio files in [path] from the database
+/// and populates [_progressRegistryProvider].
+///
+/// Triggered alongside [directoryContentsProvider] so the progress bars
+/// and resume-dialog logic have data available synchronously.
+final loadProgressForDirectoryProvider =
+    FutureProvider.family<void, String>((ref, path) async {
+  final dao = ref.watch(progressDaoProvider);
+
+  // Resolve the active connection
+  final activeConn = ref.read(activeConnectionProvider).valueOrNull;
+  if (activeConn == null || activeConn.id == null) return;
+
+  // Get the cached directory contents (must have been loaded already)
+  final contents = ref.read(directoryContentsProvider(path)).valueOrNull;
+  if (contents == null) return;
+
+  // Query progress for each audio file
+  final registry = <String, PlayProgress?>{};
+  for (final file in contents) {
+    if (file.isDirectory) continue;
+    try {
+      final progress = await dao.find(activeConn.id!, file.path);
+      registry[file.path] = progress;
+    } catch (_) {
+      // DAO not available (e.g. in test without DB) — skip
+      registry[file.path] = null;
+    }
+  }
+
+  ref.read(_progressRegistryProvider.notifier).state = registry;
+});
+
 /// Resolves saved playback progress for a given [filePath].
 ///
-/// Returns `null` when no progress has been saved for the file (the common
-/// case for first-time playback).  This provider will be expanded when the
-/// Progress module implements actual database lookups.
+/// Reads from the in-memory registry populated by
+/// [loadProgressForDirectoryProvider].  Returns `null` when no progress has
+/// been saved, the registry hasn't been loaded yet, or no DAO is available.
+///
+/// This is a synchronous provider so it can be used in widget callbacks
+/// (e.g. `onFileTap`).
 final playProgressProvider = Provider.family<PlayProgress?, String>(
-  (ref, filePath) => null,
+  (ref, filePath) {
+    final registry = ref.watch(_progressRegistryProvider);
+    return registry[filePath];
+  },
 );
