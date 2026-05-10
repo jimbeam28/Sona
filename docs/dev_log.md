@@ -228,3 +228,23 @@
 - PlayProgress 模型为 Progress 模块预留（formattedPosition, percentage）
 - currentPlayQueueProvider 使用 StateProvider 存储队列，Player 模块可直接读取
 - 进度恢复对话框支持继续播放（带入 startPositionMs）和从头播放入口
+
+---
+
+## [2026-05-10 17:16] BRW-05 - 目录内容缓存
+
+**模块**: Browser
+**状态**: ✅ 成功
+
+### 实现文件
+- `lib/features/browser/browser_provider.dart` — 添加 directoryCacheProvider 和 clearDirectoryCacheProvider
+
+### 测试文件
+- `test/features/browser/brw_05_test.dart` — 测试用例 5 个（BRW-T29 ~ BRW-T33）
+
+### 测试结果
+- 通过: 91 / 总计: 91（Connection 43 + Browser 48）
+
+### 备注
+- 缓存 key 为 "connectionId:path"，不同连接缓存隔离
+- clearDirectoryCacheProvider 供下拉刷新（BRW-06）使用

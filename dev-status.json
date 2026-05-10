@@ -112,11 +112,11 @@
           "name": "目录内容缓存",
           "design_doc": "module-browser.md §3.5",
           "impl_tasks": ["F-020"],
-          "impl_status": "pending",
+          "impl_status": "done",
           "test_tasks": ["F-061"],
           "test_cases": ["BRW-T29", "BRW-T30", "BRW-T31", "BRW-T32", "BRW-T33"],
-          "test_impl_status": "pending",
-          "test_pass_status": "pending"
+          "test_impl_status": "done",
+          "test_pass_status": "passed"
         },
         "BRW-06": {
           "name": "下拉刷新",
