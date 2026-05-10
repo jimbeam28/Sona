@@ -12,8 +12,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../shared/models/play_queue.dart';
+import '../browser/browser_provider.dart';
 import 'background_playback.dart';
 
 // ── AudioPlayer instance ───────────────────────────────────────────────────────
@@ -190,6 +192,69 @@ String labelForPlayMode(PlayMode mode) {
 
 /// Available playback speed multipliers.
 const List<double> speedOptions = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+
+// ── Speed persistence (PLY-07) ───────────────────────────────────────────────
+
+/// SharedPreferences key for the default playback speed.
+const _defaultSpeedKey = 'default_playback_speed';
+
+/// Returns the default playback speed from [prefs], or 1.0 if not set.
+///
+/// Pure function — testable without any providers or platform channels.
+double getDefaultSpeed(SharedPreferences? prefs) {
+  if (prefs == null) return 1.0;
+  final value = prefs.getDouble(_defaultSpeedKey);
+  return value ?? 1.0;
+}
+
+/// Returns `true` if [speed] is one of the valid [speedOptions].
+///
+/// Uses a tolerance of 0.01 for floating-point comparison.
+/// Pure function — testable without any providers or platform channels.
+bool isValidSpeed(double speed) {
+  return speedOptions.any((s) => (s - speed).abs() < 0.01);
+}
+
+/// The default playback speed, persisted to SharedPreferences.
+///
+/// Reads the value from SharedPreferences on first access.  When
+/// SharedPreferences is unavailable (test environments) defaults to 1.0.
+///
+/// This is the "settings-level" default.  It is NOT updated when the user
+/// changes speed during playback via the player UI — that only affects
+/// [currentSpeedProvider].  The default speed is applied when opening a new
+/// file (PLY-T47) and is only changed via the Settings screen.
+final defaultSpeedProvider = Provider<double>((ref) {
+  final prefs = ref.watch(sharedPreferencesProvider);
+  return getDefaultSpeed(prefs);
+});
+
+/// Persists a new default speed to SharedPreferences and invalidates
+/// [defaultSpeedProvider] so that it re-reads the updated value.
+///
+/// Non-[speedOptions] values are silently ignored.
+/// This is the function that the Settings screen would call.
+final setDefaultSpeedProvider = Provider<void Function(double)>((ref) {
+  return (double speed) {
+    if (!isValidSpeed(speed)) return;
+    final prefs = ref.read(sharedPreferencesProvider);
+    prefs?.setDouble(_defaultSpeedKey, speed);
+    ref.invalidate(defaultSpeedProvider);
+  };
+});
+
+/// Tracks the actual playback speed applied to the player.
+///
+/// Initialized from [defaultSpeedProvider] so that every new file starts at
+/// the user's preferred default speed (PLY-T47).  When the user selects a
+/// different speed via the player's speed selector, only this provider is
+/// updated — [defaultSpeedProvider] is left unchanged (PLY-T46).
+final currentSpeedProvider = StateProvider<double>((ref) {
+  // Use ref.read (not ref.watch) so that currentSpeed is seeded from
+  // defaultSpeed on first access but does NOT re-evaluate when the
+  // settings-level default changes later (PLY-T46).
+  return ref.read(defaultSpeedProvider);
+});
 
 // ── Time formatting helper ─────────────────────────────────────────────────────
 

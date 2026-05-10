@@ -421,3 +421,24 @@
 ### 备注
 - 模式循环顺序: sequential → repeatOne → repeatAll → shuffle → sequential
 - iconForPlayMode/labelForPlayMode 纯函数映射图标和中文标签
+
+---
+
+## [2026-05-10 18:09] PLY-07 - 播放速度调节
+
+**模块**: Player
+**状态**: ✅ 成功
+
+### 实现文件
+- `lib/features/player/player_provider.dart` — 添加 defaultSpeedProvider、setDefaultSpeedProvider、currentSpeedProvider
+
+### 测试文件
+- `test/features/player/ply_07_test.dart` — 测试用例 36 个（PLY-T43 ~ PLY-T47 + PLY-T59 ~ PLY-T60）
+
+### 测试结果
+- 通过: 382 / 总计: 382
+
+### 备注
+- currentSpeedProvider 使用 ref.read 获取默认速度，修改默认不影响当前播放
+- 新容器（模拟新文件）自动获取最新默认速度
+- isValidSpeed 使用 0.01 浮点容差匹配 6 个速度档位
