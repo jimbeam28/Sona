@@ -248,3 +248,22 @@
 ### 备注
 - 缓存 key 为 "connectionId:path"，不同连接缓存隔离
 - clearDirectoryCacheProvider 供下拉刷新（BRW-06）使用
+
+---
+
+## [2026-05-10 17:21] BRW-06 - 下拉刷新
+
+**模块**: Browser
+**状态**: ✅ 成功
+
+### 实现文件
+- `lib/features/browser/browser_screen.dart` — 添加 RefreshIndicator 包裹文件列表
+
+### 测试文件
+- `test/features/browser/brw_06_test.dart` — 测试用例 3 个（BRW-T34 ~ BRW-T36）
+
+### 测试结果
+- 通过: 94 / 总计: 94（Connection 43 + Browser 51）
+
+### 备注
+- 下拉刷新清除缓存并重新加载，刷新失败时保留旧列表

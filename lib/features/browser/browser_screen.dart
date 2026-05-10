@@ -72,12 +72,22 @@ class BrowserScreen extends ConsumerWidget {
                   if (files.isEmpty) {
                     return const _EmptyView();
                   }
-                  return _FileList(
-                    files: files,
-                    onDirectoryTap: (dirPath) {
-                      ref.read(navigationStackProvider.notifier).push(dirPath);
+                  return RefreshIndicator(
+                    onRefresh: () async {
+                      final currentPath =
+                          ref.read(navigationStackProvider).last;
+                      ref.read(clearDirectoryCacheProvider)(currentPath);
+                      await ref.refresh(
+                          directoryContentsProvider(currentPath).future);
                     },
-                    onFileTap: (tappedFile) {
+                    child: _FileList(
+                      files: files,
+                      onDirectoryTap: (dirPath) {
+                        ref
+                            .read(navigationStackProvider.notifier)
+                            .push(dirPath);
+                      },
+                      onFileTap: (tappedFile) {
                       // BRW-04: Build play queue from current directory.
                       // Re-read the cached contents so we have the full
                       // filtered/sorted list (the UI may show a subset).
@@ -139,9 +149,10 @@ class BrowserScreen extends ConsumerWidget {
                         goRouter.go('/player');
                       }
                     },
-                  );
-                },
-              ),
+                  ),
+                );
+              },
+            ),
             ),
           ],
         ),
