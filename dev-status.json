@@ -27,11 +27,11 @@
           "name": "连接配置持久化",
           "design_doc": "module-connection.md §3.3",
           "impl_tasks": ["F-008", "F-011"],
-          "impl_status": "pending",
+          "impl_status": "done",
           "test_tasks": ["F-059"],
           "test_cases": ["CON-T18", "CON-T19", "CON-T20", "CON-T21", "CON-T22", "CON-T23", "CON-T24"],
-          "test_impl_status": "pending",
-          "test_pass_status": "pending"
+          "test_impl_status": "done",
+          "test_pass_status": "passed"
         },
         "CON-04": {
           "name": "切换当前连接",
