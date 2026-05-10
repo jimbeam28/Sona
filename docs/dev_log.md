@@ -202,3 +202,29 @@
 - 音频分类逻辑（classifyType）在 BRW-01 中已完整实现
 - .m4b 扩展名、"有声书"/"audiobook"关键词 → audiobook ；其他 → music
 - 关键词匹配不区分大小写
+
+---
+
+## [2026-05-10 17:10] BRW-04 - 选择文件播放
+
+**模块**: Browser
+**状态**: ✅ 成功
+
+### 实现文件
+- `lib/shared/models/play_queue.dart` — 播放队列模型（新建）
+- `lib/shared/models/play_progress.dart` — 播放进度模型（新建）
+- `lib/features/browser/browser_provider.dart` — 添加 currentPlayQueueProvider 和 playProgressProvider
+- `lib/features/browser/browser_screen.dart` — 音频文件点击：构建队列、进度恢复对话框、导航到播放器
+- `lib/features/player/player_screen.dart` — 播放器占位页面（新建）
+- `lib/main.dart` — 添加 /player 路由
+
+### 测试文件
+- `test/features/browser/brw_04_test.dart` — 测试用例 9 个（BRW-T23 ~ BRW-T28）
+
+### 测试结果
+- 通过: 86 / 总计: 86（Connection 43 + Browser 43）
+
+### 备注
+- PlayProgress 模型为 Progress 模块预留（formattedPosition, percentage）
+- currentPlayQueueProvider 使用 StateProvider 存储队列，Player 模块可直接读取
+- 进度恢复对话框支持继续播放（带入 startPositionMs）和从头播放入口

@@ -102,11 +102,11 @@
           "name": "选择文件播放",
           "design_doc": "module-browser.md §3.4",
           "impl_tasks": ["F-031"],
-          "impl_status": "pending",
+          "impl_status": "done",
           "test_tasks": ["F-061"],
           "test_cases": ["BRW-T23", "BRW-T24", "BRW-T25", "BRW-T26", "BRW-T27", "BRW-T28"],
-          "test_impl_status": "pending",
-          "test_pass_status": "pending"
+          "test_impl_status": "done",
+          "test_pass_status": "passed"
         },
         "BRW-05": {
           "name": "目录内容缓存",

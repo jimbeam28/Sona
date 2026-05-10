@@ -8,6 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/network/webdav_client.dart';
 import '../../shared/models/connection_config.dart';
 import '../../shared/models/nas_file.dart';
+import '../../shared/models/play_progress.dart';
+import '../../shared/models/play_queue.dart';
 import '../connection/connection_provider.dart';
 
 // ── Directory contents ──────────────────────────────────────────────────────────
@@ -111,3 +113,22 @@ final navigationStackProvider =
     StateNotifierProvider<NavigationStackNotifier, List<String>>((ref) {
   return NavigationStackNotifier();
 });
+
+// ── Play queue ────────────────────────────────────────────────────────────────────
+
+/// The play queue that the Player module should start playing.
+///
+/// Set by the Browser module when the user taps an audio file (BRW-04).
+/// The Player page reads this provider to know what to play.
+final currentPlayQueueProvider = StateProvider<PlayQueue?>((ref) => null);
+
+// ── Playback progress lookup ──────────────────────────────────────────────────────
+
+/// Resolves saved playback progress for a given [filePath].
+///
+/// Returns `null` when no progress has been saved for the file (the common
+/// case for first-time playback).  This provider will be expanded when the
+/// Progress module implements actual database lookups.
+final playProgressProvider = Provider.family<PlayProgress?, String>(
+  (ref, filePath) => null,
+);

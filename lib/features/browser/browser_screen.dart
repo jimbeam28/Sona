@@ -9,9 +9,12 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/network/webdav_client.dart';
 import '../../shared/models/nas_file.dart';
+import '../../shared/models/play_progress.dart';
+import '../../shared/models/play_queue.dart';
 import 'browser_provider.dart';
 import 'widgets/breadcrumb_bar.dart';
 import 'widgets/file_list_item.dart';
@@ -73,6 +76,68 @@ class BrowserScreen extends ConsumerWidget {
                     files: files,
                     onDirectoryTap: (dirPath) {
                       ref.read(navigationStackProvider.notifier).push(dirPath);
+                    },
+                    onFileTap: (tappedFile) {
+                      // BRW-04: Build play queue from current directory.
+                      // Re-read the cached contents so we have the full
+                      // filtered/sorted list (the UI may show a subset).
+                      final contents = ref
+                          .read(directoryContentsProvider(currentPath))
+                          .valueOrNull;
+                      if (contents == null) return;
+
+                      final audioFiles =
+                          contents.where((f) => !f.isDirectory).toList();
+                      final startIndex = audioFiles
+                          .indexWhere((f) => f.path == tappedFile.path);
+                      if (startIndex < 0) return;
+
+                      // Check for saved playback progress (placeholder — always
+                      // null until the Progress module is built).
+                      final progress =
+                          ref.read(playProgressProvider(tappedFile.path));
+
+                      // Lazily resolve GoRouter — only needed when the user
+                      // actually taps a file.
+                      final goRouter = GoRouter.of(context);
+
+                      if (progress != null) {
+                        _showProgressResumeDialog(
+                          context,
+                          progress,
+                          () {
+                            final queue = PlayQueue(
+                              files: audioFiles,
+                              currentIndex: startIndex,
+                            );
+                            ref
+                                .read(currentPlayQueueProvider.notifier)
+                                .state = queue;
+                            goRouter.go('/player');
+                          },
+                          () {
+                            final queue = PlayQueue(
+                              files: audioFiles,
+                              currentIndex: startIndex,
+                              startPositionMs: progress.positionMs,
+                            );
+                            ref
+                                .read(currentPlayQueueProvider.notifier)
+                                .state = queue;
+                            goRouter.go('/player');
+                          },
+                        );
+                      } else {
+                        // No saved progress — play from beginning.
+                        final queue = PlayQueue(
+                          files: audioFiles,
+                          currentIndex: startIndex,
+                        );
+                        ref
+                            .read(currentPlayQueueProvider.notifier)
+                            .state = queue;
+                        goRouter.go('/player');
+                      }
                     },
                   );
                 },
@@ -201,8 +266,13 @@ class _EmptyView extends StatelessWidget {
 class _FileList extends StatelessWidget {
   final List<NasFile> files;
   final void Function(String dirPath)? onDirectoryTap;
+  final void Function(NasFile file) onFileTap;
 
-  const _FileList({required this.files, this.onDirectoryTap});
+  const _FileList({
+    required this.files,
+    this.onDirectoryTap,
+    required this.onFileTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -222,11 +292,50 @@ class _FileList extends StatelessWidget {
         }
         return AudioFileListTile(
           file: file,
-          onTap: (_) {
-            // File playback (BRW-04) — placeholder for now
-          },
+          onTap: (_) => onFileTap(file),
         );
       },
     );
   }
+}
+
+// ── Progress resume dialog ────────────────────────────────────────────────────────
+
+/// Shows a confirmation dialog asking the user whether to resume playback
+/// from the saved position or start over from the beginning.
+///
+/// [progress] provides the saved position for display.
+/// [onStartOver] is called when the user chooses "从头播放".
+/// [onContinue] is called when the user chooses "继续播放".
+void _showProgressResumeDialog(
+  BuildContext context,
+  PlayProgress progress,
+  VoidCallback onStartOver,
+  VoidCallback onContinue,
+) {
+  showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('恢复播放'),
+      content: Text(
+        '上次播放到 ${progress.formattedPosition}，是否从此处继续？',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.of(ctx).pop();
+            onStartOver();
+          },
+          child: const Text('从头播放'),
+        ),
+        FilledButton(
+          onPressed: () {
+            Navigator.of(ctx).pop();
+            onContinue();
+          },
+          child: const Text('继续播放'),
+        ),
+      ],
+    ),
+  );
 }

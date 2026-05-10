@@ -17,6 +17,7 @@ import 'features/connection/connection_edit_screen.dart';
 import 'features/connection/connection_list_screen.dart';
 import 'features/connection/connection_screen.dart';
 import 'features/browser/browser_screen.dart';
+import 'features/player/player_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -59,6 +60,11 @@ final _router = GoRouter(
       path: '/browser',
       name: 'browser',
       builder: (context, state) => const BrowserScreen(),
+    ),
+    GoRoute(
+      path: '/player',
+      name: 'player',
+      builder: (context, state) => const PlayerPlaceholder(),
     ),
   ],
 );
