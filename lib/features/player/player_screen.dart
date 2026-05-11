@@ -211,6 +211,20 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _loadAndPlay();
   }
 
+  /// Skip to the previous track based on the current play mode.
+  void _playPrevious() {
+    final queue = ref.read(currentPlayQueueProvider);
+    final mode = ref.read(playModeProvider);
+    if (queue == null) return;
+    final prevIdx =
+        PlayQueue.previousIndex(queue.currentIndex, queue.length, mode);
+    if (prevIdx == null) return;
+    _saveProgress();
+    final prevQueue = queue.withIndex(prevIdx);
+    ref.read(currentPlayQueueProvider.notifier).state = prevQueue;
+    _loadAndPlay();
+  }
+
   // ── Progress auto-save (PRG-01) ─────────────────────────────────────────
 
   /// Saves the current playback position to the database.
@@ -316,8 +330,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
           // Progress slider with integrated time display
           const _ProgressSlider(),
           const SizedBox(height: 16),
-          // Playback controls: skip back, play/pause, skip forward
-          const _PlaybackControls(),
+          // Playback controls: previous, skip back, play/pause, skip forward, next
+          _PlaybackControls(
+            onPrevious: _playPrevious,
+            onNext: _playNext,
+          ),
           const SizedBox(height: 16),
           // Speed control
           const _SpeedControl(),
@@ -521,22 +538,41 @@ class _ProgressSliderState extends ConsumerState<_ProgressSlider> {
 
 // ── Playback Controls ──────────────────────────────────────────────────────────
 
-/// Row of playback controls: skip backward, play/pause, skip forward.
+/// Row of playback controls: previous, skip backward, play/pause, skip forward, next.
 /// PLY-T55~T56.
 class _PlaybackControls extends ConsumerWidget {
-  const _PlaybackControls();
+  final VoidCallback? onPrevious;
+  final VoidCallback? onNext;
+
+  const _PlaybackControls({this.onPrevious, this.onNext});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final player = ref.watch(audioPlayerProvider);
     final seekStep = ref.watch(seekStepProvider);
+    final queue = ref.watch(currentPlayQueueProvider);
+    final mode = ref.watch(playModeProvider);
+
+    final prevIdx = queue != null
+        ? PlayQueue.previousIndex(queue.currentIndex, queue.length, mode)
+        : null;
+    final nextIdx = queue != null
+        ? PlayQueue.nextIndex(queue.currentIndex, queue.length, mode)
+        : null;
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
+        // Previous track
+        _buildSkipButton(
+          icon: Icons.skip_previous,
+          tooltip: '上一首',
+          enabled: prevIdx != null,
+          onPressed: prevIdx != null ? onPrevious : null,
+        ),
+        const SizedBox(width: 8),
         // Skip backward
         _buildSkipButton(
-          context: context,
           icon: Icons.replay_10,
           tooltip: '后退 ${seekStep}s',
           onPressed: () {
@@ -573,7 +609,6 @@ class _PlaybackControls extends ConsumerWidget {
         const SizedBox(width: 24),
         // Skip forward
         _buildSkipButton(
-          context: context,
           icon: Icons.forward_30,
           tooltip: '前进 ${seekStep}s',
           onPressed: () {
@@ -584,21 +619,31 @@ class _PlaybackControls extends ConsumerWidget {
             player.seek(skipTarget);
           },
         ),
+        const SizedBox(width: 8),
+        // Next track
+        _buildSkipButton(
+          icon: Icons.skip_next,
+          tooltip: '下一首',
+          enabled: nextIdx != null,
+          onPressed: nextIdx != null ? onNext : null,
+        ),
       ],
     );
   }
 
   Widget _buildSkipButton({
-    required BuildContext context,
     required IconData icon,
-    required String tooltip,
-    required VoidCallback onPressed,
+    String? tooltip,
+    bool enabled = true,
+    VoidCallback? onPressed,
   }) {
     return IconButton(
       onPressed: onPressed,
       iconSize: 36,
       icon: Icon(icon),
       tooltip: tooltip,
+      color: enabled ? null : Colors.grey,
+      disabledColor: Colors.grey,
     );
   }
 }

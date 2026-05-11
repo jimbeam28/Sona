@@ -1,5 +1,24 @@
 ---
 
+## [2026-05-11 12:20] A-2 - PlayerScreen 添加上一首/下一首按钮
+
+**优先级**: P0
+**关联问题**: PLY-02
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/player/player_screen.dart` — _PlaybackControls 布局改为五按钮，添加上一首/下一首，根据 previousIndex/nextIndex 控制 disabled 状态
+
+### 验证结果
+- 通过: 3 / 总计: 3（work_items 检查项）
+- 静态分析通过，无新增 warning
+
+### 备注
+- _playPrevious/_playNext 复用 _saveProgress + 队列更新 + _loadAndPlay 模式
+- 按钮 disabled 时灰色显示（color: Colors.grey）
+
+---
+
 ## [2026-05-11 12:15] A-3 - 实现播放进度自动保存（五个触发点）
 
 **优先级**: P0
