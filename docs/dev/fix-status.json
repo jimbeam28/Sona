@@ -1,0 +1,296 @@
+{
+  "batches": {
+    "batch-a": {
+      "label": "Batch A — P0 严重缺陷",
+      "priority": "P0",
+      "description": "核心功能无法使用，必须优先修复",
+      "fixes": {
+        "A-1": {
+          "name": "实现 AudioHandler（后台播放 + 媒体控件）",
+          "issues": ["PLY-03", "PLY-04"],
+          "design_doc": "docs/fix.md §Batch A — A-1",
+          "current_status": "lib/core/services/audio_handler.dart 文件不存在。BackgroundPlaybackNotifier 是纯逻辑状态机，不驱动实际的后台服务。",
+          "work_items": [
+            "新建 lib/core/services/audio_handler.dart，实现 NasAudioHandler extends BaseAudioHandler",
+            "在 main.dart 使用 AudioService.init() 初始化 handler",
+            "更新 AndroidManifest.xml 添加 FOREGROUND_SERVICE 和 mediaPlayback",
+            "将现有 audioPlayerProvider 替换为从 handler 内部获取 player",
+            "接入耳机按键，handler 中 onMediaButton 调用 mapHeadphoneAction"
+          ],
+          "files_involved": [
+            "新建: lib/core/services/audio_handler.dart",
+            "修改: lib/main.dart",
+            "修改: android/app/src/main/AndroidManifest.xml",
+            "修改: lib/features/player/player_screen.dart",
+            "修改: lib/features/player/player_provider.dart"
+          ],
+          "impl_status": "pending",
+          "dependencies": ["A-2", "A-3", "A-4", "A-5"]
+        },
+        "A-2": {
+          "name": "PlayerScreen 添加上一首/下一首按钮",
+          "issues": ["PLY-02"],
+          "design_doc": "docs/fix.md §Batch A — A-2",
+          "current_status": "_PlaybackControls 只有快退/快进/播放暂停，缺少曲目切换按钮。",
+          "work_items": [
+            "在 player_screen.dart 的 _PlaybackControls.build 中调整按钮布局为 [上一首][快退][播放/暂停][快进][下一首]",
+            "实现上一首/下一首点击逻辑：读取 currentPlayQueueProvider 和 playModeProvider",
+            "按钮 disabled 状态：previousIndex/nextIndex 为 null 时置灰"
+          ],
+          "files_involved": [
+            "修改: lib/features/player/player_screen.dart"
+          ],
+          "impl_status": "pending",
+          "dependencies": []
+        },
+        "A-3": {
+          "name": "实现播放进度自动保存（五个触发点）",
+          "issues": ["PRG-01"],
+          "design_doc": "docs/fix.md §Batch A — A-3",
+          "current_status": "upsertProgressProvider 和 ProgressDao.upsert 均已实现，但 PlayerScreen 从未调用保存逻辑。",
+          "work_items": [
+            "每 10 秒定时保存（Timer.periodic）",
+            "暂停时立即保存（监听 playing→paused 转换）",
+            "切换曲目时保存上一首进度",
+            "进入后台时保存（WidgetsBindingObserver.didChangeAppLifecycleState）",
+            "页面销毁时保存（dispose）"
+          ],
+          "files_involved": [
+            "修改: lib/features/player/player_screen.dart"
+          ],
+          "impl_status": "pending",
+          "dependencies": []
+        },
+        "A-4": {
+          "name": "TMR-02 接入 processingStateStream 触发「播完当前」",
+          "issues": ["TMR-02"],
+          "design_doc": "docs/fix.md §Batch A — A-4",
+          "current_status": "TimerService.onTrackCompleted() 逻辑正确，但 PlayerScreen 从未监听 player.processingStateStream，onTrackCompletedProvider 从未被调用。",
+          "work_items": [
+            "在 PlayerScreen._loadAndPlay 末尾或 initState 添加 processingStateStream 监听",
+            "ProcessingState.completed 时调用 onTrackCompletedProvider，若触发则暂停并提示",
+            "若未触发定时则执行正常自动播放下一首（PLY-05 逻辑）",
+            "在 dispose 中取消订阅"
+          ],
+          "files_involved": [
+            "修改: lib/features/player/player_screen.dart"
+          ],
+          "impl_status": "pending",
+          "dependencies": []
+        },
+        "A-5": {
+          "name": "TMR-05 添加定时到期的周期检查",
+          "issues": ["TMR-05"],
+          "design_doc": "docs/fix.md §Batch A — A-5",
+          "current_status": "checkTimerExpiryProvider 存在但从未被调用，固定时长定时器到期后什么都不发生。",
+          "work_items": [
+            "在 PlayerScreen.initState 中添加每秒检查 Timer.periodic",
+            "定时到期后调用 player.pause() 并显示 SnackBar 提示",
+            "在 dispose 中 cancel timer"
+          ],
+          "files_involved": [
+            "修改: lib/features/player/player_screen.dart"
+          ],
+          "impl_status": "pending",
+          "dependencies": []
+        },
+        "A-6": {
+          "name": "PRG-04 添加长按清除进度 UI 入口",
+          "issues": ["PRG-04"],
+          "design_doc": "docs/fix.md §Batch A — A-6",
+          "current_status": "clearProgressProvider 已实现，但 AudioFileListTile 无长按回调，_FileList 也未传入长按处理器。",
+          "work_items": [
+            "为 AudioFileListTile 添加 onLongPress 参数",
+            "在 _FileList.itemBuilder 中传入 onLongPress 回调",
+            "在 BrowserScreen.build 中添加长按处理逻辑：读取进度→弹出确认→调用 clearProgressProvider"
+          ],
+          "files_involved": [
+            "修改: lib/features/browser/widgets/file_list_item.dart",
+            "修改: lib/features/browser/browser_screen.dart"
+          ],
+          "impl_status": "pending",
+          "dependencies": []
+        }
+      }
+    },
+    "batch-b": {
+      "label": "Batch B — P1 功能偏差",
+      "priority": "P1",
+      "description": "功能偏差，不影响基础体验但与设计不符",
+      "fixes": {
+        "B-1": {
+          "name": "切换连接后清除浏览器缓存",
+          "issues": ["CON-04"],
+          "design_doc": "docs/fix.md §Batch B — B-1",
+          "current_status": "switchActiveConnectionProvider 切换后只 invalidate 了连接相关 provider，未清缓存，Browser 页面会显示旧连接的目录内容。",
+          "work_items": [
+            "在 switchActiveConnectionProvider 末尾添加 ref.invalidate(directoryCacheProvider)",
+            "重置导航栈回根目录 ref.invalidate(navigationStackProvider)",
+            "注意循环依赖风险，如有循环则将 clear 逻辑提取到 UI 层处理"
+          ],
+          "files_involved": [
+            "修改: lib/features/connection/connection_provider.dart 或 lib/features/connection/connection_list_screen.dart"
+          ],
+          "impl_status": "pending",
+          "dependencies": []
+        },
+        "B-2": {
+          "name": "播放队列查看 UI",
+          "issues": ["PLY-05"],
+          "design_doc": "docs/fix.md §Batch B — B-2",
+          "current_status": "PlayerScreen 无「查看队列」按钮，无法展示队列列表。",
+          "work_items": [
+            "在 player_screen.dart 的 _buildReady 中添加「队列」图标按钮",
+            "点击后 showModalBottomSheet 展示 currentPlayQueueProvider 文件列表",
+            "每行显示文件名，当前播放项高亮，点击任意行可切换"
+          ],
+          "files_involved": [
+            "修改: lib/features/player/player_screen.dart"
+          ],
+          "impl_status": "pending",
+          "dependencies": []
+        },
+        "B-3": {
+          "name": "播放队列持久化（重启恢复）",
+          "issues": ["PLY-05"],
+          "design_doc": "docs/fix.md §Batch B — B-3",
+          "current_status": "currentPlayQueueProvider 是内存 StateProvider，重启后丢失。PlayQueue.toMap/fromMap 序列化方法已存在。",
+          "work_items": [
+            "每次 currentPlayQueueProvider 变化时，将 queue.toMap() 写入 SharedPreferences",
+            "只持久化 filePath，重建时从缓存或重新 PROPFIND 获取元数据",
+            "在启动时（_OnboardingPage 或 BrowserScreen.initState）读取并恢复队列"
+          ],
+          "files_involved": [
+            "修改: lib/features/browser/browser_provider.dart 或新建队列持久化辅助文件",
+            "修改: lib/main.dart"
+          ],
+          "impl_status": "pending",
+          "dependencies": ["A-1"]
+        },
+        "B-4": {
+          "name": "消除目录进度加载竞争窗口",
+          "issues": ["BRW-04", "PRG-02"],
+          "design_doc": "docs/fix.md §Batch B — B-4",
+          "current_status": "loadProgressForDirectoryProvider 异步触发，用户快速点击文件时进度数据可能尚未就绪，导致跳过恢复对话框。",
+          "work_items": [
+            "在 browser_screen.dart 的 onFileTap 回调中先 await 进度加载完成再决策",
+            "利用 FutureProvider.family 缓存确保重复 await 不触发重复请求",
+            "处理 onFileTap 从同步改为 async 的 Future 丢弃警告"
+          ],
+          "files_involved": [
+            "修改: lib/features/browser/browser_screen.dart"
+          ],
+          "impl_status": "pending",
+          "dependencies": []
+        },
+        "B-5": {
+          "name": "修复含子路径连接 URL 的音频源构建",
+          "issues": ["PLY-01"],
+          "design_doc": "docs/fix.md §Batch B — B-5",
+          "current_status": "AudioSourceBuilder.build 使用 buildUri（忽略 base URL 的路径部分），当连接 URL 含子路径时会导致 404。",
+          "work_items": [
+            "在 player_screen.dart 的 _loadAndPlay 中判断 activeConn.basePath",
+            "含非根路径时使用 AudioSourceBuilder.buildWithBasePath",
+            "或统一使用 buildWithBasePath（根路径时与 build 等价）"
+          ],
+          "files_involved": [
+            "修改: lib/features/player/player_screen.dart"
+          ],
+          "impl_status": "pending",
+          "dependencies": []
+        }
+      }
+    },
+    "batch-c": {
+      "label": "Batch C — P2 轻微偏差",
+      "priority": "P2",
+      "description": "轻微偏差，有时间再处理",
+      "fixes": {
+        "C-1": {
+          "name": "CON-05/CON-06 补充滑动操作",
+          "issues": ["CON-05", "CON-06"],
+          "design_doc": "docs/fix.md §Batch C — C-1",
+          "current_status": "编辑和删除连接仅通过三点菜单操作，设计文档要求滑动操作。",
+          "work_items": [
+            "引入 flutter_slidable 包",
+            "为 _ConnectionListView 的每个 tile 添加右滑显示「编辑」/「删除」操作",
+            "保持三点菜单作为备用入口"
+          ],
+          "files_involved": [
+            "修改: lib/features/connection/connection_list_screen.dart",
+            "修改: pubspec.yaml"
+          ],
+          "impl_status": "pending",
+          "dependencies": []
+        },
+        "C-2": {
+          "name": "时间格式补齐为三段式",
+          "issues": ["PLY-02"],
+          "design_doc": "docs/fix.md §Batch C — C-2",
+          "current_status": "formatDuration 不足 1 小时显示 MM:SS，与设计文档 00:00:00 格式不一致。",
+          "work_items": [
+            "修改 formatDuration 始终输出 H:MM:SS 格式",
+            "不足 1 小时时加 0: 前缀"
+          ],
+          "files_involved": [
+            "修改: lib/features/player/player_provider.dart:284"
+          ],
+          "impl_status": "pending",
+          "dependencies": []
+        },
+        "C-3": {
+          "name": "调速后同步 currentSpeedProvider",
+          "issues": ["PLY-07"],
+          "design_doc": "docs/fix.md §Batch C — C-3",
+          "current_status": "_SpeedControl._showSpeedSelector 的 onTap 回调中调用 player.setSpeed(speed) 但未更新 currentSpeedProvider。",
+          "work_items": [
+            "在 onTap 回调中添加 ref.read(currentSpeedProvider.notifier).state = speed"
+          ],
+          "files_involved": [
+            "修改: lib/features/player/player_screen.dart"
+          ],
+          "impl_status": "pending",
+          "dependencies": []
+        },
+        "C-4": {
+          "name": "表单层添加 URL 格式前置校验",
+          "issues": ["CON-01"],
+          "design_doc": "docs/fix.md §Batch C — C-4",
+          "current_status": "connection_form.dart 的 _validateUrl 缺少 URL 格式校验，仅检查是否为空。",
+          "work_items": [
+            "在 _validateUrl 中添加 normaliseWebDavUrl + isValidWebDavUrl 格式校验",
+            "在 connection_form.dart 中 import webdav_client.dart"
+          ],
+          "files_involved": [
+            "修改: lib/features/connection/widgets/connection_form.dart"
+          ],
+          "impl_status": "pending",
+          "dependencies": []
+        }
+      }
+    }
+  },
+  "implementation_order": [
+    {"step": 1, "tasks": ["A-5", "A-6"], "note": "独立，无依赖，合计 1.5 小时"},
+    {"step": 2, "tasks": ["A-4", "A-3"], "note": "独立，无依赖，合计 1.5 小时"},
+    {"step": 3, "tasks": ["A-2"], "note": "独立，无依赖，1 小时"},
+    {"step": 4, "tasks": ["B-4", "B-5", "B-1"], "note": "独立，合计 2 小时"},
+    {"step": 5, "tasks": ["C-2", "C-3", "C-4"], "note": "各自独立，合计 1 小时"},
+    {"step": 6, "tasks": ["A-1"], "note": "最复杂，依赖 A-2/A-3/A-4/A-5 完成后合并，约 1 天"},
+    {"step": 7, "tasks": ["B-2", "B-3"], "note": "队列查看 UI + 持久化，建议在 A-1 后处理"},
+    {"step": 8, "tasks": ["C-1"], "note": "最后，可选"}
+  ],
+  "status_values": {
+    "impl_status": ["pending", "in_progress", "done"]
+  },
+  "metadata": {
+    "source": "docs/fix.md",
+    "date": "2026-05-11",
+    "total_fixes": 15,
+    "by_priority": {
+      "P0": 6,
+      "P1": 5,
+      "P2": 4
+    }
+  }
+}

@@ -1,22 +1,22 @@
 ---
-name: dev-func
-description: 按照设计文档严格实现功能。当用户提到"实现功能"、"开发功能"、功能编号（CON-01, BRW-02, PLY-01, TMR-03, PRG-01, SET-04 等格式）、"dev-func"、或任何涉及按设计文档开发/实现某个功能模块的请求时使用此 skill。
+name: dev-ex
+description: 按照设计文档严格实现功能。当用户提到"实现功能"、"开发功能"、功能编号（CON-01, BRW-02, PLY-01, TMR-03, PRG-01, SET-04 等格式）、"dev-ex"、或任何涉及按设计文档开发/实现某个功能模块的请求时使用此 skill。
 ---
 
-# 功能实现工作流 (dev-func)
+# 功能实现工作流 (dev-ex)
 
 此 skill 按严格流程实现一个功能，所有实现和测试均以设计文档为准。
 
 ## 输入
 
-需要一个**功能编号**（如 `CON-01`、`BRW-02`）。如果不确定编号，先从 `dev-status.json` 中查找。
+需要一个**功能编号**（如 `CON-01`、`BRW-02`）。如果不确定编号，先从 `docs/dev/dev-status.json` 中查找。
 
 ## 前置：读取项目上下文
 
 在开始工作流之前，读取以下文件以建立全局上下文：
 
 - `docs/architecture.md` — 项目架构、技术栈、目录结构
-- `dev-status.json` — 功能状态跟踪
+- `docs/dev/dev-status.json` — 功能状态跟踪
 
 这些文件提供所有 Agent 所需的共同背景。
 
@@ -26,7 +26,7 @@ description: 按照设计文档严格实现功能。当用户提到"实现功能
 
 ### 第1步：解析功能配置
 
-1. 读取 `dev-status.json`，找到目标功能编号的配置节。
+1. 读取 `docs/dev/dev-status.json`，找到目标功能编号的配置节。
 2. 提取：`name`、`design_doc`（格式 `文档.md §N.N`）、`impl_tasks`、`test_cases`。
 3. 读取 `docs/` 下对应的设计文档，定位到指定章节，完整理解功能设计。
 4. 读取 `docs/test-design.md`，找到对应模块章节，提取所有相关测试用例的完整内容（场景 + 预期结果）。
@@ -126,4 +126,4 @@ Agent 输出：
 - 功能实现文件列表
 - 测试实现文件列表
 - 测试通过情况
-- 建议将 `dev-status.json` 中对应功能的状态更新为 `done`/`passed`
+- 建议将 `docs/dev/dev-status.json` 中对应功能的状态更新为 `done`/`passed`

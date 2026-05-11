@@ -36,9 +36,17 @@ test/
     ├── progress/prg_test.dart
     └── settings/settings_test.dart
 docs/
-├── architecture.md           # 整体架构文档
-├── module-*.md               # 各模块设计文档
-└── test-design.md            # 测试用例设计文档
+├── design/                   # 设计文档
+│   ├── architecture.md       # 整体架构文档
+│   ├── module-*.md           # 各模块设计文档
+│   └── test-design.md        # 测试用例设计文档
+└── dev/                      # 开发跟踪
+    ├── dev-status.json       # 功能状态跟踪
+    ├── dev_log.md            # 实现日志
+    ├── fix.md                # 修复计划
+    ├── fix-status.json       # 修复状态跟踪
+    ├── analysis.md           # 分析报告
+    └── progress.md           # 开发进度
 ```
 
 ## 模块说明
