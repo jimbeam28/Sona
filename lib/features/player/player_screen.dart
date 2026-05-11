@@ -9,6 +9,8 @@
 // Handles loading, ready, and error states.  On auth errors (401) the
 // user is prompted to check their connection credentials.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
@@ -18,6 +20,7 @@ import '../../core/services/audio_source_builder.dart';
 import '../../shared/models/play_queue.dart';
 import '../browser/browser_provider.dart';
 import '../connection/connection_provider.dart';
+import '../timer/timer_provider.dart';
 import 'player_provider.dart';
 
 /// The full-screen audio player.
@@ -36,12 +39,32 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   /// Tracks the source-load lifecycle: idle -> loading -> ready / error.
   PlayerLoadState _loadState = PlayerLoadState.idle;
 
+  Timer? _timerExpiryChecker;
+
   @override
   void initState() {
     super.initState();
     // Defer the async load to the next frame so that build() runs first
     // and the loading spinner appears immediately.
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadAndPlay());
+
+    // TMR-05: check for duration-timer expiry every second.
+    _timerExpiryChecker = Timer.periodic(const Duration(seconds: 1), (_) {
+      final expired = ref.read(checkTimerExpiryProvider)();
+      if (expired && mounted) {
+        final player = ref.read(audioPlayerProvider);
+        player.pause();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('定时停止已触发')),
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timerExpiryChecker?.cancel();
+    super.dispose();
   }
 
   // ── Load & Play ──────────────────────────────────────────────────────────────

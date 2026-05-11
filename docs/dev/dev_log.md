@@ -1,5 +1,23 @@
 ---
 
+## [2026-05-11 12:00] A-5 - TMR-05 添加定时到期的周期检查
+
+**优先级**: P0
+**关联问题**: TMR-05
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/player/player_screen.dart` — 添加 Timer.periodic 每秒检查定时到期，到期后暂停播放并显示 SnackBar
+
+### 验证结果
+- 通过: 3 / 总计: 3（work_items 检查项）
+- 静态分析通过，无新增 warning
+
+### 备注
+- `checkTimerExpiryProvider` 和 `TimerService.checkExpired()` 已预先实现，仅需接入调用
+
+---
+
 ## [2026-05-10 16:11] CON-01 - 添加 WebDAV 连接
 
 **模块**: Connection
