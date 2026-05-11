@@ -52,12 +52,14 @@ class DirectoryListTile extends StatelessWidget {
 class AudioFileListTile extends StatelessWidget {
   final NasFile file;
   final FileItemTapCallback? onTap;
+  final VoidCallback? onLongPress;
   final double? progressPercentage;
 
   const AudioFileListTile({
     super.key,
     required this.file,
     this.onTap,
+    this.onLongPress,
     this.progressPercentage,
   });
 
@@ -102,6 +104,7 @@ class AudioFileListTile extends StatelessWidget {
       ),
       subtitle: _sizeLabel != null ? Text(_sizeLabel!) : null,
       onTap: onTap != null ? () => onTap!(file) : null,
+      onLongPress: onLongPress,
     );
 
     if (progressPercentage == null) return tile;

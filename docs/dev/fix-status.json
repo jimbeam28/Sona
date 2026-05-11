@@ -108,7 +108,7 @@
             "修改: lib/features/browser/widgets/file_list_item.dart",
             "修改: lib/features/browser/browser_screen.dart"
           ],
-          "impl_status": "pending",
+          "impl_status": "done",
           "dependencies": []
         }
       }

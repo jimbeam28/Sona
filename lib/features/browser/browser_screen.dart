@@ -215,6 +215,56 @@ class BrowserScreen extends ConsumerWidget {
                         goRouter.go('/player');
                       }
                     },
+                    onFileLongPress: (tappedFile) {
+                      final progress =
+                          ref.read(playProgressProvider(tappedFile.path));
+                      if (progress == null) return;
+
+                      showModalBottomSheet(
+                        context: context,
+                        builder: (ctx) {
+                          return SafeArea(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Text(
+                                    tappedFile.name,
+                                    style: Theme.of(context).textTheme.titleMedium,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const Divider(height: 1),
+                                ListTile(
+                                  leading: const Icon(Icons.delete_outline,
+                                      color: Colors.red),
+                                  title: const Text('清除播放进度'),
+                                  subtitle: Text(
+                                    '已保存进度 ${progress.formattedPosition}',
+                                    style: Theme.of(context).textTheme.bodySmall,
+                                  ),
+                                  onTap: () {
+                                    ref.read(clearProgressProvider)(
+                                      connectionId: progress.connectionId,
+                                      filePath: progress.filePath,
+                                    );
+                                    Navigator.of(ctx).pop();
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('播放进度已清除'),
+                                      ),
+                                    );
+                                  },
+                                ),
+                                const SizedBox(height: 8),
+                              ],
+                            ),
+                          );
+                        },
+                      );
+                    },
                   ),
                 );
               },
@@ -346,11 +396,13 @@ class _FileList extends StatelessWidget {
   final List<NasFile> files;
   final void Function(String dirPath)? onDirectoryTap;
   final void Function(NasFile file) onFileTap;
+  final void Function(NasFile file)? onFileLongPress;
 
   const _FileList({
     required this.files,
     this.onDirectoryTap,
     required this.onFileTap,
+    this.onFileLongPress,
   });
 
   @override
@@ -372,6 +424,7 @@ class _FileList extends StatelessWidget {
         return AudioFileListTile(
           file: file,
           onTap: (_) => onFileTap(file),
+          onLongPress: onFileLongPress != null ? () => onFileLongPress!(file) : null,
         );
       },
     );

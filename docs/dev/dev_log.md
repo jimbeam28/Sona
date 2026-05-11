@@ -1,5 +1,25 @@
 ---
 
+## [2026-05-11 12:05] A-6 - PRG-04 添加长按清除进度 UI 入口
+
+**优先级**: P0
+**关联问题**: PRG-04
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/browser/widgets/file_list_item.dart` — AudioFileListTile 添加 onLongPress 参数
+- `lib/features/browser/browser_screen.dart` — _FileList 添加 onFileLongPress 回调，BrowserScreen 中实现长按弹出清除进度菜单
+
+### 验证结果
+- 通过: 3 / 总计: 3（work_items 检查项）
+- 静态分析通过，无新增 warning
+
+### 备注
+- clearProgressProvider 已预先实现，仅需接入 UI 层
+- 长按有进度的文件弹出底部菜单，显示文件名和已保存进度，确认后清除
+
+---
+
 ## [2026-05-11 12:00] A-5 - TMR-05 添加定时到期的周期检查
 
 **优先级**: P0
