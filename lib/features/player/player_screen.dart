@@ -243,6 +243,76 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _loadAndPlay();
   }
 
+  // ── Queue sheet (B-2) ──────────────────────────────────────────────────
+
+  void _showQueueSheet(BuildContext context, PlayQueue queue) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  '播放队列 (${queue.length})',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              const Divider(height: 1),
+              ...List.generate(queue.length, (i) {
+                final file = queue.files[i];
+                final isCurrent = i == queue.currentIndex;
+                return ListTile(
+                  leading: Icon(
+                    isCurrent ? Icons.play_arrow : Icons.music_note_outlined,
+                    color: isCurrent
+                        ? Theme.of(context).colorScheme.primary
+                        : Colors.grey,
+                  ),
+                  title: Text(
+                    file.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight:
+                          isCurrent ? FontWeight.bold : FontWeight.normal,
+                      color: isCurrent
+                          ? Theme.of(context).colorScheme.primary
+                          : null,
+                    ),
+                  ),
+                  trailing: isCurrent
+                      ? Text(
+                          '当前',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        )
+                      : null,
+                  onTap: isCurrent
+                      ? null
+                      : () {
+                          Navigator.of(ctx).pop();
+                          _saveProgress();
+                          final nextQueue = queue.withIndex(i);
+                          ref
+                              .read(currentPlayQueueProvider.notifier)
+                              .state = nextQueue;
+                          _loadAndPlay();
+                        },
+                );
+              }),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   // ── Progress auto-save (PRG-01) ─────────────────────────────────────────
 
   /// Saves the current playback position to the database.
@@ -278,6 +348,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
               : '播放器',
         ),
         centerTitle: true,
+        actions: [
+          if (_loadState.status == PlayerLoadStatus.ready && queue != null)
+            IconButton(
+              icon: const Icon(Icons.queue_music),
+              tooltip: '播放队列',
+              onPressed: () => _showQueueSheet(context, queue),
+            ),
+        ],
       ),
       body: _buildBody(queue),
     );

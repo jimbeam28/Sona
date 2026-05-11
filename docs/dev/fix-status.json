@@ -147,7 +147,7 @@
           "files_involved": [
             "修改: lib/features/player/player_screen.dart"
           ],
-          "impl_status": "pending",
+          "impl_status": "done",
           "dependencies": []
         },
         "B-3": {
@@ -164,7 +164,7 @@
             "修改: lib/features/browser/browser_provider.dart 或新建队列持久化辅助文件",
             "修改: lib/main.dart"
           ],
-          "impl_status": "pending",
+          "impl_status": "done",
           "dependencies": ["A-1"]
         },
         "B-4": {

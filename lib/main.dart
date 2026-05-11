@@ -187,6 +187,8 @@ class _OnboardingPage extends ConsumerWidget {
                 );
               }
               // CON-T15: validation succeeded (or no active connection) — go to browser
+              // B-3: restore persisted play queue.
+              ref.read(restoreQueueFromPrefsProvider);
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 context.go('/browser');
               });

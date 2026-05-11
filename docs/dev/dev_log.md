@@ -1,5 +1,33 @@
 ---
 
+## [2026-05-12 11:30] B-2 - 播放队列查看 UI
+
+**优先级**: P1
+**关联问题**: PLY-05
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/player/player_screen.dart` — AppBar 添加队列按钮，showModalBottomSheet 展示文件列表，当前项高亮，点击切换
+
+---
+
+## [2026-05-12 11:30] B-3 - 播放队列持久化（重启恢复）
+
+**优先级**: P1
+**关联问题**: PLY-05
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/browser/browser_provider.dart` — 添加 persistQueueOnChangeProvider 和 restoreQueueFromPrefsProvider
+- `lib/features/browser/browser_screen.dart` — 激活队列持久化监听
+- `lib/main.dart` — 启动时恢复持久化队列
+
+### 备注
+- NasFile 重建为最小化对象（仅 path + name），足够播放恢复
+- 数据损坏时静默忽略
+
+---
+
 ## [2026-05-12 11:00] A-1 - 实现 AudioHandler（后台播放 + 媒体控件）
 
 **优先级**: P0

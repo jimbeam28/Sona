@@ -30,6 +30,9 @@ class BrowserScreen extends ConsumerWidget {
     final navStack = ref.watch(navigationStackProvider);
     final currentPath = navStack.last;
 
+    // B-3: activate queue persistence listener.
+    ref.watch(persistQueueOnChangeProvider);
+
     final contentsAsync = ref.watch(directoryContentsProvider(currentPath));
 
     // When directory contents load, trigger progress loading in background

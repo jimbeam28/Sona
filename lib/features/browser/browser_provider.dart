@@ -3,6 +3,8 @@
 // Written without code generation — uses StateNotifier / FutureProvider.family
 // patterns from flutter_riverpod directly (no @riverpod annotations, no build_runner).
 
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -281,6 +283,59 @@ final navigationStackProvider =
 /// Set by the Browser module when the user taps an audio file (BRW-04).
 /// The Player page reads this provider to know what to play.
 final currentPlayQueueProvider = StateProvider<PlayQueue?>((ref) => null);
+
+// ── Queue persistence (B-3) ─────────────────────────────────────────────────
+
+const _queuePrefsKey = 'last_play_queue';
+
+/// Saves [queue] to SharedPreferences whenever it changes.
+final persistQueueOnChangeProvider = Provider<void>((ref) {
+  ref.listen(currentPlayQueueProvider, (prev, next) {
+    final prefs = ref.read(sharedPreferencesProvider);
+    if (prefs == null) return;
+    if (next == null) {
+      prefs.remove(_queuePrefsKey);
+    } else {
+      prefs.setString(_queuePrefsKey, jsonEncode(next.toMap()));
+    }
+  });
+});
+
+/// Reads the persisted queue from SharedPreferences and sets it on
+/// [currentPlayQueueProvider].  NasFile objects are reconstructed with
+/// minimal metadata (path + name) — enough for playback to work.
+final restoreQueueFromPrefsProvider =
+    FutureProvider<void>((ref) async {
+  final prefs = ref.read(sharedPreferencesProvider);
+  if (prefs == null) return;
+  final raw = prefs.getString(_queuePrefsKey);
+  if (raw == null) return;
+  try {
+    final map = jsonDecode(raw) as Map<String, dynamic>;
+    final filePaths = (map['filePaths'] as List<dynamic>?)?.cast<String>();
+    if (filePaths == null || filePaths.isEmpty) return;
+    final files = filePaths.map((p) {
+      final name = p.split('/').last;
+      return NasFile(path: p, name: name, isDirectory: false);
+    }).toList();
+    final currentIndex = (map['currentIndex'] as int?) ?? 0;
+    if (currentIndex >= files.length) return;
+    final startPositionMs = map['startPositionMs'] as int?;
+    final modeName = map['playMode'] as String?;
+    final mode = modeName != null
+        ? PlayMode.values.firstWhere((m) => m.name == modeName,
+            orElse: () => PlayMode.sequential)
+        : PlayMode.sequential;
+    ref.read(currentPlayQueueProvider.notifier).state = PlayQueue(
+      files: files,
+      currentIndex: currentIndex,
+      startPositionMs: startPositionMs,
+      playMode: mode,
+    );
+  } catch (_) {
+    // Corrupted data — ignore and let the user start fresh.
+  }
+});
 
 // ── Playback progress lookup ──────────────────────────────────────────────────────
 
