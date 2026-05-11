@@ -220,7 +220,7 @@
             "修改: lib/features/connection/connection_list_screen.dart",
             "修改: pubspec.yaml"
           ],
-          "impl_status": "pending",
+          "impl_status": "done",
           "dependencies": []
         },
         "C-2": {

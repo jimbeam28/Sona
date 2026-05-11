@@ -1,5 +1,25 @@
 ---
 
+## [2026-05-12 12:00] C-1 - CON-05/CON-06 补充滑动操作
+
+**优先级**: P2
+**关联问题**: CON-05, CON-06
+**状态**: ✅ 成功
+
+### 修改文件
+- `pubspec.yaml` — 添加 flutter_slidable 依赖
+- `lib/features/connection/connection_list_screen.dart` — ListTile 包装 Slidable，右滑显示编辑/删除
+
+### 验证结果
+- 通过: 3 / 总计: 3（work_items 检查项）
+- 静态分析通过，0 issues
+
+### 备注
+- 三点菜单保持作为备用入口
+- flutter_slidable ^4.0.3，使用 ActionPane + DrawerMotion
+
+---
+
 ## [2026-05-12 11:30] B-2 - 播放队列查看 UI
 
 **优先级**: P1

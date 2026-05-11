@@ -6,6 +6,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../shared/models/connection_config.dart';
@@ -195,7 +196,7 @@ class _ConnectionListView extends StatelessWidget {
         final conn = connections[index];
         final isActive = conn.id == activeId;
 
-        return ListTile(
+        final tile = ListTile(
           leading: Icon(
             isActive ? Icons.check_circle : Icons.circle_outlined,
             color: isActive ? Colors.green : Colors.grey.shade400,
@@ -286,6 +287,31 @@ class _ConnectionListView extends StatelessWidget {
             ],
           ),
           onTap: isActive ? null : () => onSwitch(conn.id!),
+        );
+
+        return Slidable(
+          key: ValueKey(conn.id),
+          endActionPane: ActionPane(
+            motion: const DrawerMotion(),
+            children: [
+              SlidableAction(
+                onPressed: (_) =>
+                    context.push('/connections/edit/${conn.id}'),
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                icon: Icons.edit_outlined,
+                label: '编辑',
+              ),
+              SlidableAction(
+                onPressed: (_) => onDelete(conn.id!),
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                icon: Icons.delete_outline,
+                label: '删除',
+              ),
+            ],
+          ),
+          child: tile,
         );
       },
     );
