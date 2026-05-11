@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../shared/models/connection_config.dart';
+import '../browser/browser_provider.dart';
 import 'connection_provider.dart';
 
 class ConnectionListScreen extends ConsumerWidget {
@@ -70,6 +71,10 @@ class ConnectionListScreen extends ConsumerWidget {
       final config = await dao.findById(id);
 
       await ref.read(switchActiveConnectionProvider(id).future);
+
+      // B-1: clear browser cache so the old connection's data isn't shown.
+      ref.invalidate(directoryCacheProvider);
+      ref.invalidate(navigationStackProvider);
 
       if (context.mounted) {
         final name = config?.name ?? '连接 $id';

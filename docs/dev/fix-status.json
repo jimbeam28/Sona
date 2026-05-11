@@ -131,7 +131,7 @@
           "files_involved": [
             "修改: lib/features/connection/connection_provider.dart 或 lib/features/connection/connection_list_screen.dart"
           ],
-          "impl_status": "pending",
+          "impl_status": "done",
           "dependencies": []
         },
         "B-2": {

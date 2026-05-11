@@ -1,5 +1,24 @@
 ---
 
+## [2026-05-12 10:10] B-1 - 切换连接后清除浏览器缓存
+
+**优先级**: P1
+**关联问题**: CON-04
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/connection/connection_list_screen.dart` — _switchConnection 切换成功后 invalidate directoryCacheProvider 和 navigationStackProvider
+
+### 验证结果
+- 通过: 3 / 总计: 3（work_items 检查项）
+- 静态分析通过，0 issues
+
+### 备注
+- 避免循环依赖：清除逻辑放在 UI 层 connection_list_screen 而非 connection_provider
+- navigationStackProvider 重置确保不携带旧连接路径
+
+---
+
 ## [2026-05-12 10:05] B-5 - 修复含子路径连接 URL 的音频源构建
 
 **优先级**: P1
