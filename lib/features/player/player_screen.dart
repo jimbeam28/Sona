@@ -125,7 +125,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       }
 
       // 3. Build the AudioSource with Basic Auth
-      final source = AudioSourceBuilder.build(
+      final source = AudioSourceBuilder.buildWithBasePath(
         baseUrl: activeConn.url,
         filePath: queue.current.path,
         username: activeConn.username,

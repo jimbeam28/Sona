@@ -1,5 +1,23 @@
 ---
 
+## [2026-05-12 10:05] B-5 - 修复含子路径连接 URL 的音频源构建
+
+**优先级**: P1
+**关联问题**: PLY-01
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/player/player_screen.dart` — 将 AudioSourceBuilder.build 替换为 buildWithBasePath，统一处理根路径和子路径
+
+### 验证结果
+- 通过: 1 / 总计: 1（work_items 检查项）
+- 静态分析通过，无新增 warning
+
+### 备注
+- buildWithBasePath 在根路径时与 build 等价，在含子路径时保留 base URL 的路径部分
+
+---
+
 ## [2026-05-12 10:00] B-4 - 消除目录进度加载竞争窗口
 
 **优先级**: P1
