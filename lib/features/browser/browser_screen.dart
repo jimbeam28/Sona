@@ -137,7 +137,7 @@ class BrowserScreen extends ConsumerWidget {
                             .read(navigationStackProvider.notifier)
                             .push(dirPath);
                       },
-                      onFileTap: (tappedFile) {
+                      onFileTap: (tappedFile) async {
                       // BRW-04: Build play queue from current directory.
                       // Re-read the cached contents so we have the full
                       // filtered/sorted list (the UI may show a subset).
@@ -151,6 +151,10 @@ class BrowserScreen extends ConsumerWidget {
                       final startIndex = audioFiles
                           .indexWhere((f) => f.path == tappedFile.path);
                       if (startIndex < 0) return;
+
+                      // B-4: await progress loading to avoid race window.
+                      await ref.read(
+                          loadProgressForDirectoryProvider(currentPath).future);
 
                       // Check for saved playback progress
                       final progress =
@@ -423,7 +427,10 @@ class _FileList extends StatelessWidget {
         }
         return AudioFileListTile(
           file: file,
-          onTap: (_) => onFileTap(file),
+          onTap: (_) {
+            // ignore: discarded_futures
+            onFileTap(file);
+          },
           onLongPress: onFileLongPress != null ? () => onFileLongPress!(file) : null,
         );
       },

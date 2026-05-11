@@ -1,5 +1,24 @@
 ---
 
+## [2026-05-12 10:00] B-4 - 消除目录进度加载竞争窗口
+
+**优先级**: P1
+**关联问题**: BRW-04, PRG-02
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/browser/browser_screen.dart` — onFileTap 改为 async，await loadProgressForDirectoryProvider.future 后再读取 playProgressProvider
+
+### 验证结果
+- 通过: 3 / 总计: 3（work_items 检查项）
+- 静态分析通过，无新增 warning
+
+### 备注
+- FutureProvider.family 缓存确保重复 await 同一 path 不触发重复请求
+- discarded_futures 警告通过 // ignore 注释抑制
+
+---
+
 ## [2026-05-11 12:20] A-2 - PlayerScreen 添加上一首/下一首按钮
 
 **优先级**: P0
