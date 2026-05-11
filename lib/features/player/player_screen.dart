@@ -66,6 +66,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         );
       }
     });
+
+    // A-1: wire up the AudioHandler's skip-to-next/previous callbacks.
+    final handler = ref.read(audioHandlerProvider);
+    handler.onSkipToNextRequested = _playNext;
+    handler.onSkipToPreviousRequested = _playPrevious;
   }
 
   // ── PRG-01 trigger ④: save progress when app goes to background ───────────
@@ -85,6 +90,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _autoSaveTimer?.cancel();
     _playerStateSubscription?.cancel();
     WidgetsBinding.instance.removeObserver(this);
+
+    // A-1: clear handler callbacks to prevent stale references.
+    final handler = ref.read(audioHandlerProvider);
+    handler.onSkipToNextRequested = null;
+    handler.onSkipToPreviousRequested = null;
+
     super.dispose();
   }
 
@@ -142,6 +153,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       }
 
       setState(() => _loadState = PlayerLoadState.ready);
+
+      // A-1: update notification with the current track info.
+      final handler = ref.read(audioHandlerProvider);
+      handler.setMediaItemFromPath(
+        queue.current.path,
+        duration: player.duration,
+      );
 
       // 6. Start playback
       await player.play();

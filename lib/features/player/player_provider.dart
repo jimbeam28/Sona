@@ -14,6 +14,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/services/audio_handler.dart';
 import '../../shared/models/play_queue.dart';
 import '../browser/browser_provider.dart';
 import 'background_playback.dart';
@@ -28,6 +29,14 @@ final audioPlayerProvider = Provider<AudioPlayer>((ref) {
   final player = AudioPlayer();
   ref.onDispose(() => player.dispose());
   return player;
+});
+
+/// The [NasAudioHandler] instance created by [AudioService.init].
+///
+/// Provided via [ProviderScope.overrides] in [main] so that the player
+/// screen and other widgets can interact with the handler directly.
+final audioHandlerProvider = Provider<NasAudioHandler>((ref) {
+  throw UnimplementedError('audioHandlerProvider must be overridden in main');
 });
 
 // ── Player load state ──────────────────────────────────────────────────────────

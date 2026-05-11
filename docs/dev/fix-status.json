@@ -24,7 +24,7 @@
             "修改: lib/features/player/player_screen.dart",
             "修改: lib/features/player/player_provider.dart"
           ],
-          "impl_status": "pending",
+          "impl_status": "done",
           "dependencies": ["A-2", "A-3", "A-4", "A-5"]
         },
         "A-2": {

@@ -8,29 +8,52 @@
 //   • If at least one connection exists → go straight to /connection (add form)
 //     for CON-01 scope; Browser landing is wired for BRW-01.
 
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'core/services/audio_handler.dart';
 import 'features/browser/browser_provider.dart';
 import 'features/connection/connection_provider.dart';
 import 'features/connection/connection_edit_screen.dart';
 import 'features/connection/connection_list_screen.dart';
 import 'features/connection/connection_screen.dart';
 import 'features/browser/browser_screen.dart';
+import 'features/player/player_provider.dart';
 import 'features/player/player_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/settings/about_screen.dart';
 import 'features/settings/settings_provider.dart';
 
+late NasAudioHandler _audioHandler;
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
+
+  // Create the AudioPlayer before AudioService so the handler can own it.
+  final audioPlayer = AudioPlayer();
+
+  // Initialise the audio service with the handler.
+  _audioHandler = await AudioService.init(
+    builder: () => NasAudioHandler(audioPlayer),
+    config: AudioServiceConfig(
+      androidNotificationChannelId: 'com.example.nas_audio_player.channel',
+      androidNotificationChannelName: 'NAS 音乐播放器',
+      androidNotificationOngoing: true,
+      androidStopForegroundOnPause: false,
+    ),
+  );
+
   runApp(
     ProviderScope(
       overrides: [
         sharedPreferencesProvider.overrideWith((ref) => prefs),
+        audioPlayerProvider.overrideWith((ref) => audioPlayer),
+        audioHandlerProvider.overrideWith((ref) => _audioHandler),
       ],
       child: const NasAudioPlayerApp(),
     ),

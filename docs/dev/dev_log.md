@@ -1,5 +1,29 @@
 ---
 
+## [2026-05-12 11:00] A-1 - 实现 AudioHandler（后台播放 + 媒体控件）
+
+**优先级**: P0
+**关联问题**: PLY-03, PLY-04
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/core/services/audio_handler.dart` — 新建 NasAudioHandler extends BaseAudioHandler，同步 player 状态到通知栏
+- `lib/main.dart` — AudioService.init 初始化 handler，创建 AudioPlayer，override providers
+- `android/app/src/main/AndroidManifest.xml` — 新建，添加 FOREGROUND_SERVICE 和 AudioService
+- `lib/features/player/player_provider.dart` — 添加 audioHandlerProvider
+- `lib/features/player/player_screen.dart` — 接入 handler：wire 回调、更新 mediaItem、dispose 清理
+
+### 验证结果
+- 通过: 5 / 总计: 5（work_items 检查项）
+- 静态分析通过，零新增 error/warning
+
+### 备注
+- Handler 通过回调模式委托队列导航给 Riverpod 层，避免循环依赖
+- 通知栏显示三按钮：上首、播放/暂停、下首
+- 耳机按键通过系统标准 MediaSession 回调自动处理
+
+---
+
 ## [2026-05-12 10:15] C-2 - 时间格式补齐为三段式
 
 **优先级**: P2
