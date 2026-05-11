@@ -40,6 +40,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   PlayerLoadState _loadState = PlayerLoadState.idle;
 
   Timer? _timerExpiryChecker;
+  StreamSubscription? _processingSubscription;
 
   @override
   void initState() {
@@ -64,6 +65,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   @override
   void dispose() {
     _timerExpiryChecker?.cancel();
+    _processingSubscription?.cancel();
     super.dispose();
   }
 
@@ -124,6 +126,24 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
       // 6. Start playback
       await player.play();
+
+      // TMR-02: listen for track completion to trigger "stop after current".
+      await _processingSubscription?.cancel();
+      _processingSubscription = player.processingStateStream.listen((state) {
+        if (state == ProcessingState.completed) {
+          final triggered = ref.read(onTrackCompletedProvider)();
+          if (triggered) {
+            player.pause();
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('定时停止已触发')),
+              );
+            }
+          } else {
+            _playNext();
+          }
+        }
+      });
     } on WebDavException catch (e) {
       setState(() {
         _loadState = PlayerLoadState.error(
@@ -140,6 +160,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   /// Retry loading after an error.
   Future<void> _retry() => _loadAndPlay();
+
+  /// Advance to the next track based on the current play mode.
+  void _playNext() {
+    final queue = ref.read(currentPlayQueueProvider);
+    final mode = ref.read(playModeProvider);
+    if (queue == null) return;
+    final nextIdx = PlayQueue.nextIndex(queue.currentIndex, queue.length, mode);
+    if (nextIdx == null) return;
+    final nextQueue = queue.withIndex(nextIdx);
+    ref.read(currentPlayQueueProvider.notifier).state = nextQueue;
+    _loadAndPlay();
+  }
 
   // ── Build ────────────────────────────────────────────────────────────────────
 

@@ -75,7 +75,7 @@
           "files_involved": [
             "修改: lib/features/player/player_screen.dart"
           ],
-          "impl_status": "pending",
+          "impl_status": "done",
           "dependencies": []
         },
         "A-5": {

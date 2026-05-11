@@ -1,5 +1,24 @@
 ---
 
+## [2026-05-11 12:10] A-4 - TMR-02 接入 processingStateStream 触发「播完当前」
+
+**优先级**: P0
+**关联问题**: TMR-02
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/player/player_screen.dart` — 添加 processingStateStream 监听，completed 时调用 onTrackCompletedProvider，未触发定时则自动播放下一首
+
+### 验证结果
+- 通过: 4 / 总计: 4（work_items 检查项）
+- 静态分析通过，无新增 warning
+
+### 备注
+- onTrackCompletedProvider 和 _playNext 均已实现
+- processingStateStream 订阅在 _loadAndPlay 末尾设置，dispose 中取消
+
+---
+
 ## [2026-05-11 12:05] A-6 - PRG-04 添加长按清除进度 UI 入口
 
 **优先级**: P0
