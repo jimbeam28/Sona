@@ -28,7 +28,7 @@ jobs:
 
       - run: flutter pub get
 
-      - run: flutter build apk --split-per-abi --${{ inputs.build_type || 'release' }}
+      - run: flutter build apk --target-platform android-arm64 --${{ inputs.build_type || 'release' }}
 
       - uses: actions/upload-artifact@v4
         with:
