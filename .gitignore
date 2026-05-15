@@ -17,8 +17,5 @@ android/local.properties
 .DS_Store
 Thumbs.db
 
-# Generated
-*.mocks.dart
-
 # Local agent guidance
 AGENTS.md
