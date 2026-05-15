@@ -852,3 +852,23 @@
 - 根因: initState() 无条件调用 _loadAndPlay()，导致 player.stop() + 重新加载音频源，音乐从头播放
 - 修复后: 检测到 player.playing 或 processingState==ready 时直接设置 _loadState=ready，不中断播放
 
+---
+
+## [2026-05-15 14:12] A-1 - 播放页面侧滑返回修复
+
+**优先级**: P0
+**关联问题**: BUG-1
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/browser/browser_screen.dart` — 3 处 go('/player') → push('/player')
+- `lib/features/player/widgets/mini_player_bar.dart` — 2 处 go('/player') → push('/player')
+
+### 验证结果
+- 通过: 2 / 总计: 2（work_items 检查项）
+- 静态分析通过，无新增 error/warning
+
+### 备注
+- 根因: GoRouter.go() 替换导航栈，/player 成为唯一路由，侧滑无法回退
+- 修复后: push() 叠加路由栈 /browser → /player，侧滑一次回浏览器，再侧滑退出桌面
+

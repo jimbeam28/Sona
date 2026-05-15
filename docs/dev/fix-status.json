@@ -48,7 +48,7 @@
           "files_involved": [
             "lib/features/player/widgets/mini_player_bar.dart"
           ],
-          "impl_status": "done",
+          "impl_status": "pending",
           "dependencies": []
         },
         "A-4": {
@@ -64,7 +64,7 @@
             "lib/features/player/player_screen.dart",
             "lib/features/player/player_provider.dart"
           ],
-          "impl_status": "pending",
+          "impl_status": "done",
           "dependencies": []
         },
         "A-5": {
@@ -80,7 +80,7 @@
             "lib/features/connection/widgets/connection_form.dart",
             "lib/features/connection/connection_edit_screen.dart"
           ],
-          "impl_status": "pending",
+          "impl_status": "done",
           "dependencies": []
         }
       }

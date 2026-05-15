@@ -59,7 +59,7 @@ class MiniPlayerBar extends ConsumerWidget {
           child: Material(
             color: Colors.transparent,
             child: InkWell(
-              onTap: () => GoRouter.of(context).go('/player'),
+              onTap: () => GoRouter.of(context).push('/player'),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Column(
@@ -213,7 +213,7 @@ class _NextButton extends ConsumerWidget {
               player.stop();
               // Defer the load to allow the provider state to propagate.
               WidgetsBinding.instance.addPostFrameCallback((_) {
-                GoRouter.of(context).go('/player');
+                GoRouter.of(context).push('/player');
               });
             }
           : null,

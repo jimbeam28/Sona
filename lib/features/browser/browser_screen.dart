@@ -191,7 +191,7 @@ class BrowserScreen extends ConsumerWidget {
                                 .read(currentPlayQueueProvider.notifier)
                                 .state = queue;
                             WidgetsBinding.instance.addPostFrameCallback((_) {
-                              if (context.mounted) goRouter.go('/player');
+                              if (context.mounted) goRouter.push('/player');
                             });
                           } else {
                             // Start from beginning (or dialog dismissed)
@@ -210,7 +210,7 @@ class BrowserScreen extends ConsumerWidget {
                                 .read(currentPlayQueueProvider.notifier)
                                 .state = queue;
                             WidgetsBinding.instance.addPostFrameCallback((_) {
-                              if (context.mounted) goRouter.go('/player');
+                              if (context.mounted) goRouter.push('/player');
                             });
                           }
                         });
@@ -223,7 +223,7 @@ class BrowserScreen extends ConsumerWidget {
                         ref
                             .read(currentPlayQueueProvider.notifier)
                             .state = queue;
-                        goRouter.go('/player');
+                        goRouter.push('/player');
                       }
                     },
                     onFileLongPress: (tappedFile) {
