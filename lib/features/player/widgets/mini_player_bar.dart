@@ -58,20 +58,20 @@ class MiniPlayerBar extends ConsumerWidget {
           height: 56,
           child: Material(
             color: Colors.transparent,
-            child: InkWell(
-              onTap: () => GoRouter.of(context).push('/player'),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Column(
-                  children: [
-                    // Thin progress bar at the very top
-                    _MiniProgressBar(player: player),
-                    // Track name + controls row
-                    Expanded(
-                      child: Row(
-                        children: [
-                          // Track info (name)
-                          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Column(
+                children: [
+                  // Thin progress bar at the very top
+                  _MiniProgressBar(player: player),
+                  // Track name + controls row
+                  Expanded(
+                    child: Row(
+                      children: [
+                        // Track info (name) — only tapping the title navigates
+                        GestureDetector(
+                          onTap: () => GoRouter.of(context).push('/player'),
+                          child: Expanded(
                             child: Text(
                               queue.current.name,
                               maxLines: 1,
@@ -79,19 +79,19 @@ class MiniPlayerBar extends ConsumerWidget {
                               style: Theme.of(context).textTheme.bodyMedium,
                             ),
                           ),
-                          // Play/pause button
-                          _PlayPauseButton(player: player),
-                          // Next track button
-                          _NextButton(
-                            player: player,
-                            queue: queue,
-                            playMode: playMode,
-                          ),
-                        ],
-                      ),
+                        ),
+                        // Play/pause button
+                        _PlayPauseButton(player: player),
+                        // Next track button
+                        _NextButton(
+                          player: player,
+                          queue: queue,
+                          playMode: playMode,
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),

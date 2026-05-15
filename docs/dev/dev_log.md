@@ -872,3 +872,22 @@
 - 根因: GoRouter.go() 替换导航栈，/player 成为唯一路由，侧滑无法回退
 - 修复后: push() 叠加路由栈 /browser → /player，侧滑一次回浏览器，再侧滑退出桌面
 
+---
+
+## [2026-05-15 14:15] A-3 - 迷你播放栏播放按钮手势冲突修复
+
+**优先级**: P0
+**关联问题**: BUG-2b
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/player/widgets/mini_player_bar.dart` — 移除顶层 InkWell，替换为 GestureDetector 仅包裹曲目标题区域；IconButton 保持在 GestureDetector 外部
+
+### 验证结果
+- 通过: 2 / 总计: 2（work_items 检查项）
+- 静态分析通过，无新增 error/warning
+
+### 备注
+- 根因: InkWell(全区域) 与 IconButton 都注册 TapGestureRecognizer，在手势竞技场中竞争导致均无法胜出
+- 修复后: GestureDetector 仅包裹标题文字，播放/暂停和下一曲按钮不再受手势竞争影响
+
