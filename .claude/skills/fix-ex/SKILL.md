@@ -65,6 +65,17 @@ Agent 需要：
 - 如发现偏差或遗漏，**直接修复代码**
 - 报告：通过了哪些检查项，修复了哪些问题
 
+### 第4步：静态分析与全量测试
+
+**在本会话中直接执行（不使用 Agent）**，确保静态分析和全部测试通过：
+
+1. 运行 `flutter analyze`，确认无 error 级别问题（info/warning 可忽略，但不得引入新的 warning）
+2. 运行 `flutter test`，确认全部测试通过
+3. 如有失败：
+   - 分析根因，直接修复代码
+   - 重复直到 `flutter analyze` 零 error + `flutter test` 全通过
+4. 如果遇到无法解决的失败，报告具体原因并暂停
+
 ---
 
 ## 完成后
@@ -73,4 +84,8 @@ Agent 需要：
 - 修复编号和名称
 - 修改的文件列表
 - 验证结果（通过项/总项）
+- 静态分析结果（error 数 / 总 issue 数）
+- 测试通过情况（通过数 / 总数）
 - 建议将 `docs/dev/fix-status.json` 中对应修复的 `impl_status` 更新为 `done`
+
+**质量门禁：** 第4步必须通过（`flutter analyze` 零 error + `flutter test` 全过），否则视为未完成。
