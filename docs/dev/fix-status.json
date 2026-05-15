@@ -102,7 +102,7 @@
           "files_involved": [
             "lib/features/player/widgets/mini_player_bar.dart"
           ],
-          "impl_status": "pending",
+          "impl_status": "done",
           "dependencies": ["A-1", "A-3"]
         }
       }

@@ -17,8 +17,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart';
 
+import '../../../core/services/audio_source_builder.dart';
 import '../../../shared/models/play_queue.dart';
 import '../../browser/browser_provider.dart';
+import '../../connection/connection_provider.dart';
 import '../player_provider.dart';
 
 /// A compact player bar displayed at the bottom of the Browser screen.
@@ -205,16 +207,25 @@ class _NextButton extends ConsumerWidget {
 
     return IconButton(
       onPressed: hasNext
-          ? () {
+          ? () async {
               // Update the queue to point to the next track.
               final updatedQueue = queue.withIndex(nextIdx);
               ref.read(currentPlayQueueProvider.notifier).state = updatedQueue;
-              // Load and play the next track.
-              player.stop();
-              // Defer the load to allow the provider state to propagate.
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                GoRouter.of(context).push('/player');
-              });
+              // Load and play the next track directly (B-1).
+              final conn = ref.read(activeConnectionProvider).valueOrNull;
+              if (conn == null) return;
+              final storage = ref.read(secureStorageProvider);
+              final password = await storage.read(key: 'connection_password_${conn.id}');
+              if (password == null || password.isEmpty) return;
+              final source = AudioSourceBuilder.buildWithBasePath(
+                baseUrl: conn.url,
+                filePath: updatedQueue.current.path,
+                username: conn.username,
+                password: password,
+              );
+              await player.stop();
+              await player.setAudioSource(source);
+              await player.play();
             }
           : null,
       icon: const Icon(Icons.skip_next),

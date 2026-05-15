@@ -891,3 +891,22 @@
 - 根因: InkWell(全区域) 与 IconButton 都注册 TapGestureRecognizer，在手势竞技场中竞争导致均无法胜出
 - 修复后: GestureDetector 仅包裹标题文字，播放/暂停和下一曲按钮不再受手势竞争影响
 
+---
+
+## [2026-05-15 14:18] B-1 - 迷你播放栏下一曲按钮不跳转页面
+
+**优先级**: P1
+**关联问题**: BUG-2c
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/player/widgets/mini_player_bar.dart` — _NextButton.onPressed 直接加载音频源播放下一曲，移除 GoRouter 导航跳转
+
+### 验证结果
+- 通过: 2 / 总计: 2（work_items 检查项）
+- 静态分析通过，无新增 error/warning
+
+### 备注
+- 根因: _NextButton 调用 GoRouter.go('/player') 跳转页面，未直接在当前页加载下一曲
+- 修复后: onPressed 直接读取连接信息和凭据，构建音频源并加载播放，留在当前页面
+
