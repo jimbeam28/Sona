@@ -74,11 +74,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _timerExpiryChecker = Timer.periodic(const Duration(seconds: 1), (_) {
       final expired = ref.read(checkTimerExpiryProvider)();
       if (expired && mounted) {
-        final player = ref.read(audioPlayerProvider);
-        player.pause();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('定时停止已触发')),
-        );
+        ref.read(audioPlayerProvider).pause();
       }
     });
 
@@ -184,11 +180,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
           final triggered = ref.read(onTrackCompletedProvider)();
           if (triggered) {
             player.pause();
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('定时停止已触发')),
-              );
-            }
           } else {
             _playNext();
           }
@@ -976,7 +967,7 @@ class _TimerControl extends ConsumerWidget {
     return OutlinedButton.icon(
       onPressed: () => _showTimerSheet(context, isActive),
       icon: Icon(
-        Icons.hourglass_bottom,
+        Icons.timer,
         size: 20,
         color: isActive ? Theme.of(context).colorScheme.primary : null,
       ),
