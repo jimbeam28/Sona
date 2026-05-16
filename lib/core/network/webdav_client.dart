@@ -151,22 +151,26 @@ class WebDavClient implements WebDavClientInterface {
           .send(request)
           .timeout(_timeout);
 
-      switch (streamedResponse.statusCode) {
-        case 207:
-          return WebDavValidationResult.success();
-        case 401:
-        case 403:
-          return WebDavValidationResult.authError();
-        case 404:
-          return WebDavValidationResult.pathNotFound();
-        default:
-          // Any other 2xx-like from non-standard servers — treat as success
-          if (streamedResponse.statusCode >= 200 &&
-              streamedResponse.statusCode < 300) {
+      final result = () {
+        switch (streamedResponse.statusCode) {
+          case 207:
             return WebDavValidationResult.success();
-          }
-          return WebDavValidationResult.networkError();
-      }
+          case 401:
+          case 403:
+            return WebDavValidationResult.authError();
+          case 404:
+            return WebDavValidationResult.pathNotFound();
+          default:
+            if (streamedResponse.statusCode >= 200 &&
+                streamedResponse.statusCode < 300) {
+              return WebDavValidationResult.success();
+            }
+            return WebDavValidationResult.networkError();
+        }
+      }();
+      // G-5: drain the response body so the HTTP connection can be reused.
+      await streamedResponse.stream.drain<void>();
+      return result;
     } on TimeoutException {
       return WebDavValidationResult.networkError();
     } catch (_) {

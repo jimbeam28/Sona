@@ -7,7 +7,9 @@
       "fixes": {
         "G-1": {
           "name": "修复 NasAudioHandler StreamSubscription 内存泄漏",
-          "issues": ["AudioHandler dispose 从未被调用"],
+          "issues": [
+            "AudioHandler dispose 从未被调用"
+          ],
           "design_doc": "docs/fix.md §Batch G — G-1",
           "current_status": "NasAudioHandler 创建 _stateSub/_positionSub/_durationSub 三个 StreamSubscription，dispose() 方法存在但无调用点。",
           "work_items": [
@@ -19,12 +21,14 @@
             "lib/core/services/audio_handler.dart",
             "lib/main.dart"
           ],
-          "impl_status": "pending",
+          "impl_status": "done",
           "dependencies": []
         },
         "G-2": {
           "name": "打破 skipToNextProvider ↔ loadAndPlayProvider 循环依赖",
-          "issues": ["Provider 互相引用，显式类型注解勉强工作"],
+          "issues": [
+            "Provider 互相引用，显式类型注解勉强工作"
+          ],
           "design_doc": "docs/fix.md §Batch G — G-2",
           "current_status": "skipToNextProvider 调用 loadAndPlayProvider()，loadAndPlayProvider 内部 processing listener 调用 skipToNextProvider()。",
           "work_items": [
@@ -35,12 +39,14 @@
           "files_involved": [
             "lib/features/player/player_provider.dart"
           ],
-          "impl_status": "pending",
+          "impl_status": "done",
           "dependencies": []
         },
         "G-3": {
           "name": "修复短音频（<10秒）进度保存逻辑矛盾",
-          "issues": ["progress_dao.dart shouldClear 对短文件恒为 true"],
+          "issues": [
+            "progress_dao.dart shouldClear 对短文件恒为 true"
+          ],
           "design_doc": "docs/fix.md §Batch G — G-3",
           "current_status": "durationMs - 10000 < 0 时任何 positionMs 都满足清除条件，与 shouldSave 矛盾。",
           "work_items": [
@@ -51,12 +57,14 @@
           "files_involved": [
             "lib/core/database/dao/progress_dao.dart"
           ],
-          "impl_status": "pending",
+          "impl_status": "done",
           "dependencies": []
         },
         "G-4": {
           "name": "拦截负值/零值定时器输入",
-          "issues": ["timer_service.dart startDuration(-5) 设 endTime 到过去"],
+          "issues": [
+            "timer_service.dart startDuration(-5) 设 endTime 到过去"
+          ],
           "design_doc": "docs/fix.md §Batch G — G-4",
           "current_status": "startDuration 无输入校验，负值导致 endTime 在过去，checkExpired 立即返回 true。",
           "work_items": [
@@ -67,12 +75,14 @@
           "files_involved": [
             "lib/core/services/timer_service.dart"
           ],
-          "impl_status": "pending",
+          "impl_status": "done",
           "dependencies": []
         },
         "G-5": {
           "name": "修复 WebDavClient.validate() 未消费 HTTP 响应体",
-          "issues": ["HTTP 持久连接无法复用"],
+          "issues": [
+            "HTTP 持久连接无法复用"
+          ],
           "design_doc": "docs/fix.md §Batch G — G-5",
           "current_status": "validate() 用 _httpClient.send() 后不 drain response.stream。",
           "work_items": [
@@ -82,7 +92,7 @@
           "files_involved": [
             "lib/core/network/webdav_client.dart"
           ],
-          "impl_status": "pending",
+          "impl_status": "done",
           "dependencies": []
         }
       }
@@ -94,7 +104,9 @@
       "fixes": {
         "H-1": {
           "name": "ConnectionSaver.save() 添加原子性保护",
-          "issues": ["三步操作非原子，失败无回滚"],
+          "issues": [
+            "三步操作非原子，失败无回滚"
+          ],
           "design_doc": "docs/fix.md §Batch H — H-1",
           "current_status": "insert→secureStorage→update 三步非原子。步骤2失败后DB留下 temp key。",
           "work_items": [
@@ -109,7 +121,9 @@
         },
         "H-2": {
           "name": "directoryCacheProvider 添加容量上限",
-          "issues": ["内存无界增长"],
+          "issues": [
+            "内存无界增长"
+          ],
           "design_doc": "docs/fix.md §Batch H — H-2",
           "current_status": "StateProvider<Map> 缓存所有浏览过的目录，无 LRU 淘汰。",
           "work_items": [
@@ -125,7 +139,9 @@
         },
         "H-3": {
           "name": "替换文件级 lint 抑制为行级抑制",
-          "issues": ["ignore_for_file 掩盖新增代码的 async context 问题"],
+          "issues": [
+            "ignore_for_file 掩盖新增代码的 async context 问题"
+          ],
           "design_doc": "docs/fix.md §Batch H — H-3",
           "current_status": "browser_screen.dart:10 ignore_for_file: use_build_context_synchronously。",
           "work_items": [
@@ -140,7 +156,10 @@
         },
         "H-4": {
           "name": "PlayQueue 安全类型转换 + 边界校验",
-          "issues": ["fromMap as int 在缺字段时崩溃", "nextIndex 不校验 current 边界"],
+          "issues": [
+            "fromMap as int 在缺字段时崩溃",
+            "nextIndex 不校验 current 边界"
+          ],
           "design_doc": "docs/fix.md §Batch H — H-4",
           "current_status": "map['currentIndex'] as int 类型不安全；nextIndex 无 -1 >= length 校验。",
           "work_items": [
@@ -156,7 +175,9 @@
         },
         "H-5": {
           "name": "_NextButton 切歌失败时显示错误反馈",
-          "issues": ["丢弃 loadAndPlayProvider 返回值，失败无提示"],
+          "issues": [
+            "丢弃 loadAndPlayProvider 返回值，失败无提示"
+          ],
           "design_doc": "docs/fix.md §Batch H — H-5",
           "current_status": "_NextButton 调用 loadAndPlayProvider 但忽略 null 返回值。",
           "work_items": [
@@ -171,7 +192,9 @@
         },
         "H-6": {
           "name": "自定义定时 0:00 时禁用确认按钮",
-          "issues": ["选0小时0分钟确认后无声关闭"],
+          "issues": [
+            "选0小时0分钟确认后无声关闭"
+          ],
           "design_doc": "docs/fix.md §Batch H — H-6",
           "current_status": "totalMinutes==0 时确认按钮仍然可用，关闭弹窗但不启动定时。",
           "work_items": [
@@ -186,7 +209,9 @@
         },
         "H-7": {
           "name": "startupValidationProvider 空 id 保护",
-          "issues": ["activeConn.id 为 null 时 key 变成 connection_password_null"],
+          "issues": [
+            "activeConn.id 为 null 时 key 变成 connection_password_null"
+          ],
           "design_doc": "docs/fix.md §Batch H — H-7",
           "current_status": "未校验 activeConn.id != null 即拼接 key。",
           "work_items": [
@@ -200,7 +225,9 @@
         },
         "H-8": {
           "name": "静默 catch 块添加 debugPrint 日志",
-          "issues": ["browser_provider 和 progress_dao 两处 catch (_) 完全静默"],
+          "issues": [
+            "browser_provider 和 progress_dao 两处 catch (_) 完全静默"
+          ],
           "design_doc": "docs/fix.md §Batch H — H-8",
           "current_status": "catch(_) 不记录任何信息，调试困难。",
           "work_items": [
@@ -216,7 +243,9 @@
         },
         "H-9": {
           "name": "去重 seekStep 双 Provider",
-          "issues": ["seekStepSettingProvider 和 seekStepProvider 读同一个 key"],
+          "issues": [
+            "seekStepSettingProvider 和 seekStepProvider 读同一个 key"
+          ],
           "design_doc": "docs/fix.md §Batch H — H-9",
           "current_status": "两个 Provider 读同一个 SharedPreferences key，手动同步。",
           "work_items": [
@@ -233,7 +262,9 @@
         },
         "H-10": {
           "name": "修复 ConnectionEditScreen build 中的副作用",
-          "issues": ["_originalConfig ??= connection 在 build 阶段执行"],
+          "issues": [
+            "_originalConfig ??= connection 在 build 阶段执行"
+          ],
           "design_doc": "docs/fix.md §Batch H — H-10",
           "current_status": "build() 阶段修改实例变量 _originalConfig，不符合 Flutter 规范。",
           "work_items": [
@@ -255,81 +286,134 @@
       "fixes": {
         "I-1": {
           "name": "TimerState 相等性包含 startedAt",
-          "issues": ["同时长 timer 实例被视为相等"],
+          "issues": [
+            "同时长 timer 实例被视为相等"
+          ],
           "design_doc": "docs/fix.md §Batch I — I-1",
-          "work_items": ["== 和 hashCode 中加入 startedAt"],
-          "files_involved": ["lib/core/services/timer_service.dart"],
+          "work_items": [
+            "== 和 hashCode 中加入 startedAt"
+          ],
+          "files_involved": [
+            "lib/core/services/timer_service.dart"
+          ],
           "impl_status": "pending",
           "dependencies": []
         },
         "I-2": {
           "name": "删除 connection_dao 不可达 catch 块",
-          "issues": ["play_progress 表始终与 connections 一起创建"],
+          "issues": [
+            "play_progress 表始终与 connections 一起创建"
+          ],
           "design_doc": "docs/fix.md §Batch I — I-2",
-          "work_items": ["移除 try-catch，直接执行 delete"],
-          "files_involved": ["lib/core/database/dao/connection_dao.dart"],
+          "work_items": [
+            "移除 try-catch，直接执行 delete"
+          ],
+          "files_involved": [
+            "lib/core/database/dao/connection_dao.dart"
+          ],
           "impl_status": "pending",
           "dependencies": []
         },
         "I-3": {
           "name": "缓存 webdav_client RegExp 为 static const",
-          "issues": ["每次方法调用重新创建 RegExp"],
+          "issues": [
+            "每次方法调用重新创建 RegExp"
+          ],
           "design_doc": "docs/fix.md §Batch I — I-3",
-          "work_items": ["_parsePropfindResponse 和 _extractXmlContent 中 RegExp 提升为 static final"],
-          "files_involved": ["lib/core/network/webdav_client.dart"],
+          "work_items": [
+            "_parsePropfindResponse 和 _extractXmlContent 中 RegExp 提升为 static final"
+          ],
+          "files_involved": [
+            "lib/core/network/webdav_client.dart"
+          ],
           "impl_status": "pending",
           "dependencies": []
         },
         "I-4": {
           "name": "版本号从 package_info_plus 读取",
-          "issues": ["about_screen 版本号硬编码 1.0.0"],
+          "issues": [
+            "about_screen 版本号硬编码 1.0.0"
+          ],
           "design_doc": "docs/fix.md §Batch I — I-4",
-          "work_items": ["添加 package_info_plus 依赖", "用 PackageInfo.fromPlatform() 替换硬编码"],
-          "files_involved": ["lib/features/settings/about_screen.dart", "pubspec.yaml"],
+          "work_items": [
+            "添加 package_info_plus 依赖",
+            "用 PackageInfo.fromPlatform() 替换硬编码"
+          ],
+          "files_involved": [
+            "lib/features/settings/about_screen.dart",
+            "pubspec.yaml"
+          ],
           "impl_status": "pending",
           "dependencies": []
         },
         "I-5": {
           "name": "breadcrumb_bar TextPainter 添加 dispose()",
-          "issues": ["TextPainter 创建后未释放"],
+          "issues": [
+            "TextPainter 创建后未释放"
+          ],
           "design_doc": "docs/fix.md §Batch I — I-5",
-          "work_items": ["LayoutBuilder 回调结束前调用 textPainter.dispose()"],
-          "files_involved": ["lib/features/browser/widgets/breadcrumb_bar.dart"],
+          "work_items": [
+            "LayoutBuilder 回调结束前调用 textPainter.dispose()"
+          ],
+          "files_involved": [
+            "lib/features/browser/widgets/breadcrumb_bar.dart"
+          ],
           "impl_status": "pending",
           "dependencies": []
         },
         "I-6": {
           "name": "webdav_client 错误消息过滤 URL 敏感信息",
-          "issues": ["$e 可能泄露 URL 路径到日志"],
+          "issues": [
+            "$e 可能泄露 URL 路径到日志"
+          ],
           "design_doc": "docs/fix.md §Batch I — I-6",
-          "work_items": ["使用 SocketException 类型判断，输出不含 URL 的通用消息"],
-          "files_involved": ["lib/core/network/webdav_client.dart"],
+          "work_items": [
+            "使用 SocketException 类型判断，输出不含 URL 的通用消息"
+          ],
+          "files_involved": [
+            "lib/core/network/webdav_client.dart"
+          ],
           "impl_status": "pending",
           "dependencies": []
         },
         "I-7": {
           "name": "_sourceMatchesQueue 使用精确路径比对",
-          "issues": [".contains() 子串匹配误判"],
+          "issues": [
+            ".contains() 子串匹配误判"
+          ],
           "design_doc": "docs/fix.md §Batch I — I-7",
-          "work_items": ["改用 Uri.decodeComponent 后 endsWith 或精确解码路径比对"],
-          "files_involved": ["lib/features/player/player_screen.dart"],
+          "work_items": [
+            "改用 Uri.decodeComponent 后 endsWith 或精确解码路径比对"
+          ],
+          "files_involved": [
+            "lib/features/player/player_screen.dart"
+          ],
           "impl_status": "pending",
           "dependencies": []
         },
         "I-8": {
           "name": "进度弹窗 dismiss 时保持现状",
-          "issues": ["设计决策 — WONTFIX"],
+          "issues": [
+            "设计决策 — WONTFIX"
+          ],
           "design_doc": "docs/fix.md §Batch I — I-8",
-          "work_items": ["确认 dismiss 表示用户取消，保持当前选择是合理默认行为"],
+          "work_items": [
+            "确认 dismiss 表示用户取消，保持当前选择是合理默认行为"
+          ],
           "files_involved": [],
           "impl_status": "pending",
           "dependencies": []
         },
         "I-9": {
           "name": "提取共享 _ValidationBanner 组件",
-          "issues": ["connection_screen 和 connection_edit_screen 中代码重复"],
+          "issues": [
+            "connection_screen 和 connection_edit_screen 中代码重复"
+          ],
           "design_doc": "docs/fix.md §Batch I — I-9",
-          "work_items": ["新建 validation_banner.dart", "两处引用替换为共享组件"],
+          "work_items": [
+            "新建 validation_banner.dart",
+            "两处引用替换为共享组件"
+          ],
           "files_involved": [
             "lib/features/connection/widgets/validation_banner.dart",
             "lib/features/connection/connection_screen.dart",
@@ -340,9 +424,14 @@
         },
         "I-10": {
           "name": "提取共享队列列表组件",
-          "issues": ["player_screen 和 mini_player_bar 中队列 sheet 代码重复"],
+          "issues": [
+            "player_screen 和 mini_player_bar 中队列 sheet 代码重复"
+          ],
           "design_doc": "docs/fix.md §Batch I — I-10",
-          "work_items": ["新建 queue_sheet.dart", "两处引用替换为共享组件"],
+          "work_items": [
+            "新建 queue_sheet.dart",
+            "两处引用替换为共享组件"
+          ],
           "files_involved": [
             "lib/features/player/widgets/queue_sheet.dart",
             "lib/features/player/player_screen.dart",
@@ -353,22 +442,32 @@
         },
         "I-11": {
           "name": "修复通知渠道包名为实际 applicationId",
-          "issues": ["com.example 是占位符"],
+          "issues": [
+            "com.example 是占位符"
+          ],
           "design_doc": "docs/fix.md §Batch I — I-11",
-          "work_items": ["改为与 build.gradle 一致的 applicationId"],
-          "files_involved": ["lib/main.dart"],
+          "work_items": [
+            "改为与 build.gradle 一致的 applicationId"
+          ],
+          "files_involved": [
+            "lib/main.dart"
+          ],
           "impl_status": "pending",
           "dependencies": []
         },
         "I-12": {
           "name": "添加 GoRouter 路由守卫",
-          "issues": ["可 deep-link 到不可用路由"],
+          "issues": [
+            "可 deep-link 到不可用路由"
+          ],
           "design_doc": "docs/fix.md §Batch I — I-12",
           "work_items": [
             "无活跃连接时 /browser 和 /player → /onboarding",
             "无队列时 /player → /browser"
           ],
-          "files_involved": ["lib/main.dart"],
+          "files_involved": [
+            "lib/main.dart"
+          ],
           "impl_status": "pending",
           "dependencies": []
         }
@@ -376,12 +475,58 @@
     }
   },
   "implementation_order": [
-    {"step": 1, "tasks": ["G-1", "G-2", "G-3", "G-4", "G-5"], "note": "P0 批次 — 全部独立，可并行。G-1 和 G-2 建议最先做"},
-    {"step": 2, "tasks": ["H-1", "H-2", "H-3", "H-4", "H-5", "H-6", "H-7", "H-8", "H-9", "H-10"], "note": "P1 批次 — 全部独立，可并行"},
-    {"step": 3, "tasks": ["I-1", "I-2", "I-3", "I-4", "I-5", "I-6", "I-7", "I-8", "I-9", "I-10", "I-11", "I-12"], "note": "P2 批次 — 全部独立"}
+    {
+      "step": 1,
+      "tasks": [
+        "G-1",
+        "G-2",
+        "G-3",
+        "G-4",
+        "G-5"
+      ],
+      "note": "P0 批次 — 全部独立，可并行。G-1 和 G-2 建议最先做"
+    },
+    {
+      "step": 2,
+      "tasks": [
+        "H-1",
+        "H-2",
+        "H-3",
+        "H-4",
+        "H-5",
+        "H-6",
+        "H-7",
+        "H-8",
+        "H-9",
+        "H-10"
+      ],
+      "note": "P1 批次 — 全部独立，可并行"
+    },
+    {
+      "step": 3,
+      "tasks": [
+        "I-1",
+        "I-2",
+        "I-3",
+        "I-4",
+        "I-5",
+        "I-6",
+        "I-7",
+        "I-8",
+        "I-9",
+        "I-10",
+        "I-11",
+        "I-12"
+      ],
+      "note": "P2 批次 — 全部独立"
+    }
   ],
   "status_values": {
-    "impl_status": ["pending", "in_progress", "done"]
+    "impl_status": [
+      "pending",
+      "in_progress",
+      "done"
+    ]
   },
   "metadata": {
     "source": "docs/fix.md",

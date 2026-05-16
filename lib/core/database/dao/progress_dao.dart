@@ -168,6 +168,9 @@ class ProgressDao {
   /// Returns `false` when [durationMs] is null (unknown duration).
   static bool shouldClear(int positionMs, int? durationMs) {
     if (durationMs == null) return false;
+    // G-3: files shorter than 10 s should never auto-clear — the 10-second
+    // window is meaningless when the file itself is shorter than that.
+    if (durationMs <= 10000) return false;
     return positionMs > durationMs - 10000;
   }
 }

@@ -509,8 +509,10 @@ final _cancelPauseSaveProvider = Provider<void Function()>((ref) {
 
 /// Advances the queue to the next track and loads it via [loadAndPlayProvider].
 ///
-/// The explicit return type is required to break the type-inference cycle
-/// between [skipToNextProvider] and [loadAndPlayProvider].
+/// G-2: this provider only updates the queue, then delegates to
+/// [loadAndPlayProvider].  The processing listener inside loadAndPlayProvider
+/// calls an inlined _advanceToNext helper instead of reading this provider,
+/// breaking the cycle.
 final Provider<void Function()> skipToNextProvider =
     Provider<void Function()>((ref) {
   return () {
@@ -537,10 +539,24 @@ final Provider<void Function()> skipToNextProvider =
 /// Returns the [AudioPlayer] after the source is loaded and playing, or
 /// `null` on failure.
 ///
-/// The explicit return type is required to break the type-inference cycle
-/// between [skipToNextProvider] and [loadAndPlayProvider].
+/// G-2: the processing listener calls an inlined _advanceToNext helper
+/// instead of reading [skipToNextProvider], breaking the cycle.
 final Provider<Future<AudioPlayer?> Function()> loadAndPlayProvider =
     Provider<Future<AudioPlayer?> Function()>((ref) {
+  /// G-2: inline helper — advances the queue and re-enters loadAndPlay,
+  /// avoiding a circular Provider reference.
+  void advanceToNext() {
+    final q = ref.read(currentPlayQueueProvider);
+    final m = ref.read(playModeProvider);
+    if (q == null) return;
+    final ni = PlayQueue.nextIndex(q.currentIndex, q.length, m);
+    if (ni == null) return;
+    ref.read(saveProgressProvider)();
+    final nq = q.withIndex(ni);
+    ref.read(currentPlayQueueProvider.notifier).state = nq;
+    ref.read(loadAndPlayProvider)();
+  }
+
   return () async {
     final queue = ref.read(currentPlayQueueProvider);
     if (queue == null || queue.length == 0) return null;
@@ -568,8 +584,8 @@ final Provider<Future<AudioPlayer?> Function()> loadAndPlayProvider =
       final player = ref.read(audioPlayerProvider);
 
       // Register completion listener BEFORE stop (preserves A-2 fix).
-      // Inlined here rather than a separate provider to break the
-      // type-inference cycle with skipToNextProvider.
+      // G-2: uses advanceToNext() defined above, not skipToNextProvider,
+      // to break the circular dependency.
       ref.read(cancelProcessingListenerProvider)();
       final sub = player.processingStateStream.listen((state) {
         if (state == ProcessingState.completed) {
@@ -577,7 +593,7 @@ final Provider<Future<AudioPlayer?> Function()> loadAndPlayProvider =
           if (triggered) {
             player.pause();
           } else {
-            ref.read(skipToNextProvider)();
+            advanceToNext();
           }
         }
       });

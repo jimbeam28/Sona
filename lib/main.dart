@@ -58,7 +58,14 @@ void main() async {
     ProviderScope(
       overrides: [
         sharedPreferencesProvider.overrideWith((ref) => prefs),
-        audioPlayerProvider.overrideWith((ref) => audioPlayer),
+        audioPlayerProvider.overrideWith((ref) {
+          // G-1: clean up both the player and the audio handler on dispose.
+          ref.onDispose(() {
+            _audioHandler?.dispose();
+            audioPlayer.dispose();
+          });
+          return audioPlayer;
+        }),
         audioHandlerProvider.overrideWith((ref) => _audioHandler),
       ],
       child: const NasAudioPlayerApp(),
