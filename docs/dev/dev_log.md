@@ -1,5 +1,24 @@
 ---
 
+## [2026-05-16 10:30] A-1 - 修复播放页面重新加载逻辑
+
+**优先级**: P0
+**关联问题**: BUG-1, BUG-10
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/player/player_screen.dart` — 添加 `_sourceMatchesQueue()` 辅助方法，修改 `initState` postFrameCallback 增加队列匹配检测
+
+### 验证结果
+- 通过: 4 / 总计: 4
+- 静态分析: No issues found
+- 测试: 全部 299 tests passed
+
+### 备注
+核心修复：侧滑返回后 AudioPlayer 仍在播放旧曲目，新 PlayerScreen 跳过 _loadAndPlay() 导致切换失效。现在通过对比 AudioPlayer 当前音频源 URI 与队列曲目路径，确保不匹配时强制重新加载。
+
+---
+
 ## [2026-05-12 12:00] C-1 - CON-05/CON-06 补充滑动操作
 
 **优先级**: P2

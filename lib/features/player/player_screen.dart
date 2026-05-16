@@ -57,7 +57,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     // and the loading spinner appears immediately.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final player = ref.read(audioPlayerProvider);
-      if (player.playing || player.processingState == ProcessingState.ready) {
+      final queue = ref.read(currentPlayQueueProvider);
+      // Check if the player's loaded source still matches the current queue
+      // entry.  When the user swipes back from the player and taps a different
+      // song, the queue is updated but the player still holds the old source.
+      final needsReload = queue != null && !_sourceMatchesQueue(player, queue);
+      if (!needsReload &&
+          (player.playing || player.processingState == ProcessingState.ready)) {
         setState(() => _loadState = PlayerLoadState.ready);
       } else {
         _loadAndPlay();
@@ -113,6 +119,19 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   // ── Load & Play ──────────────────────────────────────────────────────────────
+
+  /// Returns true when the [player]'s currently loaded source URI contains
+  /// [queue]'s current file path — i.e. the player hasn't drifted from the
+  /// queue entry the UI is displaying.
+  bool _sourceMatchesQueue(AudioPlayer player, PlayQueue queue) {
+    final state = player.sequenceState;
+    if (state == null) return false;
+    final source = state.currentSource;
+    if (source is UriAudioSource) {
+      return source.uri.toString().contains(queue.current.path);
+    }
+    return false;
+  }
 
   Future<void> _loadAndPlay() async {
     final queue = ref.read(currentPlayQueueProvider);

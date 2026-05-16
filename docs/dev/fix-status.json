@@ -3,82 +3,89 @@
     "batch-a": {
       "label": "Batch A — P0 严重缺陷",
       "priority": "P0",
-      "description": "核心功能崩溃或不可用，必须优先修复",
+      "description": "核心播放功能不可用或严重异常：播放切换、自动下一曲、启动无声音、默认速度、步长显示",
       "fixes": {
         "A-1": {
-          "name": "播放页面侧滑返回修复",
-          "issues": ["BUG-1"],
+          "name": "修复播放页面重新加载逻辑",
+          "issues": ["BUG-1", "BUG-10"],
           "design_doc": "docs/fix.md §Batch A — A-1",
-          "current_status": "browser_screen.dart 3处、mini_player_bar.dart 2处使用 go('/player') 替换导航栈，侧滑无法返回。",
+          "current_status": "initState() 守卫条件过于宽松，player.playing 为 true 即跳过 _loadAndPlay()，导致新曲目不被加载且默认速度不应用。",
           "work_items": [
-            "browser_screen.dart：3 处 go('/player') 改为 push('/player')",
-            "mini_player_bar.dart：2 处 go('/player') 改为 push('/player')"
-          ],
-          "files_involved": [
-            "lib/features/browser/browser_screen.dart",
-            "lib/features/player/widgets/mini_player_bar.dart"
-          ],
-          "impl_status": "done",
-          "dependencies": []
-        },
-        "A-2": {
-          "name": "迷你播放栏进入播放页面不重新加载",
-          "issues": ["BUG-2a"],
-          "design_doc": "docs/fix.md §Batch A — A-2",
-          "current_status": "PlayerScreen.initState() 无条件调用 _loadAndPlay()，未检测音频是否已在播放中。",
-          "work_items": [
-            "在 initState() 中添加 audioPlayerProvider 播放状态检测",
-            "若 player.playing 或 processingState==ready，跳过 _loadAndPlay() 直接显示 UI"
+            "添加 _sourceMatchesQueue() 辅助方法，检查当前 AudioPlayer 音频源是否匹配队列",
+            "修改 initState postFrameCallback，增加队列匹配检测，不匹配时强制调用 _loadAndPlay()",
+            "测试：侧滑返回 → 点击新音乐 → 正确切换并播放新曲目",
+            "测试：侧滑返回 → 点击新音乐 → 默认播放速度被应用"
           ],
           "files_involved": [
             "lib/features/player/player_screen.dart"
           ],
-          "impl_status": "done",
+          "impl_status": "pending",
+          "dependencies": []
+        },
+        "A-2": {
+          "name": "修复曲目播完不自动下一曲",
+          "issues": ["BUG-3"],
+          "design_doc": "docs/fix.md §Batch A — A-2",
+          "current_status": "_loadAndPlay() 中 processingStateStream listener 在 player.stop() 之后注册，可能遗漏 completed 事件。",
+          "work_items": [
+            "将 _processingSubscription 监听注册移到 player.stop() 和 setAudioSource 之前",
+            "测试：顺序播放模式下，当前曲目播完后自动切到下一曲",
+            "测试：列表循环模式下，最后一曲播完后回到第一曲"
+          ],
+          "files_involved": [
+            "lib/features/player/player_screen.dart"
+          ],
+          "impl_status": "pending",
           "dependencies": []
         },
         "A-3": {
-          "name": "迷你播放栏播放按钮手势冲突修复",
-          "issues": ["BUG-2b"],
+          "name": "修复启动 app 后恢复的队列无音频源",
+          "issues": ["BUG-6"],
           "design_doc": "docs/fix.md §Batch A — A-3",
-          "current_status": "mini_player_bar.dart 外层 InkWell 与内部 IconButton 手势冲突，导致播放按钮点击无反应。",
+          "current_status": "restoreQueueFromPrefsProvider 仅恢复队列元数据，未加载音频源到 AudioPlayer。MiniPlayerBar 不检查 player 是否有源。",
           "work_items": [
-            "移除顶层 InkWell，替换为 GestureDetector 仅包裹曲目标题区域",
-            "IconButton 保持在 GestureDetector 外部，不受手势竞争影响"
+            "restoreQueueFromPrefsProvider 中增加预加载音频源逻辑",
+            "MiniPlayerBar._PlayPauseButton 中增加无源时的守卫跳转",
+            "测试：启动 app → mini bar 显示 → 点播放 → 有声音",
+            "测试：启动 app → mini bar → 点进播放页面 → 播放/停止按钮生效"
           ],
           "files_involved": [
+            "lib/features/browser/browser_provider.dart",
             "lib/features/player/widgets/mini_player_bar.dart"
           ],
-          "impl_status": "done",
+          "impl_status": "pending",
           "dependencies": []
         },
         "A-4": {
-          "name": "默认播放速度设置应用",
-          "issues": ["BUG-3b"],
+          "name": "修复设置默认播放速度后新曲目不生效",
+          "issues": ["BUG-10"],
           "design_doc": "docs/fix.md §Batch A — A-4",
-          "current_status": "_loadAndPlay() 从未调用 player.setSpeed(defaultSpeed)；setDefaultSpeedProvider 不同步 currentSpeedProvider。",
+          "current_status": "setDefaultSpeedProvider 不更新 currentSpeedProvider，也不更新正在播放的 AudioPlayer 速度。",
           "work_items": [
-            "_loadAndPlay() 中 player.play() 前读取 defaultSpeedProvider 并调用 player.setSpeed()",
-            "setDefaultSpeedProvider 中同步更新 currentSpeedProvider.notifier.state"
+            "setDefaultSpeedProvider 中添加 currentSpeedProvider.notifier.state 同步更新",
+            "添加 player.setSpeed(speed) 调用以立即影响当前播放",
+            "结合 A-1 修复后，测试：设置 1.5x → 点击新音乐 → 播放页面显示 1.5x",
+            "测试：播放中修改默认速度 → 下次 _loadAndPlay() 使用新值"
           ],
           "files_involved": [
-            "lib/features/player/player_screen.dart",
             "lib/features/player/player_provider.dart"
           ],
-          "impl_status": "done",
-          "dependencies": []
+          "impl_status": "pending",
+          "dependencies": ["A-1"]
         },
         "A-5": {
-          "name": "编辑连接 LateInitializationError 修复",
-          "issues": ["BUG-3c"],
+          "name": "修复 seekStep 图标动态显示步长",
+          "issues": ["BUG-2", "BUG-11"],
           "design_doc": "docs/fix.md §Batch A — A-5",
-          "current_status": "ConnectionFormController._state 为 late 字段，ConnectionEditScreen.build() 在 initState 之前访问导致崩溃。",
+          "current_status": "_iconForSeekBackward/Forward 对 15s 和 60s 返回通用无数字图标，用户无法确认设置是否生效。",
           "work_items": [
-            "ConnectionFormController 添加 isAttached getter（try-catch LateInitializationError）",
-            "_needsValidation() 中添加 !_formController.isAttached 守卫条件"
+            "添加 _buildSkipButtonWithLabel() 方法，对 15s/60s 显示图标+数字标签",
+            "修改快退/快进按钮调用，使用新方法",
+            "测试：设置步长为 15 秒 → 界面显示箭头+15s 标签",
+            "测试：设置步长为 60 秒 → 界面显示箭头+60s 标签"
           ],
           "files_involved": [
-            "lib/features/connection/widgets/connection_form.dart",
-            "lib/features/connection/connection_edit_screen.dart"
+            "lib/features/player/player_screen.dart"
           ],
           "impl_status": "done",
           "dependencies": []
@@ -88,66 +95,167 @@
     "batch-b": {
       "label": "Batch B — P1 功能异常",
       "priority": "P1",
-      "description": "功能异常但可绕过",
+      "description": "功能可用但体验异常：定时停止显示、SnackBar、定时UI、迷你播放栏、播放界面布局",
       "fixes": {
         "B-1": {
-          "name": "迷你播放栏下一曲按钮不跳转页面",
-          "issues": ["BUG-2c"],
+          "name": "定时停止显示格式改为 MM:SS",
+          "issues": ["BUG-4"],
           "design_doc": "docs/fix.md §Batch B — B-1",
-          "current_status": "_NextButton.onPressed 调用 GoRouter.go('/player') 跳转页面，应直接加载下一曲留在当前页面。",
+          "current_status": "TimerService.formatRemaining() 返回 'X分钟' 仅显示整数分钟，不显示秒数。",
           "work_items": [
-            "_NextButton.onPressed 中读取 activeConnectionProvider 和密码，直接构建音频源加载播放",
-            "移除 GoRouter.of(context).go('/player') 导航调用"
+            "修改 TimerService.formatRemaining() 为 MM:SS 格式",
+            "验证 remainingTimeProvider 的 Stream.periodic 每秒触发更新",
+            "测试：设置 5 分钟定时 → 显示从 05:00 倒数到 00:00"
+          ],
+          "files_involved": [
+            "lib/core/services/timer_service.dart"
+          ],
+          "impl_status": "pending",
+          "dependencies": []
+        },
+        "B-2": {
+          "name": "移除定时停止触发后的 SnackBar 通知",
+          "issues": ["BUG-5"],
+          "design_doc": "docs/fix.md §Batch B — B-2",
+          "current_status": "_timerExpiryChecker 和 _processingSubscription 在 player.pause() 后显示 SnackBar。",
+          "work_items": [
+            "删除 _timerExpiryChecker 中的 SnackBar 调用",
+            "删除 _processingSubscription 中的 SnackBar 调用",
+            "测试：定时到期 → 音乐停止 → 无 SnackBar 弹出"
+          ],
+          "files_involved": [
+            "lib/features/player/player_screen.dart"
+          ],
+          "impl_status": "pending",
+          "dependencies": []
+        },
+        "B-3": {
+          "name": "定时停止 UI 修改：删除 15 分钟、添加自定义时间",
+          "issues": ["BUG-7"],
+          "design_doc": "docs/fix.md §Batch B — B-3",
+          "current_status": "TimerBottomSheet 硬编码 5/10/15 分钟三个固定选项，缺少自定义时间选择。",
+          "work_items": [
+            "删除 15 分钟选项",
+            "添加 自定义 选项及点击处理",
+            "实现自定义时间选择器（小时/分钟双滚轮 + 取消/确认按钮颜色不同）",
+            "修改 startDurationTimerProvider 支持任意分钟数输入",
+            "测试：选择自定义 1小时30分钟 → 定时生效"
+          ],
+          "files_involved": [
+            "lib/features/timer/widgets/timer_button.dart",
+            "lib/features/timer/timer_provider.dart"
+          ],
+          "impl_status": "pending",
+          "dependencies": []
+        },
+        "B-4": {
+          "name": "迷你播放栏加高 + 增加音乐列表按钮",
+          "issues": ["BUG-8"],
+          "design_doc": "docs/fix.md §Batch B — B-4",
+          "current_status": "MiniPlayerBar 高度 56px 偏窄，仅有播放/暂停和下一曲按钮，无队列列表入口。",
+          "work_items": [
+            "增加 MiniPlayerBar 高度至 64~68",
+            "添加队列列表按钮（Icons.queue_music）",
+            "实现队列弹出列表（复用或内联实现 _showQueueSheet）",
+            "测试：点击队列按钮 → 弹出播放列表 → 点击某曲目 → 切换到该曲目"
           ],
           "files_involved": [
             "lib/features/player/widgets/mini_player_bar.dart"
           ],
-          "impl_status": "done",
-          "dependencies": ["A-1", "A-3"]
+          "impl_status": "pending",
+          "dependencies": []
+        },
+        "B-5": {
+          "name": "播放界面定时停止图标改为钟表倒计时",
+          "issues": ["BUG-9"],
+          "design_doc": "docs/fix.md §Batch B — B-5",
+          "current_status": "_TimerControl 使用 Icons.hourglass_bottom（沙漏），应改为钟表图标。",
+          "work_items": [
+            "修改 _TimerControl 图标为 Icons.timer，保持激活态颜色区分"
+          ],
+          "files_involved": [
+            "lib/features/player/player_screen.dart"
+          ],
+          "impl_status": "pending",
+          "dependencies": []
+        },
+        "B-6": {
+          "name": "播放界面重新布局：倍速/定时/播放顺序移至进度条上方",
+          "issues": ["BUG-9"],
+          "design_doc": "docs/fix.md §Batch B — B-6",
+          "current_status": "_buildReady() 布局顺序为封面→标题→进度条→控制→倍速→定时→模式，三个控件在进度条下方。",
+          "work_items": [
+            "重构 _buildReady() 的 Column 布局顺序",
+            "将倍速/定时/模式三按钮改为 Row 水平排列并移至进度条上方",
+            "测试：UI 布局符合预期，所有按钮功能正常"
+          ],
+          "files_involved": [
+            "lib/features/player/player_screen.dart"
+          ],
+          "impl_status": "pending",
+          "dependencies": []
         }
       }
     },
     "batch-c": {
       "label": "Batch C — P2 轻微问题",
       "priority": "P2",
-      "description": "视觉问题，不影响功能",
+      "description": "UI 视觉优化：统一步长按钮样式、迷你播放栏触控优化",
       "fixes": {
         "C-1": {
-          "name": "快退/快进按钮图标动态显示步长",
-          "issues": ["BUG-1b", "BUG-3a"],
+          "name": "快进/快退按钮可视化优化",
+          "issues": ["BUG-2", "BUG-11"],
           "design_doc": "docs/fix.md §Batch C — C-1",
-          "current_status": "player_screen.dart 图标使用 Icons.replay_10 / Icons.forward_30，数字硬编码，不随 seekStep 变化。",
+          "current_status": "A-5 已为核心步长值（15s/60s）添加标签，C-1 可选统一所有步长显示风格。",
           "work_items": [
-            "添加 _iconForSeekBackward / _iconForSeekForward 辅助方法，根据 seekStep 动态选择图标",
-            "替换硬编码图标为动态选择",
-            "可选：为 15s/60s 等无对应图标的步长添加文字标签"
+            "可选：统一所有步长按钮的显示风格（图标+文字标签）",
+            "验证 15s/60s 步长的显示效果"
           ],
           "files_involved": [
             "lib/features/player/player_screen.dart"
           ],
-          "impl_status": "done",
+          "impl_status": "pending",
           "dependencies": []
+        },
+        "C-2": {
+          "name": "迷你播放栏触控优化",
+          "issues": ["BUG-8"],
+          "design_doc": "docs/fix.md §Batch C — C-2",
+          "current_status": "B-4 增大迷你播放栏高度后，可选优化按钮触控体验。",
+          "work_items": [
+            "为迷你播放栏按钮设置更舒适的 visualDensity 或 iconSize",
+            "增加按钮间距"
+          ],
+          "files_involved": [
+            "lib/features/player/widgets/mini_player_bar.dart"
+          ],
+          "impl_status": "pending",
+          "dependencies": ["B-4"]
         }
       }
     }
   },
   "implementation_order": [
-    {"step": 1, "tasks": ["A-5", "A-4", "A-2"], "note": "独立，无依赖，合计 1.5 小时"},
-    {"step": 2, "tasks": ["A-1", "A-3"], "note": "独立，与 A-1/A-3 同文件 mini_player_bar.dart 但修复独立，合计 1 小时"},
-    {"step": 3, "tasks": ["B-1"], "note": "依赖 A-1 和 A-3 完成（同文件 mini_player_bar.dart），1 小时"},
-    {"step": 4, "tasks": ["C-1"], "note": "独立，30 分钟"}
+    {"step": 1, "tasks": ["A-1"], "note": "核心修复，解除 BUG-1 和 BUG-10，是所有后续修复的基础"},
+    {"step": 2, "tasks": ["A-2", "A-3", "A-5"], "note": "独立修复，互不依赖，可并行处理"},
+    {"step": 3, "tasks": ["A-4"], "note": "依赖 A-1 修复（_loadAndPlay 需正确触发才能应用默认速度）"},
+    {"step": 4, "tasks": ["B-1", "B-2", "B-5"], "note": "独立的小修复，可并行处理"},
+    {"step": 5, "tasks": ["B-3"], "note": "定时 UI 重设计，工作量最大，独立处理"},
+    {"step": 6, "tasks": ["B-4"], "note": "迷你播放栏改动，独立处理"},
+    {"step": 7, "tasks": ["B-6"], "note": "播放界面布局调整，涉及 _buildReady() 重构，与 A-5/B-5 同文件但修复独立"},
+    {"step": 8, "tasks": ["C-1", "C-2"], "note": "可选优化，P2 优先级较低"}
   ],
   "status_values": {
     "impl_status": ["pending", "in_progress", "done"]
   },
   "metadata": {
     "source": "docs/fix.md",
-    "date": "2026-05-15",
-    "total_fixes": 7,
+    "date": "2026-05-16",
+    "total_fixes": 13,
     "by_priority": {
       "P0": 5,
-      "P1": 1,
-      "P2": 1
+      "P1": 6,
+      "P2": 2
     }
   }
 }
