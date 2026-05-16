@@ -274,8 +274,10 @@ final setDefaultSpeedProvider = Provider<void Function(double)>((ref) {
     prefs?.setDouble(_defaultSpeedKey, speed);
     ref.invalidate(defaultSpeedProvider);
     // Sync the runtime speed provider so the player UI reflects the change
-    // immediately.  The next _loadAndPlay() (triggered by A-1's queue-match
-    // logic or by selecting a new song) will apply the speed to AudioPlayer.
+    // immediately.  The next loadAndPlayProvider call (triggered by selecting
+    // a new song or by the player screen's queue-match logic) will apply the
+    // speed to the AudioPlayer.  We cannot safely access AudioPlayer here
+    // because its constructor requires platform bindings absent in tests.
     ref.read(currentSpeedProvider.notifier).state = speed;
   };
 });
@@ -544,8 +546,12 @@ final Provider<Future<AudioPlayer?> Function()> loadAndPlayProvider =
     if (queue == null || queue.length == 0) return null;
 
     try {
+      // E-2: if the connection has changed since the queue was created,
+      // refuse to load — file paths may not exist on the new connection.
+      final savedConnId = ref.read(lastQueueConnectionIdProvider);
       final activeConn = await ref.read(activeConnectionProvider.future);
       if (activeConn == null) return null;
+      if (savedConnId != null && activeConn.id != savedConnId) return null;
 
       final storage = ref.read(secureStorageProvider);
       final password =

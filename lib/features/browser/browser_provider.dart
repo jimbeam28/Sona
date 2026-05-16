@@ -285,9 +285,17 @@ final navigationStackProvider =
 /// The Player page reads this provider to know what to play.
 final currentPlayQueueProvider = StateProvider<PlayQueue?>((ref) => null);
 
+/// The connection ID that was active when the current play queue was created.
+///
+/// Used by E-2 to detect connection switches: if the active connection changes
+/// while a queue is loaded, mini-bar skip/queue operations should warn the user
+/// because file paths may not exist on the new connection.
+final lastQueueConnectionIdProvider = StateProvider<int?>((ref) => null);
+
 // ── Queue persistence (B-3) ─────────────────────────────────────────────────
 
 const _queuePrefsKey = 'last_play_queue';
+const _queueConnIdPrefsKey = 'last_play_queue_connection_id';
 
 /// Saves [queue] to SharedPreferences whenever it changes.
 final persistQueueOnChangeProvider = Provider<void>((ref) {
@@ -296,8 +304,13 @@ final persistQueueOnChangeProvider = Provider<void>((ref) {
     if (prefs == null) return;
     if (next == null) {
       prefs.remove(_queuePrefsKey);
+      prefs.remove(_queueConnIdPrefsKey);
     } else {
       prefs.setString(_queuePrefsKey, jsonEncode(next.toMap()));
+      final connId = ref.read(lastQueueConnectionIdProvider);
+      if (connId != null) {
+        prefs.setInt(_queueConnIdPrefsKey, connId);
+      }
     }
   });
 });
@@ -327,16 +340,25 @@ final restoreQueueFromPrefsProvider =
         ? PlayMode.values.firstWhere((m) => m.name == modeName,
             orElse: () => PlayMode.sequential)
         : PlayMode.sequential;
-    ref.read(currentPlayQueueProvider.notifier).state = PlayQueue(
+    final queue = PlayQueue(
       files: files,
       currentIndex: currentIndex,
       startPositionMs: startPositionMs,
       playMode: mode,
     );
+    ref.read(currentPlayQueueProvider.notifier).state = queue;
+
+    // F-2: check whether the connection has changed since the queue was saved.
+    final savedConnId = prefs.getInt(_queueConnIdPrefsKey);
+    final conn = ref.read(activeConnectionProvider).valueOrNull;
+    if (savedConnId != null && conn?.id != savedConnId) {
+      // Connection changed — keep the queue for display but skip pre-loading.
+      // The user needs to re-browse the directory on the new connection.
+      return;
+    }
 
     // Pre-load the audio source so the mini player bar's play button works
     // immediately after app start (BUG-6).
-    final conn = ref.read(activeConnectionProvider).valueOrNull;
     if (conn != null) {
       final storage = ref.read(secureStorageProvider);
       final pw =

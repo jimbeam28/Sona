@@ -97,6 +97,31 @@ String labelForSeekStep(int seconds) {
   return '$seconds秒';
 }
 
+// ── Remember speed (F-4) ─────────────────────────────────────────────────────
+
+const _rememberSpeedKey = 'remember_playback_speed';
+
+/// Returns whether the "remember playback speed" setting is enabled.
+bool getRememberSpeed(SharedPreferences? prefs) {
+  if (prefs == null) return false;
+  return prefs.getBool(_rememberSpeedKey) ?? false;
+}
+
+/// The "remember speed" setting — when enabled, adjusting speed during playback
+/// also updates the default speed so it persists across song changes.
+final rememberSpeedProvider = Provider<bool>((ref) {
+  final prefs = ref.watch(sharedPreferencesProvider);
+  return getRememberSpeed(prefs);
+});
+
+/// Persists the remember-speed preference.
+final setRememberSpeedProvider = Provider<void Function(bool)>((ref) {
+  return (bool value) {
+    ref.read(sharedPreferencesProvider)?.setBool(_rememberSpeedKey, value);
+    ref.invalidate(rememberSpeedProvider);
+  };
+});
+
 /// The seek step setting, persisted to SharedPreferences.
 ///
 /// Reads the value from SharedPreferences on first access.  When

@@ -562,6 +562,9 @@ void main() {
 
       await pumpSettingsScreen(tester, prefs: prefs);
       await tester.pumpAndSettle();
+      // F-4: scroll down to account for the new "remember speed" tile.
+      await tester.drag(find.byType(ListView), const Offset(0, -300));
+      await tester.pumpAndSettle();
 
       expect(find.text('关于本应用'), findsOneWidget,
           reason: '设置页应显示"关于本应用" ListTile');

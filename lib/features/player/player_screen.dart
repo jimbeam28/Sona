@@ -20,6 +20,7 @@ import '../../shared/models/play_queue.dart';
 import '../browser/browser_provider.dart';
 import '../connection/connection_provider.dart';
 import '../progress/progress_provider.dart';
+import '../settings/settings_provider.dart';
 import '../timer/timer_provider.dart';
 import '../timer/widgets/timer_button.dart';
 import 'player_provider.dart';
@@ -92,6 +93,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   void dispose() {
     // PRG-01 trigger ⑤: save progress on page destroy.
     _saveProgress();
+    // E-1: invalidate the progress cache so the Browser sees the latest
+    // position if the user taps the same file again after coming back.
+    final queue = ref.read(currentPlayQueueProvider);
+    if (queue != null) {
+      final parentDir = _parentDir(queue.current.path);
+      if (parentDir.isNotEmpty) {
+        ref.invalidate(loadProgressForDirectoryProvider(parentDir));
+      }
+    }
     _timerExpiryChecker?.cancel();
     // D-1: cancel background listeners managed by providers.
     ref.read(cancelPlaybackSubscriptionsProvider)();
@@ -165,6 +175,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         }
       }
     }
+  }
+
+  /// Returns the parent directory path of [filePath], or '/' if at root.
+  String _parentDir(String filePath) {
+    final idx = filePath.lastIndexOf('/');
+    if (idx <= 0) return '/';
+    return filePath.substring(0, idx);
   }
 
   /// Retry loading after an error.
@@ -830,6 +847,10 @@ class _SpeedControl extends ConsumerWidget {
                   onTap: () {
                     player.setSpeed(speed);
                     ref.read(currentSpeedProvider.notifier).state = speed;
+                    // F-4: if "remember speed" is on, update the default too.
+                    if (ref.read(rememberSpeedProvider)) {
+                      ref.read(setDefaultSpeedProvider)(speed);
+                    }
                     Navigator.of(ctx).pop();
                   },
                 );

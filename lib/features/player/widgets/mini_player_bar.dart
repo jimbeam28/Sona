@@ -17,8 +17,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart';
 
+import '../../../core/services/timer_service.dart';
 import '../../../shared/models/play_queue.dart';
 import '../../browser/browser_provider.dart';
+import '../../timer/timer_provider.dart';
 import '../player_provider.dart';
 
 /// A compact player bar displayed at the bottom of the Browser screen.
@@ -40,6 +42,12 @@ class MiniPlayerBar extends ConsumerWidget {
 
     final player = ref.watch(audioPlayerProvider);
     final playMode = ref.watch(playModeProvider);
+    // F-3: watch timer state so users can see countdown from the browser.
+    final timerState = ref.watch(timerStateProvider);
+    final timerDisplay = timerState != null
+        ? ref.watch(formattedRemainingProvider)
+        : null;
+    final isAfterCurrent = timerState?.mode == TimerMode.afterCurrent;
 
     return Container(
       decoration: BoxDecoration(
@@ -72,11 +80,36 @@ class MiniPlayerBar extends ConsumerWidget {
                         Expanded(
                           child: GestureDetector(
                             onTap: () => GoRouter.of(context).push('/player'),
-                            child: Text(
-                              queue.current.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.bodyMedium,
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    queue.current.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context).textTheme.bodyMedium,
+                                  ),
+                                ),
+                                // F-3: timer countdown indicator
+                                if (timerState != null) ...[
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    Icons.timer,
+                                    size: 14,
+                                    color: Theme.of(context).colorScheme.primary,
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    isAfterCurrent
+                                        ? TimerService.afterCurrentLabel
+                                        : (timerDisplay ?? ''),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Theme.of(context).colorScheme.primary,
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
                         ),

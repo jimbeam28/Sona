@@ -19,6 +19,28 @@
 
 ---
 
+## [2026-05-16 12:15] D-2, E-1, E-2, E-3, F-1, F-2, F-3, F-4 — 批量完成剩余修复
+
+**优先级**: P0~P2
+**关联问题**: BUG-13~20
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/player/player_provider.dart` — E-2: loadAndPlayProvider 连接一致性检查
+- `lib/features/player/player_screen.dart` — E-1: dispose 时 invalidate progress 缓存；F-4: 速度选择器支持记忆
+- `lib/features/player/widgets/mini_player_bar.dart` — D-2: 队列选歌失败 SnackBar；F-3: 迷你栏定时显示
+- `lib/features/browser/browser_provider.dart` — E-2: lastQueueConnectionIdProvider；F-2: 队列恢复连接校验
+- `lib/features/browser/browser_screen.dart` — E-2: 队列创建时记录连接 ID
+- `lib/features/settings/settings_provider.dart` — F-4: rememberSpeed 设置
+- `lib/features/settings/settings_screen.dart` — F-4: 记住播放速度开关
+- `test/features/settings/settings_test.dart` — F-4: 适配新增控件
+
+### 验证结果
+- 全部 work_items 通过
+- 测试: 全部 535 tests passed
+
+---
+
 ## [2026-05-16 12:00] D-1 - 提取统一音频加载入口
 
 **优先级**: P0

@@ -16,6 +16,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/network/webdav_client.dart';
 import '../../shared/models/nas_file.dart';
 import '../../shared/models/play_queue.dart';
+import '../connection/connection_provider.dart';
 import '../player/widgets/mini_player_bar.dart';
 import '../progress/progress_dialog.dart';
 import '../progress/progress_provider.dart';
@@ -191,6 +192,10 @@ class BrowserScreen extends ConsumerWidget {
                             ref
                                 .read(currentPlayQueueProvider.notifier)
                                 .state = queue;
+                            // E-2: record which connection this queue was built with.
+                            final connId = ref
+                                .read(activeConnectionProvider).valueOrNull?.id;
+                            ref.read(lastQueueConnectionIdProvider.notifier).state = connId;
                             WidgetsBinding.instance.addPostFrameCallback((_) {
                               if (context.mounted) goRouter.push('/player');
                             });
@@ -210,6 +215,10 @@ class BrowserScreen extends ConsumerWidget {
                             ref
                                 .read(currentPlayQueueProvider.notifier)
                                 .state = queue;
+                            // E-2: record which connection this queue was built with.
+                            final connId2 = ref
+                                .read(activeConnectionProvider).valueOrNull?.id;
+                            ref.read(lastQueueConnectionIdProvider.notifier).state = connId2;
                             WidgetsBinding.instance.addPostFrameCallback((_) {
                               if (context.mounted) goRouter.push('/player');
                             });
@@ -224,6 +233,10 @@ class BrowserScreen extends ConsumerWidget {
                         ref
                             .read(currentPlayQueueProvider.notifier)
                             .state = queue;
+                        // E-2: record which connection this queue was built with.
+                        final connId3 = ref
+                            .read(activeConnectionProvider).valueOrNull?.id;
+                        ref.read(lastQueueConnectionIdProvider.notifier).state = connId3;
                         goRouter.push('/player');
                       }
                     },

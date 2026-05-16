@@ -30,6 +30,7 @@ class SettingsScreen extends ConsumerWidget {
           const _SectionHeader(title: '播放设置'),
           _DefaultSpeedTile(),
           _SeekStepTile(),
+          _RememberSpeedTile(),
 
           const Divider(),
 
@@ -217,6 +218,25 @@ class _ThemeModeTile extends ConsumerWidget {
             );
           }).toList(),
         );
+      },
+    );
+  }
+}
+
+// ── Remember speed toggle (F-4) ───────────────────────────────────────────
+
+class _RememberSpeedTile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final remember = ref.watch(rememberSpeedProvider);
+
+    return SwitchListTile(
+      secondary: const Icon(Icons.memory_outlined),
+      title: const Text('记住播放速度'),
+      subtitle: const Text('调速后自动设为默认，切歌不重置'),
+      value: remember,
+      onChanged: (value) {
+        ref.read(setRememberSpeedProvider)(value);
       },
     );
   }

@@ -45,7 +45,7 @@
           "files_involved": [
             "lib/features/player/widgets/mini_player_bar.dart"
           ],
-          "impl_status": "pending",
+          "impl_status": "done",
           "dependencies": [
             "D-1"
           ]
@@ -73,7 +73,7 @@
             "lib/features/browser/browser_provider.dart",
             "lib/features/player/player_screen.dart"
           ],
-          "impl_status": "pending",
+          "impl_status": "done",
           "dependencies": []
         },
         "E-2": {
@@ -94,7 +94,7 @@
             "lib/features/browser/browser_screen.dart",
             "lib/features/player/widgets/mini_player_bar.dart"
           ],
-          "impl_status": "pending",
+          "impl_status": "done",
           "dependencies": []
         },
         "E-3": {
@@ -112,7 +112,7 @@
           "files_involved": [
             "lib/features/player/player_provider.dart"
           ],
-          "impl_status": "pending",
+          "impl_status": "done",
           "dependencies": [
             "D-1"
           ]
@@ -138,7 +138,7 @@
           "files_involved": [
             "lib/features/player/widgets/mini_player_bar.dart"
           ],
-          "impl_status": "pending",
+          "impl_status": "done",
           "dependencies": [
             "D-1"
           ]
@@ -160,7 +160,7 @@
             "lib/shared/models/play_queue.dart",
             "lib/features/browser/browser_provider.dart"
           ],
-          "impl_status": "pending",
+          "impl_status": "done",
           "dependencies": []
         },
         "F-3": {
@@ -178,7 +178,7 @@
           "files_involved": [
             "lib/features/player/widgets/mini_player_bar.dart"
           ],
-          "impl_status": "pending",
+          "impl_status": "done",
           "dependencies": []
         },
         "F-4": {
@@ -199,7 +199,7 @@
             "lib/features/settings/settings_screen.dart",
             "lib/features/settings/settings_provider.dart"
           ],
-          "impl_status": "pending",
+          "impl_status": "done",
           "dependencies": []
         }
       }
