@@ -15,6 +15,9 @@ on:
           - debug
           - release
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   # ── 静态分析 & 单元测试 ──────────────────────────────────────────
   test:
