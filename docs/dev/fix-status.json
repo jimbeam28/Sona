@@ -7,7 +7,10 @@
       "fixes": {
         "A-1": {
           "name": "修复播放页面重新加载逻辑",
-          "issues": ["BUG-1", "BUG-10"],
+          "issues": [
+            "BUG-1",
+            "BUG-10"
+          ],
           "design_doc": "docs/fix.md §Batch A — A-1",
           "current_status": "initState() 守卫条件过于宽松，player.playing 为 true 即跳过 _loadAndPlay()，导致新曲目不被加载且默认速度不应用。",
           "work_items": [
@@ -24,7 +27,9 @@
         },
         "A-2": {
           "name": "修复曲目播完不自动下一曲",
-          "issues": ["BUG-3"],
+          "issues": [
+            "BUG-3"
+          ],
           "design_doc": "docs/fix.md §Batch A — A-2",
           "current_status": "_loadAndPlay() 中 processingStateStream listener 在 player.stop() 之后注册，可能遗漏 completed 事件。",
           "work_items": [
@@ -40,7 +45,9 @@
         },
         "A-3": {
           "name": "修复启动 app 后恢复的队列无音频源",
-          "issues": ["BUG-6"],
+          "issues": [
+            "BUG-6"
+          ],
           "design_doc": "docs/fix.md §Batch A — A-3",
           "current_status": "restoreQueueFromPrefsProvider 仅恢复队列元数据，未加载音频源到 AudioPlayer。MiniPlayerBar 不检查 player 是否有源。",
           "work_items": [
@@ -58,7 +65,9 @@
         },
         "A-4": {
           "name": "修复设置默认播放速度后新曲目不生效",
-          "issues": ["BUG-10"],
+          "issues": [
+            "BUG-10"
+          ],
           "design_doc": "docs/fix.md §Batch A — A-4",
           "current_status": "setDefaultSpeedProvider 不更新 currentSpeedProvider，也不更新正在播放的 AudioPlayer 速度。",
           "work_items": [
@@ -71,11 +80,16 @@
             "lib/features/player/player_provider.dart"
           ],
           "impl_status": "done",
-          "dependencies": ["A-1"]
+          "dependencies": [
+            "A-1"
+          ]
         },
         "A-5": {
           "name": "修复 seekStep 图标动态显示步长",
-          "issues": ["BUG-2", "BUG-11"],
+          "issues": [
+            "BUG-2",
+            "BUG-11"
+          ],
           "design_doc": "docs/fix.md §Batch A — A-5",
           "current_status": "_iconForSeekBackward/Forward 对 15s 和 60s 返回通用无数字图标，用户无法确认设置是否生效。",
           "work_items": [
@@ -99,7 +113,9 @@
       "fixes": {
         "B-1": {
           "name": "定时停止显示格式改为 MM:SS",
-          "issues": ["BUG-4"],
+          "issues": [
+            "BUG-4"
+          ],
           "design_doc": "docs/fix.md §Batch B — B-1",
           "current_status": "TimerService.formatRemaining() 返回 'X分钟' 仅显示整数分钟，不显示秒数。",
           "work_items": [
@@ -115,7 +131,9 @@
         },
         "B-2": {
           "name": "移除定时停止触发后的 SnackBar 通知",
-          "issues": ["BUG-5"],
+          "issues": [
+            "BUG-5"
+          ],
           "design_doc": "docs/fix.md §Batch B — B-2",
           "current_status": "_timerExpiryChecker 和 _processingSubscription 在 player.pause() 后显示 SnackBar。",
           "work_items": [
@@ -131,7 +149,9 @@
         },
         "B-3": {
           "name": "定时停止 UI 修改：删除 15 分钟、添加自定义时间",
-          "issues": ["BUG-7"],
+          "issues": [
+            "BUG-7"
+          ],
           "design_doc": "docs/fix.md §Batch B — B-3",
           "current_status": "TimerBottomSheet 硬编码 5/10/15 分钟三个固定选项，缺少自定义时间选择。",
           "work_items": [
@@ -150,7 +170,9 @@
         },
         "B-4": {
           "name": "迷你播放栏加高 + 增加音乐列表按钮",
-          "issues": ["BUG-8"],
+          "issues": [
+            "BUG-8"
+          ],
           "design_doc": "docs/fix.md §Batch B — B-4",
           "current_status": "MiniPlayerBar 高度 56px 偏窄，仅有播放/暂停和下一曲按钮，无队列列表入口。",
           "work_items": [
@@ -167,7 +189,9 @@
         },
         "B-5": {
           "name": "播放界面定时停止图标改为钟表倒计时",
-          "issues": ["BUG-9"],
+          "issues": [
+            "BUG-9"
+          ],
           "design_doc": "docs/fix.md §Batch B — B-5",
           "current_status": "_TimerControl 使用 Icons.hourglass_bottom（沙漏），应改为钟表图标。",
           "work_items": [
@@ -181,7 +205,9 @@
         },
         "B-6": {
           "name": "播放界面重新布局：倍速/定时/播放顺序移至进度条上方",
-          "issues": ["BUG-9"],
+          "issues": [
+            "BUG-9"
+          ],
           "design_doc": "docs/fix.md §Batch B — B-6",
           "current_status": "_buildReady() 布局顺序为封面→标题→进度条→控制→倍速→定时→模式，三个控件在进度条下方。",
           "work_items": [
@@ -204,7 +230,10 @@
       "fixes": {
         "C-1": {
           "name": "快进/快退按钮可视化优化",
-          "issues": ["BUG-2", "BUG-11"],
+          "issues": [
+            "BUG-2",
+            "BUG-11"
+          ],
           "design_doc": "docs/fix.md §Batch C — C-1",
           "current_status": "A-5 已为核心步长值（15s/60s）添加标签，C-1 可选统一所有步长显示风格。",
           "work_items": [
@@ -214,12 +243,14 @@
           "files_involved": [
             "lib/features/player/player_screen.dart"
           ],
-          "impl_status": "pending",
+          "impl_status": "done",
           "dependencies": []
         },
         "C-2": {
           "name": "迷你播放栏触控优化",
-          "issues": ["BUG-8"],
+          "issues": [
+            "BUG-8"
+          ],
           "design_doc": "docs/fix.md §Batch C — C-2",
           "current_status": "B-4 增大迷你播放栏高度后，可选优化按钮触控体验。",
           "work_items": [
@@ -229,24 +260,83 @@
           "files_involved": [
             "lib/features/player/widgets/mini_player_bar.dart"
           ],
-          "impl_status": "pending",
-          "dependencies": ["B-4"]
+          "impl_status": "done",
+          "dependencies": [
+            "B-4"
+          ]
         }
       }
     }
   },
   "implementation_order": [
-    {"step": 1, "tasks": ["A-1"], "note": "核心修复，解除 BUG-1 和 BUG-10，是所有后续修复的基础"},
-    {"step": 2, "tasks": ["A-2", "A-3", "A-5"], "note": "独立修复，互不依赖，可并行处理"},
-    {"step": 3, "tasks": ["A-4"], "note": "依赖 A-1 修复（_loadAndPlay 需正确触发才能应用默认速度）"},
-    {"step": 4, "tasks": ["B-1", "B-2", "B-5"], "note": "独立的小修复，可并行处理"},
-    {"step": 5, "tasks": ["B-3"], "note": "定时 UI 重设计，工作量最大，独立处理"},
-    {"step": 6, "tasks": ["B-4"], "note": "迷你播放栏改动，独立处理"},
-    {"step": 7, "tasks": ["B-6"], "note": "播放界面布局调整，涉及 _buildReady() 重构，与 A-5/B-5 同文件但修复独立"},
-    {"step": 8, "tasks": ["C-1", "C-2"], "note": "可选优化，P2 优先级较低"}
+    {
+      "step": 1,
+      "tasks": [
+        "A-1"
+      ],
+      "note": "核心修复，解除 BUG-1 和 BUG-10，是所有后续修复的基础"
+    },
+    {
+      "step": 2,
+      "tasks": [
+        "A-2",
+        "A-3",
+        "A-5"
+      ],
+      "note": "独立修复，互不依赖，可并行处理"
+    },
+    {
+      "step": 3,
+      "tasks": [
+        "A-4"
+      ],
+      "note": "依赖 A-1 修复（_loadAndPlay 需正确触发才能应用默认速度）"
+    },
+    {
+      "step": 4,
+      "tasks": [
+        "B-1",
+        "B-2",
+        "B-5"
+      ],
+      "note": "独立的小修复，可并行处理"
+    },
+    {
+      "step": 5,
+      "tasks": [
+        "B-3"
+      ],
+      "note": "定时 UI 重设计，工作量最大，独立处理"
+    },
+    {
+      "step": 6,
+      "tasks": [
+        "B-4"
+      ],
+      "note": "迷你播放栏改动，独立处理"
+    },
+    {
+      "step": 7,
+      "tasks": [
+        "B-6"
+      ],
+      "note": "播放界面布局调整，涉及 _buildReady() 重构，与 A-5/B-5 同文件但修复独立"
+    },
+    {
+      "step": 8,
+      "tasks": [
+        "C-1",
+        "C-2"
+      ],
+      "note": "可选优化，P2 优先级较低"
+    }
   ],
   "status_values": {
-    "impl_status": ["pending", "in_progress", "done"]
+    "impl_status": [
+      "pending",
+      "in_progress",
+      "done"
+    ]
   },
   "metadata": {
     "source": "docs/fix.md",

@@ -88,9 +88,9 @@ class MiniPlayerBar extends ConsumerWidget {
                         IconButton(
                           onPressed: () => _showQueueSheet(context, ref, queue),
                           icon: const Icon(Icons.queue_music),
-                          iconSize: 24,
+                          iconSize: 28,
                           tooltip: '播放列表',
-                          visualDensity: VisualDensity.compact,
+                          visualDensity: VisualDensity.standard,
                         ),
                         // Next track button
                         _NextButton(
@@ -262,9 +262,9 @@ class _PlayPauseButton extends StatelessWidget {
             }
           },
           icon: Icon(isPlaying ? Icons.pause : Icons.play_arrow),
-          iconSize: 28,
+          iconSize: 32,
           tooltip: isPlaying ? '暂停' : '播放',
-          visualDensity: VisualDensity.compact,
+          visualDensity: VisualDensity.standard,
         );
       },
     );
@@ -319,9 +319,9 @@ class _NextButton extends ConsumerWidget {
             }
           : null,
       icon: const Icon(Icons.skip_next),
-      iconSize: 28,
+      iconSize: 32,
       tooltip: hasNext ? '下一首' : '没有下一首',
-      visualDensity: VisualDensity.compact,
+      visualDensity: VisualDensity.standard,
     );
   }
 }

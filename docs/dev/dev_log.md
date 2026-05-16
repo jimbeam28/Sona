@@ -19,6 +19,22 @@
 
 ---
 
+## [2026-05-16 11:15] B-6 - 播放界面重新布局 + C-1 图标统一 + C-2 触控优化
+
+**优先级**: P1/P2
+**关联问题**: BUG-9, BUG-2, BUG-8
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/player/player_screen.dart` — B-6: 倍速/定时/模式移至进度条上方水平排列；C-1: 所有 seek 按钮统一显示图标+时间标签
+- `lib/features/player/widgets/mini_player_bar.dart` — C-2: 按钮 iconSize 增大 + VisualDensity.standard
+
+### 验证结果
+- 通过: 全部
+- 测试: 全部 535 tests passed
+
+---
+
 ## [2026-05-16 11:10] B-4 - 迷你播放栏加高 + 增加音乐列表按钮
 
 **优先级**: P1

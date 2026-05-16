@@ -794,12 +794,7 @@ class _PlaybackControls extends ConsumerWidget {
     bool isForward = false,
     VoidCallback? onPressed,
   }) {
-    final needsLabel = seconds == 15 || seconds == 60;
-    if (!needsLabel) {
-      return _buildSkipButton(
-        icon: icon, tooltip: tooltip, enabled: enabled, onPressed: onPressed);
-    }
-
+    // All seek-step buttons show icon + time label for visual consistency.
     return InkWell(
       onTap: enabled ? onPressed : null,
       borderRadius: BorderRadius.circular(24),
