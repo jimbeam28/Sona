@@ -9,14 +9,20 @@
 // AppLifecycleState handling so audio continues when the app goes to
 // background.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/services/audio_handler.dart';
+import '../../core/services/audio_source_builder.dart';
 import '../../shared/models/play_queue.dart';
 import '../browser/browser_provider.dart';
+import '../connection/connection_provider.dart';
+import '../progress/progress_provider.dart';
+import '../timer/timer_provider.dart';
 import 'background_playback.dart';
 
 // ── AudioPlayer instance ───────────────────────────────────────────────────────
@@ -410,6 +416,212 @@ bool shouldContinueInBackground({
   // Only continue if the player is actively playing.
   return currentPlaybackState == BackgroundPlaybackState.playing;
 }
+
+// ── D-1: Unified playback entry point ──────────────────────────────────────────
+//
+// These providers extract the shared "load, play, and set up listeners" logic
+// so that both the full player screen and the mini player bar can trigger
+// playback through the same code path.  Previously the mini bar's skip and
+// queue-selection handlers duplicated a subset of _loadAndPlay(), skipping
+// listener setup and breaking auto-next, auto-save, and timer features.
+
+/// Holds the current [processingStateStream] subscription so it can be
+/// cancelled and re-created from any call site.
+final _processingSubProvider =
+    StateProvider<StreamSubscription<void>?>((ref) => null);
+
+/// Cancels the active processing-state subscription.
+final cancelProcessingListenerProvider = Provider<void Function()>((ref) {
+  return () {
+    ref.read(_processingSubProvider)?.cancel();
+    ref.read(_processingSubProvider.notifier).state = null;
+  };
+});
+
+/// Saves the current playback position to the database.
+final saveProgressProvider = Provider<void Function()>((ref) {
+  return () {
+    final queue = ref.read(currentPlayQueueProvider);
+    final conn = ref.read(activeConnectionProvider).valueOrNull;
+    if (queue == null || conn?.id == null) return;
+    final player = ref.read(audioPlayerProvider);
+    ref.read(upsertProgressProvider)(
+      connectionId: conn!.id!,
+      filePath: queue.current.path,
+      positionMs: player.position.inMilliseconds,
+      durationMs: player.duration?.inMilliseconds,
+    );
+  };
+});
+
+/// Holds the periodic auto-save timer so it can be cancelled.
+final _autoSaveTimerProvider = StateProvider<Timer?>((ref) => null);
+
+/// Starts (or restarts) a periodic timer that saves progress every 10 seconds.
+final _startAutoSaveProvider = Provider<void Function()>((ref) {
+  return () {
+    ref.read(_autoSaveTimerProvider)?.cancel();
+    final timer = Timer.periodic(const Duration(seconds: 10), (_) {
+      ref.read(saveProgressProvider)();
+    });
+    ref.read(_autoSaveTimerProvider.notifier).state = timer;
+  };
+});
+
+/// Cancels the auto-save timer.
+final _cancelAutoSaveProvider = Provider<void Function()>((ref) {
+  return () {
+    ref.read(_autoSaveTimerProvider)?.cancel();
+    ref.read(_autoSaveTimerProvider.notifier).state = null;
+  };
+});
+
+/// Holds the player-state subscription for pause-triggered saves.
+final _pauseSaveSubProvider =
+    StateProvider<StreamSubscription<void>?>((ref) => null);
+
+/// Starts a listener that saves progress whenever the player transitions
+/// from playing to paused.
+final _startPauseSaveProvider = Provider<void Function(AudioPlayer)>((ref) {
+  return (AudioPlayer player) {
+    ref.read(_pauseSaveSubProvider)?.cancel();
+    var wasPlaying = player.playing;
+    final sub = player.playerStateStream.listen((state) {
+      final playing = state.playing;
+      if (wasPlaying && !playing) {
+        ref.read(saveProgressProvider)();
+      }
+      wasPlaying = playing;
+    });
+    ref.read(_pauseSaveSubProvider.notifier).state = sub;
+  };
+});
+
+/// Cancels the pause-save listener.
+final _cancelPauseSaveProvider = Provider<void Function()>((ref) {
+  return () {
+    ref.read(_pauseSaveSubProvider)?.cancel();
+    ref.read(_pauseSaveSubProvider.notifier).state = null;
+  };
+});
+
+/// Advances the queue to the next track and loads it via [loadAndPlayProvider].
+///
+/// The explicit return type is required to break the type-inference cycle
+/// between [skipToNextProvider] and [loadAndPlayProvider].
+final Provider<void Function()> skipToNextProvider =
+    Provider<void Function()>((ref) {
+  return () {
+    final queue = ref.read(currentPlayQueueProvider);
+    final mode = ref.read(playModeProvider);
+    if (queue == null) return;
+    final nextIdx =
+        PlayQueue.nextIndex(queue.currentIndex, queue.length, mode);
+    if (nextIdx == null) return;
+    ref.read(saveProgressProvider)();
+    final nextQueue = queue.withIndex(nextIdx);
+    ref.read(currentPlayQueueProvider.notifier).state = nextQueue;
+    ref.read(loadAndPlayProvider)();
+  };
+});
+
+/// Unified entry point for loading and playing the current queue's track.
+///
+/// Must be called whenever the playback source needs to change — whether
+/// from the full player screen, the mini bar next button, or the queue sheet.
+/// Registers all required listeners (completion, auto-save, pause-save) and
+/// applies the default speed.
+///
+/// Returns the [AudioPlayer] after the source is loaded and playing, or
+/// `null` on failure.
+///
+/// The explicit return type is required to break the type-inference cycle
+/// between [skipToNextProvider] and [loadAndPlayProvider].
+final Provider<Future<AudioPlayer?> Function()> loadAndPlayProvider =
+    Provider<Future<AudioPlayer?> Function()>((ref) {
+  return () async {
+    final queue = ref.read(currentPlayQueueProvider);
+    if (queue == null || queue.length == 0) return null;
+
+    try {
+      final activeConn = await ref.read(activeConnectionProvider.future);
+      if (activeConn == null) return null;
+
+      final storage = ref.read(secureStorageProvider);
+      final password =
+          await storage.read(key: 'connection_password_${activeConn.id}');
+      if (password == null || password.isEmpty) return null;
+
+      final source = AudioSourceBuilder.buildWithBasePath(
+        baseUrl: activeConn.url,
+        filePath: queue.current.path,
+        username: activeConn.username,
+        password: password,
+      );
+
+      final player = ref.read(audioPlayerProvider);
+
+      // Register completion listener BEFORE stop (preserves A-2 fix).
+      // Inlined here rather than a separate provider to break the
+      // type-inference cycle with skipToNextProvider.
+      ref.read(cancelProcessingListenerProvider)();
+      final sub = player.processingStateStream.listen((state) {
+        if (state == ProcessingState.completed) {
+          final triggered = ref.read(onTrackCompletedProvider)();
+          if (triggered) {
+            player.pause();
+          } else {
+            ref.read(skipToNextProvider)();
+          }
+        }
+      });
+      ref.read(_processingSubProvider.notifier).state = sub;
+
+      await player.stop();
+      await player.setAudioSource(source);
+
+      if (queue.startPositionMs != null) {
+        await player.seek(Duration(milliseconds: queue.startPositionMs!));
+      }
+
+      // Update the notification with the current track info.
+      final handler = ref.read(audioHandlerProvider);
+      handler?.setMediaItemFromPath(
+        queue.current.path,
+        duration: player.duration,
+      );
+
+      // Apply the default playback speed.
+      final defaultSpeed = ref.read(defaultSpeedProvider);
+      if ((defaultSpeed - 1.0).abs() > 0.01) {
+        await player.setSpeed(defaultSpeed);
+        ref.read(currentSpeedProvider.notifier).state = defaultSpeed;
+      }
+
+      await player.play();
+
+      // Start background listeners for progress persistence.
+      ref.read(_startAutoSaveProvider)();
+      ref.read(_startPauseSaveProvider)(player);
+
+      return player;
+    } catch (_) {
+      return null;
+    }
+  };
+});
+
+/// Cancels all background subscriptions set up by [loadAndPlayProvider].
+///
+/// Call this when the player screen is disposed to stop auto-save and
+/// completion listeners.
+final cancelPlaybackSubscriptionsProvider = Provider<void Function()>((ref) {
+  return () {
+    ref.read(cancelProcessingListenerProvider)();
+    ref.read(_cancelAutoSaveProvider)();
+    ref.read(_cancelPauseSaveProvider)();
+  };
+});
 
 /// Pure function: given an [AppLifecycleState] and playback state,
 /// returns the expected [BackgroundPlaybackState] after the transition.

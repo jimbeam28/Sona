@@ -17,10 +17,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart';
 
-import '../../../core/services/audio_source_builder.dart';
 import '../../../shared/models/play_queue.dart';
 import '../../browser/browser_provider.dart';
-import '../../connection/connection_provider.dart';
 import '../player_provider.dart';
 
 /// A compact player bar displayed at the bottom of the Browser screen.
@@ -153,32 +151,21 @@ void _showQueueSheet(BuildContext context, WidgetRef ref, PlayQueue queue) {
                 ),
                 onTap: isCurrent
                     ? null
-                    : () {
+                    : () async {
                         Navigator.of(ctx).pop();
                         final updatedQueue = queue.withIndex(i);
                         ref
                             .read(currentPlayQueueProvider.notifier)
                             .state = updatedQueue;
-                        // Load and play the selected track
-                        final conn =
-                            ref.read(activeConnectionProvider).valueOrNull;
-                        if (conn == null) return;
-                        final storage = ref.read(secureStorageProvider);
-                        storage.read(
-                            key: 'connection_password_${conn.id}').then((password) async {
-                          if (password == null || password.isEmpty) return;
-                          final source =
-                              AudioSourceBuilder.buildWithBasePath(
-                            baseUrl: conn.url,
-                            filePath: file.path,
-                            username: conn.username,
-                            password: password,
+                        // D-1: delegate to the unified load+play entry point.
+                        final loaded =
+                            await ref.read(loadAndPlayProvider)();
+                        if (loaded == null && context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text('无法加载音频，请检查连接配置')),
                           );
-                          final player = ref.read(audioPlayerProvider);
-                          await player.stop();
-                          await player.setAudioSource(source);
-                          await player.play();
-                        });
+                        }
                       },
               );
             }),
@@ -298,24 +285,10 @@ class _NextButton extends ConsumerWidget {
     return IconButton(
       onPressed: hasNext
           ? () async {
-              // Update the queue to point to the next track.
               final updatedQueue = queue.withIndex(nextIdx);
               ref.read(currentPlayQueueProvider.notifier).state = updatedQueue;
-              // Load and play the next track directly (B-1).
-              final conn = ref.read(activeConnectionProvider).valueOrNull;
-              if (conn == null) return;
-              final storage = ref.read(secureStorageProvider);
-              final password = await storage.read(key: 'connection_password_${conn.id}');
-              if (password == null || password.isEmpty) return;
-              final source = AudioSourceBuilder.buildWithBasePath(
-                baseUrl: conn.url,
-                filePath: updatedQueue.current.path,
-                username: conn.username,
-                password: password,
-              );
-              await player.stop();
-              await player.setAudioSource(source);
-              await player.play();
+              // D-1: delegate to the unified load+play entry point.
+              await ref.read(loadAndPlayProvider)();
             }
           : null,
       icon: const Icon(Icons.skip_next),

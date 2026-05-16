@@ -15,8 +15,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 
-import '../../core/network/webdav_client.dart';
-import '../../core/services/audio_source_builder.dart';
 import '../../core/services/timer_service.dart';
 import '../../shared/models/play_queue.dart';
 import '../browser/browser_provider.dart';
@@ -44,10 +42,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   PlayerLoadState _loadState = PlayerLoadState.idle;
 
   Timer? _timerExpiryChecker;
-  StreamSubscription? _processingSubscription;
-  Timer? _autoSaveTimer;
-  StreamSubscription? _playerStateSubscription;
-  bool _wasPlaying = false;
 
   @override
   void initState() {
@@ -99,9 +93,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     // PRG-01 trigger ⑤: save progress on page destroy.
     _saveProgress();
     _timerExpiryChecker?.cancel();
-    _processingSubscription?.cancel();
-    _autoSaveTimer?.cancel();
-    _playerStateSubscription?.cancel();
+    // D-1: cancel background listeners managed by providers.
+    ref.read(cancelPlaybackSubscriptionsProvider)();
     WidgetsBinding.instance.removeObserver(this);
 
     // A-1: clear handler callbacks to prevent stale references.
@@ -140,105 +133,37 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
     setState(() => _loadState = PlayerLoadState.loading);
 
-    try {
-      // 1. Resolve active connection
-      final activeConn = await ref.read(activeConnectionProvider.future);
+    // D-1: delegate to the unified load+play entry point which handles
+    // listener registration, speed, auto-save, and pause-save setup.
+    final loaded = await ref.read(loadAndPlayProvider)();
+
+    if (!mounted) return;
+
+    if (loaded != null) {
+      setState(() => _loadState = PlayerLoadState.ready);
+    } else {
+      // Determine the specific error reason from provider state.
+      final activeConn = ref.read(activeConnectionProvider).valueOrNull;
       if (activeConn == null) {
         setState(() {
           _loadState = PlayerLoadState.error('没有活跃的连接',
               isAuthError: true);
         });
-        return;
-      }
-
-      // 2. Read password from secure storage
-      final storage = ref.read(secureStorageProvider);
-      final password =
-          await storage.read(key: 'connection_password_${activeConn.id}');
-      if (password == null || password.isEmpty) {
-        setState(() {
-          _loadState = PlayerLoadState.error('密码未保存',
-              isAuthError: true);
-        });
-        return;
-      }
-
-      // 3. Build the AudioSource with Basic Auth
-      final source = AudioSourceBuilder.buildWithBasePath(
-        baseUrl: activeConn.url,
-        filePath: queue.current.path,
-        username: activeConn.username,
-        password: password,
-      );
-
-      // 4. Register completion listener BEFORE stop so we capture the full
-      // lifecycle: stop → idle → loading → ready → playing → completed.
-      final player = ref.read(audioPlayerProvider);
-      await _processingSubscription?.cancel();
-      _processingSubscription = player.processingStateStream.listen((state) {
-        if (state == ProcessingState.completed) {
-          final triggered = ref.read(onTrackCompletedProvider)();
-          if (triggered) {
-            player.pause();
-          } else {
-            _playNext();
-          }
+      } else {
+        final storage = ref.read(secureStorageProvider);
+        final pw = await storage
+            .read(key: 'connection_password_${activeConn.id}');
+        if (pw == null || pw.isEmpty) {
+          setState(() {
+            _loadState = PlayerLoadState.error('密码未保存',
+                isAuthError: true);
+          });
+        } else {
+          setState(() {
+            _loadState = PlayerLoadState.error('加载失败');
+          });
         }
-      });
-
-      // 5. Stop any existing playback and load the new source.
-      await player.stop();
-      await player.setAudioSource(source);
-
-      // 6. Seek to resume position if present
-      if (queue.startPositionMs != null) {
-        await player.seek(Duration(milliseconds: queue.startPositionMs!));
       }
-
-      setState(() => _loadState = PlayerLoadState.ready);
-
-      // A-1: update notification with the current track info.
-      final handler = ref.read(audioHandlerProvider);
-      handler?.setMediaItemFromPath(
-        queue.current.path,
-        duration: player.duration,
-      );
-
-      // 7. Start playback
-      final defaultSpeed = ref.read(defaultSpeedProvider);
-      if (defaultSpeed != 1.0) {
-        await player.setSpeed(defaultSpeed);
-        ref.read(currentSpeedProvider.notifier).state = defaultSpeed;
-      }
-      await player.play();
-
-      // PRG-01 trigger ①: auto-save progress every 10 seconds.
-      _autoSaveTimer?.cancel();
-      _autoSaveTimer = Timer.periodic(const Duration(seconds: 10), (_) {
-        _saveProgress();
-      });
-
-      // PRG-01 trigger ②: save progress immediately on pause.
-      _wasPlaying = true;
-      await _playerStateSubscription?.cancel();
-      _playerStateSubscription = player.playerStateStream.listen((state) {
-        final playing = state.playing;
-        if (_wasPlaying && !playing) {
-          _saveProgress();
-        }
-        _wasPlaying = playing;
-      });
-    } on WebDavException catch (e) {
-      setState(() {
-        _loadState = PlayerLoadState.error(
-          e.message,
-          isAuthError: e.isAuthError,
-        );
-      });
-    } catch (e) {
-      setState(() {
-        _loadState = PlayerLoadState.error('加载失败: $e');
-      });
     }
   }
 

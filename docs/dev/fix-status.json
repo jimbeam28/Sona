@@ -7,7 +7,9 @@
       "fixes": {
         "D-1": {
           "name": "提取统一音频加载入口，消除迷你栏与播放页代码重复",
-          "issues": ["BUG-12"],
+          "issues": [
+            "BUG-12"
+          ],
           "design_doc": "docs/fix.md §Batch D — D-1",
           "current_status": "迷你栏 _NextButton 和 _showQueueSheet 独立实现音频加载，绕过 _loadAndPlay() 中的 listener 注册、默认速度应用、通知栏更新等关键步骤。",
           "work_items": [
@@ -25,12 +27,14 @@
             "lib/features/player/player_screen.dart",
             "lib/features/player/widgets/mini_player_bar.dart"
           ],
-          "impl_status": "pending",
+          "impl_status": "done",
           "dependencies": []
         },
         "D-2": {
           "name": "迷你栏队列选择密码不可用时显示错误提示",
-          "issues": ["BUG-13"],
+          "issues": [
+            "BUG-13"
+          ],
           "design_doc": "docs/fix.md §Batch D — D-2",
           "current_status": "_showQueueSheet 中密码为空时静默 return，用户点击后无任何反馈。",
           "work_items": [
@@ -42,7 +46,9 @@
             "lib/features/player/widgets/mini_player_bar.dart"
           ],
           "impl_status": "pending",
-          "dependencies": ["D-1"]
+          "dependencies": [
+            "D-1"
+          ]
         }
       }
     },
@@ -53,7 +59,9 @@
       "fixes": {
         "E-1": {
           "name": "播放后返回浏览器时刷新进度缓存",
-          "issues": ["BUG-14"],
+          "issues": [
+            "BUG-14"
+          ],
           "design_doc": "docs/fix.md §Batch E — E-1",
           "current_status": "_progressRegistryProvider 在目录加载时一次性缓存，播放后的 DB 更新不反映到缓存。",
           "work_items": [
@@ -70,7 +78,9 @@
         },
         "E-2": {
           "name": "连接切换后保护迷你栏操作",
-          "issues": ["BUG-15"],
+          "issues": [
+            "BUG-15"
+          ],
           "design_doc": "docs/fix.md §Batch E — E-2",
           "current_status": "迷你栏操作动态读取当前活跃连接 URL，但队列文件路径来自旧连接，URL 拼接结果指向错误位置。",
           "work_items": [
@@ -89,7 +99,9 @@
         },
         "E-3": {
           "name": "设置默认速度时同步更新 AudioPlayer 实际速度",
-          "issues": ["BUG-16"],
+          "issues": [
+            "BUG-16"
+          ],
           "design_doc": "docs/fix.md §Batch E — E-3",
           "current_status": "A-4 修复中为避免测试崩溃移除了 player.setSpeed()，导致 AudioPlayer 实际速度未更新。",
           "work_items": [
@@ -101,7 +113,9 @@
             "lib/features/player/player_provider.dart"
           ],
           "impl_status": "pending",
-          "dependencies": ["D-1"]
+          "dependencies": [
+            "D-1"
+          ]
         }
       }
     },
@@ -112,7 +126,9 @@
       "fixes": {
         "F-1": {
           "name": "迷你栏异步操作添加上下文有效性保护",
-          "issues": ["BUG-17"],
+          "issues": [
+            "BUG-17"
+          ],
           "design_doc": "docs/fix.md §Batch F — F-1",
           "current_status": "_showQueueSheet 使用 .then() 回调，无 mounted 检查。",
           "work_items": [
@@ -123,11 +139,15 @@
             "lib/features/player/widgets/mini_player_bar.dart"
           ],
           "impl_status": "pending",
-          "dependencies": ["D-1"]
+          "dependencies": [
+            "D-1"
+          ]
         },
         "F-2": {
           "name": "启动恢复队列时校验连接一致性",
-          "issues": ["BUG-18"],
+          "issues": [
+            "BUG-18"
+          ],
           "design_doc": "docs/fix.md §Batch F — F-2",
           "current_status": "restoreQueueFromPrefsProvider 恢复队列时未校验文件路径是否适用于当前连接。",
           "work_items": [
@@ -145,7 +165,9 @@
         },
         "F-3": {
           "name": "迷你栏显示定时倒计时",
-          "issues": ["BUG-19"],
+          "issues": [
+            "BUG-19"
+          ],
           "design_doc": "docs/fix.md §Batch F — F-3",
           "current_status": "MiniPlayerBar 未监听 timerStateProvider，用户返回浏览器后看不到定时状态。",
           "work_items": [
@@ -161,7 +183,9 @@
         },
         "F-4": {
           "name": "播放界面调速后切歌保留当前速度（可选 UX 改进）",
-          "issues": ["BUG-20"],
+          "issues": [
+            "BUG-20"
+          ],
           "design_doc": "docs/fix.md §Batch F — F-4",
           "current_status": "用户在播放器中调速后切歌，速度重置为默认值。行为符合设计文档但用户体验欠佳。",
           "work_items": [
@@ -182,14 +206,52 @@
     }
   },
   "implementation_order": [
-    {"step": 1, "tasks": ["D-1"], "note": "最关键的架构改进——提取统一音频加载入口，D-2/E-3/F-1 都依赖它"},
-    {"step": 2, "tasks": ["D-2", "E-3", "F-1"], "note": "依赖 D-1 的统一入口；D-2 和 F-1 都在 mini_player_bar.dart 中可合并处理"},
-    {"step": 3, "tasks": ["E-1", "E-2", "F-2"], "note": "独立修复，涉及进度缓存、连接校验"},
-    {"step": 4, "tasks": ["F-3"], "note": "迷你栏定时显示，独立 UI 改动"},
-    {"step": 5, "tasks": ["F-4"], "note": "可选 UX 改进——速度记忆"}
+    {
+      "step": 1,
+      "tasks": [
+        "D-1"
+      ],
+      "note": "最关键的架构改进——提取统一音频加载入口，D-2/E-3/F-1 都依赖它"
+    },
+    {
+      "step": 2,
+      "tasks": [
+        "D-2",
+        "E-3",
+        "F-1"
+      ],
+      "note": "依赖 D-1 的统一入口；D-2 和 F-1 都在 mini_player_bar.dart 中可合并处理"
+    },
+    {
+      "step": 3,
+      "tasks": [
+        "E-1",
+        "E-2",
+        "F-2"
+      ],
+      "note": "独立修复，涉及进度缓存、连接校验"
+    },
+    {
+      "step": 4,
+      "tasks": [
+        "F-3"
+      ],
+      "note": "迷你栏定时显示，独立 UI 改动"
+    },
+    {
+      "step": 5,
+      "tasks": [
+        "F-4"
+      ],
+      "note": "可选 UX 改进——速度记忆"
+    }
   ],
   "status_values": {
-    "impl_status": ["pending", "in_progress", "done"]
+    "impl_status": [
+      "pending",
+      "in_progress",
+      "done"
+    ]
   },
   "metadata": {
     "source": "docs/fix.md",

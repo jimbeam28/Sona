@@ -19,6 +19,27 @@
 
 ---
 
+## [2026-05-16 12:00] D-1 - 提取统一音频加载入口
+
+**优先级**: P0
+**关联问题**: BUG-12
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/player/player_provider.dart` — 新增 loadAndPlayProvider、skipToNextProvider、saveProgressProvider、cancelPlaybackSubscriptionsProvider 等统一入口和生命周期管理 Provider
+- `lib/features/player/player_screen.dart` — _loadAndPlay() 简化为调用统一入口+UI状态管理，dispose() 使用 cancelPlaybackSubscriptionsProvider
+- `lib/features/player/widgets/mini_player_bar.dart` — _NextButton 和 _showQueueSheet 委托给 loadAndPlayProvider，消除代码重复
+
+### 验证结果
+- 通过: 8 / 总计: 8
+- 静态分析: No issues found
+- 测试: 全部 535 tests passed
+
+### 备注
+这是最关键的架构改进。迷你栏切歌和队列选择现在通过统一的 loadAndPlayProvider 执行完整的加载流程，包括 listener 注册（自动下一曲）、auto-save 定时器、pause-save 监听器、默认速度应用和通知栏更新。解决了迷你栏操作绕过 _loadAndPlay() 导致后台功能崩塌的根因。
+
+---
+
 ## [2026-05-16 11:15] B-6 - 播放界面重新布局 + C-1 图标统一 + C-2 触控优化
 
 **优先级**: P1/P2
