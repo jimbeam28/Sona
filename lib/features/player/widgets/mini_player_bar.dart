@@ -167,6 +167,9 @@ class _PlayPauseButton extends StatelessWidget {
           onPressed: () {
             if (isPlaying) {
               player.pause();
+            } else if (player.processingState == ProcessingState.idle) {
+              // No audio source loaded — navigate to player to trigger load.
+              GoRouter.of(context).push('/player');
             } else {
               player.play();
             }

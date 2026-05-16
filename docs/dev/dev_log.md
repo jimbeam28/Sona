@@ -19,6 +19,26 @@
 
 ---
 
+## [2026-05-16 10:40] A-3 - 修复启动 app 后恢复的队列无音频源
+
+**优先级**: P0
+**关联问题**: BUG-6
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/browser/browser_provider.dart` — restoreQueueFromPrefsProvider 中增加预加载音频源逻辑
+- `lib/features/player/widgets/mini_player_bar.dart` — _PlayPauseButton 增加无源时的守卫跳转
+
+### 验证结果
+- 通过: 4 / 总计: 4
+- 静态分析: No issues found
+- 测试: 全部 535 tests passed
+
+### 备注
+启动时恢复的播放队列仅包含元数据，AudioPlayer 中无音频源导致点击播放无声音。修复后恢复队列时预加载音频源，迷你播放栏播放按钮在无源时引导进入播放页面触发加载。
+
+---
+
 ## [2026-05-16 10:35] A-2 - 修复曲目播完不自动下一曲
 
 **优先级**: P0

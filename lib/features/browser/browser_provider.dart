@@ -9,10 +9,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/network/webdav_client.dart';
+import '../../core/services/audio_source_builder.dart';
 import '../../shared/models/nas_file.dart';
 import '../../shared/models/play_progress.dart';
 import '../../shared/models/play_queue.dart';
 import '../connection/connection_provider.dart';
+import '../player/player_provider.dart';
 import '../progress/progress_provider.dart';
 
 // ── Sort option ────────────────────────────────────────────────────────────────────
@@ -331,6 +333,28 @@ final restoreQueueFromPrefsProvider =
       startPositionMs: startPositionMs,
       playMode: mode,
     );
+
+    // Pre-load the audio source so the mini player bar's play button works
+    // immediately after app start (BUG-6).
+    final conn = ref.read(activeConnectionProvider).valueOrNull;
+    if (conn != null) {
+      final storage = ref.read(secureStorageProvider);
+      final pw =
+          await storage.read(key: 'connection_password_${conn.id}');
+      if (pw != null && pw.isNotEmpty) {
+        final source = AudioSourceBuilder.buildWithBasePath(
+          baseUrl: conn.url,
+          filePath: files[currentIndex].path,
+          username: conn.username,
+          password: pw,
+        );
+        final player = ref.read(audioPlayerProvider);
+        await player.setAudioSource(source);
+        if (startPositionMs != null) {
+          await player.seek(Duration(milliseconds: startPositionMs));
+        }
+      }
+    }
   } catch (_) {
     // Corrupted data — ignore and let the user start fresh.
   }
