@@ -19,6 +19,21 @@
 
 ---
 
+## [2026-05-16 11:00] B-2 - 移除定时停止触发后的 SnackBar + B-5 - 定时图标改为钟表
+
+**优先级**: P1
+**关联问题**: BUG-5, BUG-9
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/player/player_screen.dart` — B-2: 删除两处 SnackBar 调用；B-5: _TimerControl 图标 Icons.hourglass_bottom → Icons.timer
+
+### 验证结果
+- 通过: 6 / 总计: 6
+- 测试: 全部 535 tests passed
+
+---
+
 ## [2026-05-16 10:55] B-1 - 定时停止显示格式改为 MM:SS
 
 **优先级**: P1
