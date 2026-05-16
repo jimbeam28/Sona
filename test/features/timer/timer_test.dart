@@ -580,7 +580,7 @@ void main() {
 
       expect(find.text('5 分钟'), findsOneWidget);
       expect(find.text('10 分钟'), findsOneWidget);
-      expect(find.text('15 分钟'), findsOneWidget);
+      expect(find.text('自定义'), findsOneWidget);
       expect(find.text('播完当前'), findsOneWidget);
       expect(find.text('取消定时'), findsNothing);
     });
@@ -609,7 +609,7 @@ void main() {
 
       expect(find.text('5 分钟'), findsOneWidget);
       expect(find.text('10 分钟'), findsOneWidget);
-      expect(find.text('15 分钟'), findsOneWidget);
+      expect(find.text('自定义'), findsOneWidget);
       expect(find.text('播完当前'), findsOneWidget);
       expect(find.text('取消定时'), findsOneWidget);
     });

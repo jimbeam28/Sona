@@ -19,6 +19,25 @@
 
 ---
 
+## [2026-05-16 11:05] B-3 - 定时停止 UI 修改：删除 15 分钟、添加自定义时间
+
+**优先级**: P1
+**关联问题**: BUG-7
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/timer/widgets/timer_button.dart` — 删除"15 分钟"选项，添加"自定义"选项 + 双滚轮时间选择器
+- `test/features/timer/timer_test.dart` — 更新 widget 测试期望
+
+### 验证结果
+- 通过: 5 / 总计: 5
+- 测试: 全部 535 tests passed
+
+### 备注
+自定义时间选择器使用 ListWheelScrollView 实现，左侧 0-23 小时，右侧 0-59 分钟。取消按钮灰色文字，确认按钮主题色。startDurationTimerProvider 已支持任意分钟数。
+
+---
+
 ## [2026-05-16 11:00] B-2 - 移除定时停止触发后的 SnackBar + B-5 - 定时图标改为钟表
 
 **优先级**: P1
