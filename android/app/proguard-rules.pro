@@ -21,3 +21,7 @@
 
 # sqflite — keep database helper.
 -keep class com.tekartik.sqflite.** { *; }
+
+# Flutter engine references Play Core classes that aren't bundled.
+# The app doesn't use deferred components, so missing classes are safe to ignore.
+-dontwarn com.google.android.play.core.**
