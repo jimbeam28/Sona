@@ -154,20 +154,31 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     await _runSerializedLoad(() => ref.read(loadAndPlayProvider)());
   }
 
+  /// Like [setState] but catches errors when the element is defunct despite
+  /// [mounted] returning `true` — a known Flutter edge case during async
+  /// callbacks after the widget is removed from the tree.
+  void _safeSetState(VoidCallback fn) {
+    try {
+      if (mounted) setState(fn);
+    } catch (_) {
+      // Element._lifecycleState == defunct, ignore.
+    }
+  }
+
   Future<void> _runSerializedLoad(
     Future<TrackLoadResult> Function() request,
   ) async {
     final queue = ref.read(currentPlayQueueProvider);
     if (queue == null || queue.length == 0) {
       debugPrint('[Player] _runSerializedLoad: queue is null/empty');
-      setState(() {
+      _safeSetState(() {
         _loadState = PlayerLoadState.error('没有选择播放文件');
       });
       return;
     }
 
     debugPrint('[Player] _runSerializedLoad: setting loading, file=${queue.current.path}');
-    setState(() => _loadState = PlayerLoadState.loading);
+    _safeSetState(() => _loadState = PlayerLoadState.loading);
     final requestToken = ++_loadRequestToken;
 
     try {
@@ -177,7 +188,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       } on TimeoutException {
         debugPrint('[Player] _runSerializedLoad: TIMEOUT token=$requestToken mounted=$mounted');
         if (!mounted || requestToken != _loadRequestToken) return;
-        setState(() {
+        _safeSetState(() {
           _loadState = PlayerLoadState.error('加载超时，请重试');
         });
         return;
@@ -188,19 +199,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
       if (loaded.isLoaded) {
         debugPrint('[Player] _runSerializedLoad: → ready');
-        setState(() => _loadState = PlayerLoadState.ready);
+        _safeSetState(() => _loadState = PlayerLoadState.ready);
       } else if (loaded.isSuperseded) {
         debugPrint('[Player] _runSerializedLoad: → superseded');
-        setState(() {
+        _safeSetState(() {
           _loadState = PlayerLoadState.error('加载已被新的播放请求替换');
         });
       } else {
         debugPrint('[Player] _runSerializedLoad: → failed, checking reason');
-        // Determine the specific error reason from provider state.
         final activeConn = ref.read(activeConnectionProvider).valueOrNull;
         if (activeConn == null) {
           debugPrint('[Player] error: no active connection');
-          setState(() {
+          _safeSetState(() {
             _loadState = PlayerLoadState.error('没有活跃的连接', isAuthError: true);
           });
           return;
@@ -210,20 +220,19 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
             await storage.read(key: 'connection_password_${activeConn.id}');
         if (pw == null || pw.isEmpty) {
           debugPrint('[Player] error: no password');
-          setState(() {
+          _safeSetState(() {
             _loadState = PlayerLoadState.error('密码未保存', isAuthError: true);
           });
         } else {
           debugPrint('[Player] error: generic load failure');
-          setState(() {
+          _safeSetState(() {
             _loadState = PlayerLoadState.error('加载失败');
           });
         }
       }
     } catch (e, st) {
       debugPrint('[Player] _runSerializedLoad: unexpected error $e\n$st');
-      if (!mounted) return;
-      setState(() {
+      _safeSetState(() {
         _loadState = PlayerLoadState.error('加载失败');
       });
     }

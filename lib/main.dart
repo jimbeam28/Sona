@@ -43,11 +43,11 @@ void main() async {
   try {
     _audioHandler = await AudioService.init(
       builder: () => NasAudioHandler(audioPlayer),
-      config: AudioServiceConfig(
+      config: const AudioServiceConfig(
         androidNotificationChannelId: 'com.example.nas_audio_player.channel',
         androidNotificationChannelName: 'NAS 音乐播放器',
         androidNotificationOngoing: true,
-        androidStopForegroundOnPause: false,
+        androidStopForegroundOnPause: true,
       ),
     );
   } catch (e) {
