@@ -135,6 +135,7 @@ final startDurationTimerProvider = Provider<void Function(int minutes)>((ref) {
   return (int minutes) {
     final service = ref.read(timerServiceProvider);
     service.startDuration(minutes);
+    ref.read(setLastCustomTimerMinutesProvider)(minutes);
     ref.invalidate(timerStateProvider);
     ref.invalidate(remainingTimeProvider);
   };
