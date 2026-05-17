@@ -616,7 +616,6 @@ class _PlaybackControls extends ConsumerWidget {
         const SizedBox(width: 8),
         // Skip backward
         _buildSeekButton(
-          icon: _iconForSeekBackward(seekStep),
           seconds: seekStep,
           tooltip: '后退 ${seekStep}s',
           onPressed: () {
@@ -653,7 +652,6 @@ class _PlaybackControls extends ConsumerWidget {
         const SizedBox(width: 24),
         // Skip forward
         _buildSeekButton(
-          icon: _iconForSeekForward(seekStep),
           seconds: seekStep,
           tooltip: '前进 ${seekStep}s',
           isForward: true,
@@ -684,48 +682,13 @@ class _PlaybackControls extends ConsumerWidget {
     );
   }
 
-  IconData _iconForSeekBackward(int seconds) {
-    switch (seconds) {
-      case 5:
-        return Icons.replay_5;
-      case 10:
-        return Icons.replay_10;
-      case 30:
-        return Icons.replay_30;
-      case 60:
-        return Icons.replay;
-      default:
-        return Icons.replay;
-    }
-  }
-
-  IconData _iconForSeekForward(int seconds) {
-    switch (seconds) {
-      case 5:
-        return Icons.forward_5;
-      case 10:
-        return Icons.forward_10;
-      case 30:
-        return Icons.forward_30;
-      case 60:
-        return Icons.replay;
-      default:
-        return Icons.replay;
-    }
-  }
-
-  /// Builds a seek button that shows an icon + time label for step values
-  /// that lack a dedicated Material icon (15s, 60s).  For 5s / 10s / 30s
-  /// the built-in numbered icons are used without a label.
   Widget _buildSeekButton({
-    required IconData icon,
     required int seconds,
     String? tooltip,
     bool enabled = true,
     bool isForward = false,
     VoidCallback? onPressed,
   }) {
-    // All seek-step buttons show icon + time label for visual consistency.
     return InkWell(
       onTap: enabled ? onPressed : null,
       borderRadius: BorderRadius.circular(24),
@@ -735,7 +698,7 @@ class _PlaybackControls extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             _buildSeekIcon(
-              icon: icon,
+              seconds: seconds,
               isForward: isForward,
               enabled: enabled,
             ),
@@ -754,22 +717,22 @@ class _PlaybackControls extends ConsumerWidget {
   }
 
   Widget _buildSeekIcon({
-    required IconData icon,
+    required int seconds,
     required bool isForward,
     required bool enabled,
   }) {
     final color = enabled ? null : Colors.grey;
-    final iconWidget = Icon(icon, size: 28, color: color);
+    final icon = Icon(Icons.replay, size: 28, color: color);
 
-    if (isForward && icon == Icons.replay) {
+    if (isForward) {
       return Transform(
         alignment: Alignment.center,
         transform: Matrix4.diagonal3Values(-1, 1, 1),
-        child: iconWidget,
+        child: icon,
       );
     }
 
-    return iconWidget;
+    return icon;
   }
 
   Widget _buildSkipButton({

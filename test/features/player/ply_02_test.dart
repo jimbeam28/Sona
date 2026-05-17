@@ -260,11 +260,10 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 
-      expect(find.text('60s'), findsNWidgets(2));
+      expect(find.text('60s'), findsNWidgets(2),
+          reason: '图标下方应显示时间标签');
       expect(find.byIcon(Icons.replay), findsNWidgets(2),
-          reason: '60 秒快进/快退应都使用回转箭头语义');
-      expect(find.byIcon(Icons.forward), findsNothing,
-          reason: '60 秒不应再回退到直线前进箭头');
+          reason: '快进/快退应统一使用回转箭头语义');
     });
   });
 
