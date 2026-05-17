@@ -83,7 +83,7 @@
             "lib/features/player/widgets/mini_player_bar.dart",
             "lib/features/player/widgets/queue_sheet.dart"
           ],
-          "impl_status": "pending",
+          "impl_status": "done",
           "dependencies": []
         },
         "B-3": {

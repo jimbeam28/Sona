@@ -1,5 +1,26 @@
 ---
 
+## [2026-05-17 17:24] B-2 - 队列弹窗改为可滚动列表（全屏与迷你栏）
+
+**优先级**: P1
+**关联问题**: BUG-4
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/player/widgets/queue_sheet.dart` — 新增共享队列弹窗组件，使用 `DraggableScrollableSheet + ListView.builder` 承载长队列
+- `lib/features/player/player_screen.dart` — 全屏播放器改为复用共享队列弹窗，统一长列表展示行为
+- `lib/features/player/widgets/mini_player_bar.dart` — 迷你播放器改为复用共享队列弹窗，保持选曲与错误提示一致
+- `test/features/player/ply_08_test.dart` — 补充长队列可滚动和点选后回调索引的 widget 测试
+
+### 验证结果
+- 通过: 3 / 总计: 3（work_items 检查项）
+- `flutter analyze`：0 issues
+- `flutter test test/features/player/ply_08_test.dart --plain-name "QueueSheet widget"`：通过
+- `flutter test`：全量通过
+
+### 备注
+- 队列弹窗不再一次性把全部条目塞进 `Column`，长列表现在可以上下滑动，且全屏播放器与迷你播放器共享同一份实现。
+
 ## [2026-05-17 17:10] B-1 - 修复自定义定时确认按钮无响应
 
 **优先级**: P1

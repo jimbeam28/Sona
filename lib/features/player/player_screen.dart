@@ -24,6 +24,7 @@ import '../settings/settings_provider.dart';
 import '../timer/timer_provider.dart';
 import '../timer/widgets/timer_button.dart';
 import 'player_provider.dart';
+import 'widgets/queue_sheet.dart';
 
 /// The full-screen audio player.
 ///
@@ -222,65 +223,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   void _showQueueSheet(BuildContext context, PlayQueue queue) {
     showModalBottomSheet(
       context: context,
-      builder: (ctx) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  '播放队列 (${queue.length})',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ),
-              const Divider(height: 1),
-              ...List.generate(queue.length, (i) {
-                final file = queue.files[i];
-                final isCurrent = i == queue.currentIndex;
-                return ListTile(
-                  leading: Icon(
-                    isCurrent ? Icons.play_arrow : Icons.music_note_outlined,
-                    color: isCurrent
-                        ? Theme.of(context).colorScheme.primary
-                        : Colors.grey,
-                  ),
-                  title: Text(
-                    file.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontWeight:
-                          isCurrent ? FontWeight.bold : FontWeight.normal,
-                      color: isCurrent
-                          ? Theme.of(context).colorScheme.primary
-                          : null,
-                    ),
-                  ),
-                  trailing: isCurrent
-                      ? Text(
-                          '当前',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                        )
-                      : null,
-                  onTap: isCurrent
-                      ? null
-                      : () {
-                          Navigator.of(ctx).pop();
-                          unawaited(_runSerializedLoad(
-                            () => ref.read(selectQueueIndexProvider)(i),
-                          ));
-                        },
-                );
-              }),
-              const SizedBox(height: 8),
-            ],
-          ),
-        );
-      },
+      builder: (ctx) => QueueSheet(
+        queue: queue,
+        errorMessage: '无法加载音频，请检查连接配置',
+        onSelectIndex: (index) async {
+          unawaited(
+            _runSerializedLoad(() => ref.read(selectQueueIndexProvider)(index)),
+          );
+          return true;
+        },
+      ),
     );
   }
 

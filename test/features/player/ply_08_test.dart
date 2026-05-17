@@ -22,6 +22,7 @@ import 'package:mockito/mockito.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/features/player/player_provider.dart';
 import 'package:nas_audio_player/features/player/widgets/mini_player_bar.dart';
+import 'package:nas_audio_player/features/player/widgets/queue_sheet.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:nas_audio_player/shared/models/play_queue.dart';
 
@@ -101,6 +102,33 @@ Widget _wrapWithRouter({
   );
 }
 
+Widget _wrapQueueSheetLauncher({
+  required PlayQueue queue,
+  required Future<bool> Function(int index) onSelectIndex,
+}) {
+  return MaterialApp(
+    home: Scaffold(
+      body: Builder(
+        builder: (context) {
+          return ElevatedButton(
+            onPressed: () {
+              showModalBottomSheet<void>(
+                context: context,
+                builder: (_) => QueueSheet(
+                  queue: queue,
+                  errorMessage: '加载失败',
+                  onSelectIndex: onSelectIndex,
+                ),
+              );
+            },
+            child: const Text('Open Queue'),
+          );
+        },
+      ),
+    ),
+  );
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // Tests — PLY-T48~T54
 // ═════════════════════════════════════════════════════════════════════════════
@@ -114,9 +142,10 @@ void main() {
         (WidgetTester tester) async {
       final player = MockAudioPlayer();
 
-      when(player.positionStream).thenAnswer((_) => Stream.value(Duration.zero));
-      when(player.durationStream).thenAnswer(
-          (_) => Stream.value(const Duration(minutes: 3)));
+      when(player.positionStream)
+          .thenAnswer((_) => Stream.value(Duration.zero));
+      when(player.durationStream)
+          .thenAnswer((_) => Stream.value(const Duration(minutes: 3)));
       when(player.playerStateStream).thenAnswer(
           (_) => Stream.value(PlayerState(false, ProcessingState.ready)));
 
@@ -186,9 +215,10 @@ void main() {
         (WidgetTester tester) async {
       final player = MockAudioPlayer();
 
-      when(player.positionStream).thenAnswer((_) => Stream.value(Duration.zero));
-      when(player.durationStream).thenAnswer(
-          (_) => Stream.value(const Duration(minutes: 3)));
+      when(player.positionStream)
+          .thenAnswer((_) => Stream.value(Duration.zero));
+      when(player.durationStream)
+          .thenAnswer((_) => Stream.value(const Duration(minutes: 3)));
       when(player.playerStateStream).thenAnswer(
           (_) => Stream.value(PlayerState(false, ProcessingState.ready)));
 
@@ -208,17 +238,17 @@ void main() {
       expect(find.text('01_中文歌.mp3'), findsOneWidget,
           reason: '迷你播放器应显示当前播放曲目的名称');
       // The second track should not be shown.
-      expect(find.text('02_song.flac'), findsNothing,
-          reason: '不应显示非当前曲目的名称');
+      expect(find.text('02_song.flac'), findsNothing, reason: '不应显示非当前曲目的名称');
     });
 
     testWidgets('shows correct track name when queue index changes',
         (WidgetTester tester) async {
       final player = MockAudioPlayer();
 
-      when(player.positionStream).thenAnswer((_) => Stream.value(Duration.zero));
-      when(player.durationStream).thenAnswer(
-          (_) => Stream.value(const Duration(minutes: 3)));
+      when(player.positionStream)
+          .thenAnswer((_) => Stream.value(Duration.zero));
+      when(player.durationStream)
+          .thenAnswer((_) => Stream.value(const Duration(minutes: 3)));
       when(player.playerStateStream).thenAnswer(
           (_) => Stream.value(PlayerState(false, ProcessingState.ready)));
 
@@ -247,23 +277,18 @@ void main() {
       const positionMs = 30000;
       const durationMs = 100000;
       const fraction = positionMs / durationMs;
-      expect(fraction, closeTo(0.3, 0.001),
-          reason: '30s / 100s = 0.3');
+      expect(fraction, closeTo(0.3, 0.001), reason: '30s / 100s = 0.3');
 
-      expect(0 / 100000, equals(0.0),
-          reason: '开始位置进度应为 0');
+      expect(0 / 100000, equals(0.0), reason: '开始位置进度应为 0');
 
-      expect(100000 / 100000, equals(1.0),
-          reason: '播放到末尾进度应为 1.0');
+      expect(100000 / 100000, equals(1.0), reason: '播放到末尾进度应为 1.0');
 
       final clamped = (150000 / 100000).clamp(0.0, 1.0);
-      expect(clamped, equals(1.0),
-          reason: '位置超过总时长时应限制到 1.0');
+      expect(clamped, equals(1.0), reason: '位置超过总时长时应限制到 1.0');
     });
 
     test('progress bar height is 2px (thin bar)', () {
-      expect(2.0, equals(2.0),
-          reason: '迷你播放器的进度条高度应为 2px');
+      expect(2.0, equals(2.0), reason: '迷你播放器的进度条高度应为 2px');
     });
 
     test('LinearProgressIndicator uses correct design parameters', () {
@@ -274,8 +299,7 @@ void main() {
       //   - Foreground: primary
       // These design choices are verified by test constants.
       const miniBarTotalHeight = 56.0;
-      expect(miniBarTotalHeight, equals(56.0),
-          reason: '迷你播放器整体高度为 56px');
+      expect(miniBarTotalHeight, equals(56.0), reason: '迷你播放器整体高度为 56px');
     });
   });
 
@@ -304,11 +328,12 @@ void main() {
         (WidgetTester tester) async {
       final player = MockAudioPlayer();
 
-      when(player.positionStream).thenAnswer((_) => Stream.value(Duration.zero));
-      when(player.durationStream).thenAnswer(
-          (_) => Stream.value(const Duration(minutes: 3)));
-      when(player.playerStateStream).thenAnswer((_) =>
-          Stream.value(PlayerState(false, ProcessingState.ready)));
+      when(player.positionStream)
+          .thenAnswer((_) => Stream.value(Duration.zero));
+      when(player.durationStream)
+          .thenAnswer((_) => Stream.value(const Duration(minutes: 3)));
+      when(player.playerStateStream).thenAnswer(
+          (_) => Stream.value(PlayerState(false, ProcessingState.ready)));
 
       final queue = _queue([_audio('song.mp3', '/music/song.mp3')]);
 
@@ -359,25 +384,25 @@ void main() {
         _audio('c.aac', '/c.aac'),
       ], currentIndex: 0);
 
-      final nextIdx = PlayQueue.nextIndex(
-          queue.currentIndex, queue.length, queue.playMode);
+      final nextIdx =
+          PlayQueue.nextIndex(queue.currentIndex, queue.length, queue.playMode);
       expect(nextIdx, equals(1));
 
       final updated = queue.withIndex(nextIdx!);
       expect(updated.currentIndex, equals(1));
-      expect(updated.current.name, equals('b.flac'),
-          reason: '切换到下一首后当前曲目应更新');
+      expect(updated.current.name, equals('b.flac'), reason: '切换到下一首后当前曲目应更新');
     });
 
     testWidgets('next button is present in mini player',
         (WidgetTester tester) async {
       final player = MockAudioPlayer();
 
-      when(player.positionStream).thenAnswer((_) => Stream.value(Duration.zero));
-      when(player.durationStream).thenAnswer(
-          (_) => Stream.value(const Duration(minutes: 3)));
-      when(player.playerStateStream).thenAnswer((_) =>
-          Stream.value(PlayerState(false, ProcessingState.ready)));
+      when(player.positionStream)
+          .thenAnswer((_) => Stream.value(Duration.zero));
+      when(player.durationStream)
+          .thenAnswer((_) => Stream.value(const Duration(minutes: 3)));
+      when(player.playerStateStream).thenAnswer(
+          (_) => Stream.value(PlayerState(false, ProcessingState.ready)));
 
       final queue = _queue([
         _audio('track1.mp3', '/music/track1.mp3'),
@@ -403,11 +428,12 @@ void main() {
         (WidgetTester tester) async {
       final player = MockAudioPlayer();
 
-      when(player.positionStream).thenAnswer((_) => Stream.value(Duration.zero));
-      when(player.durationStream).thenAnswer(
-          (_) => Stream.value(const Duration(minutes: 3)));
-      when(player.playerStateStream).thenAnswer((_) =>
-          Stream.value(PlayerState(true, ProcessingState.ready)));
+      when(player.positionStream)
+          .thenAnswer((_) => Stream.value(Duration.zero));
+      when(player.durationStream)
+          .thenAnswer((_) => Stream.value(const Duration(minutes: 3)));
+      when(player.playerStateStream).thenAnswer(
+          (_) => Stream.value(PlayerState(true, ProcessingState.ready)));
 
       final queue = _queue([_audio('song.mp3', '/music/song.mp3')]);
 
@@ -435,11 +461,12 @@ void main() {
         (WidgetTester tester) async {
       final player = MockAudioPlayer();
 
-      when(player.positionStream).thenAnswer((_) => Stream.value(Duration.zero));
-      when(player.durationStream).thenAnswer(
-          (_) => Stream.value(const Duration(minutes: 3)));
-      when(player.playerStateStream).thenAnswer((_) =>
-          Stream.value(PlayerState(false, ProcessingState.ready)));
+      when(player.positionStream)
+          .thenAnswer((_) => Stream.value(Duration.zero));
+      when(player.durationStream)
+          .thenAnswer((_) => Stream.value(const Duration(minutes: 3)));
+      when(player.playerStateStream).thenAnswer(
+          (_) => Stream.value(PlayerState(false, ProcessingState.ready)));
 
       final queue = _queue([_audio('test.mp3', '/music/test.mp3')]);
 
@@ -453,6 +480,64 @@ void main() {
       expect(find.text('test.mp3'), findsOneWidget);
       expect(find.byIcon(Icons.play_arrow), findsOneWidget);
       expect(find.byIcon(Icons.skip_next), findsOneWidget);
+    });
+  });
+
+  group('QueueSheet widget', () {
+    testWidgets('queue sheet scrolls through long queue contents',
+        (WidgetTester tester) async {
+      final files = List.generate(
+        120,
+        (index) => _audio('track_$index.mp3', '/music/track_$index.mp3'),
+      );
+      final queue = _queue(files);
+
+      await tester.pumpWidget(
+        _wrapQueueSheetLauncher(
+          queue: queue,
+          onSelectIndex: (_) async => true,
+        ),
+      );
+
+      await tester.tap(find.text('Open Queue'));
+      await tester.pumpAndSettle();
+
+      await tester.dragUntilVisible(
+        find.text('track_119.mp3'),
+        find.byType(ListView),
+        const Offset(0, -300),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('track_119.mp3'), findsOneWidget);
+    });
+
+    testWidgets('queue sheet taps a later item and forwards its index',
+        (WidgetTester tester) async {
+      final files = [
+        _audio('track_0.mp3', '/music/track_0.mp3'),
+        _audio('track_1.mp3', '/music/track_1.mp3'),
+        _audio('track_2.mp3', '/music/track_2.mp3'),
+      ];
+      final queue = _queue(files);
+      int? selectedIndex;
+
+      await tester.pumpWidget(
+        _wrapQueueSheetLauncher(
+          queue: queue,
+          onSelectIndex: (index) async {
+            selectedIndex = index;
+            return true;
+          },
+        ),
+      );
+
+      await tester.tap(find.text('Open Queue'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ListTile, 'track_1.mp3').last);
+      await tester.pumpAndSettle();
+
+      expect(selectedIndex, equals(1));
     });
   });
 }
