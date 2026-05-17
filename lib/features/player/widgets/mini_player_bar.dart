@@ -44,9 +44,8 @@ class MiniPlayerBar extends ConsumerWidget {
     final playMode = ref.watch(playModeProvider);
     // F-3: watch timer state so users can see countdown from the browser.
     final timerState = ref.watch(timerStateProvider);
-    final timerDisplay = timerState != null
-        ? ref.watch(formattedRemainingProvider)
-        : null;
+    final timerDisplay =
+        timerState != null ? ref.watch(formattedRemainingProvider) : null;
     final isAfterCurrent = timerState?.mode == TimerMode.afterCurrent;
 
     return Container(
@@ -87,7 +86,8 @@ class MiniPlayerBar extends ConsumerWidget {
                                     queue.current.name,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context).textTheme.bodyMedium,
+                                    style:
+                                        Theme.of(context).textTheme.bodyMedium,
                                   ),
                                 ),
                                 // F-3: timer countdown indicator
@@ -96,7 +96,8 @@ class MiniPlayerBar extends ConsumerWidget {
                                   Icon(
                                     Icons.timer,
                                     size: 14,
-                                    color: Theme.of(context).colorScheme.primary,
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
                                   ),
                                   const SizedBox(width: 2),
                                   Text(
@@ -105,7 +106,8 @@ class MiniPlayerBar extends ConsumerWidget {
                                         : (timerDisplay ?? ''),
                                     style: TextStyle(
                                       fontSize: 11,
-                                      color: Theme.of(context).colorScheme.primary,
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
                                     ),
                                   ),
                                 ],
@@ -125,7 +127,6 @@ class MiniPlayerBar extends ConsumerWidget {
                         ),
                         // Next track button
                         _NextButton(
-                          player: player,
                           queue: queue,
                           playMode: playMode,
                         ),
@@ -175,8 +176,7 @@ void _showQueueSheet(BuildContext context, WidgetRef ref, PlayQueue queue) {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontWeight:
-                        isCurrent ? FontWeight.bold : FontWeight.normal,
+                    fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
                     color: isCurrent
                         ? Theme.of(context).colorScheme.primary
                         : null,
@@ -186,17 +186,11 @@ void _showQueueSheet(BuildContext context, WidgetRef ref, PlayQueue queue) {
                     ? null
                     : () async {
                         Navigator.of(ctx).pop();
-                        final updatedQueue = queue.withIndex(i);
-                        ref
-                            .read(currentPlayQueueProvider.notifier)
-                            .state = updatedQueue;
-                        // D-1: delegate to the unified load+play entry point.
                         final loaded =
-                            await ref.read(loadAndPlayProvider)();
-                        if (loaded == null && context.mounted) {
+                            await ref.read(selectQueueIndexProvider)(i);
+                        if (!loaded.isLoaded && context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('无法加载音频，请检查连接配置')),
+                            const SnackBar(content: Text('无法加载音频，请检查连接配置')),
                           );
                         }
                       },
@@ -233,8 +227,7 @@ class _MiniProgressBar extends StatelessWidget {
               return const SizedBox(height: 2);
             }
 
-            final value =
-                position.inMilliseconds / duration.inMilliseconds;
+            final value = position.inMilliseconds / duration.inMilliseconds;
             final clamped = value.clamp(0.0, 1.0);
 
             return SizedBox(
@@ -242,9 +235,8 @@ class _MiniProgressBar extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: clamped,
                 minHeight: 2,
-                backgroundColor: Theme.of(context)
-                    .colorScheme
-                    .surfaceContainerHighest,
+                backgroundColor:
+                    Theme.of(context).colorScheme.surfaceContainerHighest,
                 valueColor: AlwaysStoppedAnimation<Color>(
                   Theme.of(context).colorScheme.primary,
                 ),
@@ -294,12 +286,10 @@ class _PlayPauseButton extends StatelessWidget {
 // ── Next button ────────────────────────────────────────────────────────────────
 
 class _NextButton extends ConsumerWidget {
-  final AudioPlayer player;
   final PlayQueue queue;
   final PlayMode playMode;
 
   const _NextButton({
-    required this.player,
     required this.queue,
     required this.playMode,
   });
@@ -318,12 +308,9 @@ class _NextButton extends ConsumerWidget {
     return IconButton(
       onPressed: hasNext
           ? () async {
-              final updatedQueue = queue.withIndex(nextIdx);
-              ref.read(currentPlayQueueProvider.notifier).state = updatedQueue;
-              // D-1: delegate to the unified load+play entry point.
-              final loaded = await ref.read(loadAndPlayProvider)();
+              final loaded = await ref.read(skipToNextProvider)();
               // H-5: show feedback on failure.
-              if (loaded == null && context.mounted) {
+              if (!loaded.isLoaded && context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('切换失败，请检查连接')),
                 );

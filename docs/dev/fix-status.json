@@ -1,343 +1,199 @@
 {
   "batches": {
-    "batch-g": {
-      "label": "Batch G — P0 严重缺陷",
+    "batch-a": {
+      "label": "Batch A — P0 严重缺陷",
       "priority": "P0",
-      "description": "内存泄漏、循环依赖、短音频进度清零、负值定时器、HTTP连接泄漏",
+      "description": "播放核心链路卡死/黑屏",
       "fixes": {
-        "G-1": {
-          "name": "修复 NasAudioHandler StreamSubscription 内存泄漏",
-          "issues": [
-            "AudioHandler dispose 从未被调用"
-          ],
-          "design_doc": "docs/fix.md §Batch G — G-1",
-          "current_status": "NasAudioHandler 创建 _stateSub/_positionSub/_durationSub 三个 StreamSubscription，dispose() 方法存在但无调用点。",
+        "A-1": {
+          "name": "串行化播放器加载状态，修复‘正在加载音频’卡住",
+          "issues": ["BUG-1"],
+          "design_doc": "docs/dev/fix.md §Batch A — A-1",
+          "current_status": "_loadAndPlay 在多个入口可并发重入，UI 状态与底层加载状态不同步。",
           "work_items": [
-            "在 audioPlayerProvider 的 ref.onDispose 中调用 _audioHandler?.dispose()",
-            "或在 NasAudioHandler 中重写 AudioService.stop 触发清理",
-            "测试：应用退出时 handler 的 StreamSubscription 被正确取消"
+            "给 _loadAndPlay 增加并发保护和过期结果丢弃逻辑",
+            "统一上下曲与队列切歌入口，避免多处直接重入",
+            "为加载失败和超时补充显式错误态",
+            "补充播放器切歌并发场景测试"
           ],
           "files_involved": [
-            "lib/core/services/audio_handler.dart",
-            "lib/main.dart"
+            "lib/features/player/player_screen.dart",
+            "lib/features/player/player_provider.dart",
+            "test/features/player/"
           ],
           "impl_status": "done",
           "dependencies": []
         },
-        "G-2": {
-          "name": "打破 skipToNextProvider ↔ loadAndPlayProvider 循环依赖",
-          "issues": [
-            "Provider 互相引用，显式类型注解勉强工作"
-          ],
-          "design_doc": "docs/fix.md §Batch G — G-2",
-          "current_status": "skipToNextProvider 调用 loadAndPlayProvider()，loadAndPlayProvider 内部 processing listener 调用 skipToNextProvider()。",
+        "A-2": {
+          "name": "重构进度恢复入口，移除 5 秒自动弹窗导航竞态",
+          "issues": ["BUG-2"],
+          "design_doc": "docs/dev/fix.md §Batch A — A-2",
+          "current_status": "恢复弹窗关闭与导航通过 then + postFrameCallback 组合驱动，存在时序竞态和黑屏风险。",
           "work_items": [
-            "将 skipToNext 逻辑内联为 loadAndPlayProvider 中的私有 _advanceToNext() 函数",
-            "skipToNextProvider 保留但改为调用内联函数，不再引用 loadAndPlayProvider",
-            "验证 processingState 事件链仍然正常工作"
+            "浏览器点歌流程改为 await 串行导航",
+            "删除逐文件恢复弹窗触发点，改为启动恢复",
+            "增加启动恢复与点击播放继续播放测试"
           ],
           "files_involved": [
-            "lib/features/player/player_provider.dart"
+            "lib/features/browser/browser_screen.dart",
+            "lib/features/progress/progress_dialog.dart",
+            "lib/features/progress/progress_provider.dart",
+            "lib/features/player/player_provider.dart",
+            "test/features/progress/"
           ],
-          "impl_status": "done",
-          "dependencies": []
-        },
-        "G-3": {
-          "name": "修复短音频（<10秒）进度保存逻辑矛盾",
-          "issues": [
-            "progress_dao.dart shouldClear 对短文件恒为 true"
-          ],
-          "design_doc": "docs/fix.md §Batch G — G-3",
-          "current_status": "durationMs - 10000 < 0 时任何 positionMs 都满足清除条件，与 shouldSave 矛盾。",
-          "work_items": [
-            "shouldClear 中添加 if (durationMs <= 10000) return false 守卫",
-            "编写测试：5秒文件在 3秒位置不保存（shouldSave=false，正确）",
-            "编写测试：9秒文件在 6秒位置保存且不清除"
-          ],
-          "files_involved": [
-            "lib/core/database/dao/progress_dao.dart"
-          ],
-          "impl_status": "done",
-          "dependencies": []
-        },
-        "G-4": {
-          "name": "拦截负值/零值定时器输入",
-          "issues": [
-            "timer_service.dart startDuration(-5) 设 endTime 到过去"
-          ],
-          "design_doc": "docs/fix.md §Batch G — G-4",
-          "current_status": "startDuration 无输入校验，负值导致 endTime 在过去，checkExpired 立即返回 true。",
-          "work_items": [
-            "startDuration 中添加 if (minutes <= 0) throw ArgumentError",
-            "测试：传入 -5 抛出 ArgumentError",
-            "测试：传入 0 抛出 ArgumentError"
-          ],
-          "files_involved": [
-            "lib/core/services/timer_service.dart"
-          ],
-          "impl_status": "done",
-          "dependencies": []
-        },
-        "G-5": {
-          "name": "修复 WebDavClient.validate() 未消费 HTTP 响应体",
-          "issues": [
-            "HTTP 持久连接无法复用"
-          ],
-          "design_doc": "docs/fix.md §Batch G — G-5",
-          "current_status": "validate() 用 _httpClient.send() 后不 drain response.stream。",
-          "work_items": [
-            "在 validate() 返回前添加 await streamedResponse.stream.drain<void>()",
-            "验证 listDirectory() 已正确 drain（第219行已正确实现）"
-          ],
-          "files_involved": [
-            "lib/core/network/webdav_client.dart"
-          ],
-          "impl_status": "done",
-          "dependencies": []
+          "impl_status": "pending",
+          "dependencies": ["A-1"]
         }
       }
     },
-    "batch-h": {
-      "label": "Batch H — P1 功能隐患",
+    "batch-b": {
+      "label": "Batch B — P1 功能异常",
       "priority": "P1",
-      "description": "非原子保存、无界缓存、lint抑制、不安全类型转换、静默错误吞噬、副作用",
+      "description": "定时与队列交互异常",
       "fixes": {
-        "H-1": {
-          "name": "ConnectionSaver.save() 添加原子性保护",
-          "issues": [
-            "三步操作非原子，失败无回滚"
-          ],
-          "design_doc": "docs/fix.md §Batch H — H-1",
-          "current_status": "insert→secureStorage→update 三步非原子。步骤2失败后DB留下 temp key。",
+        "B-1": {
+          "name": "修复自定义定时确认按钮无响应",
+          "issues": ["BUG-3"],
+          "design_doc": "docs/dev/fix.md §Batch B — B-1",
+          "current_status": "自定义定时弹窗状态管理与结构实现不稳定，确认动作与选值可能脱节。",
           "work_items": [
-            "步骤2（secureStorage写入）失败时删除步骤1插入的DB行",
-            "步骤3失败时至少记录错误日志"
+            "重构自定义定时弹窗为独立 Stateful 组件",
+            "修复确认按钮启用态和回调",
+            "增加 0 分钟禁用与非 0 分钟生效测试"
           ],
           "files_involved": [
-            "lib/features/connection/connection_provider.dart"
+            "lib/features/timer/widgets/timer_button.dart",
+            "test/features/timer/"
           ],
-          "impl_status": "done",
+          "impl_status": "pending",
           "dependencies": []
         },
-        "H-2": {
-          "name": "directoryCacheProvider 添加容量上限",
-          "issues": [
-            "内存无界增长"
-          ],
-          "design_doc": "docs/fix.md §Batch H — H-2",
-          "current_status": "StateProvider<Map> 缓存所有浏览过的目录，无 LRU 淘汰。",
+        "B-2": {
+          "name": "队列弹窗改为可滚动列表（全屏与迷你栏）",
+          "issues": ["BUG-4"],
+          "design_doc": "docs/dev/fix.md §Batch B — B-2",
+          "current_status": "队列弹窗使用 Column 直出全部条目，超过可视区后无法滚动。",
           "work_items": [
-            "添加最大条目数限制（如 50）",
-            "超限时清除最早插入的条目",
-            "测试：浏览 >50 个目录后缓存不超限"
+            "实现可滚动队列列表（ListView/DraggableScrollableSheet）",
+            "统一 player_screen 与 mini_player_bar 的队列弹窗实现",
+            "验证长队列可滑动与点选"
           ],
           "files_involved": [
-            "lib/features/browser/browser_provider.dart"
+            "lib/features/player/player_screen.dart",
+            "lib/features/player/widgets/mini_player_bar.dart",
+            "lib/features/player/widgets/queue_sheet.dart"
           ],
-          "impl_status": "done",
+          "impl_status": "pending",
           "dependencies": []
         },
-        "H-3": {
-          "name": "替换文件级 lint 抑制为行级抑制",
-          "issues": [
-            "ignore_for_file 掩盖新增代码的 async context 问题"
-          ],
-          "design_doc": "docs/fix.md §Batch H — H-3",
-          "current_status": "browser_screen.dart:10 ignore_for_file: use_build_context_synchronously。",
+        "B-3": {
+          "name": "将播放列表按钮迁移到下一曲右侧",
+          "issues": ["布局调整"],
+          "design_doc": "docs/dev/fix.md §Batch B — B-3",
+          "current_status": "播放列表按钮位于 AppBar，不符合当前交互期望。",
           "work_items": [
-            "删除第10行 ignore_for_file",
-            "在确实需要异步 context 访问的行前添加 // ignore: use_build_context_synchronously"
+            "删除 AppBar 队列按钮",
+            "在播放控制条 next 右侧新增队列按钮",
+            "更新可访问性与 widget 测试"
           ],
           "files_involved": [
-            "lib/features/browser/browser_screen.dart"
+            "lib/features/player/player_screen.dart",
+            "test/features/player/"
           ],
-          "impl_status": "done",
+          "impl_status": "pending",
+          "dependencies": ["B-2"]
+        }
+      }
+    },
+    "batch-c": {
+      "label": "Batch C — P2 体验与一致性",
+      "priority": "P2",
+      "description": "UI 图标/布局与增强项",
+      "fixes": {
+        "C-1": {
+          "name": "修复快进按钮图标为回转箭头语义",
+          "issues": ["快进图标错误"],
+          "design_doc": "docs/dev/fix.md §Batch C — C-1",
+          "current_status": "快进默认图标是 Icons.forward，语义与快退不对称。",
+          "work_items": [
+            "替换快进 icon 映射逻辑",
+            "校验 10s/30s/60s 一致性"
+          ],
+          "files_involved": [
+            "lib/features/player/player_screen.dart"
+          ],
+          "impl_status": "pending",
           "dependencies": []
         },
-        "H-4": {
-          "name": "PlayQueue 安全类型转换 + 边界校验",
-          "issues": [
-            "fromMap as int 在缺字段时崩溃",
-            "nextIndex 不校验 current 边界"
-          ],
-          "design_doc": "docs/fix.md §Batch H — H-4",
-          "current_status": "map['currentIndex'] as int 类型不安全；nextIndex 无 -1 >= length 校验。",
+        "C-2": {
+          "name": "修复 60 秒步长图标走错分支",
+          "issues": ["60 秒显示直线箭头"],
+          "design_doc": "docs/dev/fix.md §Batch C — C-2",
+          "current_status": "_iconForSeekForward/_iconForSeekBackward 未显式处理 60 秒。",
           "work_items": [
-            "fromMap: as int? + ?? 0 默认值",
-            "nextIndex/previousIndex: 添加 if (current < 0 || current >= length) return null",
-            "构造函数: 添加 assert 校验 currentIndex 范围"
+            "增加 60 秒图标映射",
+            "补充 seekStep=60 的 UI 断言测试"
           ],
           "files_involved": [
-            "lib/shared/models/play_queue.dart"
+            "lib/features/player/player_screen.dart",
+            "test/features/player/ply_02_test.dart"
           ],
-          "impl_status": "done",
-          "dependencies": []
+          "impl_status": "pending",
+          "dependencies": ["C-1"]
         },
-        "H-5": {
-          "name": "_NextButton 切歌失败时显示错误反馈",
-          "issues": [
-            "丢弃 loadAndPlayProvider 返回值，失败无提示"
-          ],
-          "design_doc": "docs/fix.md §Batch H — H-5",
-          "current_status": "_NextButton 调用 loadAndPlayProvider 但忽略 null 返回值。",
+        "C-3": {
+          "name": "自定义停止时长增加‘上次时长’快捷项",
+          "issues": ["缺少历史时长复用"],
+          "design_doc": "docs/dev/fix.md §Batch C — C-3",
+          "current_status": "定时菜单未持久化和展示最近一次自定义时长。",
           "work_items": [
-            "保存 loadAndPlayProvider 返回值",
-            "null 时通过 ScaffoldMessenger 显示 SnackBar"
+            "定义 last_custom_timer_minutes 存储 key",
+            "新增读取/写入 provider 与 UI 展示逻辑",
+            "增加无历史值时隐藏该项的测试"
           ],
           "files_involved": [
-            "lib/features/player/widgets/mini_player_bar.dart"
+            "lib/features/timer/timer_provider.dart",
+            "lib/features/timer/widgets/timer_button.dart",
+            "test/features/timer/"
           ],
-          "impl_status": "done",
-          "dependencies": []
+          "impl_status": "pending",
+          "dependencies": ["B-1"]
         },
-        "H-6": {
-          "name": "自定义定时 0:00 时禁用确认按钮",
-          "issues": [
-            "选0小时0分钟确认后无声关闭"
-          ],
-          "design_doc": "docs/fix.md §Batch H — H-6",
-          "current_status": "totalMinutes==0 时确认按钮仍然可用，关闭弹窗但不启动定时。",
+        "C-4": {
+          "name": "精简进度持久化为单活跃记录并在启动恢复",
+          "issues": ["逐曲保存导致恢复复杂度过高"],
+          "design_doc": "docs/dev/fix.md §Batch C — C-4",
+          "current_status": "当前按 connectionId+filePath 保存，逐曲恢复弹窗链路复杂且与需求不符。",
           "work_items": [
-            "totalMinutes==0 时确认按钮置灰/禁用",
-            "或默认选中5分钟而非0分钟"
+            "新增/迁移 DAO 到单活跃进度模型",
+            "调整浏览器与播放器调用链",
+            "增加迁移兼容策略和测试"
           ],
           "files_involved": [
-            "lib/features/timer/widgets/timer_button.dart"
-          ],
-          "impl_status": "done",
-          "dependencies": []
-        },
-        "H-7": {
-          "name": "startupValidationProvider 空 id 保护",
-          "issues": [
-            "activeConn.id 为 null 时 key 变成 connection_password_null"
-          ],
-          "design_doc": "docs/fix.md §Batch H — H-7",
-          "current_status": "未校验 activeConn.id != null 即拼接 key。",
-          "work_items": [
-            "拼接 key 前检查 activeConn.id != null，否则返回 authError"
-          ],
-          "files_involved": [
-            "lib/features/connection/connection_provider.dart"
-          ],
-          "impl_status": "done",
-          "dependencies": []
-        },
-        "H-8": {
-          "name": "静默 catch 块添加 debugPrint 日志",
-          "issues": [
-            "browser_provider 和 progress_dao 两处 catch (_) 完全静默"
-          ],
-          "design_doc": "docs/fix.md §Batch H — H-8",
-          "current_status": "catch(_) 不记录任何信息，调试困难。",
-          "work_items": [
-            "两处 catch 添加 debugPrint 输出异常信息",
-            "保持不抛出（继续执行）"
-          ],
-          "files_involved": [
+            "lib/core/database/dao/progress_dao.dart",
+            "lib/features/progress/progress_provider.dart",
             "lib/features/browser/browser_provider.dart",
-            "lib/core/database/dao/progress_dao.dart"
+            "lib/features/browser/browser_screen.dart",
+            "lib/features/player/player_provider.dart"
           ],
-          "impl_status": "done",
-          "dependencies": []
-        },
-        "H-9": {
-          "name": "去重 seekStep 双 Provider",
-          "issues": [
-            "seekStepSettingProvider 和 seekStepProvider 读同一个 key"
-          ],
-          "design_doc": "docs/fix.md §Batch H — H-9",
-          "current_status": "两个 Provider 读同一个 SharedPreferences key，手动同步。",
-          "work_items": [
-            "删除 settings_provider 中的 seekStepSettingProvider",
-            "设置页直接 watch player_provider 的 seekStepProvider",
-            "setSeekStepSettingProvider 改为直接操作 seekStepProvider"
-          ],
-          "files_involved": [
-            "lib/features/settings/settings_provider.dart",
-            "lib/features/settings/settings_screen.dart"
-          ],
-          "impl_status": "done",
-          "dependencies": []
-        },
-        "H-10": {
-          "name": "修复 ConnectionEditScreen build 中的副作用",
-          "issues": [
-            "_originalConfig ??= connection 在 build 阶段执行"
-          ],
-          "design_doc": "docs/fix.md §Batch H — H-10",
-          "current_status": "build() 阶段修改实例变量 _originalConfig，不符合 Flutter 规范。",
-          "work_items": [
-            "将初始化移到 initState + addPostFrameCallback 中",
-            "确保与现有 _needsValidation() 逻辑兼容"
-          ],
-          "files_involved": [
-            "lib/features/connection/connection_edit_screen.dart"
-          ],
-          "impl_status": "done",
-          "dependencies": []
+          "impl_status": "pending",
+          "dependencies": ["A-2"]
         }
       }
     },
     "batch-i": {
-      "label": "Batch I — P2 代码质量/架构",
+      "label": "Batch I — P2 历史遗留未完成项",
       "priority": "P2",
-      "description": "代码重复消除、正则缓存、版本读取、字符串匹配精度、路由守卫、组件提取",
+      "description": "上一轮保留的 pending 项",
       "fixes": {
-        "I-1": {
-          "name": "TimerState 相等性包含 startedAt",
-          "issues": [
-            "同时长 timer 实例被视为相等"
-          ],
-          "design_doc": "docs/fix.md §Batch I — I-1",
-          "work_items": [
-            "== 和 hashCode 中加入 startedAt"
-          ],
-          "files_involved": [
-            "lib/core/services/timer_service.dart"
-          ],
-          "impl_status": "done",
-          "dependencies": []
-        },
-        "I-2": {
-          "name": "删除 connection_dao 不可达 catch 块",
-          "issues": [
-            "play_progress 表始终与 connections 一起创建"
-          ],
-          "design_doc": "docs/fix.md §Batch I — I-2",
-          "work_items": [
-            "移除 try-catch，直接执行 delete"
-          ],
-          "files_involved": [
-            "lib/core/database/dao/connection_dao.dart"
-          ],
-          "impl_status": "done",
-          "dependencies": []
-        },
-        "I-3": {
-          "name": "缓存 webdav_client RegExp 为 static const",
-          "issues": [
-            "每次方法调用重新创建 RegExp"
-          ],
-          "design_doc": "docs/fix.md §Batch I — I-3",
-          "work_items": [
-            "_parsePropfindResponse 和 _extractXmlContent 中 RegExp 提升为 static final"
-          ],
-          "files_involved": [
-            "lib/core/network/webdav_client.dart"
-          ],
-          "impl_status": "done",
-          "dependencies": []
-        },
         "I-4": {
           "name": "版本号从 package_info_plus 读取",
-          "issues": [
-            "about_screen 版本号硬编码 1.0.0"
-          ],
-          "design_doc": "docs/fix.md §Batch I — I-4",
+          "issues": ["about_screen 版本号硬编码 1.0.0"],
+          "design_doc": "docs/dev/fix.md §Batch I — I-4",
+          "current_status": "设置页关于页面版本号仍使用硬编码。",
           "work_items": [
             "添加 package_info_plus 依赖",
-            "用 PackageInfo.fromPlatform() 替换硬编码"
+            "使用 PackageInfo.fromPlatform() 替换硬编码"
           ],
           "files_involved": [
             "lib/features/settings/about_screen.dart",
@@ -346,73 +202,14 @@
           "impl_status": "pending",
           "dependencies": []
         },
-        "I-5": {
-          "name": "breadcrumb_bar TextPainter 添加 dispose()",
-          "issues": [
-            "TextPainter 创建后未释放"
-          ],
-          "design_doc": "docs/fix.md §Batch I — I-5",
-          "work_items": [
-            "LayoutBuilder 回调结束前调用 textPainter.dispose()"
-          ],
-          "files_involved": [
-            "lib/features/browser/widgets/breadcrumb_bar.dart"
-          ],
-          "impl_status": "done",
-          "dependencies": []
-        },
-        "I-6": {
-          "name": "webdav_client 错误消息过滤 URL 敏感信息",
-          "issues": [
-            "$e 可能泄露 URL 路径到日志"
-          ],
-          "design_doc": "docs/fix.md §Batch I — I-6",
-          "work_items": [
-            "使用 SocketException 类型判断，输出不含 URL 的通用消息"
-          ],
-          "files_involved": [
-            "lib/core/network/webdav_client.dart"
-          ],
-          "impl_status": "done",
-          "dependencies": []
-        },
-        "I-7": {
-          "name": "_sourceMatchesQueue 使用精确路径比对",
-          "issues": [
-            ".contains() 子串匹配误判"
-          ],
-          "design_doc": "docs/fix.md §Batch I — I-7",
-          "work_items": [
-            "改用 Uri.decodeComponent 后 endsWith 或精确解码路径比对"
-          ],
-          "files_involved": [
-            "lib/features/player/player_screen.dart"
-          ],
-          "impl_status": "done",
-          "dependencies": []
-        },
-        "I-8": {
-          "name": "进度弹窗 dismiss 时保持现状",
-          "issues": [
-            "设计决策 — WONTFIX"
-          ],
-          "design_doc": "docs/fix.md §Batch I — I-8",
-          "work_items": [
-            "确认 dismiss 表示用户取消，保持当前选择是合理默认行为"
-          ],
-          "files_involved": [],
-          "impl_status": "done",
-          "dependencies": []
-        },
         "I-9": {
           "name": "提取共享 _ValidationBanner 组件",
-          "issues": [
-            "connection_screen 和 connection_edit_screen 中代码重复"
-          ],
-          "design_doc": "docs/fix.md §Batch I — I-9",
+          "issues": ["connection 两个页面存在重复校验提示 UI"],
+          "design_doc": "docs/dev/fix.md §Batch I — I-9",
+          "current_status": "连接页面与编辑页面均有重复的验证提示区块。",
           "work_items": [
             "新建 validation_banner.dart",
-            "两处引用替换为共享组件"
+            "两处页面替换为共享组件"
           ],
           "files_involved": [
             "lib/features/connection/widgets/validation_banner.dart",
@@ -424,13 +221,12 @@
         },
         "I-10": {
           "name": "提取共享队列列表组件",
-          "issues": [
-            "player_screen 和 mini_player_bar 中队列 sheet 代码重复"
-          ],
-          "design_doc": "docs/fix.md §Batch I — I-10",
+          "issues": ["player_screen 与 mini_player_bar 队列弹窗代码重复"],
+          "design_doc": "docs/dev/fix.md §Batch I — I-10",
+          "current_status": "两处队列弹窗维护成本高且行为易不一致。",
           "work_items": [
             "新建 queue_sheet.dart",
-            "两处引用替换为共享组件"
+            "两处调用替换为共享组件"
           ],
           "files_involved": [
             "lib/features/player/widgets/queue_sheet.dart",
@@ -438,32 +234,16 @@
             "lib/features/player/widgets/mini_player_bar.dart"
           ],
           "impl_status": "pending",
-          "dependencies": []
-        },
-        "I-11": {
-          "name": "修复通知渠道包名为实际 applicationId",
-          "issues": [
-            "com.example 是占位符"
-          ],
-          "design_doc": "docs/fix.md §Batch I — I-11",
-          "work_items": [
-            "改为与 build.gradle 一致的 applicationId"
-          ],
-          "files_involved": [
-            "lib/main.dart"
-          ],
-          "impl_status": "done",
-          "dependencies": []
+          "dependencies": ["B-2"]
         },
         "I-12": {
           "name": "添加 GoRouter 路由守卫",
-          "issues": [
-            "可 deep-link 到不可用路由"
-          ],
-          "design_doc": "docs/fix.md §Batch I — I-12",
+          "issues": ["可 deep-link 到当前状态不可用页面"],
+          "design_doc": "docs/dev/fix.md §Batch I — I-12",
+          "current_status": "无活跃连接或无队列时仍可跳到对应页面。",
           "work_items": [
-            "无活跃连接时 /browser 和 /player → /onboarding",
-            "无队列时 /player → /browser"
+            "无活跃连接时 /browser 和 /player 重定向到 /onboarding",
+            "无队列时 /player 重定向到 /browser"
           ],
           "files_involved": [
             "lib/main.dart"
@@ -477,65 +257,41 @@
   "implementation_order": [
     {
       "step": 1,
-      "tasks": [
-        "G-1",
-        "G-2",
-        "G-3",
-        "G-4",
-        "G-5"
-      ],
-      "note": "P0 批次 — 全部独立，可并行。G-1 和 G-2 建议最先做"
+      "tasks": ["A-1", "A-2"],
+      "note": "先稳定加载并发，再收敛恢复链路"
     },
     {
       "step": 2,
-      "tasks": [
-        "H-1",
-        "H-2",
-        "H-3",
-        "H-4",
-        "H-5",
-        "H-6",
-        "H-7",
-        "H-8",
-        "H-9",
-        "H-10"
-      ],
-      "note": "P1 批次 — 全部独立，可并行"
+      "tasks": ["B-1", "B-2", "B-3"],
+      "note": "修复交互异常并完成播放器操作区重排"
     },
     {
       "step": 3,
-      "tasks": [
-        "I-1",
-        "I-2",
-        "I-3",
-        "I-4",
-        "I-5",
-        "I-6",
-        "I-7",
-        "I-8",
-        "I-9",
-        "I-10",
-        "I-11",
-        "I-12"
-      ],
-      "note": "P2 批次 — 全部独立"
+      "tasks": ["C-1", "C-2", "C-3"],
+      "note": "低风险 UI/交互一致性，可并行"
+    },
+    {
+      "step": 4,
+      "tasks": ["C-4"],
+      "note": "涉及数据模型迁移，单独执行"
+    },
+    {
+      "step": 5,
+      "tasks": ["I-4", "I-9", "I-10", "I-12"],
+      "note": "历史遗留项，独立排期"
     }
   ],
   "status_values": {
-    "impl_status": [
-      "pending",
-      "in_progress",
-      "done"
-    ]
+    "impl_status": ["pending", "in_progress", "done"]
   },
   "metadata": {
-    "source": "docs/fix.md",
-    "date": "2026-05-16",
-    "total_fixes": 27,
+    "source": "docs/dev/fix.md",
+    "date": "2026-05-17",
+    "total_fixes": 13,
     "by_priority": {
-      "P0": 5,
-      "P1": 10,
-      "P2": 12
+      "P0": 2,
+      "P1": 3,
+      "P2": 8
     }
   }
 }

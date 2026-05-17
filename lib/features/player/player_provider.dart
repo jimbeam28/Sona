@@ -82,8 +82,7 @@ class PlayerLoadState {
 
   static const idle = PlayerLoadState();
 
-  static const loading =
-      PlayerLoadState(status: PlayerLoadStatus.loading);
+  static const loading = PlayerLoadState(status: PlayerLoadStatus.loading);
 
   static const ready = PlayerLoadState(status: PlayerLoadStatus.ready);
 
@@ -110,6 +109,113 @@ class PlayerLoadState {
   String toString() =>
       'PlayerLoadState(status: $status, errorMessage: $errorMessage, '
       'isAuthError: $isAuthError)';
+}
+
+/// Result of attempting to load the current queue entry into the player.
+enum TrackLoadStatus {
+  loaded,
+  failed,
+  superseded,
+}
+
+/// Outcome wrapper for serialized load requests.
+class TrackLoadResult {
+  final TrackLoadStatus status;
+  final AudioPlayer? player;
+
+  const TrackLoadResult._(this.status, this.player);
+
+  const TrackLoadResult.loaded(AudioPlayer player)
+      : this._(TrackLoadStatus.loaded, player);
+
+  const TrackLoadResult.failed() : this._(TrackLoadStatus.failed, null);
+
+  const TrackLoadResult.superseded() : this._(TrackLoadStatus.superseded, null);
+
+  bool get isLoaded => status == TrackLoadStatus.loaded && player != null;
+  bool get isSuperseded => status == TrackLoadStatus.superseded;
+}
+
+/// Serializes asynchronous requests and lets the latest one win.
+///
+/// Older requests are allowed to finish, but their completion is discarded
+/// once a newer request has been scheduled. This prevents overlapping
+/// `stop -> setAudioSource -> play` chains on the shared [AudioPlayer].
+class SerializedRequestGate {
+  int _latestRequestId = 0;
+  bool _running = false;
+  _QueuedRequest<dynamic>? _pendingRequest;
+
+  int beginRequest() => ++_latestRequestId;
+
+  bool isLatest(int requestId) => requestId == _latestRequestId;
+
+  Future<T> schedule<T>({
+    required Future<T> Function(int requestId) task,
+    required T Function() onSuperseded,
+  }) {
+    final requestId = beginRequest();
+    final completer = Completer<T>();
+    final request = _QueuedRequest<T>(
+      requestId: requestId,
+      task: task,
+      onSuperseded: onSuperseded,
+      completer: completer,
+    );
+
+    if (_running) {
+      _pendingRequest?.completeSuperseded();
+      _pendingRequest = request;
+    } else {
+      _start(request);
+    }
+
+    return completer.future;
+  }
+
+  void _start<T>(_QueuedRequest<T> request) {
+    _running = true;
+    unawaited(() async {
+      try {
+        final result = await request.task(request.requestId);
+        request.complete(
+            isLatest(request.requestId) ? result : request.onSuperseded());
+      } catch (_) {
+        request.complete(request.onSuperseded());
+      } finally {
+        _running = false;
+        final next = _pendingRequest;
+        _pendingRequest = null;
+        if (next != null) {
+          _start<dynamic>(next);
+        }
+      }
+    }());
+  }
+}
+
+class _QueuedRequest<T> {
+  final int requestId;
+  final Future<T> Function(int requestId) task;
+  final T Function() onSuperseded;
+  final Completer<T> completer;
+
+  _QueuedRequest({
+    required this.requestId,
+    required this.task,
+    required this.onSuperseded,
+    required this.completer,
+  });
+
+  void complete(T result) {
+    if (!completer.isCompleted) {
+      completer.complete(result);
+    }
+  }
+
+  void completeSuperseded() {
+    complete(onSuperseded());
+  }
 }
 
 // ── Seek utility functions ──────────────────────────────────────────────────────
@@ -482,6 +588,11 @@ final _cancelAutoSaveProvider = Provider<void Function()>((ref) {
 final _pauseSaveSubProvider =
     StateProvider<StreamSubscription<void>?>((ref) => null);
 
+/// Gate that serializes load requests for the shared [AudioPlayer].
+final _loadRequestGateProvider = Provider<SerializedRequestGate>((ref) {
+  return SerializedRequestGate();
+});
+
 /// Starts a listener that saves progress whenever the player transitions
 /// from playing to paused.
 final _startPauseSaveProvider = Provider<void Function(AudioPlayer)>((ref) {
@@ -513,19 +624,54 @@ final _cancelPauseSaveProvider = Provider<void Function()>((ref) {
 /// [loadAndPlayProvider].  The processing listener inside loadAndPlayProvider
 /// calls an inlined _advanceToNext helper instead of reading this provider,
 /// breaking the cycle.
-final Provider<void Function()> skipToNextProvider =
-    Provider<void Function()>((ref) {
-  return () {
+final Provider<Future<TrackLoadResult> Function()> skipToNextProvider =
+    Provider<Future<TrackLoadResult> Function()>((ref) {
+  return () async {
     final queue = ref.read(currentPlayQueueProvider);
     final mode = ref.read(playModeProvider);
-    if (queue == null) return;
-    final nextIdx =
-        PlayQueue.nextIndex(queue.currentIndex, queue.length, mode);
-    if (nextIdx == null) return;
+    if (queue == null) return const TrackLoadResult.failed();
+    final nextIdx = PlayQueue.nextIndex(queue.currentIndex, queue.length, mode);
+    if (nextIdx == null) return const TrackLoadResult.failed();
     ref.read(saveProgressProvider)();
     final nextQueue = queue.withIndex(nextIdx);
     ref.read(currentPlayQueueProvider.notifier).state = nextQueue;
-    ref.read(loadAndPlayProvider)();
+    return ref.read(loadAndPlayProvider)();
+  };
+});
+
+/// Moves the queue backward and loads the selected track through the
+/// serialized playback pipeline.
+final skipToPreviousProvider =
+    Provider<Future<TrackLoadResult> Function()>((ref) {
+  return () async {
+    final queue = ref.read(currentPlayQueueProvider);
+    final mode = ref.read(playModeProvider);
+    if (queue == null) return const TrackLoadResult.failed();
+    final prevIdx =
+        PlayQueue.previousIndex(queue.currentIndex, queue.length, mode);
+    if (prevIdx == null) return const TrackLoadResult.failed();
+    ref.read(saveProgressProvider)();
+    final prevQueue = queue.withIndex(prevIdx);
+    ref.read(currentPlayQueueProvider.notifier).state = prevQueue;
+    return ref.read(loadAndPlayProvider)();
+  };
+});
+
+/// Selects a queue index and loads that track through the serialized
+/// playback pipeline.
+final selectQueueIndexProvider =
+    Provider<Future<TrackLoadResult> Function(int)>((ref) {
+  return (int index) async {
+    final queue = ref.read(currentPlayQueueProvider);
+    if (queue == null || index < 0 || index >= queue.length) {
+      return const TrackLoadResult.failed();
+    }
+    if (index == queue.currentIndex) {
+      return const TrackLoadResult.failed();
+    }
+    ref.read(saveProgressProvider)();
+    ref.read(currentPlayQueueProvider.notifier).state = queue.withIndex(index);
+    return ref.read(loadAndPlayProvider)();
   };
 });
 
@@ -541,8 +687,8 @@ final Provider<void Function()> skipToNextProvider =
 ///
 /// G-2: the processing listener calls an inlined _advanceToNext helper
 /// instead of reading [skipToNextProvider], breaking the cycle.
-final Provider<Future<AudioPlayer?> Function()> loadAndPlayProvider =
-    Provider<Future<AudioPlayer?> Function()>((ref) {
+final Provider<Future<TrackLoadResult> Function()> loadAndPlayProvider =
+    Provider<Future<TrackLoadResult> Function()>((ref) {
   /// G-2: inline helper — advances the queue and re-enters loadAndPlay,
   /// avoiding a circular Provider reference.
   void advanceToNext() {
@@ -554,82 +700,110 @@ final Provider<Future<AudioPlayer?> Function()> loadAndPlayProvider =
     ref.read(saveProgressProvider)();
     final nq = q.withIndex(ni);
     ref.read(currentPlayQueueProvider.notifier).state = nq;
-    ref.read(loadAndPlayProvider)();
+    unawaited(ref.read(loadAndPlayProvider)());
   }
 
   return () async {
-    final queue = ref.read(currentPlayQueueProvider);
-    if (queue == null || queue.length == 0) return null;
-
-    try {
-      // E-2: if the connection has changed since the queue was created,
-      // refuse to load — file paths may not exist on the new connection.
-      final savedConnId = ref.read(lastQueueConnectionIdProvider);
-      final activeConn = await ref.read(activeConnectionProvider.future);
-      if (activeConn == null) return null;
-      if (savedConnId != null && activeConn.id != savedConnId) return null;
-
-      final storage = ref.read(secureStorageProvider);
-      final password =
-          await storage.read(key: 'connection_password_${activeConn.id}');
-      if (password == null || password.isEmpty) return null;
-
-      final source = AudioSourceBuilder.buildWithBasePath(
-        baseUrl: activeConn.url,
-        filePath: queue.current.path,
-        username: activeConn.username,
-        password: password,
-      );
-
-      final player = ref.read(audioPlayerProvider);
-
-      // Register completion listener BEFORE stop (preserves A-2 fix).
-      // G-2: uses advanceToNext() defined above, not skipToNextProvider,
-      // to break the circular dependency.
-      ref.read(cancelProcessingListenerProvider)();
-      final sub = player.processingStateStream.listen((state) {
-        if (state == ProcessingState.completed) {
-          final triggered = ref.read(onTrackCompletedProvider)();
-          if (triggered) {
-            player.pause();
-          } else {
-            advanceToNext();
-          }
+    final gate = ref.read(_loadRequestGateProvider);
+    return gate.schedule<TrackLoadResult>(
+      onSuperseded: () => const TrackLoadResult.superseded(),
+      task: (requestId) async {
+        final queue = ref.read(currentPlayQueueProvider);
+        if (queue == null || queue.length == 0) {
+          return const TrackLoadResult.failed();
         }
-      });
-      ref.read(_processingSubProvider.notifier).state = sub;
 
-      await player.stop();
-      await player.setAudioSource(source);
+        try {
+          // E-2: if the connection has changed since the queue was created,
+          // refuse to load — file paths may not exist on the new connection.
+          final savedConnId = ref.read(lastQueueConnectionIdProvider);
+          final activeConn = await ref.read(activeConnectionProvider.future);
+          if (activeConn == null) return const TrackLoadResult.failed();
+          if (savedConnId != null && activeConn.id != savedConnId) {
+            return const TrackLoadResult.failed();
+          }
+          if (!gate.isLatest(requestId)) {
+            return const TrackLoadResult.superseded();
+          }
 
-      if (queue.startPositionMs != null) {
-        await player.seek(Duration(milliseconds: queue.startPositionMs!));
-      }
+          final storage = ref.read(secureStorageProvider);
+          final password =
+              await storage.read(key: 'connection_password_${activeConn.id}');
+          if (password == null || password.isEmpty) {
+            return const TrackLoadResult.failed();
+          }
+          if (!gate.isLatest(requestId)) {
+            return const TrackLoadResult.superseded();
+          }
 
-      // Update the notification with the current track info.
-      final handler = ref.read(audioHandlerProvider);
-      handler?.setMediaItemFromPath(
-        queue.current.path,
-        duration: player.duration,
-      );
+          final source = AudioSourceBuilder.buildWithBasePath(
+            baseUrl: activeConn.url,
+            filePath: queue.current.path,
+            username: activeConn.username,
+            password: password,
+          );
 
-      // Apply the default playback speed.
-      final defaultSpeed = ref.read(defaultSpeedProvider);
-      if ((defaultSpeed - 1.0).abs() > 0.01) {
-        await player.setSpeed(defaultSpeed);
-        ref.read(currentSpeedProvider.notifier).state = defaultSpeed;
-      }
+          final player = ref.read(audioPlayerProvider);
 
-      await player.play();
+          // Register completion listener BEFORE stop (preserves A-2 fix).
+          // G-2: uses advanceToNext() defined above, not skipToNextProvider,
+          // to break the circular dependency.
+          ref.read(cancelProcessingListenerProvider)();
+          final sub = player.processingStateStream.listen((state) {
+            if (state == ProcessingState.completed) {
+              final triggered = ref.read(onTrackCompletedProvider)();
+              if (triggered) {
+                player.pause();
+              } else {
+                advanceToNext();
+              }
+            }
+          });
+          ref.read(_processingSubProvider.notifier).state = sub;
 
-      // Start background listeners for progress persistence.
-      ref.read(_startAutoSaveProvider)();
-      ref.read(_startPauseSaveProvider)(player);
+          await player.stop();
+          if (!gate.isLatest(requestId)) {
+            return const TrackLoadResult.superseded();
+          }
 
-      return player;
-    } catch (_) {
-      return null;
-    }
+          await player.setAudioSource(source);
+
+          if (queue.startPositionMs != null) {
+            await player.seek(Duration(milliseconds: queue.startPositionMs!));
+          }
+
+          // Update the notification with the current track info.
+          final handler = ref.read(audioHandlerProvider);
+          handler?.setMediaItemFromPath(
+            queue.current.path,
+            duration: player.duration,
+          );
+
+          // Apply the default playback speed.
+          final defaultSpeed = ref.read(defaultSpeedProvider);
+          if ((defaultSpeed - 1.0).abs() > 0.01) {
+            await player.setSpeed(defaultSpeed);
+            ref.read(currentSpeedProvider.notifier).state = defaultSpeed;
+          }
+          if (!gate.isLatest(requestId)) {
+            return const TrackLoadResult.superseded();
+          }
+
+          await player.play();
+          if (!gate.isLatest(requestId)) {
+            return const TrackLoadResult.superseded();
+          }
+
+          // Start background listeners for progress persistence.
+          ref.read(_startAutoSaveProvider)();
+          ref.read(_startPauseSaveProvider)(player);
+
+          return TrackLoadResult.loaded(player);
+        } catch (_) {
+          return const TrackLoadResult.failed();
+        }
+      },
+    );
   };
 });
 

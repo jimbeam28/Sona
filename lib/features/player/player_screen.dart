@@ -41,6 +41,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     with WidgetsBindingObserver {
   /// Tracks the source-load lifecycle: idle -> loading -> ready / error.
   PlayerLoadState _loadState = PlayerLoadState.idle;
+  int _loadRequestToken = 0;
 
   Timer? _timerExpiryChecker;
 
@@ -136,6 +137,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   Future<void> _loadAndPlay() async {
+    await _runSerializedLoad(() => ref.read(loadAndPlayProvider)());
+  }
+
+  Future<void> _runSerializedLoad(
+    Future<TrackLoadResult> Function() request,
+  ) async {
     final queue = ref.read(currentPlayQueueProvider);
     if (queue == null || queue.length == 0) {
       setState(() {
@@ -145,31 +152,41 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     }
 
     setState(() => _loadState = PlayerLoadState.loading);
+    final requestToken = ++_loadRequestToken;
 
-    // D-1: delegate to the unified load+play entry point which handles
-    // listener registration, speed, auto-save, and pause-save setup.
-    final loaded = await ref.read(loadAndPlayProvider)();
+    late final TrackLoadResult loaded;
+    try {
+      loaded = await request().timeout(const Duration(seconds: 15));
+    } on TimeoutException {
+      if (!mounted || requestToken != _loadRequestToken) return;
+      setState(() {
+        _loadState = PlayerLoadState.error('加载超时，请重试');
+      });
+      return;
+    }
 
-    if (!mounted) return;
+    if (!mounted || requestToken != _loadRequestToken) return;
 
-    if (loaded != null) {
+    if (loaded.isLoaded) {
       setState(() => _loadState = PlayerLoadState.ready);
+    } else if (loaded.isSuperseded) {
+      setState(() {
+        _loadState = PlayerLoadState.error('加载已被新的播放请求替换');
+      });
     } else {
       // Determine the specific error reason from provider state.
       final activeConn = ref.read(activeConnectionProvider).valueOrNull;
       if (activeConn == null) {
         setState(() {
-          _loadState = PlayerLoadState.error('没有活跃的连接',
-              isAuthError: true);
+          _loadState = PlayerLoadState.error('没有活跃的连接', isAuthError: true);
         });
       } else {
         final storage = ref.read(secureStorageProvider);
-        final pw = await storage
-            .read(key: 'connection_password_${activeConn.id}');
+        final pw =
+            await storage.read(key: 'connection_password_${activeConn.id}');
         if (pw == null || pw.isEmpty) {
           setState(() {
-            _loadState = PlayerLoadState.error('密码未保存',
-                isAuthError: true);
+            _loadState = PlayerLoadState.error('密码未保存', isAuthError: true);
           });
         } else {
           setState(() {
@@ -192,30 +209,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   /// Advance to the next track based on the current play mode.
   void _playNext() {
-    final queue = ref.read(currentPlayQueueProvider);
-    final mode = ref.read(playModeProvider);
-    if (queue == null) return;
-    final nextIdx = PlayQueue.nextIndex(queue.currentIndex, queue.length, mode);
-    if (nextIdx == null) return;
-    // PRG-01 trigger ③: save current progress before switching tracks.
-    _saveProgress();
-    final nextQueue = queue.withIndex(nextIdx);
-    ref.read(currentPlayQueueProvider.notifier).state = nextQueue;
-    _loadAndPlay();
+    unawaited(_runSerializedLoad(() => ref.read(skipToNextProvider)()));
   }
 
   /// Skip to the previous track based on the current play mode.
   void _playPrevious() {
-    final queue = ref.read(currentPlayQueueProvider);
-    final mode = ref.read(playModeProvider);
-    if (queue == null) return;
-    final prevIdx =
-        PlayQueue.previousIndex(queue.currentIndex, queue.length, mode);
-    if (prevIdx == null) return;
-    _saveProgress();
-    final prevQueue = queue.withIndex(prevIdx);
-    ref.read(currentPlayQueueProvider.notifier).state = prevQueue;
-    _loadAndPlay();
+    unawaited(_runSerializedLoad(() => ref.read(skipToPreviousProvider)()));
   }
 
   // ── Queue sheet (B-2) ──────────────────────────────────────────────────
@@ -271,12 +270,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                       ? null
                       : () {
                           Navigator.of(ctx).pop();
-                          _saveProgress();
-                          final nextQueue = queue.withIndex(i);
-                          ref
-                              .read(currentPlayQueueProvider.notifier)
-                              .state = nextQueue;
-                          _loadAndPlay();
+                          unawaited(_runSerializedLoad(
+                            () => ref.read(selectQueueIndexProvider)(i),
+                          ));
                         },
                 );
               }),
@@ -589,8 +585,8 @@ class _ProgressSliderState extends ConsumerState<_ProgressSlider> {
                 return Text(
                   formatDuration(snapshot.data ?? Duration.zero),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
                 );
               },
             ),
@@ -600,8 +596,8 @@ class _ProgressSliderState extends ConsumerState<_ProgressSlider> {
                 return Text(
                   formatDuration(snapshot.data),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
                 );
               },
             ),
@@ -712,19 +708,27 @@ class _PlaybackControls extends ConsumerWidget {
 
   IconData _iconForSeekBackward(int seconds) {
     switch (seconds) {
-      case 5:  return Icons.replay_5;
-      case 10: return Icons.replay_10;
-      case 30: return Icons.replay_30;
-      default: return Icons.replay;
+      case 5:
+        return Icons.replay_5;
+      case 10:
+        return Icons.replay_10;
+      case 30:
+        return Icons.replay_30;
+      default:
+        return Icons.replay;
     }
   }
 
   IconData _iconForSeekForward(int seconds) {
     switch (seconds) {
-      case 5:  return Icons.forward_5;
-      case 10: return Icons.forward_10;
-      case 30: return Icons.forward_30;
-      default: return Icons.forward;
+      case 5:
+        return Icons.forward_5;
+      case 10:
+        return Icons.forward_10;
+      case 30:
+        return Icons.forward_30;
+      default:
+        return Icons.forward;
     }
   }
 
@@ -797,7 +801,8 @@ class _SpeedControl extends ConsumerWidget {
         final currentSpeed = snapshot.data ?? 1.0;
 
         return OutlinedButton.icon(
-          onPressed: () => _showSpeedSelector(context, ref, player, currentSpeed),
+          onPressed: () =>
+              _showSpeedSelector(context, ref, player, currentSpeed),
           icon: const Icon(Icons.speed, size: 20),
           label: Text('${currentSpeed}x'),
           style: OutlinedButton.styleFrom(

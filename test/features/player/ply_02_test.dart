@@ -15,6 +15,8 @@
 // fails to initialise in the test environment, those tests are
 // skipped in favour of logic-level coverage.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -61,6 +63,89 @@ void main() {
       expect(PlayerLoadState.ready, isNot(equals(PlayerLoadState.loading)));
       expect(PlayerLoadState.idle, isNot(equals(PlayerLoadState.loading)));
     });
+
+    test('TrackLoadResult exposes loaded / failed / superseded states', () {
+      const failed = TrackLoadResult.failed();
+      const superseded = TrackLoadResult.superseded();
+
+      expect(failed.isLoaded, isFalse);
+      expect(failed.isSuperseded, isFalse);
+      expect(superseded.isLoaded, isFalse);
+      expect(superseded.isSuperseded, isTrue);
+    });
+  });
+
+  group('A-1: SerializedRequestGate', () {
+    test('runs scheduled tasks one at a time', () async {
+      final gate = SerializedRequestGate();
+      final firstStarted = Completer<void>();
+      final firstFinish = Completer<void>();
+      var secondStarted = false;
+
+      final first = gate.schedule<String>(
+        onSuperseded: () => 'superseded',
+        task: (_) async {
+          firstStarted.complete();
+          await firstFinish.future;
+          return 'first';
+        },
+      );
+
+      final second = gate.schedule<String>(
+        onSuperseded: () => 'superseded',
+        task: (_) async {
+          secondStarted = true;
+          return 'second';
+        },
+      );
+
+      await firstStarted.future;
+      expect(secondStarted, isFalse, reason: '第二个请求必须等待第一个请求完成，避免并发加载');
+
+      firstFinish.complete();
+
+      expect(await first, equals('superseded'));
+      expect(await second, equals('second'));
+      expect(secondStarted, isTrue);
+    });
+
+    test('drops stale queued requests before they start', () async {
+      final gate = SerializedRequestGate();
+      final firstFinish = Completer<void>();
+      final started = <String>[];
+
+      final first = gate.schedule<String>(
+        onSuperseded: () => 'superseded',
+        task: (_) async {
+          started.add('first');
+          await firstFinish.future;
+          return 'first';
+        },
+      );
+
+      final second = gate.schedule<String>(
+        onSuperseded: () => 'superseded',
+        task: (_) async {
+          started.add('second');
+          return 'second';
+        },
+      );
+
+      final third = gate.schedule<String>(
+        onSuperseded: () => 'superseded',
+        task: (_) async {
+          started.add('third');
+          return 'third';
+        },
+      );
+
+      firstFinish.complete();
+
+      expect(await first, equals('superseded'));
+      expect(await second, equals('superseded'), reason: '排队中的旧请求应在开始前直接丢弃');
+      expect(await third, equals('third'));
+      expect(started, equals(['first', 'third']));
+    });
   });
 
   // ── PLY-T10: seek to a valid in-range position ──────────────────────────
@@ -74,22 +159,20 @@ void main() {
     });
 
     test('seek to exactly 0', () {
-      final result =
-          clampSeek(Duration.zero, const Duration(seconds: 100));
-      expect(result, equals(Duration.zero),
-          reason: 'seek 到 0 应返回 0');
+      final result = clampSeek(Duration.zero, const Duration(seconds: 100));
+      expect(result, equals(Duration.zero), reason: 'seek 到 0 应返回 0');
     });
 
     test('seek to exactly total duration', () {
       const total = Duration(seconds: 100);
       final result = clampSeek(total, total);
-      expect(result, equals(total),
-          reason: 'seek 到总时长末尾应返回总时长');
+      expect(result, equals(total), reason: 'seek 到总时长末尾应返回总时长');
     });
 
     test('seek to 1ms before end', () {
       const total = Duration(seconds: 100);
-      final result = clampSeek(const Duration(seconds: 99, milliseconds: 999), total);
+      final result =
+          clampSeek(const Duration(seconds: 99, milliseconds: 999), total);
       expect(result, equals(const Duration(seconds: 99, milliseconds: 999)));
     });
   });
@@ -98,8 +181,8 @@ void main() {
 
   group('PLY-T11: clampSeek — beyond total duration', () {
     test('seek to 200s when track is 100s → clamped to 100s', () {
-      final result = clampSeek(
-          const Duration(seconds: 200), const Duration(seconds: 100));
+      final result =
+          clampSeek(const Duration(seconds: 200), const Duration(seconds: 100));
       expect(result, equals(const Duration(seconds: 100)),
           reason: '超出总时长的 seek 应被限制到总时长末尾');
     });
@@ -112,10 +195,9 @@ void main() {
     });
 
     test('seek far beyond total (hours beyond minutes) → clamped', () {
-      final result = clampSeek(
-          const Duration(hours: 1), const Duration(minutes: 5));
-      expect(result, equals(const Duration(minutes: 5)),
-          reason: '大幅超出时应被限制');
+      final result =
+          clampSeek(const Duration(hours: 1), const Duration(minutes: 5));
+      expect(result, equals(const Duration(minutes: 5)), reason: '大幅超出时应被限制');
     });
   });
 
@@ -123,27 +205,25 @@ void main() {
 
   group('PLY-T12: clampSeek — negative position', () {
     test('seek to -1s → clamped to Duration.zero', () {
-      final result = clampSeek(
-          const Duration(seconds: -1), const Duration(seconds: 100));
-      expect(result, equals(Duration.zero),
-          reason: '负数 seek 应被限制到 0');
+      final result =
+          clampSeek(const Duration(seconds: -1), const Duration(seconds: 100));
+      expect(result, equals(Duration.zero), reason: '负数 seek 应被限制到 0');
     });
 
     test('seek to -10s → clamped to Duration.zero', () {
-      final result = clampSeek(
-          const Duration(seconds: -10), const Duration(seconds: 100));
+      final result =
+          clampSeek(const Duration(seconds: -10), const Duration(seconds: 100));
       expect(result, equals(Duration.zero));
     });
 
     test('seek to very large negative → clamped to Duration.zero', () {
-      final result = clampSeek(
-          const Duration(minutes: -30), const Duration(seconds: 100));
+      final result =
+          clampSeek(const Duration(minutes: -30), const Duration(seconds: 100));
       expect(result, equals(Duration.zero));
     });
 
     test('seek to Duration.zero is unchanged', () {
-      final result =
-          clampSeek(Duration.zero, const Duration(seconds: 100));
+      final result = clampSeek(Duration.zero, const Duration(seconds: 100));
       expect(result, equals(Duration.zero));
     });
   });
@@ -266,8 +346,7 @@ void main() {
       final result = skipBackward(
         const Duration(seconds: 5),
       );
-      expect(result, equals(Duration.zero),
-          reason: '当前 5s 快退 15s 应限制到 0 而非负值');
+      expect(result, equals(Duration.zero), reason: '当前 5s 快退 15s 应限制到 0 而非负值');
     });
 
     test('skip backward 15s from 10s → clamped to 0', () {
@@ -294,8 +373,7 @@ void main() {
 
   group('PLY-T17: Speed setting', () {
     test('speedOptions contains expected values', () {
-      expect(speedOptions,
-          containsAll([0.5, 0.75, 1.0, 1.25, 1.5, 2.0]),
+      expect(speedOptions, containsAll([0.5, 0.75, 1.0, 1.25, 1.5, 2.0]),
           reason: '速度选项应包含 6 个预设值');
       expect(speedOptions.length, equals(6));
     });
@@ -311,15 +389,12 @@ void main() {
       // 1.0x (normal speed) is the default for just_audio.
       expect(speedOptions.contains(1.0), isTrue);
       // 1.0x should be in the middle of the options range.
-      expect(speedOptions[2], equals(1.0),
-          reason: '1.0x 应为默认速度，位于选项中间');
+      expect(speedOptions[2], equals(1.0), reason: '1.0x 应为默认速度，位于选项中间');
     });
 
     test('min and max speed values', () {
-      expect(speedOptions.first, equals(0.5),
-          reason: '最慢速度应为 0.5x');
-      expect(speedOptions.last, equals(2.0),
-          reason: '最快速度应为 2.0x');
+      expect(speedOptions.first, equals(0.5), reason: '最慢速度应为 0.5x');
+      expect(speedOptions.last, equals(2.0), reason: '最快速度应为 2.0x');
     });
 
     test('just_audio setSpeed preserves pitch (default behavior)', () {
@@ -327,10 +402,8 @@ void main() {
       // just_audio uses setSpeed(double speed) which accepts any positive
       // double.  Pitch is preserved by default (pitch option omitted).
       for (final speed in speedOptions) {
-        expect(speed, greaterThan(0),
-            reason: '所有速度值必须为正数');
-        expect(speed, lessThanOrEqualTo(2.0),
-            reason: '速度不应超过 2.0x');
+        expect(speed, greaterThan(0), reason: '所有速度值必须为正数');
+        expect(speed, lessThanOrEqualTo(2.0), reason: '速度不应超过 2.0x');
       }
     });
   });
@@ -347,8 +420,7 @@ void main() {
       expect(formatDuration(const Duration(minutes: 59, seconds: 59)),
           equals('59:59'));
       // Exactly 59:59 (just under 1 hour) should still be MM:SS
-      expect(
-          formatDuration(const Duration(minutes: 59, seconds: 59)),
+      expect(formatDuration(const Duration(minutes: 59, seconds: 59)),
           equals('59:59'),
           reason: '59:59 仍小于 1 小时，应为 MM:SS 格式');
     });
@@ -356,12 +428,10 @@ void main() {
     test('PLY-T19: formats 1 hour or more as H:MM:SS', () {
       expect(formatDuration(const Duration(hours: 1)), equals('1:00:00'),
           reason: '1 小时及以上应格式化为 H:MM:SS');
-      expect(
-          formatDuration(const Duration(hours: 1, minutes: 23, seconds: 45)),
+      expect(formatDuration(const Duration(hours: 1, minutes: 23, seconds: 45)),
           equals('1:23:45'),
           reason: '1:23:45 应为 H:MM:SS 格式');
-      expect(
-          formatDuration(const Duration(hours: 10, minutes: 5, seconds: 5)),
+      expect(formatDuration(const Duration(hours: 10, minutes: 5, seconds: 5)),
           equals('10:05:05'));
     });
 
@@ -390,8 +460,7 @@ void main() {
       addTearDown(container.dispose);
 
       final step = container.read(seekStepProvider);
-      expect(step, equals(15),
-          reason: '默认快进/快退步长应为 15 秒');
+      expect(step, equals(15), reason: '默认快进/快退步长应为 15 秒');
     });
 
     test('seek step can be changed', () {
@@ -415,10 +484,8 @@ void main() {
     });
 
     test('clampSeek with Duration.zero total returns Duration.zero', () {
-      final result =
-          clampSeek(const Duration(seconds: 10), Duration.zero);
-      expect(result, equals(Duration.zero),
-          reason: '总时长为 0 时任何 seek 都应返回 0');
+      final result = clampSeek(const Duration(seconds: 10), Duration.zero);
+      expect(result, equals(Duration.zero), reason: '总时长为 0 时任何 seek 都应返回 0');
     });
 
     test('clampSeek with zero position and zero duration', () {
@@ -437,8 +504,7 @@ void main() {
       final forward = skipForward(current, total);
       final back = skipBackward(forward);
 
-      expect(back, equals(current),
-          reason: '快进 15s 再快退 15s 应回到原位');
+      expect(back, equals(current), reason: '快进 15s 再快退 15s 应回到原位');
     });
 
     test('backward 15s then forward 15s returns to original position', () {
@@ -462,8 +528,7 @@ void main() {
       final forward = skipForward(back, total);
       expect(forward, equals(const Duration(seconds: 15)),
           reason: '从 0 前进 15s 到 15s，回不到原位——这是正确的边界行为');
-      expect(forward, isNot(equals(current)),
-          reason: '边界位置不能往返——预期行为');
+      expect(forward, isNot(equals(current)), reason: '边界位置不能往返——预期行为');
     });
 
     test('round-trip fails when near end (expected)', () {
@@ -549,8 +614,7 @@ void main() {
         false: Icons.play_arrow,
       };
 
-      expect(icons[true], equals(Icons.pause),
-          reason: '播放中应显示暂停图标 (PLY-T55)');
+      expect(icons[true], equals(Icons.pause), reason: '播放中应显示暂停图标 (PLY-T55)');
       expect(icons[false], equals(Icons.play_arrow),
           reason: '暂停中应显示播放图标 (PLY-T56)');
     });
@@ -572,8 +636,7 @@ void main() {
       const fraction = positionMs / durationMs;
 
       expect(fraction, closeTo(0.3, 0.01),
-          reason:
-              '30s / 100s = 0.3，slider.value 应与播放进度一致 (PLY-T57)');
+          reason: '30s / 100s = 0.3，slider.value 应与播放进度一致 (PLY-T57)');
     });
 
     test('slider value = 0 when position is 0', () {
@@ -587,8 +650,7 @@ void main() {
     test('slider value clamped when position somehow exceeds duration', () {
       // The code uses .clamp(0, maxMs) on the position value.
       final positionMs = 150000.0.clamp(0, 100000.0);
-      expect(positionMs, equals(100000.0),
-          reason: '位置超出时长时应被 clamp 到 max');
+      expect(positionMs, equals(100000.0), reason: '位置超出时长时应被 clamp 到 max');
     });
 
     test('slider disabled when duration is null or zero', () {
@@ -596,8 +658,7 @@ void main() {
       // which disables it.  Verified in _ProgressSlider build logic.
       const Duration? nullDuration = null;
       const hasDuration = nullDuration != null && nullDuration > Duration.zero;
-      expect(hasDuration, isFalse,
-          reason: 'null 或 zero duration 时不应启用 slider');
+      expect(hasDuration, isFalse, reason: 'null 或 zero duration 时不应启用 slider');
     });
   });
 

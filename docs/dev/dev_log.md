@@ -1,5 +1,28 @@
 ---
 
+## [2026-05-17 16:53] A-1 - 串行化播放器加载状态，修复‘正在加载音频’卡住
+
+**优先级**: P0
+**关联问题**: BUG-1
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/player/player_provider.dart` — 增加串行加载门闩、统一切歌/选曲 Provider 入口、为加载结果提供显式状态
+- `lib/features/player/player_screen.dart` — 增加本地加载 token 和超时处理，避免过期请求覆盖最新 UI 状态
+- `lib/features/player/widgets/mini_player_bar.dart` — 迷你播放器切歌与队列选曲改走统一 Provider 入口
+- `test/features/player/ply_02_test.dart` — 补充串行加载门闩的并发/淘汰逻辑测试
+
+### 验证结果
+- 通过: 4 / 总计: 4（work_items 检查项）
+- `flutter analyze`：0 issues
+- `flutter test test/features/player/ply_02_test.dart`：通过
+- `flutter test`：全量通过
+
+### 备注
+- Provider 层采用“串行执行 + 最新请求胜出”的方式，避免共享 `AudioPlayer` 上出现并发 `stop/setAudioSource/play`。
+
+---
+
 ## [2026-05-16 10:30] A-1 - 修复播放页面重新加载逻辑
 
 **优先级**: P0
@@ -1149,4 +1172,3 @@
 ### 备注
 - 5s/10s/30s 使用带数字的 Material Icon (replay_5/10/30, forward_5/10/30)
 - 15s/60s 等无对应图标的步长使用通用 replay/forward 图标，tooltip 已显示步长秒数
-
