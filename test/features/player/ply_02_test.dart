@@ -224,7 +224,7 @@ void main() {
 
       // Queue button is now next to the play mode button (top row),
       // not next to the next-track button (bottom row).
-      final modeButton = tester.getCenter(find.text(labelForPlayMode(PlayMode.sequential)));
+      final modeButton = tester.getCenter(find.byTooltip(labelForPlayMode(PlayMode.sequential)));
       final queueCenter = tester.getCenter(find.byIcon(Icons.queue_music));
       expect(queueCenter.dx, greaterThan(modeButton.dx),
           reason: '播放列表按钮应位于顺序播放按钮右侧');
