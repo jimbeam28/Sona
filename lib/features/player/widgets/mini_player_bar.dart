@@ -6,7 +6,7 @@
 //   - Current track name (MediaItem.title, truncated)
 //   - Thin progress bar
 //   - Play/pause button
-//   - Next track button
+//   - Queue list button
 //   - Tap body → navigate to full player page (/player)
 //
 // Visibility: only shown when currentPlayQueueProvider is non-null (audio
@@ -42,7 +42,6 @@ class MiniPlayerBar extends ConsumerWidget {
     }
 
     final player = ref.watch(audioPlayerProvider);
-    final playMode = ref.watch(playModeProvider);
     // F-3: watch timer state so users can see countdown from the browser.
     final timerState = ref.watch(timerStateProvider);
     final timerDisplay =
@@ -125,11 +124,6 @@ class MiniPlayerBar extends ConsumerWidget {
                           iconSize: 28,
                           tooltip: '播放列表',
                           visualDensity: VisualDensity.standard,
-                        ),
-                        // Next track button
-                        _NextButton(
-                          queue: queue,
-                          playMode: playMode,
                         ),
                       ],
                     ),
@@ -240,44 +234,3 @@ class _PlayPauseButton extends StatelessWidget {
   }
 }
 
-// ── Next button ────────────────────────────────────────────────────────────────
-
-class _NextButton extends ConsumerWidget {
-  final PlayQueue queue;
-  final PlayMode playMode;
-
-  const _NextButton({
-    required this.queue,
-    required this.playMode,
-  });
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Determine whether a next track is available.
-    final nextIdx = PlayQueue.nextIndex(
-      queue.currentIndex,
-      queue.length,
-      playMode,
-    );
-
-    final hasNext = nextIdx != null;
-
-    return IconButton(
-      onPressed: hasNext
-          ? () async {
-              final loaded = await ref.read(skipToNextProvider)();
-              // H-5: show feedback on failure.
-              if (!loaded.isLoaded && context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('切换失败，请检查连接')),
-                );
-              }
-            }
-          : null,
-      icon: const Icon(Icons.skip_next),
-      iconSize: 32,
-      tooltip: hasNext ? '下一首' : '没有下一首',
-      visualDensity: VisualDensity.standard,
-    );
-  }
-}

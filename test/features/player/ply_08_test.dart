@@ -393,7 +393,7 @@ void main() {
       expect(updated.current.name, equals('b.flac'), reason: '切换到下一首后当前曲目应更新');
     });
 
-    testWidgets('next button is present in mini player',
+    testWidgets('next button removed from mini player',
         (WidgetTester tester) async {
       final player = MockAudioPlayer();
 
@@ -416,8 +416,8 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(Icons.skip_next), findsOneWidget,
-          reason: '迷你播放器应显示下一首按钮');
+      expect(find.byIcon(Icons.skip_next), findsNothing,
+          reason: '迷你播放栏已移除下一首按钮');
     });
   });
 
@@ -457,7 +457,7 @@ void main() {
   // ── Supplementary: MiniPlayerBar structure ─────────────────────────────────
 
   group('MiniPlayerBar widget structure', () {
-    testWidgets('mini player contains track name, play/pause, next button',
+    testWidgets('mini player contains track name, play/pause, queue button',
         (WidgetTester tester) async {
       final player = MockAudioPlayer();
 
@@ -479,7 +479,7 @@ void main() {
 
       expect(find.text('test.mp3'), findsOneWidget);
       expect(find.byIcon(Icons.play_arrow), findsOneWidget);
-      expect(find.byIcon(Icons.skip_next), findsOneWidget);
+      expect(find.byIcon(Icons.queue_music), findsOneWidget);
     });
   });
 
