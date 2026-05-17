@@ -60,6 +60,13 @@ class SettingsScreen extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/about'),
           ),
+          ListTile(
+            leading: const Icon(Icons.terminal),
+            title: const Text('查看运行日志'),
+            subtitle: const Text('在设备上排查问题时查看调试输出'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/logs'),
+          ),
         ],
       ),
     );

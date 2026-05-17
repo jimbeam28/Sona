@@ -16,6 +16,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/services/audio_handler.dart';
+import 'core/services/log_buffer.dart';
 import 'features/browser/browser_provider.dart';
 import 'features/connection/connection_provider.dart';
 import 'features/connection/connection_edit_screen.dart';
@@ -26,12 +27,14 @@ import 'features/player/player_provider.dart';
 import 'features/player/player_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/settings/about_screen.dart';
+import 'features/settings/log_viewer_screen.dart';
 import 'features/settings/settings_provider.dart';
 
 NasAudioHandler? _audioHandler;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  installLogBufferHook();
   final prefs = await SharedPreferences.getInstance();
   final audioPlayer = AudioPlayer();
 
@@ -120,6 +123,11 @@ final _router = GoRouter(
       path: '/about',
       name: 'about',
       builder: (context, state) => const AboutScreen(),
+    ),
+    GoRoute(
+      path: '/logs',
+      name: 'logs',
+      builder: (context, state) => const LogViewerScreen(),
     ),
   ],
 );
