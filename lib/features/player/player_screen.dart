@@ -910,21 +910,38 @@ class _TimerControl extends ConsumerWidget {
     final isActive = state != null;
     final isAfterCurrent = state?.mode == TimerMode.afterCurrent;
 
-    String? tooltip;
+    String? displayText;
     if (isAfterCurrent) {
-      tooltip = '播完停止';
+      displayText = TimerService.afterCurrentLabel;
     } else if (isActive) {
-      tooltip = ref.watch(formattedRemainingProvider);
+      displayText = ref.watch(formattedRemainingProvider);
+    }
+
+    if (isActive && displayText != null) {
+      return TextButton.icon(
+        onPressed: () => _showTimerSheet(context, true),
+        icon: Icon(Icons.timer, size: 18,
+            color: Theme.of(context).colorScheme.primary),
+        label: Text(
+          displayText,
+          style: TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 13,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        ),
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+      );
     }
 
     return IconButton(
-      onPressed: () => _showTimerSheet(context, isActive),
-      icon: Icon(
-        Icons.timer,
-        color: isActive ? Theme.of(context).colorScheme.primary : null,
-      ),
+      onPressed: () => _showTimerSheet(context, false),
+      icon: const Icon(Icons.timer),
       iconSize: 20,
-      tooltip: tooltip ?? '定时停止',
+      tooltip: '定时停止',
       visualDensity: VisualDensity.compact,
     );
   }
