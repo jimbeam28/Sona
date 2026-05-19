@@ -3,7 +3,7 @@ description: NAS WebDAV audio player for Android
 
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 0.1.0+1
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -33,7 +33,15 @@ dev_dependencies:
   fake_async: ^1.3.1
   build_runner: ^2.4.11
   flutter_lints: ^3.0.0
+  flutter_launcher_icons: ^0.13.1
 
   audio_session: any
+
+flutter_launcher_icons:
+  android: true
+  image_path: "APP.png"
+  adaptive_icon_background: "#1E123C"
+  adaptive_icon_foreground: "APP.png"
+
 flutter:
   uses-material-design: true
