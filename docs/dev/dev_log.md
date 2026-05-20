@@ -42,3 +42,18 @@
 ### 测试结果
 - 通过: 8 / 总计: 8
 
+---
+
+## [2026-05-21] [PLY-13] - 播放单详情页 + 添加曲目弹窗
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/playlist/playlist_detail_screen.dart` — 新建详情页（普通/选择模式 AppBar，曲目列表，点击播放，长按选择）
+- `lib/features/playlist/widgets/playlist_track_item.dart` — 新建曲目项组件（文件名 + 选择状态）
+- `lib/features/playlist/widgets/add_tracks_browser.dart` — 新建添加曲目弹窗（独立导航栈、目录浏览、多选确认）
+- `test/features/playlist/ply_13_test.dart` — 新建测试文件
+
+### 测试结果
+- 通过: 11 / 总计: 11
+

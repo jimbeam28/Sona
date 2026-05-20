@@ -2,9 +2,9 @@
   "metadata": {
     "last_updated": "2026-05-20",
     "total": 6,
-    "pending": 3,
+    "pending": 2,
     "in_progress": 0,
-    "done": 3
+    "done": 4
   },
   "order": ["PLY-10", "PLY-11", "PLY-12", "PLY-13", "PLY-09", "CON-08"],
   "items": {
@@ -32,8 +32,8 @@
     "PLY-13": {
       "name": "播放单详情页 + 添加曲目弹窗",
       "plan_section": "dev-plan.md §PLY-13",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": ["PLY-11"]
     },
     "PLY-09": {
