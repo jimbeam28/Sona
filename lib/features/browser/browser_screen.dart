@@ -20,7 +20,6 @@ import '../../core/network/webdav_client.dart';
 import '../../shared/models/nas_file.dart';
 import '../../shared/models/play_queue.dart';
 import '../connection/connection_provider.dart';
-import '../player/widgets/mini_player_bar.dart';
 import '../progress/progress_provider.dart';
 import 'browser_provider.dart';
 import 'widgets/breadcrumb_bar.dart';
@@ -53,194 +52,131 @@ class BrowserScreen extends ConsumerWidget {
           ref.read(navigationStackProvider.notifier).pop();
         }
       },
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('文件浏览器'),
-          centerTitle: true,
-          leading: navStack.length > 1
-              ? IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  tooltip: '返回上级',
-                  onPressed: () {
-                    ref.read(navigationStackProvider.notifier).pop();
-                  },
-                )
-              : null,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.settings),
-              tooltip: '设置',
-              onPressed: () => context.push('/settings'),
-            ),
-            PopupMenuButton<SortOption>(
-              icon: const Icon(Icons.sort),
-              tooltip: '排序方式',
-              onSelected: (option) {
-                ref.read(sortOptionProvider.notifier).setOption(option);
-              },
-              itemBuilder: (context) {
-                final current = ref.watch(sortOptionProvider);
-                return [
-                  PopupMenuItem(
-                    value: SortOption.nameAsc,
-                    child: _SortMenuItem(
-                      title: '名称升序',
-                      selected: current == SortOption.nameAsc,
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: SortOption.nameDesc,
-                    child: _SortMenuItem(
-                      title: '名称降序',
-                      selected: current == SortOption.nameDesc,
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: SortOption.modifiedDesc,
-                    child: _SortMenuItem(
-                      title: '修改时间',
-                      selected: current == SortOption.modifiedDesc,
-                    ),
-                  ),
-                ];
-              },
-            ),
-          ],
-        ),
-        body: Column(
-          children: [
-            // Breadcrumb navigation bar (BRW-02)
-            const BreadcrumbBar(),
-            const Divider(height: 1),
+      child: Column(
+        children: [
+          // Breadcrumb navigation bar (BRW-02)
+          const BreadcrumbBar(),
+          const Divider(height: 1),
 
-            // Directory contents
-            Expanded(
-              child: contentsAsync.when(
-                loading: () => const _LoadingView(),
-                error: (error, _) => _ErrorView(
-                  message:
-                      error is WebDavException ? error.message : '加载失败：$error',
-                  onRetry: () {
-                    ref.invalidate(directoryContentsProvider(currentPath));
-                  },
-                ),
-                data: (files) {
-                  if (files.isEmpty) {
-                    return const _EmptyView();
-                  }
-                  return RefreshIndicator(
-                    onRefresh: () async {
-                      final currentPath =
-                          ref.read(navigationStackProvider).last;
-                      ref.read(clearDirectoryCacheProvider)(currentPath);
-                      final _ = await ref.refresh(
-                          directoryContentsProvider(currentPath).future);
-                    },
-                    child: _FileList(
-                      files: files,
-                      onDirectoryTap: (dirPath) {
-                        ref
-                            .read(navigationStackProvider.notifier)
-                            .push(dirPath);
-                      },
-                      onFileTap: (tappedFile) async {
-                        debugPrint('[Browser] onFileTap: ${tappedFile.path}');
-                        // BRW-04: Build play queue from current directory.
-                        // Re-read the cached contents so we have the full
-                        // filtered/sorted list (the UI may show a subset).
-                        final contents = ref
-                            .read(directoryContentsProvider(currentPath))
-                            .valueOrNull;
-                        if (contents == null) return;
-
-                        final audioFiles =
-                            contents.where((f) => !f.isDirectory).toList();
-                        final startIndex = audioFiles
-                            .indexWhere((f) => f.path == tappedFile.path);
-                        if (startIndex < 0) return;
-
-                        debugPrint('[Browser] onFileTap: queue ${audioFiles.length} tracks idx=$startIndex');
-
-                        // Lazily resolve GoRouter — only needed when the user
-                        // actually taps a file.
-                        final goRouter = GoRouter.of(context);
-
-                        final queue = PlayQueue(
-                          files: audioFiles,
-                          currentIndex: startIndex,
-                        );
-                        ref.read(currentPlayQueueProvider.notifier).state =
-                            queue;
-                        // E-2: record which connection this queue was built with.
-                        final connId =
-                            ref.read(activeConnectionProvider).valueOrNull?.id;
-                        ref.read(lastQueueConnectionIdProvider.notifier).state =
-                            connId;
-                        await goRouter.push('/player');
-                      },
-                      onFileLongPress: (tappedFile) {
-                        final progress =
-                            ref.read(playProgressProvider(tappedFile.path));
-                        if (progress == null) return;
-
-                        showModalBottomSheet(
-                          context: context,
-                          builder: (ctx) {
-                            return SafeArea(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Padding(
-                                    padding: const EdgeInsets.all(16),
-                                    child: Text(
-                                      tappedFile.name,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  const Divider(height: 1),
-                                  ListTile(
-                                    leading: const Icon(Icons.delete_outline,
-                                        color: Colors.red),
-                                    title: const Text('清除播放进度'),
-                                    subtitle: Text(
-                                      '已保存进度 ${progress.formattedPosition}',
-                                      style:
-                                          Theme.of(context).textTheme.bodySmall,
-                                    ),
-                                    onTap: () {
-                                      ref.read(clearProgressProvider)(
-                                        connectionId: progress.connectionId,
-                                        filePath: progress.filePath,
-                                      );
-                                      Navigator.of(ctx).pop();
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                          content: Text('播放进度已清除'),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                  const SizedBox(height: 8),
-                                ],
-                              ),
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  );
+          // Directory contents
+          Expanded(
+            child: contentsAsync.when(
+              loading: () => const _LoadingView(),
+              error: (error, _) => _ErrorView(
+                message:
+                    error is WebDavException ? error.message : '加载失败：$error',
+                onRetry: () {
+                  ref.invalidate(directoryContentsProvider(currentPath));
                 },
               ),
+              data: (files) {
+                if (files.isEmpty) {
+                  return const _EmptyView();
+                }
+                return RefreshIndicator(
+                  onRefresh: () async {
+                    final currentPath =
+                        ref.read(navigationStackProvider).last;
+                    ref.read(clearDirectoryCacheProvider)(currentPath);
+                    final _ = await ref.refresh(
+                        directoryContentsProvider(currentPath).future);
+                  },
+                  child: _FileList(
+                    files: files,
+                    onDirectoryTap: (dirPath) {
+                      ref
+                          .read(navigationStackProvider.notifier)
+                          .push(dirPath);
+                    },
+                    onFileTap: (tappedFile) async {
+                      debugPrint('[Browser] onFileTap: ${tappedFile.path}');
+                      final contents = ref
+                          .read(directoryContentsProvider(currentPath))
+                          .valueOrNull;
+                      if (contents == null) return;
+
+                      final audioFiles =
+                          contents.where((f) => !f.isDirectory).toList();
+                      final startIndex = audioFiles
+                          .indexWhere((f) => f.path == tappedFile.path);
+                      if (startIndex < 0) return;
+
+                      debugPrint('[Browser] onFileTap: queue ${audioFiles.length} tracks idx=$startIndex');
+
+                      final goRouter = GoRouter.of(context);
+
+                      final queue = PlayQueue(
+                        files: audioFiles,
+                        currentIndex: startIndex,
+                      );
+                      ref.read(currentPlayQueueProvider.notifier).state =
+                          queue;
+                      final connId =
+                          ref.read(activeConnectionProvider).valueOrNull?.id;
+                      ref.read(lastQueueConnectionIdProvider.notifier).state =
+                          connId;
+                      await goRouter.push('/player');
+                    },
+                    onFileLongPress: (tappedFile) {
+                      final progress =
+                          ref.read(playProgressProvider(tappedFile.path));
+                      if (progress == null) return;
+
+                      showModalBottomSheet(
+                        context: context,
+                        builder: (ctx) {
+                          return SafeArea(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Text(
+                                    tappedFile.name,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const Divider(height: 1),
+                                ListTile(
+                                  leading: const Icon(Icons.delete_outline,
+                                      color: Colors.red),
+                                  title: const Text('清除播放进度'),
+                                  subtitle: Text(
+                                    '已保存进度 ${progress.formattedPosition}',
+                                    style:
+                                        Theme.of(context).textTheme.bodySmall,
+                                  ),
+                                  onTap: () {
+                                    ref.read(clearProgressProvider)(
+                                      connectionId: progress.connectionId,
+                                      filePath: progress.filePath,
+                                    );
+                                    Navigator.of(ctx).pop();
+                                    ScaffoldMessenger.of(context)
+                                        .showSnackBar(
+                                      const SnackBar(
+                                        content: Text('播放进度已清除'),
+                                      ),
+                                    );
+                                  },
+                                ),
+                                const SizedBox(height: 8),
+                              ],
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                );
+              },
             ),
-            // Mini player bar (PLY-08) — shown when audio is loaded/playing
-            const MiniPlayerBar(),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -398,33 +334,6 @@ class _FileList extends StatelessWidget {
               onFileLongPress != null ? () => onFileLongPress!(file) : null,
         );
       },
-    );
-  }
-}
-
-// ── Sort menu item ──────────────────────────────────────────────────────────────
-
-/// A row in the sort popup menu that shows a checkmark when [selected] is true.
-class _SortMenuItem extends StatelessWidget {
-  final String title;
-  final bool selected;
-
-  const _SortMenuItem({required this.title, required this.selected});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        if (selected)
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: Icon(Icons.check,
-                size: 18, color: Theme.of(context).colorScheme.primary),
-          )
-        else
-          const SizedBox(width: 26),
-        Text(title),
-      ],
     );
   }
 }

@@ -57,3 +57,22 @@
 ### 测试结果
 - 通过: 11 / 总计: 11
 
+---
+
+## [2026-05-21] [PLY-09] - 播放单主入口 + Tab 导航
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/home/home_screen.dart` — 新建主屏幕（TabController + 统一 AppBar + MiniPlayerBar）
+- `lib/features/browser/browser_screen.dart` — 改造：去除 Scaffold/AppBar，仅返回 body 内容
+- `lib/main.dart` — 路由：/browser → HomeScreen，新增 /playlist/:id
+- `test/features/playlist/ply_09_test.dart` — 新建测试文件
+- `test/features/browser/brw_01_test.dart` — 适配 BrowserScreen 改造（包裹 Scaffold）
+- `test/features/browser/brw_07_test.dart` — 适配（包裹 Scaffold，移除 AppBar sort 测试）
+
+### 测试结果
+- 通过: 7 / 总计: 7
+
+
+

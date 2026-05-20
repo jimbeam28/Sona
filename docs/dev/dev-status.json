@@ -2,9 +2,9 @@
   "metadata": {
     "last_updated": "2026-05-20",
     "total": 6,
-    "pending": 2,
+    "pending": 1,
     "in_progress": 0,
-    "done": 4
+    "done": 5
   },
   "order": ["PLY-10", "PLY-11", "PLY-12", "PLY-13", "PLY-09", "CON-08"],
   "items": {
@@ -39,8 +39,8 @@
     "PLY-09": {
       "name": "播放单功能（主入口 + Tab 导航）",
       "plan_section": "dev-plan.md §PLY-09",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": ["PLY-10", "PLY-11", "PLY-12", "PLY-13"]
     },
     "CON-08": {

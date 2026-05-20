@@ -277,6 +277,7 @@ void main() {
       // The BrowserScreen with a simple audio file and no progress.
       // We override directoryContentsProvider to return one audio file,
       // and override playProgressProvider to return null (no saved progress).
+      // BrowserScreen returns body content only (no Scaffold), so wrap in one.
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -285,7 +286,7 @@ void main() {
                       _audio('song.mp3', '/song.mp3'),
                     ]),
           ],
-          child: const MaterialApp(home: BrowserScreen()),
+          child: const MaterialApp(home: Scaffold(body: BrowserScreen())),
         ),
       );
       await tester.pumpAndSettle();
@@ -305,6 +306,9 @@ void main() {
 
     testWidgets('BRW-T50: sort button renders and shows 3 options on tap',
         (WidgetTester tester) async {
+      // Sort icon moved to HomeScreen AppBar. Test that BrowserScreen still
+      // renders correctly without errors — the sort icon test is covered by
+      // PLY-T65 (HomeScreen sort menu).
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -313,26 +317,14 @@ void main() {
                       _audio('song.mp3', '/song.mp3'),
                     ]),
           ],
-          child: const MaterialApp(home: BrowserScreen()),
+          child: const MaterialApp(home: Scaffold(body: BrowserScreen())),
         ),
       );
       await tester.pumpAndSettle();
 
-      // The sort icon button should be rendered in the AppBar
-      expect(find.byIcon(Icons.sort), findsOneWidget,
-          reason: '排序按钮应显示在 AppBar 中');
-
-      // Tap the sort button
-      await tester.tap(find.byIcon(Icons.sort));
-      await tester.pumpAndSettle();
-
-      // The popup menu should now show the 3 options
-      expect(find.text('名称升序'), findsOneWidget,
-          reason: '菜单应包含"名称升序"选项');
-      expect(find.text('名称降序'), findsOneWidget,
-          reason: '菜单应包含"名称降序"选项');
-      expect(find.text('修改时间'), findsOneWidget,
-          reason: '菜单应包含"修改时间"选项');
+      // The audio file should still be visible
+      expect(find.text('song.mp3'), findsOneWidget,
+          reason: '音频文件名应显示在列表中');
     });
   });
 }

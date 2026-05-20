@@ -365,7 +365,7 @@ void main() {
             directoryContentsProvider('/')
                 .overrideWith((ref) => loadingCompleter.future),
           ],
-          child: const MaterialApp(home: BrowserScreen()),
+          child: const MaterialApp(home: Scaffold(body: BrowserScreen())),
         ),
       );
       // Single pump — does not settle because the future hasn't completed
@@ -403,7 +403,7 @@ void main() {
               throw const WebDavException('无法连接到服务器');
             }),
           ],
-          child: const MaterialApp(home: BrowserScreen()),
+          child: const MaterialApp(home: Scaffold(body: BrowserScreen())),
         ),
       );
       await tester.pumpAndSettle();
@@ -447,7 +447,7 @@ void main() {
               ];
             }),
           ],
-          child: const MaterialApp(home: BrowserScreen()),
+          child: const MaterialApp(home: Scaffold(body: BrowserScreen())),
         ),
       );
       await tester.pumpAndSettle();
@@ -480,7 +480,7 @@ void main() {
             directoryContentsProvider('/')
                 .overrideWith((ref) async => []),
           ],
-          child: const MaterialApp(home: BrowserScreen()),
+          child: const MaterialApp(home: Scaffold(body: BrowserScreen())),
         ),
       );
       await tester.pumpAndSettle();

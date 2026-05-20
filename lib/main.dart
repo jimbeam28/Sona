@@ -23,7 +23,8 @@ import 'features/connection/connection_provider.dart';
 import 'features/connection/connection_edit_screen.dart';
 import 'features/connection/connection_list_screen.dart';
 import 'features/connection/connection_screen.dart';
-import 'features/browser/browser_screen.dart';
+import 'features/home/home_screen.dart';
+import 'features/playlist/playlist_detail_screen.dart';
 import 'features/player/player_provider.dart';
 import 'features/player/player_screen.dart';
 import 'features/settings/settings_screen.dart';
@@ -112,7 +113,15 @@ final _router = GoRouter(
     GoRoute(
       path: '/browser',
       name: 'browser',
-      builder: (context, state) => const BrowserScreen(),
+      builder: (context, state) => const HomeScreen(),
+    ),
+    GoRoute(
+      path: '/playlist/:id',
+      name: 'playlist-detail',
+      builder: (context, state) {
+        final id = int.parse(state.pathParameters['id']!);
+        return PlaylistDetailScreen(playlistId: id);
+      },
     ),
     GoRoute(
       path: '/player',
