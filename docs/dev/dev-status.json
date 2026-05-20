@@ -2,17 +2,17 @@
   "metadata": {
     "last_updated": "2026-05-20",
     "total": 6,
-    "pending": 6,
+    "pending": 5,
     "in_progress": 0,
-    "done": 0
+    "done": 1
   },
   "order": ["PLY-10", "PLY-11", "PLY-12", "PLY-13", "PLY-09", "CON-08"],
   "items": {
     "PLY-10": {
       "name": "播放单数据层（数据库 + 模型 + DAO）",
       "plan_section": "dev-plan.md §PLY-10",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": []
     },
     "PLY-11": {

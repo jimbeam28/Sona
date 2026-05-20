@@ -6,7 +6,7 @@ import 'package:path/path.dart' as p;
 
 class DatabaseHelper {
   static const _dbName = 'nas_audio_player.db';
-  static const _dbVersion = 1;
+  static const _dbVersion = 2;
 
   DatabaseHelper._();
   static final DatabaseHelper instance = DatabaseHelper._();
@@ -25,10 +25,13 @@ class DatabaseHelper {
       path,
       version: _dbVersion,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
   }
 
   Future<void> _onCreate(Database db, int version) async {
+    await db.execute('PRAGMA foreign_keys = ON');
+
     await db.execute('''
       CREATE TABLE connections (
         id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -59,6 +62,39 @@ class DatabaseHelper {
     await db.execute('''
       CREATE INDEX idx_progress_lookup
       ON play_progress(connection_id, file_path)
+    ''');
+
+    await _createPlaylistTables(db);
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await _createPlaylistTables(db);
+    }
+  }
+
+  Future<void> _createPlaylistTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS playlists (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS playlist_tracks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        playlist_id INTEGER NOT NULL,
+        file_path TEXT NOT NULL,
+        file_name TEXT NOT NULL,
+        added_at INTEGER NOT NULL,
+        FOREIGN KEY(playlist_id) REFERENCES playlists(id) ON DELETE CASCADE
+      )
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_playlist_tracks_playlist_id
+      ON playlist_tracks(playlist_id)
     ''');
   }
 
