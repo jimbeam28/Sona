@@ -1,10 +1,10 @@
 {
   "metadata": {
-    "last_updated": "2026-05-20",
+    "last_updated": "2026-05-21",
     "total": 6,
-    "pending": 1,
+    "pending": 0,
     "in_progress": 0,
-    "done": 5
+    "done": 6
   },
   "order": ["PLY-10", "PLY-11", "PLY-12", "PLY-13", "PLY-09", "CON-08"],
   "items": {
@@ -46,8 +46,8 @@
     "CON-08": {
       "name": "连接表单支持 DDNS 域名提示",
       "plan_section": "dev-plan.md §CON-08",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": []
     }
   }

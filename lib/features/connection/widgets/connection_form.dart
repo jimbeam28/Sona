@@ -148,7 +148,7 @@ class _ConnectionFormState extends State<ConnectionForm> {
     if (value == null || value.trim().isEmpty) return '请输入服务器地址';
     final normalised = normaliseWebDavUrl(value.trim());
     if (!isValidWebDavUrl(normalised)) {
-      return '请输入有效的服务器地址（如 http://192.168.1.1:5005）';
+      return '请输入有效的服务器地址（如 http://192.168.1.100:5005 或 http://nas.example.com）';
     }
     return null;
   }
@@ -176,7 +176,7 @@ class _ConnectionFormState extends State<ConnectionForm> {
               controller: _urlController,
               decoration: const InputDecoration(
                 labelText: '服务器地址 *',
-                hintText: 'http://192.168.1.100:5005',
+                hintText: 'http://192.168.1.100:5005 或 http://nas.example.com',
                 prefixIcon: Icon(Icons.dns_outlined),
                 border: OutlineInputBorder(),
               ),

@@ -74,5 +74,20 @@
 ### 测试结果
 - 通过: 7 / 总计: 7
 
+---
+
+## [2026-05-21] [CON-08] - 连接表单支持 DDNS 域名提示
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/connection/widgets/connection_form.dart` — 更新 hintText 和校验提示文案，增加域名示例
+- `test/features/connection/con_08_test.dart` — 新建测试文件
+
+### 测试结果
+- 通过: 4 / 总计: 4
+
+
+
 
 
