@@ -28,3 +28,17 @@
 ### 测试结果
 - 通过: 12 / 总计: 12
 
+---
+
+## [2026-05-21] [PLY-12] - 播放单列表页
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/playlist/playlist_list_screen.dart` — 新建列表页（loading/error/empty 三态，FAB 创建，滑动删除）
+- `lib/features/playlist/widgets/playlist_list_item.dart` — 新建列表项组件（名称 + 曲目数量）
+- `test/features/playlist/ply_12_test.dart` — 新建测试文件
+
+### 测试结果
+- 通过: 8 / 总计: 8
+
