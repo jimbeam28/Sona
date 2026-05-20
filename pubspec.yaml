@@ -39,9 +39,9 @@ dev_dependencies:
 
 flutter_launcher_icons:
   android: true
-  image_path: "player.png"
+  image_path: "logo.png"
   adaptive_icon_background: "#1E123C"
-  adaptive_icon_foreground: "player.png"
+  adaptive_icon_foreground: "logo.png"
 
 flutter:
   uses-material-design: true
