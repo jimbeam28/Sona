@@ -15,3 +15,16 @@
 ### 测试结果
 - 通过: 17 / 总计: 17
 
+---
+
+## [2026-05-21] [PLY-11] - 播放单 Provider 层
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/playlist/playlist_provider.dart` — 新建 Provider 层（排序枚举、数据 Provider、变更 Provider）
+- `test/features/playlist/ply_11_test.dart` — 新建测试文件
+
+### 测试结果
+- 通过: 12 / 总计: 12
+

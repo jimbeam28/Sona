@@ -2,9 +2,9 @@
   "metadata": {
     "last_updated": "2026-05-20",
     "total": 6,
-    "pending": 5,
+    "pending": 4,
     "in_progress": 0,
-    "done": 1
+    "done": 2
   },
   "order": ["PLY-10", "PLY-11", "PLY-12", "PLY-13", "PLY-09", "CON-08"],
   "items": {
@@ -18,8 +18,8 @@
     "PLY-11": {
       "name": "播放单 Provider 层",
       "plan_section": "dev-plan.md §PLY-11",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": ["PLY-10"]
     },
     "PLY-12": {
