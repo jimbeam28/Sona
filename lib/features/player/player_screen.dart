@@ -274,6 +274,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
           );
           return true;
         },
+        onRemoveIndex: (index) {
+          ref.read(removeTrackFromQueueProvider)(index);
+        },
       ),
     );
   }

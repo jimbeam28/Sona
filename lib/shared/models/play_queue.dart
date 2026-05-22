@@ -91,6 +91,39 @@ class PlayQueue {
         playMode: playMode,
       );
 
+  /// Returns a copy of this queue with the track at [index] removed.
+  ///
+  /// Adjusts [currentIndex] so it still points to the same logical track:
+  /// - If the removed track is before [currentIndex], decrement
+  /// - If the removed track IS [currentIndex], keep the same index (the next
+  ///   track shifts into this position) unless it was the last track
+  PlayQueue withoutIndex(int index) {
+    final newList = files.toList();
+    newList.removeAt(index);
+    if (newList.isEmpty) {
+      return PlayQueue(
+        files: newList,
+        currentIndex: 0,
+        startPositionMs: null,
+        playMode: playMode,
+      );
+    }
+    int newIndex = currentIndex;
+    if (index < currentIndex) {
+      newIndex = currentIndex - 1;
+    } else if (index == currentIndex) {
+      if (currentIndex >= newList.length) {
+        newIndex = newList.length - 1;
+      }
+    }
+    return PlayQueue(
+      files: newList,
+      currentIndex: newIndex,
+      startPositionMs: index == currentIndex ? null : startPositionMs,
+      playMode: playMode,
+    );
+  }
+
   // ── Queue navigation (PLY-05) ──────────────────────────────────────────
 
   /// Returns the index of the next track given [mode], or `null` when

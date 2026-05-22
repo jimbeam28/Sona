@@ -3,17 +3,20 @@ import 'package:flutter/material.dart';
 import '../../../shared/models/play_queue.dart';
 
 typedef QueueItemSelect = Future<bool> Function(int index);
+typedef QueueItemRemove = void Function(int index);
 
 /// Shared queue sheet used by both the full player and the mini player.
 class QueueSheet extends StatelessWidget {
   final PlayQueue queue;
   final QueueItemSelect onSelectIndex;
+  final QueueItemRemove onRemoveIndex;
   final String errorMessage;
 
   const QueueSheet({
     super.key,
     required this.queue,
     required this.onSelectIndex,
+    required this.onRemoveIndex,
     required this.errorMessage,
   });
 
@@ -61,15 +64,29 @@ class QueueSheet extends StatelessWidget {
                             : null,
                       ),
                     ),
-                    trailing: isCurrent
-                        ? Text(
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isCurrent)
+                          Text(
                             '当前',
                             style: TextStyle(
                               fontSize: 12,
                               color: Theme.of(context).colorScheme.primary,
                             ),
-                          )
-                        : null,
+                          ),
+                        IconButton(
+                          onPressed: () {
+                            onRemoveIndex(index);
+                            Navigator.of(context).pop();
+                          },
+                          icon: const Icon(Icons.close, size: 18),
+                          color: Colors.grey,
+                          tooltip: '从队列移除',
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ],
+                    ),
                     onTap: isCurrent
                         ? null
                         : () async {

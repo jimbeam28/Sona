@@ -749,6 +749,34 @@ final selectQueueIndexProvider =
   };
 });
 
+/// Removes a track from the queue at [index].  If the removed track is
+/// currently playing the next track is loaded; if the queue becomes empty
+/// playback is stopped.
+final removeTrackFromQueueProvider =
+    Provider<Future<void> Function(int)>((ref) {
+  return (int index) async {
+    final queue = ref.read(currentPlayQueueProvider);
+    if (queue == null || index < 0 || index >= queue.length) return;
+    final wasCurrent = index == queue.currentIndex;
+    final player = ref.read(audioPlayerProvider);
+    final newQueue = queue.withoutIndex(index);
+    if (newQueue.length == 0) {
+      await player.stop();
+      ref.read(currentPlayQueueProvider.notifier).state = null;
+      final handler = ref.read(audioHandlerProvider);
+      handler?.mediaItem.add(null);
+      ref.read(_cancelAutoSaveProvider)();
+      ref.read(_cancelPauseSaveProvider)();
+      return;
+    }
+    ref.read(currentPlayQueueProvider.notifier).state = newQueue;
+    if (wasCurrent) {
+      ref.read(saveProgressProvider)();
+      await ref.read(loadAndPlayProvider)();
+    }
+  };
+});
+
 /// Unified entry point for loading and playing the current queue's track.
 ///
 /// Must be called whenever the playback source needs to change — whether

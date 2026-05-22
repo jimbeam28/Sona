@@ -11,6 +11,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
 
 import 'playlist_provider.dart';
@@ -42,39 +43,46 @@ class PlaylistListScreen extends ConsumerWidget {
                   const Divider(height: 1, indent: 72),
               itemBuilder: (context, index) {
                 final playlist = playlists[index];
-                return Dismissible(
+                return Slidable(
                   key: ValueKey(playlist.id),
-                  direction: DismissDirection.endToStart,
-                  background: Container(
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.only(right: 16),
-                    color: Colors.red,
-                    child: const Icon(Icons.delete, color: Colors.white),
-                  ),
-                  confirmDismiss: (direction) async {
-                    return await showDialog<bool>(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                        title: const Text('确认删除'),
-                        content: Text('确认删除播放单「${playlist.name}」？此操作不可撤销。'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.of(ctx).pop(false),
-                            child: const Text('取消'),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.of(ctx).pop(true),
-                            child: const Text('删除',
-                                style: TextStyle(color: Colors.red)),
-                          ),
-                        ],
+                  endActionPane: ActionPane(
+                    motion: const DrawerMotion(),
+                    children: [
+                      SlidableAction(
+                        onPressed: (_) async {
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('确认删除'),
+                              content: Text(
+                                  '确认删除播放单「${playlist.name}」？此操作不可撤销。'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () =>
+                                      Navigator.of(ctx).pop(false),
+                                  child: const Text('取消'),
+                                ),
+                                TextButton(
+                                  onPressed: () =>
+                                      Navigator.of(ctx).pop(true),
+                                  child: const Text('删除',
+                                      style: TextStyle(color: Colors.red)),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirmed == true) {
+                            final del = ref.read(deletePlaylistProvider);
+                            del(playlist.id!);
+                          }
+                        },
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        icon: Icons.delete_outline,
+                        label: '删除',
                       ),
-                    );
-                  },
-                  onDismissed: (_) {
-                    final del = ref.read(deletePlaylistProvider);
-                    del(playlist.id!);
-                  },
+                    ],
+                  ),
                   child: PlaylistListItem(
                     playlist: playlist,
                     onTap: () => context.push('/playlist/${playlist.id}'),

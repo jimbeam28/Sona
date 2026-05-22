@@ -118,6 +118,7 @@ Widget _wrapQueueSheetLauncher({
                   queue: queue,
                   errorMessage: '加载失败',
                   onSelectIndex: onSelectIndex,
+                  onRemoveIndex: (_) {},
                 ),
               );
             },

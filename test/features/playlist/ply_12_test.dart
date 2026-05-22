@@ -142,10 +142,10 @@ void main() {
     });
   });
 
-  // ── PLY-T70: Dismissible shows delete confirmation ─────────────────────
+  // ── PLY-T70: Slidable shows delete button ───────────────────────────────
 
-  group('PLY-T70 dismiss shows delete confirmation', () {
-    testWidgets('swipe left reveals delete background and shows dialog',
+  group('PLY-T70 swipe reveals delete button', () {
+    testWidgets('swipe left reveals delete button on action pane',
         (WidgetTester tester) async {
       await tester.pumpWidget(_buildTestApp(
         const PlaylistListScreen(),
@@ -157,21 +157,19 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      // Swipe left to dismiss
+      // Swipe left to reveal the action pane
       await tester.drag(find.text('Delete Me'), const Offset(-500, 0));
       await tester.pumpAndSettle();
 
-      // Confirm dialog should appear
-      expect(find.text('确认删除'), findsOneWidget);
-      expect(find.textContaining('确认删除播放单「Delete Me」？此操作不可撤销。'),
-          findsOneWidget);
+      // Delete button should be visible (icon or label)
+      expect(find.byIcon(Icons.delete_outline), findsOneWidget);
     });
   });
 
-  // ── PLY-T71: delete confirmation cancel restores item ──────────────────
+  // ── PLY-T71: delete confirmation dialog ─────────────────────────────────
 
-  group('PLY-T71 cancel delete restores item', () {
-    testWidgets('cancelling delete keeps the item visible',
+  group('PLY-T71 delete confirmation dialog', () {
+    testWidgets('tapping delete button shows confirmation dialog',
         (WidgetTester tester) async {
       await tester.pumpWidget(_buildTestApp(
         const PlaylistListScreen(),
@@ -187,12 +185,21 @@ void main() {
       await tester.drag(find.text('Keep Me'), const Offset(-500, 0));
       await tester.pumpAndSettle();
 
+      // Tap the delete button (by icon)
+      await tester.tap(find.byIcon(Icons.delete_outline));
+      await tester.pumpAndSettle();
+
+      // Confirm dialog should appear
+      expect(find.text('确认删除'), findsOneWidget);
+      expect(
+          find.textContaining('确认删除播放单「Keep Me」？此操作不可撤销。'),
+          findsOneWidget);
+
       // Tap cancel
       await tester.tap(find.text('取消'));
       await tester.pumpAndSettle();
 
-      // The item should still be visible (the Dismissible restore)
-      // Since we use confirmDismiss, the item remains
+      // Dialog dismissed, item still visible
       expect(find.text('Keep Me'), findsOneWidget);
     });
   });

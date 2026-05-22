@@ -2,6 +2,137 @@
 
 ## 待实现
 
+### PLY-14 播放队列增加删除按钮
+
+**来源**：新功能 | **优先级**：P1
+**涉及文件**：
+- `lib/shared/models/play_queue.dart`（新增 `withoutIndex` 方法）
+- `lib/features/player/widgets/queue_sheet.dart`（每行增加删除按钮）
+- `lib/features/player/player_provider.dart`（新增 `removeTrackFromQueueProvider`）
+- `lib/features/player/player_screen.dart`（传递删除回调）
+- `lib/features/player/widgets/mini_player_bar.dart`（传递删除回调）
+
+**依赖**：无
+
+**实现要点**：
+
+PlayQueue 模型：
+- 新增 `withoutIndex(int index)` 方法，返回移除指定索引后的新 `PlayQueue`
+- 处理 `currentIndex` 调整：
+  - 删除非当前曲目且索引小于 `currentIndex`：`currentIndex -= 1`
+  - 删除当前曲目（`index == currentIndex`）：保持 `currentIndex` 不变（自动指向下一个，即原来 `index+1` 的元素）
+  - 删除当前曲目且是最后一首：`currentIndex` 不变但 `files` 为空
+  - 删除非当前曲目且索引大于 `currentIndex`：`currentIndex` 不变
+- 边界：删除后队列为空时，停止播放
+
+QueueSheet 修改：
+- 每个 `ListTile` 的 `trailing` 增加删除按钮（`IconButton` + `Icons.close`，灰色小图标）
+- 点击删除按钮 → 从队列移除该曲目
+- 如果移除的是当前播放曲目：先调用 `removeTrackFromQueueProvider`，如果队列为空则停止播放，否则自动加载新 currentIndex
+- 如果移除的是非当前曲目：仅从队列移除，不影响播放
+
+`removeTrackFromQueueProvider`：
+- 读取当前队列，调用 `queue.withoutIndex(index)`
+- 如果新队列为空：停止播放（`player.stop()`），清空 `currentPlayQueueProvider`
+- 如果删除的是当前播放曲目：保存进度，更新队列，调用 `loadAndPlayProvider`
+- 如果删除的是其他曲目：仅更新 `currentPlayQueueProvider`
+
+**测试用例**：PLY-T86 ~ PLY-T91
+
+- PLY-T86：删除非当前曲目，队列长度减 1，currentIndex 正确调整
+- PLY-T87：删除当前曲目（中间位置），自动切换到下一首
+- PLY-T88：删除当前曲目（最后一首），队列为空，播放停止
+- PLY-T89：单曲目队列删除最后一首，播放器停止
+- PLY-T90：删除按钮渲染在每行 trailing 位置
+- PLY-T91：删除后不影响 MiniPlayerBar 的队列按钮入口
+
+---
+
+### APP-01 主页面侧滑返回桌面（不退出应用）
+
+**来源**：新功能 | **优先级**：P1
+**涉及文件**：
+- `lib/features/home/home_screen.dart`（新增 PopScope + 后台最小化逻辑）
+- `lib/main.dart`（注册 MethodChannel）
+- `android/app/src/main/kotlin/com/example/nas_audio_player/MainActivity.kt`（处理 moveTaskToBack）
+
+**依赖**：无
+
+**实现要点**：
+
+问题分析：
+- 当前 BrowserScreen 的 PopScope 在根目录时 `canPop: true`，允许系统返回
+- GoRouter 顶层的 `/browser` 路由没有下级路由，弹出后应用退出
+- 需要拦截根目录的返回手势/按钮，改为将应用最小化到后台
+
+方案：
+- `HomeScreen` 外层包裹 `PopScope(canPop: false)`
+- `onPopInvokedWithResult` 回调中调用平台方法 `moveTaskToBack`
+- 子目录返回仍由 `BrowserScreen` 的 `PopScope` 处理（目录导航），不受影响
+
+平台通道：
+- MethodChannel 名称：`com.example.nas_audio_player/background`
+- 方法：`moveTaskToBack`（无参数）
+- Android 侧：调用 `moveTaskToBack(true)` 将当前 task 移到后台
+
+流：
+```
+用户从主页根目录侧滑
+  → BrowserScreen PopScope: canPop=true，允许通过
+    → HomeScreen PopScope: canPop=false，拦截
+      → onPopInvokedWithResult: 调用 moveTaskToBack
+        → app 退到后台，播放继续
+用户从子目录侧滑
+  → BrowserScreen PopScope: canPop=false，拦截
+    → 目录导航 pop 一层
+```
+
+**测试用例**：APP-T01 ~ APP-T03
+
+- APP-T01：主页根目录侧滑返回，应用退到后台（不退出），通知栏播放控件仍存在
+- APP-T02：主页子目录侧滑返回，正常回到上级目录
+- APP-T03：Android 返回按钮效果与侧滑一致
+
+---
+
+### PLY-15 播放单左滑改为露出删除按钮
+
+**来源**：新功能 | **优先级**：P1
+**涉及文件**：
+- `lib/features/playlist/playlist_list_screen.dart`（替换 Dismissible 为 Slidable）
+
+**依赖**：无（`flutter_slidable: ^4.0.3` 已在 pubspec.yaml 中）
+
+**实现要点**：
+
+当前行为：
+- 使用 `Dismissible(direction: endToStart)` 实现左滑
+- 滑到底触发 `confirmDismiss` 弹出确认对话框
+- 确认后 `onDismissed` 执行删除
+
+目标行为：
+- 左滑后播放单主体不消失，右侧露出删除按钮
+- 点击删除按钮后弹出确认删除对话框
+- 确认后执行删除
+
+方案：
+- 将 `Dismissible` 替换为 `Slidable`（项目已依赖此包，连接列表页 `connection_list_screen.dart` 已有类似实现可参考）
+- `endActionPane` 包含单个删除按钮（红色背景，`Icons.delete_outline`）
+- `SlidableAction.onPressed` 中：先弹出确认对话框，确认后调用 `deletePlaylistProvider(id)`
+- 播放单主体（`PlaylistListItem`）始终可见，不会因滑动而消失
+
+**测试用例**：PLY-T92 ~ PLY-T96
+
+- PLY-T92：左滑播放单项，右侧出现红色删除按钮，播放单主体保持可见
+- PLY-T93：点击删除按钮，弹出确认对话框
+- PLY-T94：确认对话框中点击"删除"，播放单被删除
+- PLY-T95：确认对话框中点击"取消"，播放单保留，滑回原位
+- PLY-T96：点击播放单主体仍然跳转到详情页
+
+---
+
+## 已完成
+
 ### PLY-09 播放单功能（主入口 + Tab 导航）
 
 **来源**：新功能 | **优先级**：P1
@@ -190,9 +321,3 @@ Providers：
 - CON-T35：输入 DDNS 域名（如 `http://nas.example.com`），`isValidWebDavUrl` 返回 true
 - CON-T36：输入带端口的域名（如 `http://nas.example.com:5005`），校验通过
 - CON-T37：输入裸域名（无 scheme，如 `nas.example.com`），`normaliseWebDavUrl` 自动补全 `http://` 后校验通过
-
----
-
-## 已完成
-
-（暂无）

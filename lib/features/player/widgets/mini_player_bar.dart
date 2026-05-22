@@ -151,6 +151,9 @@ void _showQueueSheet(BuildContext context, WidgetRef ref, PlayQueue queue) {
         final loaded = await ref.read(selectQueueIndexProvider)(index);
         return loaded.isLoaded;
       },
+      onRemoveIndex: (index) {
+        ref.read(removeTrackFromQueueProvider)(index);
+      },
     ),
   );
 }

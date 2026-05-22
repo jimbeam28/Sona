@@ -1,51 +1,30 @@
 {
   "metadata": {
-    "last_updated": "2026-05-21",
-    "total": 6,
+    "last_updated": "2026-05-22",
+    "total": 3,
     "pending": 0,
     "in_progress": 0,
-    "done": 6
+    "done": 3
   },
-  "order": ["PLY-10", "PLY-11", "PLY-12", "PLY-13", "PLY-09", "CON-08"],
+  "order": ["PLY-14", "APP-01", "PLY-15"],
   "items": {
-    "PLY-10": {
-      "name": "播放单数据层（数据库 + 模型 + DAO）",
-      "plan_section": "dev-plan.md §PLY-10",
+    "PLY-14": {
+      "name": "播放队列增加删除按钮",
+      "plan_section": "dev-plan.md §PLY-14",
       "impl_status": "done",
       "test_status": "passed",
       "dependencies": []
     },
-    "PLY-11": {
-      "name": "播放单 Provider 层",
-      "plan_section": "dev-plan.md §PLY-11",
+    "APP-01": {
+      "name": "主页面侧滑返回桌面（不退出应用）",
+      "plan_section": "dev-plan.md §APP-01",
       "impl_status": "done",
       "test_status": "passed",
-      "dependencies": ["PLY-10"]
+      "dependencies": []
     },
-    "PLY-12": {
-      "name": "播放单列表页",
-      "plan_section": "dev-plan.md §PLY-12",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": ["PLY-11"]
-    },
-    "PLY-13": {
-      "name": "播放单详情页 + 添加曲目弹窗",
-      "plan_section": "dev-plan.md §PLY-13",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": ["PLY-11"]
-    },
-    "PLY-09": {
-      "name": "播放单功能（主入口 + Tab 导航）",
-      "plan_section": "dev-plan.md §PLY-09",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": ["PLY-10", "PLY-11", "PLY-12", "PLY-13"]
-    },
-    "CON-08": {
-      "name": "连接表单支持 DDNS 域名提示",
-      "plan_section": "dev-plan.md §CON-08",
+    "PLY-15": {
+      "name": "播放单左滑改为露出删除按钮",
+      "plan_section": "dev-plan.md §PLY-15",
       "impl_status": "done",
       "test_status": "passed",
       "dependencies": []

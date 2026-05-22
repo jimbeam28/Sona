@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/services/background_service.dart';
 import '../browser/browser_provider.dart';
 import '../browser/browser_screen.dart';
 import '../playlist/playlist_list_screen.dart';
@@ -36,7 +37,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          moveTaskToBack();
+        }
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Sona'),
         centerTitle: true,
@@ -72,7 +80,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           const MiniPlayerBar(),
         ],
       ),
-    );
+    ));
   }
 
   Widget _playlistSortMenu() {
