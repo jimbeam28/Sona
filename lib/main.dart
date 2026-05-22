@@ -39,7 +39,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   installLogBufferHook();
   final prefs = await SharedPreferences.getInstance();
-  final audioPlayer = AudioPlayer();
+  final audioPlayer = AudioPlayer(useProxyForRequestHeaders: false);
 
   // Initialise the audio service.  On some devices / Android versions this
   // may fail — the app still works without background-playback support.
