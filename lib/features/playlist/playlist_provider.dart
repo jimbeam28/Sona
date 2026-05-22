@@ -116,6 +116,7 @@ final addTracksToPlaylistProvider =
       await dao.addTracks(tracks);
     }
     ref.invalidate(playlistTracksProvider(playlistId));
+    ref.invalidate(playlistListProvider);
   };
 });
 
@@ -125,5 +126,6 @@ final removeTracksFromPlaylistProvider =
   return (int playlistId, List<int> trackIds) async {
     await dao.removeTracks(trackIds);
     ref.invalidate(playlistTracksProvider(playlistId));
+    ref.invalidate(playlistListProvider);
   };
 });
