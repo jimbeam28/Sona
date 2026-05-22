@@ -158,17 +158,17 @@ void main() {
 
     test('test_CON_T04_bareIp_prependsHttpScheme', () {
       final normalised = normaliseWebDavUrl('192.168.1.1');
-      expect(normalised, equals('http://192.168.1.1'),
-          reason: '不含协议前缀时应自动补全为 http://');
+      expect(normalised, equals('http://192.168.1.1:5005'),
+          reason: '不含协议前缀和端口时应自动补全 http:// 和 :5005');
     });
 
-    // ── CON-T05: existing https:// URL → unchanged ───────────────────────────
+    // ── CON-T05: existing https:// URL → default port added ──────────────────
 
-    test('test_CON_T05_httpsUrl_notModified', () {
+    test('test_CON_T05_httpsUrl_addsDefaultPort', () {
       const input = 'https://nas.example.com';
       final normalised = normaliseWebDavUrl(input);
-      expect(normalised, equals(input),
-          reason: '已含 https:// 前缀时不应重复添加');
+      expect(normalised, equals('https://nas.example.com:5005'),
+          reason: '无端口时应补充默认端口 5005');
     });
 
     // ── CON-T06: empty display name → hostname used as default ──────────────

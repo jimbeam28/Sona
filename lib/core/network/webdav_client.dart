@@ -38,14 +38,24 @@ class WebDavValidationResult {
 
 // ── URL normalisation ─────────────────────────────────────────────────────────
 
-/// Ensures the URL has an http/https scheme.
+/// Ensures the URL has an http/https scheme and a port number.
+///
 /// If the user typed a bare IP / hostname (no scheme) we prepend `http://`.
+/// If no port is specified, defaults to 5005 (the standard WebDAV port
+/// used by many NAS devices).
 String normaliseWebDavUrl(String raw) {
   final trimmed = raw.trim();
+  String url;
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-    return trimmed;
+    url = trimmed;
+  } else {
+    url = 'http://$trimmed';
   }
-  return 'http://$trimmed';
+  final uri = Uri.parse(url);
+  if (!uri.hasPort && uri.host.isNotEmpty) {
+    return uri.replace(port: 5005).toString();
+  }
+  return url;
 }
 
 /// Returns true when [url] is a syntactically valid http/https URL with a host.
