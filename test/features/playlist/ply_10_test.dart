@@ -131,7 +131,7 @@ void main() {
     // ── PLY-T42: updatePlaylist updates name ───────────────────────────────
 
     test('test_PLY_T42_updatePlaylist_updatesName', () async {
-      final id = await dao.insertPlaylist(_testPlaylist(name: 'Old'));
+      await dao.insertPlaylist(_testPlaylist(name: 'Old'));
       final playlist = (await dao.findAllPlaylists()).first;
 
       await dao.updatePlaylist(playlist.copyWith(name: 'New'));

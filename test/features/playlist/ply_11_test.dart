@@ -9,7 +9,6 @@ import 'package:nas_audio_player/core/database/dao/playlist_dao.dart';
 import 'package:nas_audio_player/core/database/database_helper.dart';
 import 'package:nas_audio_player/features/playlist/playlist_provider.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
-import 'package:nas_audio_player/shared/models/playlist.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -130,8 +129,8 @@ void main() {
 
       final addTracks = container.read(addTracksToPlaylistProvider);
       await addTracks(id, [
-        NasFile(name: 'a.mp3', path: '/music/a.mp3', isDirectory: false),
-        NasFile(name: 'b.flac', path: '/music/b.flac', isDirectory: false),
+        const NasFile(name: 'a.mp3', path: '/music/a.mp3', isDirectory: false),
+        const NasFile(name: 'b.flac', path: '/music/b.flac', isDirectory: false),
       ]);
 
       final tracks = await container.read(playlistTracksProvider(id).future);
@@ -151,12 +150,12 @@ void main() {
 
       final addTracks = container.read(addTracksToPlaylistProvider);
       await addTracks(id, [
-        NasFile(name: 'a.mp3', path: '/music/a.mp3', isDirectory: false),
+        const NasFile(name: 'a.mp3', path: '/music/a.mp3', isDirectory: false),
       ]);
       // Add same file again
       await addTracks(id, [
-        NasFile(name: 'a.mp3', path: '/music/a.mp3', isDirectory: false),
-        NasFile(name: 'b.mp3', path: '/music/b.mp3', isDirectory: false),
+        const NasFile(name: 'a.mp3', path: '/music/a.mp3', isDirectory: false),
+        const NasFile(name: 'b.mp3', path: '/music/b.mp3', isDirectory: false),
       ]);
 
       final tracks = await container.read(playlistTracksProvider(id).future);
@@ -178,9 +177,9 @@ void main() {
 
       final addTracks = container.read(addTracksToPlaylistProvider);
       await addTracks(id, [
-        NasFile(name: 'a.mp3', path: '/music/a.mp3', isDirectory: false),
-        NasFile(name: 'b.mp3', path: '/music/b.mp3', isDirectory: false),
-        NasFile(name: 'c.mp3', path: '/music/c.mp3', isDirectory: false),
+        const NasFile(name: 'a.mp3', path: '/music/a.mp3', isDirectory: false),
+        const NasFile(name: 'b.mp3', path: '/music/b.mp3', isDirectory: false),
+        const NasFile(name: 'c.mp3', path: '/music/c.mp3', isDirectory: false),
       ]);
 
       var tracks = await container.read(playlistTracksProvider(id).future);
@@ -257,9 +256,9 @@ void main() {
 
       final addTracks = container.read(addTracksToPlaylistProvider);
       await addTracks(id, [
-        NasFile(name: 'z.mp3', path: '/z.mp3', isDirectory: false),
-        NasFile(name: 'a.mp3', path: '/a.mp3', isDirectory: false),
-        NasFile(name: 'm.mp3', path: '/m.mp3', isDirectory: false),
+        const NasFile(name: 'z.mp3', path: '/z.mp3', isDirectory: false),
+        const NasFile(name: 'a.mp3', path: '/a.mp3', isDirectory: false),
+        const NasFile(name: 'm.mp3', path: '/m.mp3', isDirectory: false),
       ]);
 
       container.read(trackSortProvider.notifier).state = TrackSortOption.nameAsc;
@@ -281,9 +280,9 @@ void main() {
 
       final addTracks = container.read(addTracksToPlaylistProvider);
       await addTracks(id, [
-        NasFile(name: 'a.mp3', path: '/a.mp3', isDirectory: false),
-        NasFile(name: 'm.mp3', path: '/m.mp3', isDirectory: false),
-        NasFile(name: 'z.mp3', path: '/z.mp3', isDirectory: false),
+        const NasFile(name: 'a.mp3', path: '/a.mp3', isDirectory: false),
+        const NasFile(name: 'm.mp3', path: '/m.mp3', isDirectory: false),
+        const NasFile(name: 'z.mp3', path: '/z.mp3', isDirectory: false),
       ]);
 
       container.read(trackSortProvider.notifier).state =

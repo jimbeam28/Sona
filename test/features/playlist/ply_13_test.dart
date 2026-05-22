@@ -10,14 +10,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:nas_audio_player/features/browser/browser_provider.dart';
-import 'package:nas_audio_player/features/connection/connection_provider.dart';
 import 'package:nas_audio_player/features/playlist/playlist_detail_screen.dart';
 import 'package:nas_audio_player/features/playlist/playlist_provider.dart';
 import 'package:nas_audio_player/shared/models/playlist.dart';
-
-import 'package:nas_audio_player/shared/models/connection_config.dart';
-import 'package:nas_audio_player/shared/models/play_queue.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
