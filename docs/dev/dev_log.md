@@ -164,6 +164,24 @@
 
 ---
 
+## [2026-05-24] [TST-17] - 各模块补充测试（二）：Player + Progress + Settings + Home
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `test/features/player/ply_02_test.dart` — 追加 TST-T132~T133（TrackLoadResult + PlayerLoadState）
+- `test/features/player/ply_05_test.dart` — 追加 TST-T137（PlayQueue toMap/fromMap round-trip）
+- `test/features/progress/prg_test.dart` — 追加 TST-T138, TST-T148（短时长进度 + startPositionMs）
+- `test/features/playlist/ply_13_test.dart` — 追加 TST-T139~T140（重命名弹窗逻辑）
+- `test/features/settings/settings_test.dart` — 追加 TST-T141~T143（Tab index + 设置导航）
+- `test/features/home/home_screen_test.dart` — 新建，TST-T144（HomeScreen PopScope）
+- `test/features/connection/con_01_test.dart` — 追加 TST-T145~T147（连接列表/编辑）
+
+### 测试结果
+- 通过: 804 / 总计: 804
+
+---
+
 ## [2026-05-24] [TST-16] - 各模块补充测试（一）：Connection + Browser
 
 **状态**: ✅ 成功

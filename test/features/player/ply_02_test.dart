@@ -1028,4 +1028,53 @@ void main() {
           reason: '目录不应有 audioType');
     });
   });
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // TST-17: Player load state and track load result
+  // ═════════════════════════════════════════════════════════════════════════════
+
+  group('TST-17: Player load state and track load result', () {
+    // ── TST-T132: TrackLoadResult.failed() has correct status ─────────────────
+
+    test('TST-T132: TrackLoadResult.failed() has correct status', () {
+      const result = TrackLoadResult.failed();
+      expect(result.status, equals(TrackLoadStatus.failed));
+      expect(result.isLoaded, isFalse,
+          reason: 'TST-T132: failed状态isLoaded应为false');
+      expect(result.isSuperseded, isFalse,
+          reason: 'TST-T132: failed状态isSuperseded应为false');
+      expect(result.player, isNull,
+          reason: 'TST-T132: failed状态player应为null');
+    });
+
+    // ── TST-T133: setAudioSource failure → PlayerLoadState.error ──────────────
+
+    test('TST-T133: PlayerLoadState.error states for load failures', () {
+      // Generic load failure
+      final genericError = PlayerLoadState.error('加载失败');
+      expect(genericError.status, equals(PlayerLoadStatus.error),
+          reason: 'TST-T133: 通用加载失败status=error');
+      expect(genericError.errorMessage, equals('加载失败'),
+          reason: 'TST-T133: 错误消息应保留');
+      expect(genericError.isAuthError, isFalse,
+          reason: 'TST-T133: 默认非认证错误');
+
+      // Auth failure
+      final authError = PlayerLoadState.error('认证失败', isAuthError: true);
+      expect(authError.status, equals(PlayerLoadStatus.error),
+          reason: 'TST-T133: 认证失败status=error');
+      expect(authError.isAuthError, isTrue,
+          reason: 'TST-T133: 认证错误标志应为true');
+      expect(authError.errorMessage, equals('认证失败'));
+
+      // Timeout error
+      final timeoutError = PlayerLoadState.error('加载超时，请重试');
+      expect(timeoutError.status, equals(PlayerLoadStatus.error),
+          reason: 'TST-T133: 超时错误status=error');
+      expect(timeoutError.isAuthError, isFalse,
+          reason: 'TST-T133: 超时错误非认证错误');
+      expect(timeoutError.errorMessage, contains('超时'),
+          reason: 'TST-T133: 超时错误消息应包含"超时"');
+    });
+  });
 }

@@ -1878,4 +1878,68 @@ void main() {
       expect(finalRecord!.filePath, equals('/music/c.mp3'));
     });
   });
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // TST-17: PRG-G02 short duration progress
+  // ═════════════════════════════════════════════════════════════════════════════
+
+  group('TST-17: PRG-G02 short duration progress', () {
+    // TST-T138: durationMs <= 10000 的文件不自动清除
+    // shouldClear returns false when file is very short,
+    // because the 10-second "finished" window is meaningless.
+
+    test('TST-T138: durationMs <= 10000 files are NOT auto-cleared', () {
+      // shouldClear returns false when durationMs <= 10000 (G-3 rule)
+      expect(ProgressDao.shouldClear(7990, 8000), isFalse,
+          reason: 'TST-T138: 时长8s文件, positionMs接近结尾也不应清除');
+      expect(ProgressDao.shouldClear(9000, 10000), isFalse,
+          reason: 'TST-T138: 时长恰好10s文件, 不应清除');
+      expect(ProgressDao.shouldClear(5000, 5000), isFalse,
+          reason: 'TST-T138: 时长5s超短文件(<=10s), 不应清除');
+
+      // For files > 10s, normal shouldClear logic applies
+      expect(ProgressDao.shouldClear(95000, 100000), isTrue,
+          reason: 'TST-T138: 时长100s文件, position在最后10s内应清除');
+      expect(ProgressDao.shouldClear(85000, 100000), isFalse,
+          reason: 'TST-T138: 时长100s文件, position在最后10s外不应清除');
+
+      // shouldSave is independent: position < 5s always skipped
+      expect(ProgressDao.shouldSave(4000), isFalse,
+          reason: 'TST-T138: positionMs<5s 跳过保存');
+      expect(ProgressDao.shouldSave(5000), isTrue,
+          reason: 'TST-T138: positionMs>=5s 正常保存');
+    });
+
+    // TST-T148: startPositionMs 设置验证
+    test('TST-T148: queue with startPositionMs carries position to player', () {
+      final queue = PlayQueue(
+        files: [
+          const NasFile(
+              name: 'song.mp3',
+              path: '/music/song.mp3',
+              isDirectory: false),
+        ],
+        currentIndex: 0,
+        startPositionMs: 45000,
+      );
+      expect(queue.startPositionMs, equals(45000),
+          reason: 'TST-T148: startPositionMs 应正确携带到队列');
+
+      // withIndex preserves startPositionMs (caller must reset explicitly
+      // if the index changes via user swipe, e.g. via withStartPosition(null))
+      final sameIndex = queue.withIndex(0);
+      expect(sameIndex.startPositionMs, equals(45000),
+          reason: 'TST-T148: withIndex 保留 startPositionMs');
+
+      // withStartPosition can clear it explicitly
+      final cleared = queue.withStartPosition(null);
+      expect(cleared.startPositionMs, isNull,
+          reason: 'TST-T148: withStartPosition(null) 清除 startPositionMs');
+
+      // withStartPosition can set a new value
+      final set = queue.withStartPosition(30000);
+      expect(set.startPositionMs, equals(30000),
+          reason: 'TST-T148: withStartPosition 可设置新的 startPositionMs');
+    });
+  });
 }

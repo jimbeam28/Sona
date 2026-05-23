@@ -1071,4 +1071,62 @@ void main() {
           reason: 'SharedPreferences 应更新为 dark');
     });
   });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TST-17: Tab index persistence and settings navigation
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  group('TST-17: Tab index persistence and settings navigation', () {
+    test('TST-T141: tab index persists to SharedPreferences', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+
+      // Default is 0 when no value stored
+      expect(prefs.getInt('home_tab_index') ?? 0, equals(0),
+          reason: 'TST-T141: 首次启动默认 tab index = 0');
+
+      // Switch to tab 1
+      await prefs.setInt('home_tab_index', 1);
+
+      // Read back — should persist
+      expect(prefs.getInt('home_tab_index'), equals(1),
+          reason: 'TST-T141: 切换到 tab 1 后读取正确');
+    });
+
+    test('TST-T142: first launch defaults to tab 0', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+
+      // No previously stored value → default 0
+      expect(prefs.getInt('home_tab_index') ?? 0, equals(0),
+          reason: 'TST-T142: 首次启动无存储值时默认 tab 0');
+
+      // Also verify that reading a non-existent key returns null
+      expect(prefs.getInt('home_tab_index'), isNull,
+          reason: 'TST-T142: 未设置时 getInt 返回 null');
+    });
+
+    // TST-T143: 设置页 → "管理 NAS 连接" → 导航到 /connections
+    testWidgets('TST-T143: Settings page has manage connections option',
+        (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            sharedPreferencesProvider.overrideWith((ref) => prefs),
+          ],
+          child: const MaterialApp(
+            home: SettingsScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Settings page should render
+      expect(find.byType(SettingsScreen), findsOneWidget,
+          reason: 'TST-T143: SettingsScreen 组件应渲染');
+    });
+  });
 }

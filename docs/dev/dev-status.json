@@ -1,9 +1,9 @@
 {
   "metadata": {
-    "last_updated": "2026-05-23",
+    "last_updated": "2026-05-24",
     "total": 43,
-    "pending": 1,
-    "done": 42
+    "pending": 0,
+    "done": 43
   },
   "order": [
     "PRG-01",
@@ -348,8 +348,8 @@
     "TST-17": {
       "name": "各模块补充测试（二）：Player + Progress + Settings + Home",
       "plan_section": "dev-plan.md §TST-17",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": []
     }
   }

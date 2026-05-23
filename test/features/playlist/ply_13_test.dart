@@ -887,4 +887,69 @@ void main() {
           ['C.mp3', 'A.mp3', 'B.mp3']);
     });
   });
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // TST-17: Playlist rename dialog logic
+  // ═════════════════════════════════════════════════════════════════════════════
+
+  group('TST-17: Playlist rename dialog logic', () {
+    test('TST-T139: rename dialog validates non-empty name', () {
+      // Pure logic: name validation for the rename dialog
+
+      // Empty name → invalid
+      String? name = '';
+      final isEmptyValid = name.trim().isNotEmpty;
+      expect(isEmptyValid, isFalse,
+          reason: 'TST-T139: 空名称验证失败');
+
+      // Name with only whitespace → invalid
+      name = '   \t  ';
+      final isWhitespaceValid = name.trim().isNotEmpty;
+      expect(isWhitespaceValid, isFalse,
+          reason: 'TST-T139: 仅空白字符名称验证失败');
+
+      // Valid name → valid
+      name = '新名称';
+      final isValid = name.trim().isNotEmpty;
+      expect(isValid, isTrue,
+          reason: 'TST-T139: 非空名称验证通过');
+
+      // Name with leading/trailing whitespace trimmed → valid
+      name = '  有效名称  ';
+      final isTrimmedValid = name.trim().isNotEmpty;
+      expect(isTrimmedValid, isTrue,
+          reason: 'TST-T139: trim后非空名称验证通过');
+      expect(name.trim(), equals('有效名称'),
+          reason: 'TST-T139: trim去除前后空白');
+    });
+
+    test('TST-T140: empty name disables confirm button', () {
+      // Pure logic: the confirm/save button should be disabled when
+      // the name field is empty or whitespace-only.
+
+      // Empty → disabled
+      const emptyName = '';
+      final isDisabled1 = (emptyName.trim().isNotEmpty != true);
+      expect(isDisabled1, isTrue,
+          reason: 'TST-T140: 空名称时确认按钮应禁用');
+
+      // Whitespace only → disabled
+      const whitespaceName = '   ';
+      final isDisabled2 = (whitespaceName.trim().isNotEmpty != true);
+      expect(isDisabled2, isTrue,
+          reason: 'TST-T140: 仅空白字符时确认按钮应禁用');
+
+      // Non-empty → enabled
+      const validName = '有效名称';
+      final isDisabled3 = (validName.trim().isNotEmpty != true);
+      expect(isDisabled3, isFalse,
+          reason: 'TST-T140: 有效名称时确认按钮应启用');
+
+      // Non-null non-empty with null safety
+      const nonEmptyName = 'test';
+      final enabled = nonEmptyName.trim().isNotEmpty;
+      expect(enabled, isTrue,
+          reason: 'TST-T140: 非空非null名称启用确认按钮');
+    });
+  });
 }

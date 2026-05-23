@@ -1066,4 +1066,42 @@ void main() {
       }
     });
   });
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // TST-17: Queue serialization and progress edge cases
+  // ═════════════════════════════════════════════════════════════════════════════
+
+  group('TST-17: Queue serialization and progress edge cases', () {
+    test('TST-T137: PlayQueue toMap → fromMap round-trip restores all fields',
+        () {
+      final original = PlayQueue(
+        files: [
+          _audio('a.mp3', '/music/a.mp3'),
+          _audio('b.mp3', '/music/b.mp3'),
+          _audio('c.mp3', '/music/c.mp3'),
+        ],
+        currentIndex: 1,
+        startPositionMs: 30000,
+      );
+
+      final map = original.toMap();
+      final restored = PlayQueue.fromMap(map, original.files);
+
+      expect(restored, isNotNull);
+      expect(restored.length, equals(3),
+          reason: 'TST-T137: round-trip 后队列长度应保持3');
+      expect(restored.currentIndex, equals(1),
+          reason: 'TST-T137: round-trip 后 currentIndex 应保持');
+      expect(restored.files[0].name, equals('a.mp3'),
+          reason: 'TST-T137: 文件顺序应保留');
+      expect(restored.files[1].name, equals('b.mp3'));
+      expect(restored.files[2].name, equals('c.mp3'));
+      // startPositionMs 应在 round-trip 中保留
+      expect(restored.startPositionMs, equals(30000),
+          reason: 'TST-T137: startPositionMs 应在序列化往返中保留');
+      // Default play mode should be sequential
+      expect(restored.playMode, equals(PlayMode.sequential),
+          reason: 'TST-T137: 未指定模式应默认 sequential');
+    });
+  });
 }
