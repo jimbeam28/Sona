@@ -962,6 +962,188 @@ void main() {
               'state already cleared, onTrackCompleted should be idempotent');
     });
   });
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // Unit tests — TST-05: 暂停/恢复状态转移
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  group('TST-05: 暂停/恢复状态转移', () {
+    // ── TST-T26: duration timer → pause → state.mode==paused ─────────────
+
+    test('TST-T26: duration timer → pause → state.mode==paused, remainingMs 不变', () {
+      final service = TimerService();
+      service.startDuration(5);
+      expect(service.state!.mode, equals(TimerMode.duration));
+
+      final paused = service.pause();
+      expect(paused, isTrue);
+      expect(service.state!.mode, equals(TimerMode.paused));
+      expect(service.state!.remainingMs, isNotNull);
+      expect(service.state!.remainingMs!, greaterThan(0));
+      // remainingMs should be close to 5 minutes (in milliseconds)
+      expect(service.state!.remainingMs!, lessThanOrEqualTo(5 * 60 * 1000));
+    });
+
+    // ── TST-T27: paused → resume → 恢复倒计时，endTime 重新计算 ────────
+
+    test('TST-T27: paused → resume → 恢复倒计时，endTime 重新计算', () {
+      final service = TimerService();
+      service.startDuration(5);
+      service.pause();
+      expect(service.state!.mode, equals(TimerMode.paused));
+
+      final resumed = service.resume();
+      expect(resumed, isTrue);
+      expect(service.state!.mode, equals(TimerMode.duration));
+      expect(service.state!.endTime, isNotNull);
+
+      // endTime should be approximately now + remaining minutes (ceiled)
+      final now = DateTime.now();
+      final diff = service.state!.endTime!.difference(now);
+      expect(diff.inSeconds, greaterThan(4 * 60),
+          reason: '恢复后剩余时间应至少 4 分钟');
+      expect(diff.inSeconds, lessThanOrEqualTo(5 * 60 + 1),
+          reason: '恢复后剩余时间不应超过 5 分钟');
+    });
+
+    // ── TST-T28: paused → cancel → state==null (idle) ──────────────────
+
+    test('TST-T28: paused → cancel → state==null (idle)', () {
+      final service = TimerService();
+      service.startDuration(5);
+      service.pause();
+      expect(service.state!.mode, equals(TimerMode.paused));
+
+      final cancelled = service.cancel();
+      expect(cancelled, isTrue);
+      expect(service.state, isNull);
+      expect(service.isActive, isFalse);
+    });
+
+    // ── TST-T29: paused → startDuration(10) → 新 timer 覆盖 paused ─────
+
+    test('TST-T29: paused → startDuration(10) → 新 timer 覆盖 paused', () {
+      final service = TimerService();
+      service.startDuration(5);
+      service.pause();
+      expect(service.state!.mode, equals(TimerMode.paused));
+
+      final newState = service.startDuration(10);
+      expect(newState.mode, equals(TimerMode.duration));
+      expect(service.state!.mode, equals(TimerMode.duration));
+
+      final now = DateTime.now();
+      final expectedEnd = now.add(const Duration(minutes: 10));
+      final diff =
+          service.state!.endTime!.difference(expectedEnd).inMilliseconds.abs();
+      expect(diff, lessThan(100),
+          reason: 'endTime should be within 100ms of now + 10min');
+    });
+
+    // ── TST-T30: afterCurrent → pause → false (pause 不支持 afterCurrent) ──
+
+    test('TST-T30: afterCurrent → pause → pause() 返回 false, state 不变', () {
+      final service = TimerService();
+      service.startAfterCurrent();
+      expect(service.state!.mode, equals(TimerMode.afterCurrent));
+
+      final paused = service.pause();
+      expect(paused, isFalse,
+          reason: 'pause() 只支持 duration 模式，afterCurrent 下应返回 false');
+      expect(service.state!.mode, equals(TimerMode.afterCurrent));
+      expect(service.isActive, isTrue);
+    });
+
+    // ── TST-T31: afterCurrent → resume → false (resume 不支持非 paused) ──
+
+    test('TST-T31: afterCurrent → resume → resume() 返回 false, state 不变', () {
+      final service = TimerService();
+      service.startAfterCurrent();
+      expect(service.state!.mode, equals(TimerMode.afterCurrent));
+
+      final resumed = service.resume();
+      expect(resumed, isFalse,
+          reason: 'resume() 只支持 paused 模式，afterCurrent 下应返回 false');
+      expect(service.state!.mode, equals(TimerMode.afterCurrent));
+      expect(service.isActive, isTrue);
+    });
+
+    // ── TST-T32: paused → checkExpired → false（不触发到期）───────────
+
+    test('TST-T32: paused → checkExpired → 返回 false（不触发到期）', () {
+      final service = TimerService();
+      service.startDuration(5);
+      service.pause();
+      expect(service.state!.mode, equals(TimerMode.paused));
+
+      final expired = service.checkExpired();
+      expect(expired, isFalse,
+          reason: 'paused 模式不倒计时，checkExpired 应返回 false');
+      expect(service.state, isNotNull,
+          reason: 'paused 状态下 state 不应被 checkExpired 清除');
+      expect(service.state!.mode, equals(TimerMode.paused));
+    });
+
+    // ── TST-T33: formattedRemaining 在 paused 状态下正确显示 ──────────
+
+    test('TST-T33: formattedRemaining 在 paused 状态下正确显示', () {
+      final service = TimerService();
+      service.startDuration(5);
+      service.pause();
+
+      // displayString should be non-null for paused mode (not afterCurrent)
+      final display = service.displayString;
+      expect(display, isNotNull,
+          reason: 'paused 模式下 displayString 不应为 null');
+
+      // Verify MM:SS format
+      expect(display!.length, equals(5));
+      expect(display[2], equals(':'));
+
+      final parts = display.split(':');
+      final minutes = int.parse(parts[0]);
+      final seconds = int.parse(parts[1]);
+      expect(minutes, lessThanOrEqualTo(5));
+      expect(minutes, greaterThanOrEqualTo(4));
+      expect(seconds, lessThan(60));
+    });
+
+    // ── TST-T34: 暂停→恢复完整循环 ──────────────────────────────────
+
+    test('TST-T34: 暂停→恢复完整循环，endTime 正确重新计算', () {
+      final service = TimerService();
+
+      service.startDuration(10);
+      final endTime1 = service.state!.endTime!;
+      expect(service.state!.mode, equals(TimerMode.duration));
+      expect(service.isActive, isTrue);
+
+      final paused = service.pause();
+      expect(paused, isTrue);
+      expect(service.state!.mode, equals(TimerMode.paused));
+      final remainingMs = service.state!.remainingMs!;
+      expect(remainingMs, greaterThan(0));
+      expect(remainingMs, lessThanOrEqualTo(10 * 60 * 1000));
+
+      final resumed = service.resume();
+      expect(resumed, isTrue);
+      expect(service.state!.mode, equals(TimerMode.duration));
+      final endTime2 = service.state!.endTime!;
+
+      // 恢复后的 endTime 基于新的 now() + 剩余分钟数(ceil)，
+      // 不应早于原始 endTime
+      expect(endTime2.isBefore(endTime1), isFalse,
+          reason: '恢复后的 endTime 不应早于原始 endTime');
+
+      // endTime2 应在合理范围内（约 now + 10min）
+      final now = DateTime.now();
+      final diff = endTime2.difference(now);
+      expect(diff.inMinutes, lessThanOrEqualTo(10));
+      expect(diff.inMinutes, greaterThanOrEqualTo(9));
+
+      expect(service.isActive, isTrue);
+    });
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
