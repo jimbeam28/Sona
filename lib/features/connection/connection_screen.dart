@@ -47,7 +47,8 @@ class _ConnectionScreenState extends ConsumerState<ConnectionScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('添加 WebDAV 连接'),
+        // CON-02: show "修复" title when redirected from startup validation failure
+        title: Text(startupErrorMsg != null ? '修复 WebDAV 连接' : '添加 WebDAV 连接'),
         centerTitle: true,
         actions: _buildAppBarActions(context, ref),
       ),

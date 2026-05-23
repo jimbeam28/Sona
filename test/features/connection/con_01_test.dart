@@ -91,10 +91,13 @@ ProviderContainer makeContainer(MockWebDavClient mock) {
 
 /// Wraps [widget] in the minimal Flutter scaffolding required for widget tests:
 /// [ProviderScope] with the mock override + a basic [MaterialApp].
-Widget buildTestApp(Widget widget, MockWebDavClient mock) {
+/// Additional provider overrides are applied on top.
+Widget buildTestApp(Widget widget, MockWebDavClient mock,
+    {List<Override> overrides = const []}) {
   return ProviderScope(
     overrides: [
       webDavClientProvider.overrideWithValue(mock),
+      ...overrides,
     ],
     child: MaterialApp(
       home: widget,
@@ -547,6 +550,55 @@ void main() {
           reason: '连接列表为空时应显示引导页标题');
       expect(find.text('添加连接'), findsOneWidget,
           reason: '引导页应有"添加连接"按钮');
+    });
+
+    // ── CON-FIX-T05: 从 onboarding 正常添加 → 标题"添加 WebDAV 连接" ─
+
+    testWidgets('CON-FIX-T05: normal add shows "添加" title',
+        (WidgetTester tester) async {
+      final mock = MockWebDavClient();
+
+      await tester.pumpWidget(
+        buildTestApp(
+          const ConnectionScreen(),
+          mock,
+          // Override startupValidationProvider to return null (no error)
+          overrides: [
+            startupValidationProvider
+                .overrideWith((ref) async => null),
+          ],
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('添加 WebDAV 连接'), findsOneWidget,
+          reason: '正常添加连接时应显示"添加 WebDAV 连接"标题');
+      expect(find.text('修复 WebDAV 连接'), findsNothing,
+          reason: '非修复场景不应显示"修复"标题');
+    });
+
+    // ── CON-FIX-T06: 从 startup validation 失败重定向 → 标题"修复 WebDAV 连接" ─
+
+    testWidgets('CON-FIX-T06: startup failure redirect shows "修复" title',
+        (WidgetTester tester) async {
+      final mock = MockWebDavClient();
+
+      await tester.pumpWidget(
+        buildTestApp(
+          const ConnectionScreen(),
+          mock,
+          overrides: [
+            startupValidationProvider.overrideWith(
+                (ref) async => WebDavValidationResult.networkError()),
+          ],
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('修复 WebDAV 连接'), findsOneWidget,
+          reason: 'startup validation 失败重定向时应显示"修复 WebDAV 连接"标题');
     });
   });
 }
