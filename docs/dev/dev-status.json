@@ -2,8 +2,8 @@
   "metadata": {
     "last_updated": "2026-05-23",
     "total": 43,
-    "pending": 4,
-    "done": 39
+    "pending": 3,
+    "done": 40
   },
   "order": [
     "PRG-01",
@@ -327,8 +327,8 @@
     "TST-14": {
       "name": "运行日志查看器测试",
       "plan_section": "dev-plan.md §TST-14",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": []
     },
     "TST-15": {
