@@ -2,8 +2,8 @@
   "metadata": {
     "last_updated": "2026-05-23",
     "total": 43,
-    "pending": 11,
-    "done": 32
+    "pending": 10,
+    "done": 33
   },
   "order": [
     "PRG-01",
@@ -278,8 +278,8 @@
     "TST-07": {
       "name": "PlayerScreen 全屏播放器 Widget 测试",
       "plan_section": "dev-plan.md §TST-07",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": []
     },
     "TST-08": {
