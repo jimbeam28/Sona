@@ -2,8 +2,8 @@
   "metadata": {
     "last_updated": "2026-05-23",
     "total": 26,
-    "pending": 9,
-    "done": 17
+    "pending": 7,
+    "done": 19
   },
   "order": [
     "PRG-01",
@@ -107,8 +107,8 @@
     "PLY-03": {
       "name": "player.play() unawaited + 轮询超时",
       "plan_section": "dev-plan.md §PLY-03",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": []
     },
     "PLY-04": {
@@ -142,8 +142,8 @@
     "TMR-02": {
       "name": "后台定时器到期检测延迟",
       "plan_section": "dev-plan.md §TMR-02",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": []
     },
     "TMR-03": {

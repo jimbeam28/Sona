@@ -98,6 +98,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     debugPrint('[Player] lifecycle: $state');
     if (state == AppLifecycleState.paused) {
       _saveProgress();
+    } else if (state == AppLifecycleState.resumed) {
+      // TMR-02: check timer expiry immediately on resume — the periodic
+      // checker stops while the app is backgrounded, so we may have missed
+      // the expiry window.
+      final expired = ref.read(checkTimerExpiryProvider)();
+      if (expired) {
+        ref.read(audioPlayerProvider).pause();
+      }
     }
   }
 

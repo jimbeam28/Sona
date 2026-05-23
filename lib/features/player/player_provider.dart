@@ -951,12 +951,22 @@ final Provider<Future<TrackLoadResult> Function()> loadAndPlayProvider =
           // platform-channel contention with audio_service.  Instead poll
           // player.playing so the UI shows controls as soon as audio starts.
           unawaited(player.play());
+          // PLY-03: increased timeout to 60 × 200ms = 12s and added
+          // a final confirmation check to avoid false-positive failures.
           var playStarted = false;
-          for (int i = 0; i < 40; i++) {
+          for (int i = 0; i < 60; i++) {
             await Future<void>.delayed(const Duration(milliseconds: 200));
             if (player.playing) {
               playStarted = true;
               break;
+            }
+          }
+          if (!playStarted) {
+            // Final confirmation: the platform may have taken longer than
+            // expected to update the playing flag.
+            if (player.playing) {
+              playStarted = true;
+              debugPrint('[Provider] loadAndPlay: play() started late');
             }
           }
           if (!playStarted) {
