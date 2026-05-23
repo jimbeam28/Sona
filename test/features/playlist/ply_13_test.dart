@@ -11,14 +11,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fake_async/fake_async.dart';
 import 'package:go_router/go_router.dart';
+import 'package:nas_audio_player/core/database/dao/playlist_dao.dart';
+import 'package:nas_audio_player/core/database/database_helper.dart';
 import 'package:nas_audio_player/features/playlist/playlist_detail_screen.dart';
 import 'package:nas_audio_player/features/playlist/playlist_provider.dart';
+import 'package:nas_audio_player/features/playlist/widgets/playlist_track_item.dart';
 import 'package:nas_audio_player/shared/models/playlist.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/features/connection/connection_provider.dart';
 import 'package:nas_audio_player/features/progress/progress_provider.dart';
 import 'package:nas_audio_player/shared/models/connection_config.dart';
 import 'package:nas_audio_player/shared/models/play_progress.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -101,6 +105,10 @@ Widget _buildTestApp(Widget child, {List<Override>? overrides}) {
 // ═════════════════════════════════════════════════════════════════════════════
 
 void main() {
+  setUpAll(() {
+    sqfliteFfiInit();
+  });
+
   // ── PLY-T73: loading state ───────────────────────────────────────────
 
   group('PLY-T73 loading state', () {
@@ -677,6 +685,206 @@ void main() {
       expect(queue, isNotNull);
       expect(queue!.currentIndex, equals(2));
       expect(queue.files.length, equals(5));
+    });
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // TST-11: 拖拽排序 Widget 测试 (TST-T80~TST-T82)
+  // ═════════════════════════════════════════════════════════════════════════════
+
+  // ── TST-T80: drag reorder callback params ─────────────────────────────
+
+  group('TST-T80 drag reorder callback', () {
+    testWidgets('drag from index 2 to 0 calls reorder with correct params',
+        (WidgetTester tester) async {
+      int? capturedPlaylistId, capturedOldIndex, capturedNewIndex;
+
+      await tester.pumpWidget(_buildTestApp(
+        const PlaylistDetailScreen(playlistId: 1),
+        overrides: [
+          playlistTracksProvider(1).overrideWith((ref) => Future.value([
+                _testTrack(id: 1, fileName: 'A.mp3'),
+                _testTrack(id: 2, fileName: 'B.mp3'),
+                _testTrack(id: 3, fileName: 'C.mp3'),
+              ])),
+          playlistListProvider
+              .overrideWith((ref) => Future.value(_testPlaylists)),
+          reorderPlaylistTrackProvider.overrideWith(
+              (ref) => (playlistId, oldIndex, newIndex) {
+                    capturedPlaylistId = playlistId;
+                    capturedOldIndex = oldIndex;
+                    capturedNewIndex = newIndex;
+                    return Future.value();
+                  }),
+        ],
+      ));
+      await tester.pumpAndSettle();
+
+      // Verify ReorderableListView is present (sort=addedAsc is default)
+      expect(find.byType(ReorderableListView), findsOneWidget);
+
+      // Simulate drag from index 2 to index 0 by invoking the onReorder
+      // callback directly.  Flutter's SliverReorderableList does not reliably
+      // respond to timedDrag / long-press-drag in the test framework because
+      // it uses MultiDragGestureRecognizer internally.
+      final reorderable =
+          tester.widget<ReorderableListView>(find.byType(ReorderableListView));
+      reorderable.onReorder(2, 0);
+      await tester.pumpAndSettle();
+
+      // Verify the callback forwarded to reorderPlaylistTrackProvider with
+      // correct arguments (newIndex is NOT adjusted because 0 < 2).
+      expect(capturedPlaylistId, equals(1));
+      expect(capturedOldIndex, equals(2));
+      expect(capturedNewIndex, equals(0));
+    });
+  });
+
+  // ── TST-T81: track list order updates after reorder ──────────────────
+
+  group('TST-T81 track list order updates', () {
+    testWidgets('list reflects new order after reorder',
+        (WidgetTester tester) async {
+      final tracks = [
+        _testTrack(id: 1, fileName: 'A.mp3'),
+        _testTrack(id: 2, fileName: 'B.mp3'),
+        _testTrack(id: 3, fileName: 'C.mp3'),
+      ];
+
+      await tester.pumpWidget(_buildTestApp(
+        const PlaylistDetailScreen(playlistId: 1),
+        overrides: [
+          playlistTracksProvider(1)
+              .overrideWith((ref) => Future.value(tracks)),
+          playlistListProvider
+              .overrideWith((ref) => Future.value(_testPlaylists)),
+          reorderPlaylistTrackProvider.overrideWith(
+              (ref) => (playlistId, oldIndex, newIndex) {
+                    final item = tracks.removeAt(oldIndex);
+                    tracks.insert(newIndex, item);
+                    ref.invalidate(playlistTracksProvider(playlistId));
+                    return Future.value();
+                  }),
+        ],
+      ));
+      await tester.pumpAndSettle();
+
+      // Verify initial order: A, B, C
+      var items = tester
+          .widgetList<PlaylistTrackItem>(
+              find.byType(PlaylistTrackItem))
+          .toList();
+      expect(items.length, 3);
+      expect(items[0].track.fileName, 'A.mp3');
+      expect(items[1].track.fileName, 'B.mp3');
+      expect(items[2].track.fileName, 'C.mp3');
+
+      // Simulate drag from index 2 to index 0 by invoking onReorder directly.
+      final reorderable =
+          tester.widget<ReorderableListView>(find.byType(ReorderableListView));
+      reorderable.onReorder(2, 0);
+      await tester.pumpAndSettle();
+
+      // Verify new order: C, A, B
+      items = tester
+          .widgetList<PlaylistTrackItem>(
+              find.byType(PlaylistTrackItem))
+          .toList();
+      expect(items.length, 3);
+      expect(items[0].track.fileName, 'C.mp3');
+      expect(items[1].track.fileName, 'A.mp3');
+      expect(items[2].track.fileName, 'B.mp3');
+    });
+  });
+
+  // ── TST-T82: reorder persistence ─────────────────────────────────────
+
+  const tst11CreateTables = '''
+    CREATE TABLE playlists (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE TABLE playlist_tracks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      playlist_id INTEGER NOT NULL,
+      file_path TEXT NOT NULL,
+      file_name TEXT NOT NULL,
+      added_at INTEGER NOT NULL,
+      FOREIGN KEY(playlist_id) REFERENCES playlists(id) ON DELETE CASCADE
+    );
+    CREATE INDEX idx_playlist_tracks_playlist_id ON playlist_tracks(playlist_id);
+  ''';
+
+  group('TST-T82 reorder persistence', () {
+    late Database db;
+    late ProviderContainer container;
+
+    setUp(() async {
+      db = await databaseFactoryFfi.openDatabase(inMemoryDatabasePath);
+      await db.execute('PRAGMA foreign_keys = ON');
+      await db.execute(tst11CreateTables);
+      DatabaseHelper.instance.overrideDatabase(db);
+
+      container = ProviderContainer(overrides: [
+        playlistDaoProvider.overrideWith((ref) => PlaylistDao()),
+      ]);
+    });
+
+    tearDown(() async {
+      container.dispose();
+      await db.close();
+    });
+
+    test('reorderTrack persists order after page reopen', () async {
+      final dao = PlaylistDao();
+
+      // Insert playlist
+      final playlistId = await dao.insertPlaylist(Playlist(
+        name: 'Reorder Test',
+        createdAt: _now,
+        updatedAt: _now,
+      ));
+
+      // Insert tracks with sequential added_at
+      final base = _now.millisecondsSinceEpoch;
+      final tracks = [
+        PlaylistTrack(
+            playlistId: playlistId,
+            filePath: '/A.mp3',
+            fileName: 'A.mp3',
+            addedAt: DateTime.fromMillisecondsSinceEpoch(base)),
+        PlaylistTrack(
+            playlistId: playlistId,
+            filePath: '/B.mp3',
+            fileName: 'B.mp3',
+            addedAt: DateTime.fromMillisecondsSinceEpoch(base + 1)),
+        PlaylistTrack(
+            playlistId: playlistId,
+            filePath: '/C.mp3',
+            fileName: 'C.mp3',
+            addedAt: DateTime.fromMillisecondsSinceEpoch(base + 2)),
+      ];
+      await dao.addTracks(tracks);
+
+      // Read initial order — sorted by added_at ASC
+      var result =
+          await container.read(playlistTracksProvider(playlistId).future);
+      expect(result.map((t) => t.fileName).toList(),
+          ['A.mp3', 'B.mp3', 'C.mp3']);
+
+      // Reorder: move index 2 (C.mp3) to index 0
+      await container.read(reorderPlaylistTrackProvider)(playlistId, 2, 0);
+
+      // Invalidate to simulate "reopening" the detail page
+      container.invalidate(playlistTracksProvider(playlistId));
+
+      // Read again — should reflect persisted new order
+      result =
+          await container.read(playlistTracksProvider(playlistId).future);
+      expect(result.map((t) => t.fileName).toList(),
+          ['C.mp3', 'A.mp3', 'B.mp3']);
     });
   });
 }

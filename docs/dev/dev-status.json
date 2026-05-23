@@ -2,8 +2,8 @@
   "metadata": {
     "last_updated": "2026-05-23",
     "total": 43,
-    "pending": 7,
-    "done": 36
+    "pending": 6,
+    "done": 37
   },
   "order": [
     "PRG-01",
@@ -306,8 +306,8 @@
     "TST-11": {
       "name": "播放单拖拽排序与添加曲目弹窗",
       "plan_section": "dev-plan.md §TST-11",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": []
     },
     "TST-12": {
