@@ -1,0 +1,220 @@
+{
+  "metadata": {
+    "last_updated": "2026-05-23",
+    "total": 26,
+    "pending": 26,
+    "done": 0
+  },
+  "order": [
+    "PRG-01",
+    "CON-01",
+    "CON-02",
+    "CON-03",
+    "CON-04",
+    "CON-05",
+    "CON-06",
+    "CON-07",
+    "PLY-01",
+    "PLY-02",
+    "PLY-03",
+    "PLY-04",
+    "PLY-05",
+    "PLY-06",
+    "TMR-01",
+    "TMR-02",
+    "TMR-03",
+    "PRG-02",
+    "PRG-03",
+    "PLS-01",
+    "PLS-02",
+    "PLS-03",
+    "PLS-04",
+    "PLS-05",
+    "HOM-01",
+    "HOM-02"
+  ],
+  "items": {
+    "PRG-01": {
+      "name": "进度恢复对话框接入",
+      "plan_section": "dev-plan.md §PRG-01",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "CON-01": {
+      "name": "添加连接页面验证状态过期",
+      "plan_section": "dev-plan.md §CON-01",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "CON-02": {
+      "name": "修复连接页面标题误导",
+      "plan_section": "dev-plan.md §CON-02",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "CON-03": {
+      "name": "LastConnectionException 未被 provider catch",
+      "plan_section": "dev-plan.md §CON-03",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "CON-04": {
+      "name": "_originalConfig 双路径捕获",
+      "plan_section": "dev-plan.md §CON-04",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "CON-05": {
+      "name": "isAttached 异常控制流",
+      "plan_section": "dev-plan.md §CON-05",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "CON-06": {
+      "name": "name auto-fill 回调为空",
+      "plan_section": "dev-plan.md §CON-06",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "CON-07": {
+      "name": "Onboarding 错误被静默处理",
+      "plan_section": "dev-plan.md §CON-07",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "PLY-01": {
+      "name": "Shuffle 模式非确定性",
+      "plan_section": "dev-plan.md §PLY-01",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "PLY-02": {
+      "name": "Mini bar 播放按钮 idle 状态行为",
+      "plan_section": "dev-plan.md §PLY-02",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "PLY-03": {
+      "name": "player.play() unawaited + 轮询超时",
+      "plan_section": "dev-plan.md §PLY-03",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "PLY-04": {
+      "name": "连接切换后 phantom player bar",
+      "plan_section": "dev-plan.md §PLY-04",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "PLY-05": {
+      "name": "Processing 监听器 dispose 竞态",
+      "plan_section": "dev-plan.md §PLY-05",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "PLY-06": {
+      "name": "BackgroundPlaybackConfig 未接入 NasAudioHandler",
+      "plan_section": "dev-plan.md §PLY-06",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "TMR-01": {
+      "name": "定时器状态手动 invalidate 脆弱",
+      "plan_section": "dev-plan.md §TMR-01",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "TMR-02": {
+      "name": "后台定时器到期检测延迟",
+      "plan_section": "dev-plan.md §TMR-02",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "TMR-03": {
+      "name": "定时器无暂停状态",
+      "plan_section": "dev-plan.md §TMR-03",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": ["TMR-01"]
+    },
+    "PRG-02": {
+      "name": "进度存储单活跃记录模式",
+      "plan_section": "dev-plan.md §PRG-02",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": ["PRG-01"]
+    },
+    "PRG-03": {
+      "name": "目录缓存无 TTL",
+      "plan_section": "dev-plan.md §PRG-03",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "PLS-01": {
+      "name": "播放单重命名",
+      "plan_section": "dev-plan.md §PLS-01",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "PLS-02": {
+      "name": "播放单元数据编辑",
+      "plan_section": "dev-plan.md §PLS-02",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "PLS-03": {
+      "name": "播放单曲目拖拽排序",
+      "plan_section": "dev-plan.md §PLS-03",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "PLS-04": {
+      "name": "播放单曲目点击不检查已保存进度",
+      "plan_section": "dev-plan.md §PLS-04",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": ["PRG-01"]
+    },
+    "PLS-05": {
+      "name": "播放单导出/导入",
+      "plan_section": "dev-plan.md §PLS-05",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "HOM-01": {
+      "name": "Tab index 持久化",
+      "plan_section": "dev-plan.md §HOM-01",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "HOM-02": {
+      "name": "AppBar 排序菜单交互优化",
+      "plan_section": "dev-plan.md §HOM-02",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    }
+  }
+}
