@@ -23,10 +23,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     with TickerProviderStateMixin {
   late final TabController _tabController;
 
+  static const _tabIndexKey = 'home_tab_index';
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+
+    // HOM-01: restore persisted tab index
+    final prefs = ref.read(sharedPreferencesProvider);
+    final savedIndex = prefs?.getInt(_tabIndexKey) ?? 0;
+    if (savedIndex >= 0 && savedIndex < 2) {
+      _tabController.index = savedIndex;
+    }
+
+    // HOM-01: persist tab index on change
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        prefs?.setInt(_tabIndexKey, _tabController.index);
+      }
+    });
   }
 
   @override
