@@ -22,8 +22,8 @@ UI Layer (Flutter Widgets)
 ```
 lib/
 ├── core/
-│   ├── database/              # SQLite 初始化 + 迁移 (v1)
-│   │   └── dao/               # ConnectionDao (CRUD/切换) + ProgressDao (UPSERT/智能过滤)
+│   ├── database/              # SQLite 初始化 + 迁移 (v1→v2)
+│   │   └── dao/               # ConnectionDao (CRUD/切换) + ProgressDao (UPSERT/智能过滤) + PlaylistDao (CRUD/曲目管理)
 │   ├── network/
 │   │   └── webdav_client.dart # WebDAV PROPFIND: 验证连接 + 列出目录
 │   └── services/
@@ -33,15 +33,17 @@ lib/
 │       └── log_buffer.dart          # 运行时日志环形缓冲区（Debug 模式查看）
 ├── features/
 │   ├── connection/            # 连接管理：添加/编辑/删除/验证 WebDAV 连接、切换活跃连接
+│   ├── home/                  # 主页 Tab 导航（播放单 Tab + 文件浏览 Tab）
 │   ├── browser/               # 文件浏览：PROPFIND 目录列表、面包屑导航、排序(名称/时间)、缓存、点击建播放队列
-│   ├── player/                # 音频播放：流式播放、队列管理、4 种播放模式、6 档速度、后台播放、迷你播放栏
+│   ├── player/                # 音频播放：流式播放、队列管理、4 种播放模式、6 档速度、后台播放、迷你播放栏、队列删除
+│   ├── playlist/              # 播放单：CRUD、曲目管理（添加/删除/去重）、排序浏览
 │   ├── timer/                 # 定时停止：固定时长(5/10/15min+自定义)、播完当前、倒计时显示
 │   ├── progress/              # 进度记忆：自动保存(5 触发点)、智能过滤(<5s 跳过, >duration-10s 清除)、恢复对话框
 │   └── settings/              # 设置：默认速度、记住速度、快进步长、主题(system/light/dark)、关于、日志查看
-├── shared/models/             # ConnectionConfig / NasFile / PlayProgress / PlayQueue
+├── shared/models/             # ConnectionConfig / NasFile / PlayProgress / PlayQueue / Playlist / PlaylistTrack
 └── main.dart                  # 入口：ProviderScope 覆盖注入 + go_router 路由
 
-test/features/                 # 按模块组织：connection / browser / player / timer / progress / settings
+test/features/                 # 按模块组织：connection / browser / player / timer / progress / settings / playlist
 ```
 
 ## 路由
@@ -52,16 +54,18 @@ test/features/                 # 按模块组织：connection / browser / player
 | `/connection` | 添加连接 | 表单→PROPFIND 验证→保存 |
 | `/connections` | 连接列表 | 切换/编辑/删除 |
 | `/connections/edit/:id` | 编辑连接 | 凭证变更需重验证 |
-| `/browser` | 文件浏览 | 目录列表 + 面包屑 + 迷你播放栏 |
+| `/browser` | 主页 | HomeScreen（播放单 Tab + 文件浏览 Tab + 迷你播放器） |
+| `/playlist/:id` | 播放单详情 | 曲目列表 + 添加/删除 |
 | `/player` | 播放器 | 全屏播放控制 |
 | `/settings` | 设置 | 播放/外观/连接/关于 |
 | `/about` | 关于 | 应用信息 |
 | `/logs` | 日志 | 仅 kDebugMode |
 
-## 数据库（SQLite v1）
+## 数据库（SQLite v2）
 
 - `connections` — 连接配置（password 字段存 secure_storage 引用 key）
 - `play_progress` — 播放进度（单条活跃记录模式，UPSERT 语义）
+- `playlists` / `playlist_tracks` — 播放单与曲目（v2 迁移新增，CASCADE 删除）
 
 密码明文仅存储在 `flutter_secure_storage`，key 格式：`connection_password_{id}`。
 
