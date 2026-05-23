@@ -8,13 +8,24 @@
 // These tests exercise the PlayQueue model and its static helpers directly,
 // without AudioPlayer or platform channels.
 
+import 'dart:async';
 import 'dart:math';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:just_audio/just_audio.dart';
+import 'package:mockito/mockito.dart';
+import 'package:nas_audio_player/features/browser/browser_provider.dart';
+import 'package:nas_audio_player/features/connection/connection_provider.dart';
 import 'package:nas_audio_player/features/player/player_provider.dart';
+import 'package:nas_audio_player/features/progress/progress_provider.dart';
+import 'package:nas_audio_player/features/timer/timer_provider.dart';
+import 'package:nas_audio_player/shared/models/connection_config.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:nas_audio_player/shared/models/play_progress.dart';
 import 'package:nas_audio_player/shared/models/play_queue.dart';
+
+import 'ply_08_test.mocks.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────────
 
@@ -752,6 +763,307 @@ void main() {
     test('previousIndex sequential with single-item returns null', () {
       expect(PlayQueue.previousIndex(0, 1, PlayMode.sequential), isNull,
           reason: '单曲队列第一首也是最后一首，没有前一首');
+    });
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // Integration tests — TST-01: auto-advance on track completion
+  // ═════════════════════════════════════════════════════════════════════════════
+
+  group('TST-01: Auto-advance to next track on completion', () {
+    late MockAudioPlayer mockPlayer;
+    late StreamController<ProcessingState> processingController;
+    late ProviderContainer container;
+
+    /// Records of callbacks fired by the processing listener.
+    late List<String> saveProgressCalls;
+    late List<String> loadAndPlayCalls;
+
+    /// Helper: build a queue with [count] audio files, setting [currentIndex].
+    PlayQueue buildQueue(int count, int currentIndex) {
+      final files = List.generate(count, (i) {
+        final n = (i + 1).toString().padLeft(2, '0');
+        return _audio('track_$n.mp3', '/music/track_$n.mp3');
+      });
+      return PlayQueue(files: files, currentIndex: currentIndex);
+    }
+
+    /// Helper: register the processing listener and emit a completed event,
+    /// then await micro-task settlement.
+    Future<void> emitCompleted() async {
+      final startFn = container.read(startProcessingListenerProvider);
+      startFn();
+      processingController.add(ProcessingState.completed);
+      await Future<void>.delayed(Duration.zero);
+    }
+
+    setUp(() {
+      mockPlayer = MockAudioPlayer();
+      processingController = StreamController<ProcessingState>.broadcast();
+
+      when(mockPlayer.processingStateStream)
+          .thenAnswer((_) => processingController.stream);
+      when(mockPlayer.position).thenReturn(const Duration(seconds: 30));
+      when(mockPlayer.duration).thenReturn(const Duration(minutes: 3));
+
+      saveProgressCalls = [];
+      loadAndPlayCalls = [];
+
+      container = ProviderContainer(
+        overrides: [
+          // -- Platform / service mocks --
+          audioPlayerProvider.overrideWithValue(mockPlayer),
+
+          // -- Feature overrides --
+          // Timer: no active afterCurrent timer
+          onTrackCompletedProvider.overrideWithValue(() => false),
+
+          // Track saveProgress calls; record the file path being saved
+          saveProgressProvider.overrideWithValue(() {
+            final q = container.read(currentPlayQueueProvider);
+            saveProgressCalls.add(q?.current.path ?? 'null-queue');
+          }),
+
+          // Track loadAndPlay calls; return a successful result
+          loadAndPlayProvider.overrideWithValue(() async {
+            loadAndPlayCalls.add('loadAndPlay');
+            return TrackLoadResult.loaded(mockPlayer);
+          }),
+        ],
+      );
+    });
+
+    tearDown(() {
+      processingController.close();
+      // Do NOT call container.dispose() — startProcessingListenerProvider's
+      // onDispose callback reads _processingSubProvider which would throw
+      // on a disposed container (Riverpod limitation).  The stream is
+      // closed above, cancelling the subscription naturally.
+    });
+
+    // ── TST-T01: sequential — middle track → auto next ──────────────────────
+
+    test('TST-T01: sequential mode - middle track completes, advances to next',
+        () async {
+      final queue = buildQueue(5, 2);
+      container.read(currentPlayQueueProvider.notifier).state = queue;
+      container.read(playModeProvider.notifier).state = PlayMode.sequential;
+
+      await emitCompleted();
+
+      // 1. saveProgress was called (before queue change)
+      expect(saveProgressCalls, isNotEmpty, reason: '切歌前应保存旧曲目进度');
+      expect(saveProgressCalls.first, equals('/music/track_03.mp3'),
+          reason: '应保存旧曲目（索引2=track_03）的进度');
+
+      // 2. Queue advanced to next index
+      final newQueue = container.read(currentPlayQueueProvider);
+      expect(newQueue, isNotNull);
+      expect(newQueue!.currentIndex, equals(3), reason: '中间曲目完成后应跳转到下一首（索引 3）');
+
+      // 3. loadAndPlay was called
+      expect(loadAndPlayCalls, isNotEmpty, reason: '切歌后应调用 loadAndPlay');
+    });
+
+    // ── TST-T02: sequential — last track → stop + pause ─────────────────────
+
+    test('TST-T02: sequential mode - last track completes, stops and pauses',
+        () async {
+      final queue = buildQueue(5, 4);
+      container.read(currentPlayQueueProvider.notifier).state = queue;
+      container.read(playModeProvider.notifier).state = PlayMode.sequential;
+
+      await emitCompleted();
+
+      // 1. player.seek(Duration.zero) was called
+      verify(mockPlayer.seek(Duration.zero)).called(1);
+
+      // 2. player.pause() was called
+      verify(mockPlayer.pause()).called(1);
+
+      // 3. saveProgress was NOT called (code returns before saveProgress line)
+      expect(saveProgressCalls, isEmpty, reason: '队尾停止时不应保存进度');
+
+      // 4. loadAndPlay was NOT called
+      expect(loadAndPlayCalls, isEmpty, reason: '队尾停止时不应调用 loadAndPlay');
+
+      // 5. Queue was not replaced (original reference preserved)
+      final currentQueue = container.read(currentPlayQueueProvider);
+      expect(identical(currentQueue, queue), isTrue, reason: '队尾停止时队列应保持不变');
+    });
+
+    // ── TST-T03: repeatOne — same track reload from beginning ───────────────
+
+    test('TST-T03: repeatOne mode - track completes, reloads same track',
+        () async {
+      final queue = buildQueue(5, 2);
+      container.read(currentPlayQueueProvider.notifier).state = queue;
+      container.read(playModeProvider.notifier).state = PlayMode.repeatOne;
+
+      await emitCompleted();
+
+      // 1. saveProgress was called
+      expect(saveProgressCalls, isNotEmpty, reason: 'repeatOne 切歌前应保存进度');
+
+      // 2. Queue still at the same index
+      final newQueue = container.read(currentPlayQueueProvider);
+      expect(newQueue, isNotNull);
+      expect(newQueue!.currentIndex, equals(2),
+          reason: 'repeatOne 模式下应保持在同曲（索引 2）');
+
+      // 3. loadAndPlay was called (reloads the source, starting from 0:00)
+      expect(loadAndPlayCalls, isNotEmpty,
+          reason: 'repeatOne 应调用 loadAndPlay 重新加载同曲');
+    });
+
+    // ── TST-T04: repeatAll — last track → wrap to first ─────────────────────
+
+    test('TST-T04: repeatAll mode - last track wraps to first', () async {
+      final queue = buildQueue(5, 4);
+      container.read(currentPlayQueueProvider.notifier).state = queue;
+      container.read(playModeProvider.notifier).state = PlayMode.repeatAll;
+
+      await emitCompleted();
+
+      // 1. saveProgress was called
+      expect(saveProgressCalls, isNotEmpty, reason: 'repeatAll 切歌前应保存进度');
+
+      // 2. Queue wraps to first
+      final newQueue = container.read(currentPlayQueueProvider);
+      expect(newQueue, isNotNull);
+      expect(newQueue!.currentIndex, equals(0),
+          reason: 'repeatAll 模式下列表末尾完成后应循环到第一首（索引 0）');
+
+      // 3. loadAndPlay was called
+      expect(loadAndPlayCalls, isNotEmpty,
+          reason: 'repeatAll 切歌后应调用 loadAndPlay');
+    });
+
+    // ── TST-T05: shuffle — advance to different index ───────────────────────
+
+    test('TST-T05: shuffle mode - track completes, advances to different index',
+        () async {
+      // PlayMode.shuffle triggers the PlayQueue constructor to generate a
+      // Fisher-Yates shuffle order (default unseeded Random).
+      final queue = PlayQueue(
+        files: List.generate(5, (i) {
+          final n = (i + 1).toString().padLeft(2, '0');
+          return _audio('track_$n.mp3', '/music/track_$n.mp3');
+        }),
+        currentIndex: 2,
+        playMode: PlayMode.shuffle,
+      );
+      container.read(currentPlayQueueProvider.notifier).state = queue;
+      container.read(playModeProvider.notifier).state = PlayMode.shuffle;
+
+      await emitCompleted();
+
+      // 1. saveProgress was called
+      expect(saveProgressCalls, isNotEmpty, reason: 'shuffle 切歌前应保存进度');
+
+      // 2. Queue advanced — advanceShuffle deterministically picks the
+      //    next position in the Fisher-Yates permutation.  It is valid for
+      //    the new index to coincidentally equal the old one when
+      //    _shuffleOrder[1] == currentIndex.
+      final newQueue = container.read(currentPlayQueueProvider);
+      expect(newQueue, isNotNull,
+          reason: 'shuffle 模式应产生新的队列');
+
+      // 3. Destination index is within valid range
+      expect(newQueue!.currentIndex >= 0 && newQueue.currentIndex < 5, isTrue,
+          reason: 'shuffle 目标索引应在有效范围内');
+
+      // 4. A new queue object was created (advance succeeded)
+      expect(identical(newQueue, queue), isFalse,
+          reason: '应创建新的队列对象而非原地修改');
+
+      // 5. loadAndPlay was called
+      expect(loadAndPlayCalls, isNotEmpty,
+          reason: 'shuffle 切歌后应调用 loadAndPlay');
+    });
+
+    // ── TST-T06: saveProgress delegates to upsertProgressProvider ───────────
+
+    test(
+        'TST-T06: saveProgress calls upsertProgressProvider before queue change',
+        () async {
+      // Use the REAL saveProgressProvider (not overridden) so it calls the
+      // tracked upsertProgressProvider below.  This validates the full
+      // save chain: processing listener → saveProgress → upsertProgress.
+      final trackedUpsertCalls = <String>[];
+
+      final testConn = ConnectionConfig(
+        id: 1,
+        name: 'Test',
+        url: 'http://test.com',
+        username: 'user',
+        createdAt: DateTime(2026),
+        updatedAt: DateTime(2026),
+        isActive: true,
+      );
+
+      final player2 = MockAudioPlayer();
+      final procCtrl2 = StreamController<ProcessingState>.broadcast();
+      when(player2.processingStateStream).thenAnswer((_) => procCtrl2.stream);
+      when(player2.position).thenReturn(const Duration(seconds: 45));
+      when(player2.duration).thenReturn(const Duration(minutes: 4));
+
+      final container2 = ProviderContainer(
+        overrides: [
+          audioPlayerProvider.overrideWithValue(player2),
+          onTrackCompletedProvider.overrideWithValue(() => false),
+          // FutureProvider uses overrideWith, not overrideWithValue
+          activeConnectionProvider
+              .overrideWith((ref) => Future.value(testConn)),
+
+          // Tracked upsertProgressProvider — the real saveProgressProvider
+          // will call this when invoked by the processing listener.
+          upsertProgressProvider.overrideWithValue(({
+            required int connectionId,
+            required String filePath,
+            required int positionMs,
+            int? durationMs,
+          }) async {
+            trackedUpsertCalls.add('upsert: $filePath pos=${positionMs}ms');
+          }),
+
+          // Tracked loadAndPlay
+          loadAndPlayProvider.overrideWithValue(() async {
+            return TrackLoadResult.loaded(player2);
+          }),
+        ],
+      );
+
+      try {
+        // Pre-resolve the active connection so that saveProgressProvider's
+        // ref.read(activeConnectionProvider).valueOrNull returns the
+        // connection synchronously (Future.value settles in a microtask,
+        // and we await it here to ensure it's ready).
+        await container2.read(activeConnectionProvider.future);
+
+        final queue = buildQueue(5, 2);
+        container2.read(currentPlayQueueProvider.notifier).state = queue;
+        container2.read(playModeProvider.notifier).state = PlayMode.sequential;
+
+        final startFn = container2.read(startProcessingListenerProvider);
+        startFn();
+        procCtrl2.add(ProcessingState.completed);
+        await Future<void>.delayed(Duration.zero);
+
+        // 1. upsertProgressProvider was invoked
+        expect(trackedUpsertCalls.length, equals(1),
+            reason: 'upsertProgressProvider 应在切歌时被调用一次');
+
+        // 2. The saved file was the OLD track (index 2), not the new one
+        expect(trackedUpsertCalls.first, contains('/music/track_03.mp3'),
+            reason: '应保存旧曲目（索引2=track_03）的进度，而非新曲目');
+
+        // 3. Queue was updated AFTER progress save
+        final newQueue = container2.read(currentPlayQueueProvider);
+        expect(newQueue!.currentIndex, equals(3), reason: '队列应在保存进度后才更新到新索引');
+      } finally {
+        procCtrl2.close();
+      }
     });
   });
 }

@@ -1,9 +1,9 @@
 {
   "metadata": {
     "last_updated": "2026-05-23",
-    "total": 26,
-    "pending": 0,
-    "done": 26
+    "total": 43,
+    "pending": 16,
+    "done": 27
   },
   "order": [
     "PRG-01",
@@ -31,7 +31,24 @@
     "PLS-04",
     "PLS-05",
     "HOM-01",
-    "HOM-02"
+    "HOM-02",
+    "TST-01",
+    "TST-02",
+    "TST-03",
+    "TST-04",
+    "TST-05",
+    "TST-06",
+    "TST-07",
+    "TST-08",
+    "TST-09",
+    "TST-10",
+    "TST-11",
+    "TST-12",
+    "TST-13",
+    "TST-14",
+    "TST-15",
+    "TST-16",
+    "TST-17"
   ],
   "items": {
     "PRG-01": {
@@ -214,6 +231,125 @@
       "plan_section": "dev-plan.md §HOM-02",
       "impl_status": "done",
       "test_status": "passed",
+      "dependencies": []
+    },
+    "TST-01": {
+      "name": "自动切歌流程集成测试",
+      "plan_section": "dev-plan.md §TST-01",
+      "impl_status": "done",
+      "test_status": "passed",
+      "dependencies": []
+    },
+    "TST-02": {
+      "name": "播放进度保存与恢复端到端链路",
+      "plan_section": "dev-plan.md §TST-02",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "TST-03": {
+      "name": "Timer 到期 → Player 暂停集成链路",
+      "plan_section": "dev-plan.md §TST-03",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "TST-04": {
+      "name": "播放单曲目点击完整播放流程",
+      "plan_section": "dev-plan.md §TST-04",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": ["TST-02"]
+    },
+    "TST-05": {
+      "name": "定时器暂停/恢复功能测试",
+      "plan_section": "dev-plan.md §TST-05",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "TST-06": {
+      "name": "播放单导出/导入测试",
+      "plan_section": "dev-plan.md §TST-06",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "TST-07": {
+      "name": "PlayerScreen 全屏播放器 Widget 测试",
+      "plan_section": "dev-plan.md §TST-07",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "TST-08": {
+      "name": "BreadcrumbBar 面包屑交互测试",
+      "plan_section": "dev-plan.md §TST-08",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "TST-09": {
+      "name": "目录缓存 TTL 过期与容量上限测试",
+      "plan_section": "dev-plan.md §TST-09",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "TST-10": {
+      "name": "记住播放速度开关测试",
+      "plan_section": "dev-plan.md §TST-10",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "TST-11": {
+      "name": "播放单拖拽排序与添加曲目弹窗",
+      "plan_section": "dev-plan.md §TST-11",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "TST-12": {
+      "name": "连接切换影响面集成测试",
+      "plan_section": "dev-plan.md §TST-12",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "TST-13": {
+      "name": "App 生命周期完整链路测试",
+      "plan_section": "dev-plan.md §TST-13",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "TST-14": {
+      "name": "运行日志查看器测试",
+      "plan_section": "dev-plan.md §TST-14",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "TST-15": {
+      "name": "URL编码边界与并发竞争测试",
+      "plan_section": "dev-plan.md §TST-15",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "TST-16": {
+      "name": "各模块补充测试（一）：Connection + Browser",
+      "plan_section": "dev-plan.md §TST-16",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": []
+    },
+    "TST-17": {
+      "name": "各模块补充测试（二）：Player + Progress + Settings + Home",
+      "plan_section": "dev-plan.md §TST-17",
+      "impl_status": "pending",
+      "test_status": "pending",
       "dependencies": []
     }
   }
