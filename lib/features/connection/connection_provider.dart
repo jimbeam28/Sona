@@ -278,7 +278,12 @@ final deleteConnectionProvider = FutureProvider.family<void, int>((ref, id) asyn
   final storage = ref.watch(secureStorageProvider);
 
   debugPrint('[Conn] delete: id=$id');
-  await dao.delete(id);
+  try {
+    await dao.delete(id);
+  } on LastConnectionException {
+    debugPrint('[Conn] delete: blocked — last connection');
+    throw const LastConnectionException('无法删除最后一个连接');
+  }
 
   // Remove the password from secure storage (CON-T31)
   await storage.delete(key: 'connection_password_$id');

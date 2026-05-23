@@ -2,8 +2,8 @@
   "metadata": {
     "last_updated": "2026-05-23",
     "total": 26,
-    "pending": 23,
-    "done": 3
+    "pending": 22,
+    "done": 4
   },
   "order": [
     "PRG-01",
@@ -58,8 +58,8 @@
     "CON-03": {
       "name": "LastConnectionException 未被 provider catch",
       "plan_section": "dev-plan.md §CON-03",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": []
     },
     "CON-04": {

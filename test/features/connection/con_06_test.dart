@@ -414,4 +414,85 @@ void main() {
       expect(list.first.id, equals(id2));
     });
   });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CON-03: LastConnectionException provider catch (CON-FIX-T07~T08)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  group('CON-03 LastConnectionException provider catch', () {
+    late Database db;
+    late ConnectionDao dao;
+    late FakeSecureStorage storage;
+
+    setUp(() async {
+      db = await _openTestDatabase();
+      dao = ConnectionDao();
+      storage = FakeSecureStorage();
+    });
+
+    tearDown(() async {
+      await db.close();
+    });
+
+    // ── CON-FIX-T07: 删除非最后一个连接 → 正常删除 ────────────────────────
+
+    test('CON-FIX-T07: delete non-last connection succeeds via provider',
+        () async {
+      final c1 = _testConfig(name: 'Keep');
+      final c2 = _testConfig(name: 'Remove');
+      final id1 = await dao.insert(c1, passwordKey: 'k1');
+      final id2 = await dao.insert(c2, passwordKey: 'k2');
+
+      storage.stub('connection_password_$id1', 'pw1');
+      storage.stub('connection_password_$id2', 'pw2');
+
+      final container = ProviderContainer(overrides: [
+        connectionDaoProvider.overrideWithValue(dao),
+        secureStorageProvider.overrideWithValue(storage),
+      ]);
+      addTearDown(container.dispose);
+
+      // Delete non-last connection (2 remain after insert, so safe)
+      await container.read(deleteConnectionProvider(id2).future);
+
+      // Verify: deleted
+      expect(await dao.findById(id2), isNull);
+      // Verify: other connection still exists
+      expect(await dao.findById(id1), isNotNull);
+      // Verify: provider didn't throw
+      final state = container.read(deleteConnectionProvider(id2));
+      expect(state.hasError, isFalse,
+          reason: '删除非最后一个连接不应触发错误');
+    });
+
+    // ── CON-FIX-T08: 只有一个连接时删除 → provider catch 异常 → 不 crash ──
+
+    test('CON-FIX-T08: deleting last connection → provider surfaces error',
+        () async {
+      final c1 = _testConfig(name: 'Sole');
+      final id = await dao.insert(c1, passwordKey: 'k');
+
+      storage.stub('connection_password_$id', 'pw');
+
+      final container = ProviderContainer(overrides: [
+        connectionDaoProvider.overrideWithValue(dao),
+        secureStorageProvider.overrideWithValue(storage),
+      ]);
+      addTearDown(container.dispose);
+
+      // Attempt to delete the sole connection via provider
+      // The provider should catch LastConnectionException and surface it
+      try {
+        await container.read(deleteConnectionProvider(id).future);
+        fail('Expected deleteConnectionProvider to throw');
+      } catch (e) {
+        expect(e, isA<LastConnectionException>(),
+            reason: '应抛出 LastConnectionException');
+      }
+
+      // Connection still exists (not deleted)
+      expect(await dao.findById(id), isNotNull,
+          reason: '最后一个连接应仍然存在');
+    });
+  });
 }
