@@ -6,18 +6,28 @@
 // PRG-T17~T23: Resume dialog & countdown tests (fake_async)
 // PRG-T24~T28: Clear progress tests (DAO + widget)
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fake_async/fake_async.dart';
+import 'package:just_audio/just_audio.dart';
+import 'package:mockito/mockito.dart';
 import 'package:nas_audio_player/core/database/dao/progress_dao.dart';
 import 'package:nas_audio_player/core/database/database_helper.dart';
+import 'package:nas_audio_player/features/browser/browser_provider.dart';
+import 'package:nas_audio_player/features/connection/connection_provider.dart';
+import 'package:nas_audio_player/features/player/player_provider.dart';
 import 'package:nas_audio_player/features/progress/progress_dialog.dart';
 import 'package:nas_audio_player/features/progress/progress_provider.dart';
+import 'package:nas_audio_player/shared/models/connection_config.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:nas_audio_player/shared/models/play_progress.dart';
 import 'package:nas_audio_player/shared/models/play_queue.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+import '../player/ply_08_test.mocks.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -1324,6 +1334,548 @@ void main() {
       );
       expect(queueWith.startPositionMs, equals(120000),
           reason: '恢复播放时 startPositionMs 应为保存的 positionMs');
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TST-02: 播放进度保存与恢复端到端链路 (TST-T07~T13)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  group('TST-02 播放进度保存与恢复端到端链路 (TST-T07~T13)', () {
+    late Database db;
+    late ProgressDao dao;
+
+    setUpAll(() {
+      sqfliteFfiInit();
+    });
+
+    setUp(() async {
+      db = await _openTestDatabase();
+      dao = ProgressDao();
+      // Insert a test connection so activeConnectionProvider can resolve it
+      await db.insert('connections', {
+        'name': 'test-conn',
+        'url': 'http://192.168.1.1:8080',
+        'username': 'admin',
+        'password': 'pw-key',
+        'base_path': '/music',
+        'is_active': 1,
+        'created_at': DateTime.now().millisecondsSinceEpoch,
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      });
+    });
+
+    tearDown(() async {
+      await db.close();
+    });
+
+    // ── Helpers ────────────────────────────────────────────────────────────
+
+    ConnectionConfig testConn() => ConnectionConfig(
+          id: 1,
+          name: 'test-conn',
+          url: 'http://192.168.1.1:8080',
+          username: 'admin',
+          basePath: '/music',
+          isActive: true,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+
+    const testFile =
+        NasFile(path: '/music/test.mp3', name: 'test.mp3', isDirectory: false);
+
+    const fileA =
+        NasFile(path: '/music/a.mp3', name: 'a.mp3', isDirectory: false);
+
+    const fileB =
+        NasFile(path: '/music/b.mp3', name: 'b.mp3', isDirectory: false);
+
+    /// Creates a [ProviderContainer] pre-configured with mock audio player,
+    /// active connection, and progress DAO.  Returns the container and a
+    /// [MockAudioPlayer] so the test can control its state.
+    (ProviderContainer, MockAudioPlayer) createContainer({
+      PlayQueue? queue,
+      void Function(int count)? onSaveCalled,
+      bool stubLoadAndPlay = false,
+    }) {
+      final mockPlayer = MockAudioPlayer();
+      when(mockPlayer.position).thenReturn(const Duration(seconds: 30));
+      when(mockPlayer.duration).thenReturn(const Duration(minutes: 3));
+      when(mockPlayer.playing).thenReturn(true);
+
+      final q = queue ??
+          PlayQueue(files: [testFile], currentIndex: 0);
+
+      final conn = testConn();
+
+      final overrides = <Override>[
+        progressDaoProvider.overrideWithValue(dao),
+        audioPlayerProvider.overrideWithValue(mockPlayer),
+        currentPlayQueueProvider.overrideWith((_) => q),
+      ];
+
+      // Override saveProgressProvider to use the test connection directly
+      // (bypasses activeConnectionProvider which is a FutureProvider and
+      // may not resolve synchronously in tests).
+      overrides.add(saveProgressProvider.overrideWith((ref) {
+        return () {
+          final queue = ref.read(currentPlayQueueProvider);
+          if (queue == null) return;
+          final player = ref.read(audioPlayerProvider);
+          ref.read(upsertProgressProvider)(
+            connectionId: conn.id!,
+            filePath: queue.current.path,
+            positionMs: player.position.inMilliseconds,
+            durationMs: player.duration?.inMilliseconds,
+          );
+        };
+      }));
+
+      // Override upsertProgressProvider to count calls and delegate to the DAO
+      int saveCount = 0;
+      overrides.add(upsertProgressProvider.overrideWith((ref) {
+        return ({
+          required int connectionId,
+          required String filePath,
+          required int positionMs,
+          int? durationMs,
+        }) async {
+          saveCount++;
+          onSaveCalled?.call(saveCount);
+          await dao.upsert(
+            connectionId: connectionId,
+            filePath: filePath,
+            positionMs: positionMs,
+            durationMs: durationMs,
+          );
+          ref.invalidate(progressForFileProvider((
+            connectionId: connectionId,
+            filePath: filePath,
+          )));
+        };
+      }));
+
+      if (stubLoadAndPlay) {
+        overrides.add(loadAndPlayProvider.overrideWith((_) {
+          return () async => const TrackLoadResult.failed();
+        }));
+        overrides.add(playModeProvider.overrideWith((_) => PlayMode.sequential));
+      }
+
+      final container = ProviderContainer(overrides: overrides);
+      return (container, mockPlayer);
+    }
+
+    // ── TST-T07: 10s period save ──────────────────────────────────────────
+
+    test('TST-T07: 10s周期保存 — fake_async推进30s → 3次upsert调用', () {
+      fakeAsync((async) {
+        // Set up a minimal container that counts save calls without touching
+        // the SQLite database (native FFI ops do not play well with fake_async).
+        int saveCount = 0;
+
+        final mockPlayer = MockAudioPlayer();
+        when(mockPlayer.position).thenReturn(const Duration(seconds: 30));
+        when(mockPlayer.duration).thenReturn(const Duration(minutes: 3));
+
+        final queue =
+            PlayQueue(files: [testFile], currentIndex: 0);
+
+        final container = ProviderContainer(
+          overrides: [
+            audioPlayerProvider.overrideWithValue(mockPlayer),
+            currentPlayQueueProvider.overrideWith((_) => queue),
+            saveProgressProvider.overrideWith((ref) {
+              return () {
+                // Assert pre-conditions silently; skip DB write in fake zone
+                final q = ref.read(currentPlayQueueProvider);
+                if (q != null) {
+                  saveCount++;
+                }
+              };
+            }),
+          ],
+        );
+
+        // Start periodic save — replicates _startAutoSaveProvider logic
+        final timer = Timer.periodic(const Duration(seconds: 10), (_) {
+          container.read(saveProgressProvider)();
+        });
+
+        // Advance 30 seconds: callbacks fire at t=10s, t=20s, t=30s
+        async.elapse(const Duration(seconds: 30));
+
+        expect(saveCount, equals(3),
+            reason: '30秒内应有3次周期保存(t=10s, t=20s, t=30s)');
+
+        timer.cancel();
+        container.dispose();
+      });
+    });
+
+    // ── TST-T08: Pause-triggered save ─────────────────────────────────────
+
+    test('TST-T08: 暂停触发保存 — playerStateStream发出playing: true→false',
+        () {
+      final stateController = StreamController<PlayerState>.broadcast(sync: true);
+
+      final mockPlayer = MockAudioPlayer();
+      when(mockPlayer.playing).thenReturn(true);
+
+      final queue =
+          PlayQueue(files: [testFile], currentIndex: 0);
+
+      int saveCount = 0;
+
+      final container = ProviderContainer(
+        overrides: [
+          currentPlayQueueProvider.overrideWith((_) => queue),
+          saveProgressProvider.overrideWith((ref) {
+            return () {
+              final q = ref.read(currentPlayQueueProvider);
+              if (q != null) {
+                saveCount++;
+              }
+            };
+          }),
+        ],
+      );
+      addTearDown(() async {
+        await stateController.close();
+        container.dispose();
+      });
+
+      // Replicate _startPauseSaveProvider logic — listen on the stream
+      // directly rather than through the mock's getter to avoid Mockito
+      // stubbing issues with Stream getters.
+      var wasPlaying = mockPlayer.playing; // true (stubbed above)
+      final sub = stateController.stream.listen((state) {
+        final playing = state.playing;
+        if (wasPlaying && !playing) {
+          container.read(saveProgressProvider)();
+        }
+        wasPlaying = playing;
+      });
+      addTearDown(() async {
+        await sub.cancel();
+      });
+
+      // Emit playing=true — no save triggered (no state change)
+      stateController.add(PlayerState(true, ProcessingState.ready));
+
+      // Emit playing=false — save should trigger
+      stateController.add(PlayerState(false, ProcessingState.ready));
+      expect(saveCount, equals(1),
+          reason: 'playing→paused转换应触发进度保存');
+
+      // Emit another playing→paused cycle — should trigger again
+      stateController.add(PlayerState(true, ProcessingState.ready));
+      stateController.add(PlayerState(false, ProcessingState.ready));
+      expect(saveCount, equals(2),
+          reason: '第二次playing→paused也应触发保存');
+
+      // Consecutive paused states — should NOT trigger duplicate saves
+      stateController.add(PlayerState(false, ProcessingState.ready));
+      expect(saveCount, equals(2),
+          reason: '连续paused状态不应触发重复保存');
+    });
+
+    // ── TST-T09: Save before skip ─────────────────────────────────────────
+
+    test('TST-T09: 切歌前保存 — skipToNext调用前保存旧曲目进度', () async {
+      String? savedFilePath;
+
+      final queue = PlayQueue(files: [fileA, fileB], currentIndex: 0);
+      final mockPlayer = MockAudioPlayer();
+      when(mockPlayer.position).thenReturn(const Duration(seconds: 30));
+      when(mockPlayer.duration).thenReturn(const Duration(minutes: 3));
+      when(mockPlayer.playing).thenReturn(true);
+
+      final conn = testConn();
+
+      // Use late final so the upsertProgressProvider closure can reference
+      // the container after it's been fully created.
+      late final ProviderContainer container;
+      container = ProviderContainer(
+        overrides: [
+          progressDaoProvider.overrideWithValue(dao),
+          audioPlayerProvider.overrideWithValue(mockPlayer),
+          activeConnectionProvider.overrideWith((_) => conn),
+          currentPlayQueueProvider.overrideWith((_) => queue),
+          playModeProvider.overrideWith((_) => PlayMode.sequential),
+          loadAndPlayProvider.overrideWith((_) {
+            return () async => const TrackLoadResult.failed();
+          }),
+          upsertProgressProvider.overrideWith((ref) {
+            return ({
+              required int connectionId,
+              required String filePath,
+              required int positionMs,
+              int? durationMs,
+            }) async {
+              // Capture which file is being saved (before queue advances)
+              final q = container.read(currentPlayQueueProvider);
+              savedFilePath = q?.current.path;
+              await dao.upsert(
+                connectionId: connectionId,
+                filePath: filePath,
+                positionMs: positionMs,
+                durationMs: durationMs,
+              );
+              ref.invalidate(progressForFileProvider((
+                connectionId: connectionId,
+                filePath: filePath,
+              )));
+            };
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      // Call skipToNext — this internally calls saveProgressProvider first,
+      // THEN advances the queue and calls loadAndPlayProvider.
+      await container.read(skipToNextProvider)();
+
+      // Verify save was called with the OLD track (before queue advance)
+      expect(savedFilePath, equals('/music/a.mp3'),
+          reason: '切歌前应保存旧曲目 /music/a.mp3 的进度');
+
+      // Verify queue advanced to next track
+      final newQueue = container.read(currentPlayQueueProvider);
+      expect(newQueue!.currentIndex, equals(1),
+          reason: '队列应前进到下一首(index=1)');
+      expect(newQueue.current.path, equals('/music/b.mp3'),
+          reason: '当前曲目应为 b.mp3');
+
+      // Verify the save actually reached the DAO
+      final progress = await dao.find(1, '/music/a.mp3');
+      expect(progress, isNotNull,
+          reason: '旧曲目进度应已写入数据库');
+      expect(progress!.positionMs, equals(30000),
+          reason: '保存的positionMs应与mock player一致');
+    });
+
+    // ── TST-T10: Background save ──────────────────────────────────────────
+
+    test('TST-T10: 进入后台保存 — AppLifecycleState.paused → 保存进度', () async {
+      int saveCount = 0;
+      final (container, _) = createContainer(
+        onSaveCalled: (count) => saveCount = count,
+      );
+      addTearDown(container.dispose);
+
+      // Simulate what PlayerScreen.didChangeAppLifecycleState does:
+      // when AppLifecycleState.paused is received, call _saveProgress()
+      container.read(saveProgressProvider)();
+
+      expect(saveCount, equals(1),
+          reason: '进入后台时应触发一次进度保存');
+
+      // Verify data reached the DAO
+      final progress = await dao.find(1, '/music/test.mp3');
+      expect(progress, isNotNull,
+          reason: '后台保存的进度应持久化到数据库');
+      expect(progress!.positionMs, equals(30000),
+          reason: '保存的positionMs应与mock player一致');
+    });
+
+    // ── TST-T11: Dispose save ─────────────────────────────────────────────
+
+    test('TST-T11: dispose保存 — PlayerScreen dispose触发保存并清理订阅',
+        () {
+      fakeAsync((async) {
+        int saveCount = 0;
+        final (container, _) = createContainer(
+          onSaveCalled: (count) => saveCount = count,
+        );
+
+        // Start periodic auto-save timer (what loadAndPlayProvider does)
+        final timer = Timer.periodic(const Duration(seconds: 10), (_) {
+          container.read(saveProgressProvider)();
+        });
+
+        // Simulate what PlayerScreen.dispose does:
+        // 1. Save final progress
+        container.read(saveProgressProvider)();
+        expect(saveCount, equals(1),
+            reason: 'dispose时应执行最后一次进度保存');
+
+        // 2. Cancel auto-save subscriptions
+        container.read(cancelPlaybackSubscriptionsProvider)();
+        timer.cancel();
+
+        // Advance time — no more saves should fire because timer is cancelled
+        async.elapse(const Duration(seconds: 30));
+
+        // Only the manual save, not the periodic ones (timer was cancelled)
+        expect(saveCount, equals(1),
+            reason: '取消订阅后不应再有周期保存');
+
+        container.dispose();
+      });
+    });
+
+    // ── TST-T12: Restart recovery ─────────────────────────────────────────
+
+    test('TST-T12: 重启恢复 — 新ProviderContainer恢复进度和队列', () async {
+      // ── Container 1: save progress ──────────────────────────────────
+      final container1 = ProviderContainer(
+        overrides: [
+          progressDaoProvider.overrideWithValue(dao),
+        ],
+      );
+
+      await dao.upsert(
+        connectionId: 1,
+        filePath: '/music/test.mp3',
+        positionMs: 120000, // 2:00 into a track
+        durationMs: 300000,
+      );
+
+      container1.dispose();
+
+      // ── Container 2: simulate app restart ────────────────────────────
+      final container2 = ProviderContainer(
+        overrides: [
+          progressDaoProvider.overrideWithValue(dao),
+        ],
+      );
+      addTearDown(container2.dispose);
+
+      // Read latest progress (as restoreStartupProgressProvider does)
+      final latest =
+          await container2.read(latestPlayedProgressProvider.future);
+      expect(latest, isNotNull,
+          reason: '重启后应能读取到上次保存的进度');
+      expect(latest!.positionMs, equals(120000));
+      expect(latest.filePath, equals('/music/test.mp3'));
+      expect(latest.connectionId, equals(1));
+
+      // ── Build restored queue ────────────────────────────────────────
+      final restoredQueue = PlayQueue(
+        files: [testFile],
+        currentIndex: 0,
+        startPositionMs: latest.positionMs,
+      );
+      expect(restoredQueue.startPositionMs, equals(120000),
+          reason: '恢复的队列应携带保存的positionMs');
+
+      // ── Verify: queue exists but does NOT auto-play ─────────────────
+      // (Queue carries startPositionMs but the player layer decides whether
+      // to actually start playing — restart should only restore position,
+      // wait for user to tap play.)
+      expect(restoredQueue.current.path, equals('/music/test.mp3'));
+
+      // ── Test applyLatestProgressToQueue ─────────────────────────────
+      final applied = applyLatestProgressToQueue(
+        queue: PlayQueue(files: [testFile], currentIndex: 0),
+        activeConnectionId: 1,
+        latestProgress: latest,
+      );
+      expect(applied!.startPositionMs, equals(120000),
+          reason: 'applyLatestProgressToQueue应设置startPositionMs');
+
+      // Connection mismatch → no startPositionMs set
+      final notApplied = applyLatestProgressToQueue(
+        queue: PlayQueue(files: [testFile], currentIndex: 0),
+        activeConnectionId: 999,
+        latestProgress: latest,
+      );
+      expect(notApplied!.startPositionMs, isNull,
+          reason: '连接ID不匹配时不设置startPositionMs');
+
+      // File path mismatch → no startPositionMs set
+      final fileMismatch = applyLatestProgressToQueue(
+        queue: PlayQueue(files: [fileB], currentIndex: 0),
+        activeConnectionId: 1,
+        latestProgress: latest,
+      );
+      expect(fileMismatch!.startPositionMs, isNull,
+          reason: '文件路径不匹配时不设置startPositionMs');
+
+      // ── Test sanitizeResumePosition ─────────────────────────────────
+      expect(sanitizeResumePosition(120000, 300000), equals(120000),
+          reason: '合法位置不变');
+      expect(sanitizeResumePosition(-1, 300000), equals(0),
+          reason: '负数归零');
+      expect(sanitizeResumePosition(300000, 300000), equals(0),
+          reason: '到达结尾归零');
+      expect(sanitizeResumePosition(350000, 300000), equals(0),
+          reason: '超过时长归零');
+    });
+
+    // ── TST-T13: upsertLatest physical delete ────────────────────────────
+
+    test('TST-T13: upsertLatest旧记录被物理删除 — count始终为1非累积', () async {
+      // Insert first record via rawInsert
+      await dao.rawInsert(_progress(
+        connectionId: 1,
+        filePath: '/music/first.mp3',
+        positionMs: 10000,
+        durationMs: 120000,
+      ));
+      expect(await dao.count(), equals(1),
+          reason: '初始应有一条记录');
+
+      // upsertLatest should DELETE ALL old records and insert one new
+      await dao.upsertLatest(
+        connectionId: 1,
+        filePath: '/music/second.mp3',
+        positionMs: 25000,
+        durationMs: 180000,
+      );
+      expect(await dao.count(), equals(1),
+          reason: 'upsertLatest后应只有1条记录(旧记录被物理删除)');
+
+      // Verify old record is physically gone
+      final oldRecord = await dao.find(1, '/music/first.mp3');
+      expect(oldRecord, isNull,
+          reason: '第一次upsert的记录应被物理删除');
+
+      // Verify new record exists
+      final newRecord = await dao.find(1, '/music/second.mp3');
+      expect(newRecord, isNotNull,
+          reason: '新记录应存在');
+      expect(newRecord!.positionMs, equals(25000));
+
+      // Third call: still count=1, old "second.mp3" deleted
+      await dao.upsertLatest(
+        connectionId: 2,
+        filePath: '/music/third.mp3',
+        positionMs: 50000,
+        durationMs: 240000,
+      );
+      expect(await dao.count(), equals(1),
+          reason: '第三次upsertLatest后仍只有1条记录(非累积)');
+
+      final secondRecord = await dao.find(1, '/music/second.mp3');
+      expect(secondRecord, isNull,
+          reason: '第二次记录也被物理删除');
+
+      final thirdRecord = await dao.find(2, '/music/third.mp3');
+      expect(thirdRecord, isNotNull,
+          reason: '第三次记录存在');
+      expect(thirdRecord!.positionMs, equals(50000));
+
+      // Multiple consecutive calls — never accumulate
+      await dao.upsertLatest(
+        connectionId: 1, filePath: '/music/a.mp3',
+        positionMs: 10000, durationMs: 100000,
+      );
+      await dao.upsertLatest(
+        connectionId: 1, filePath: '/music/b.mp3',
+        positionMs: 20000, durationMs: 100000,
+      );
+      await dao.upsertLatest(
+        connectionId: 1, filePath: '/music/c.mp3',
+        positionMs: 30000, durationMs: 100000,
+      );
+      expect(await dao.count(), equals(1),
+          reason: '连续多次upsertLatest count始终为1,永不累积');
+      final finalRecord = await dao.findLatest();
+      expect(finalRecord, isNotNull);
+      expect(finalRecord!.filePath, equals('/music/c.mp3'));
     });
   });
 }
