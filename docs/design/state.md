@@ -1,6 +1,6 @@
 # Sona 状态机分析
 
-> 本文档梳理 Sona 全部功能的状态机设计，包含状态枚举、转移图、以及发现的设计问题。
+> 本文档梳理 Sona 全部功能的状态机设计，包含状态枚举与转移图。
 > 生成日期: 2026-05-23
 
 ---
@@ -16,7 +16,6 @@
 7. [Playlist — 播放单](#7-playlist--播放单)
 8. [Home — 主页](#8-home--主页)
 9. [跨功能状态交互](#9-跨功能状态交互)
-10. [问题汇总表](#10-问题汇总表)
 
 ---
 
@@ -168,18 +167,6 @@ EDIT_FORM_LOADED (预填字段, 密码留空可选)
 
 `_canSave()` 逻辑: 当 `!_needsValidation()` (仅名称修改) 或 `validationSuccess` 时返回 true。
 
-### 2.5 Connection 问题清单
-
-| ID | 严重度 | 问题 | 位置 |
-|----|--------|------|------|
-| CON-A | **HIGH** | add screen 未传 `onFieldChanged` 给 `ConnectionForm`，验证成功后修改 URL 保存按钮仍可用 — 可能用旧验证结果保存到错误服务器 | `connection_screen.dart:72-73` (缺少 `onFieldChanged`)，对比 `connection_edit_screen.dart:181-188` (有此保护) |
-| CON-B | MEDIUM | dual-purpose screen 标题始终为 "添加 WebDAV 连接"，用户因验证失败被重定向到此页面时标题误导 | `connection_screen.dart:50` |
-| CON-C | MEDIUM | `deleteConnectionProvider` 不 catch `LastConnectionException`，虽然 list screen 做了 `totalCount <= 1` 前置检查，但存在竞态窗口 | `connection_provider.dart:276-289` |
-| CON-D | MEDIUM | `_originalConfig` 双路径捕获：`addPostFrameCallback` 和 builder `??=` 兜底，先到达者胜出 | `connection_edit_screen.dart:42-44,108` |
-| CON-E | LOW | `isAttached` 用 try/catch 捕获 `LateInitializationError` 作为控制流 — 语义不清晰 | `connection_form.dart:17-23` |
-| CON-F | LOW | `_onUrlChanged` 内的 name auto-fill 回调体为空 — 只有注释没有实现 | `connection_form.dart:112-121` |
-| CON-G | LOW | Onboarding `connectionListProvider` 报错时 fallthrough 到 CTA 页面，数据库损坏被静默处理 | `main.dart:194` |
-
 ---
 
 ## 3. Player — 播放器
@@ -247,7 +234,7 @@ idle ──▶ loading ──▶ ready
                │                8. player.seek(startPositionMs) [如有]
                │                9. handler.setMediaItem() [更新通知栏]
                │               10. 应用默认速度
-               │               11. player.play() [unawaited, 8s poll timeout]
+               │               11. player.play() [unawaited, 12s poll timeout]
                │               12. 启动自动保存定时器 (10s 间隔)
                │               13. 启动暂停保存监听器
                │                      │
@@ -334,17 +321,6 @@ schedule(request):
 - PlayerScreen dispose 时**不**取消此监听器 — 这是故意设计的，因为 auto-advance 必须从 mini bar 也能工作
 - 当 PlayerScreen 重新打开且 source 匹配时，`reconnectPlaybackListenersProvider` 重新连接被取消的监听器（但 processing 监听器不需要）
 
-### 3.9 Player 问题清单
-
-| ID | 严重度 | 问题 | 位置 |
-|----|--------|------|------|
-| PLY-A | MEDIUM | shuffle 模式非确定性 — 每次随机选取，无法回到上一首，同一曲目可能短期内重复 | `play_queue.dart:151-158,179-184` |
-| PLY-B | MEDIUM | mini bar 播放按钮在 `processingState == idle` 时导航到 `/player` 而非调用 `player.play()` — 如果 source 已加载但被通知栏 stop 后，mini bar 行为不正确 | `mini_player_bar.dart:223-224` |
-| PLY-C | MEDIUM | `player.play()` 是 unawaited + 轮询 (200ms × 40 = 8s timeout)，平台通道竞争可能导致假超时 | `player_provider.dart:930-938` |
-| PLY-D | MEDIUM | connection-change guard：queue 在内存中但连接不匹配时，mini bar 仍显示但无法播放 (phantom player bar) | `player_provider.dart:857-865`, `browser_provider.dart:365-374` |
-| PLY-E | LOW | processing 监听器在 provider container 先于 stream callback 被 dispose 时可能抛异常 | `player_provider.dart:622-649` |
-| PLY-F | LOW | `BackgroundPlaybackConfig` 状态机在 `background_playback.dart` 中完整定义，但 `NasAudioHandler` **未接入**它 — handler 直接读 `playerStateStream` 推送通知状态 | `audio_handler.dart:55-83` vs `background_playback.dart:57-231` |
-
 ---
 
 ## 4. Timer — 定时器
@@ -360,8 +336,7 @@ schedule(request):
 | **idle** | `null` | 无定时器 |
 | **running (duration)** | `TimerState(mode: duration, endTime: <DateTime>)` | 固定时长倒计时中 |
 | **running (afterCurrent)** | `TimerState(mode: afterCurrent, endTime: null)` | 当前曲目播完即停 |
-
-没有 paused 状态 — 定时器要么活跃要么不活跃。
+| **paused** | `TimerState(mode: paused, remainingMs: <int>)` | 已暂停，保留剩余时间 |
 
 ### 4.2 状态转移图
 
@@ -374,6 +349,7 @@ schedule(request):
       │                              │    │
       │                              │    ├── checkExpired() ──▶ [idle] (返回 true)
       │                              │    ├── cancel() ──▶ [idle] (返回 true)
+      │                              │    ├── pause() ──▶ [paused]
       │                              │    └── startAfterCurrent() ──▶ [afterCurrent]
       │                              │
       │   startAfterCurrent()        │
@@ -381,12 +357,19 @@ schedule(request):
       │                                   │    │
       │                                   │    ├── onTrackCompleted() ──▶ [idle] (返回 true)
       │                                   │    ├── cancel() ──▶ [idle] (返回 true)
+      │                                   │    ├── pause() ──▶ [paused]
       │                                   │    └── startDuration(min) ──▶ [duration]
-      │                                   │
+      │
+      │   resume()                  resume()
+      ├─────────────────────────────────────▶ [paused]
+      │                                        │    │
+      │                                        │    ├── resume() ──▶ [duration] (恢复倒计时)
+      │                                        │    └── cancel() ──▶ [idle]
+      │
       └── cancel() ──▶ [idle] (no-op, 返回 false)
 ```
 
-关键设计：**替换语义** — 新定时器总是覆盖旧定时器。
+关键设计：**替换语义** — 新定时器总是覆盖旧定时器；新增 **paused 状态**支持暂停/恢复。
 
 ### 4.3 时长定时器到期检测链路
 
@@ -397,6 +380,8 @@ PlayerScreen Timer.periodic (每1秒)
       → 若 now >= endTime: 返回 true, 清空 _state
   → 若到期: player.pause()
 ```
+
+App 从后台恢复时立即检查一次到期状态，避免后台期间到期延迟。
 
 ### 4.4 "播完当前" 到期检测链路
 
@@ -419,14 +404,6 @@ processingStateStream 发出 completed
 | 自定义分钟 | `duration` | endTime = now + N min | `checkExpired()` |
 | 播完当前 | `afterCurrent` | endTime = null | `onTrackCompleted()` |
 
-### 4.6 Timer 问题清单
-
-| ID | 严重度 | 问题 | 位置 |
-|----|--------|------|------|
-| TMR-A | MEDIUM | 每次 mutation 后需手动 `ref.invalidate(timerStateProvider)`，新增 action 容易遗漏导致 UI 展示过期状态 | `timer_provider.dart:136,153,163,179,196` |
-| TMR-B | LOW | `checkExpired()` 每秒轮询一次，如果 App 在后台期间定时器到期，暂停会延迟到 App 回到前台 | `player_screen.dart:79-85` |
-| TMR-C | LOW | 无 paused 状态 — 5 分钟定时器启动后无法暂停，只能取消后重启 | `timer_service.dart` |
-
 ---
 
 ## 5. Progress — 进度记忆
@@ -442,14 +419,14 @@ processingStateStream 发出 completed
           [no progress]
                 │ positionMs 达到 5000
                 ▼
-          [has progress]  ←── upsertLatest() 写入 DB
-                │              (单活跃记录模式: 删除旧行 → 插入新行)
+          [has progress]  ←── upsert() 写入 DB
+                │              (按 (connection_id, file_path) 复合键: INSERT OR REPLACE)
                 │
                 ├── positionMs > durationMs - 10000 ──▶ [auto-cleared] (DELETE)
                 │    (durationMs <= 10000 的文件不会被自动清理)
                 │
                 └── 用户播完/切换到新文件 ──▶ 新文件从头开始 → [no progress]
-                                             旧进度被 upsertLatest 覆盖
+                                             旧进度独立保留
 ```
 
 ### 5.2 Resume Dialog 状态机
@@ -486,14 +463,6 @@ processingStateStream 发出 completed
 | 跳过短位置 | positionMs < 5000 | 不保存 (返回 false) |
 | 清理已完成 | positionMs > durationMs - 10000 | 删除记录 (返回 null) |
 | 保护短文件 | durationMs <= 10000 | 永不自动清理 |
-
-### 5.5 Progress 问题清单
-
-| ID | 严重度 | 问题 | 位置 |
-|----|--------|------|------|
-| PRG-A | **HIGH** | `showProgressResumeDialog` 完全实现但**从未被调用** — `browser_screen.dart:onFileTap` 不检查进度，直接构建 PlayQueue 导航到播放器。这是死代码。 | `progress_dialog.dart:26` vs `browser_screen.dart:91-118` |
-| PRG-B | MEDIUM | Single-active-record 模型 (`upsertLatest()` 删除所有旧行) — 一次只能追踪一个文件的进度，切换歌曲后旧进度永久丢失 | `progress_dao.dart:92-123`, `browser_provider.dart:432-451` |
-| PRG-C | LOW | `restoreStartupProgressProvider` 在启动时正确恢复最新进度，但 per-file 恢复需要在 `onFileTap` 中增加检查 | `player_provider.dart:481-502` |
 
 ---
 
@@ -558,28 +527,20 @@ processingStateStream 发出 completed
 
 - **结构**: `Map<String, List<NasFile>>`，key 为 `"connectionId:path"`
 - **容量**: 最多 50 条目，超出时移除最旧条目
+- **TTL**: 5 分钟，过期自动失效
 - **失效**: 下拉刷新清除匹配 key → `directoryContentsProvider` 重取
 - **连接切换**: key 含 `connectionId`，切换连接不泄漏旧数据
 
 ### 6.5 构建播放队列
 
 `onFileTap` (`browser_screen.dart:91-118`):
-1. 读取当前目录内容
-2. 过滤音频文件 (`!f.isDirectory`)
-3. 构建 `PlayQueue(files: audioFiles, currentIndex: tappedIndex)`
-4. 设置 `currentPlayQueueProvider`
-5. 保存 `lastQueueConnectionIdProvider`
-6. `goRouter.push('/player')`
-
-**注意**: 此流程不检查 `playProgressProvider`，不弹出 resume dialog。
-
-### 6.6 Browser 问题清单
-
-| ID | 严重度 | 问题 | 位置 |
-|----|--------|------|------|
-| BRW-A | HIGH | `onFileTap` 不检查已保存的播放进度 → 与 PRG-A 是同一问题的两面 | `browser_screen.dart:91-118` |
-| BRW-B | LOW | 目录缓存无 TTL — 长时间运行的 session 可能展示过期数据 | `browser_provider.dart:209` |
-| BRW-C | LOW | `_progressRegistryProvider` 是单记录模式 — 与 PRG-B 同一设计限制 | `browser_provider.dart:432-451` |
+1. 检查 `playProgressProvider` → 有进度则弹出 resume dialog
+2. 读取当前目录内容
+3. 过滤音频文件 (`!f.isDirectory`)
+4. 构建 `PlayQueue(files: audioFiles, currentIndex: tappedIndex, startPositionMs: resumePosition)`
+5. 设置 `currentPlayQueueProvider`
+6. 保存 `lastQueueConnectionIdProvider`
+7. `goRouter.push('/player')`
 
 ---
 
@@ -610,13 +571,15 @@ processingStateStream 发出 completed
      │
      ├──▶ [error]  ── 错误图标 + 消息 + 重试
      ├──▶ [empty]  ── "播放单是空的，点击 + 添加曲目"
-     └──▶ [data]   ── 曲目列表
+     └──▶ [data]   ── 曲目列表 (ReorderableListView 拖拽排序)
             │
-            ├── 点击曲目 ──▶ 构建 PlayQueue → goRouter.push('/player')
+            ├── 点击曲目 ──▶ 检查进度 → resume dialog → 构建 PlayQueue → push('/player')
             ├── 长按曲目 ──▶ 进入 selection 模式
             │     │
             │     ├── 全选/反选
             │     └── 删除选中 ──▶ 确认弹窗 → 删除 → 刷新
+            │
+            ├── AppBar 编辑 ──▶ showRenameDialog → 重命名
             │
             └── FAB (+) ──▶ showAddTracksBrowser (独立浏览器底部弹窗)
                               → 用户选文件 → 确认 → addTracks()
@@ -628,21 +591,15 @@ processingStateStream 发出 completed
 创建: FAB → 弹窗输入名称 → createPlaylistProvider → dao.insertPlaylist() → invalidate(playlistListProvider)
 删除: 左滑/确认 → deletePlaylistProvider → dao.deletePlaylist(CASCADE) → invalidate(playlistListProvider)
 读取: playlistListProvider → dao.findAllPlaylists() → 排序 → AsyncValue
+重命名: AppBar 编辑 → 弹窗 → updatePlaylistProvider → dao.updatePlaylist() → invalidate
 添加曲目: 底部弹窗选文件 → addTracksToPlaylistProvider → dao.addTracks(去重) → invalidate(tracksProvider + listProvider)
 删除曲目: selection → 确认 → removeTracksFromPlaylistProvider → dao.removeTracks() → invalidate(tracksProvider + listProvider)
+排序曲目: 拖拽 → reorderPlaylistTrackProvider → dao.reorderTrack() → invalidate(tracksProvider)
+导出: exportPlaylistProvider → dao.getTracks() → JSON encode → 分享/保存
+导入: importPlaylistProvider → JSON decode → dao.insertPlaylist() + dao.addTracks() → invalidate
 ```
 
 去重策略：`dao.addTracks()` 通过 `trackExists()` 检查 `file_path`，同名路径静默跳过。
-
-### 7.4 Playlist 问题清单
-
-| ID | 严重度 | 问题 | 位置 |
-|----|--------|------|------|
-| LST-A | MEDIUM | 无法重命名播放单 — `dao.updatePlaylist()` 方法存在但 UI 未接入 | `playlist_dao.dart:37-42` |
-| LST-B | MEDIUM | 无法编辑播放单元数据（除添加/删除曲目外无其他操作） | — |
-| LST-C | LOW | 曲目排序仅支持 `added_at` 或名称 — 无拖拽手动排序 | `playlist_provider.dart:14` |
-| LST-D | LOW | 播放单曲目点击不检查播放进度 — 与 BRW-A/PRG-A 同一模式 | `playlist_detail_screen.dart:120-131` |
-| LST-E | LOW | 无播放单导出/导入 | — |
 
 ---
 
@@ -668,7 +625,7 @@ AppBar (动态排序菜单 + 设置齿轮)
 | Tab 0 激活 | 显示播放单列表，AppBar 菜单为播放单排序 |
 | Tab 1 激活 | 显示文件浏览器，AppBar 菜单为文件排序 |
 
-Tab index 不持久化，每次 App 重启重置为 Tab 0。
+Tab index 持久化到 `SharedPreferences`，App 重启后恢复上次选择的 Tab。
 
 ### 8.2 PopScope 行为
 
@@ -684,13 +641,6 @@ currentPlayQueueProvider == null || queue.length == 0
                   ├── 点击主体 → push('/player')
                   └── 点击队列图标 → showQueueSheet
 ```
-
-### 8.4 Home 问题清单
-
-| ID | 严重度 | 问题 | 位置 |
-|----|--------|------|------|
-| HOM-A | LOW | Tab index 不持久化 — App 重启后重置为 Tab 0 | `home_screen.dart:29` |
-| HOM-B | LOW | AppBar 排序菜单无关闭手感 — 两个菜单共享 AppBar 空间 | `home_screen.dart` |
 
 ---
 
@@ -754,56 +704,6 @@ setActiveConnection(newId)
   → 导航栈回到 /browser
 
 如果 queue.lastQueueConnectionId != newActiveConnection.id:
-  → loadAndPlayProvider 返回 failed
-  → MiniPlayerBar 仍显示 (queue 非 null)，但无法播放
+  → clearQueueOnConnectionSwitchProvider 自动清空 currentPlayQueueProvider
+  → MiniPlayerBar 隐藏
 ```
-
----
-
-## 10. 问题汇总表
-
-按严重程度排列。
-
-### HIGH
-
-| # | 功能 | 问题 | 文件:行号 |
-|---|------|------|-----------|
-| CON-A | Connection | add screen 未传 `onFieldChanged`，验证成功后修改 URL 保存按钮仍可用 | `connection_screen.dart:72-73` |
-| PRG-A | Progress | `showProgressResumeDialog` 完全实现但**从未被调用** — 死代码 | `progress_dialog.dart:26` vs `browser_screen.dart:91-118` |
-| BRW-A | Browser | `onFileTap` 不检查已保存的播放进度 | `browser_screen.dart:91-118` |
-
-### MEDIUM
-
-| # | 功能 | 问题 | 文件:行号 |
-|---|------|------|-----------|
-| PLY-A | Player | shuffle 非确定性，无法回上一首 | `play_queue.dart:151-158` |
-| PLY-B | Player | mini bar idle 状态行为不正确 | `mini_player_bar.dart:223-224` |
-| PLY-C | Player | `player.play()` unawaited + poll timeout 可能假失败 | `player_provider.dart:930-938` |
-| PLY-D | Player | connection-change guard 导致 phantom player bar | `player_provider.dart:857-865` |
-| TMR-A | Timer | 手动 invalidate timerStateProvider 脆弱 | `timer_provider.dart:136,153,163,179,196` |
-| PRG-B | Progress | single-active-record，切换歌曲丢失旧进度 | `progress_dao.dart:92-123` |
-| CON-B | Connection | dual-purpose 页面标题始终为 "添加连接" | `connection_screen.dart:50` |
-| CON-C | Connection | `LastConnectionException` 未被 provider catch | `connection_provider.dart:276-289` |
-| CON-D | Connection | `_originalConfig` 双路径捕获 | `connection_edit_screen.dart:42-44,108` |
-| LST-A | Playlist | 无法重命名播放单 | `playlist_dao.dart:37-42` |
-| LST-B | Playlist | 无法编辑播放单元数据 | — |
-
-### LOW
-
-| # | 功能 | 问题 | 文件:行号 |
-|---|------|------|-----------|
-| CON-E | Connection | `isAttached` 异常控制流 | `connection_form.dart:17-23` |
-| CON-F | Connection | name auto-fill 回调为空 | `connection_form.dart:112-121` |
-| CON-G | Connection | Onboarding 错误被静默处理 | `main.dart:194` |
-| PLY-E | Player | processing 监听器 dispose 竞态 | `player_provider.dart:622-649` |
-| PLY-F | Player | `BackgroundPlaybackConfig` 未接入 NasAudioHandler | `background_playback.dart` vs `audio_handler.dart` |
-| TMR-B | Timer | 后台期间到期检测延迟 | `player_screen.dart:79-85` |
-| TMR-C | Timer | 无 paused 状态 | `timer_service.dart` |
-| PRG-C | Progress | per-file 恢复需要完善 onFileTap 流程 | `player_provider.dart:481-502` |
-| BRW-B | Browser | 目录缓存无 TTL | `browser_provider.dart:209` |
-| BRW-C | Browser | `_progressRegistryProvider` 单记录模式 | `browser_provider.dart:432-451` |
-| LST-C | Playlist | 无拖拽排序 | `playlist_provider.dart:14` |
-| LST-D | Playlist | 曲目点击不检查进度 | `playlist_detail_screen.dart:120-131` |
-| LST-E | Playlist | 无导出/导入 | — |
-| HOM-A | Home | Tab index 不持久化 | `home_screen.dart:29` |
-| HOM-B | Home | AppBar 排序菜单交互 | `home_screen.dart` |
