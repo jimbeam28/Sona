@@ -20,6 +20,7 @@ import '../../core/network/webdav_client.dart';
 import '../../shared/models/nas_file.dart';
 import '../../shared/models/play_queue.dart';
 import '../connection/connection_provider.dart';
+import '../progress/progress_dialog.dart';
 import '../progress/progress_provider.dart';
 import 'browser_provider.dart';
 import 'widgets/breadcrumb_bar.dart';
@@ -101,6 +102,20 @@ class BrowserScreen extends ConsumerWidget {
                           .indexWhere((f) => f.path == tappedFile.path);
                       if (startIndex < 0) return;
 
+                      // PRG-01: check for saved playback progress before playing
+                      int? startPositionMs;
+                      final progress =
+                          ref.read(playProgressProvider(tappedFile.path));
+                      if (progress != null && progress.positionMs >= 5000) {
+                        final container =
+                            ProviderScope.containerOf(context);
+                        final resume = await showProgressResumeDialog(
+                            context, container, progress);
+                        if (resume == true) {
+                          startPositionMs = progress.positionMs;
+                        }
+                      }
+
                       debugPrint('[Browser] onFileTap: queue ${audioFiles.length} tracks idx=$startIndex');
 
                       final goRouter = GoRouter.of(context);
@@ -108,6 +123,7 @@ class BrowserScreen extends ConsumerWidget {
                       final queue = PlayQueue(
                         files: audioFiles,
                         currentIndex: startIndex,
+                        startPositionMs: startPositionMs,
                       );
                       ref.read(currentPlayQueueProvider.notifier).state =
                           queue;

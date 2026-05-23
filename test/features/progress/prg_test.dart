@@ -14,7 +14,9 @@ import 'package:nas_audio_player/core/database/dao/progress_dao.dart';
 import 'package:nas_audio_player/core/database/database_helper.dart';
 import 'package:nas_audio_player/features/progress/progress_dialog.dart';
 import 'package:nas_audio_player/features/progress/progress_provider.dart';
+import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:nas_audio_player/shared/models/play_progress.dart';
+import 'package:nas_audio_player/shared/models/play_queue.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -1064,6 +1066,264 @@ void main() {
     test('shouldClear returns false when durationMs is null', () {
       expect(ProgressDao.shouldClear(999999, null), isFalse);
       expect(ProgressDao.shouldClear(0, null), isFalse);
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PRG-01 fix: 进度恢复对话框接入 (PRG-FIX-T01~T06)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  group('PRG-01 进度恢复对话框接入 (PRG-FIX-T01~T06)', () {
+    late Database db;
+    late ProgressDao dao;
+
+    setUpAll(() {
+      sqfliteFfiInit();
+    });
+
+    setUp(() async {
+      db = await _openTestDatabase();
+      dao = ProgressDao();
+    });
+
+    tearDown(() async {
+      await db.close();
+    });
+
+    // ── PRG-FIX-T01: 有进度文件 → 对话框 → 选择继续 → 从保存位置播放 ──────
+
+    testWidgets('PRG-FIX-T01: dialog choose continue → returns true with position',
+        (WidgetTester tester) async {
+      final progress = _progress(
+        positionMs: 120000, // 2:00
+        durationMs: 240000,
+      );
+
+      bool? dialogResult;
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: Builder(
+                builder: (context) {
+                  return ElevatedButton(
+                    onPressed: () async {
+                      dialogResult = await showProgressResumeDialog(
+                        context,
+                        ProviderScope.containerOf(context),
+                        progress,
+                      );
+                    },
+                    child: const Text('Show'),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Show'));
+      await tester.pumpAndSettle();
+
+      // Dialog should be visible with progress position
+      expect(find.text('恢复播放进度'), findsOneWidget);
+      expect(find.textContaining('2:00'), findsOneWidget);
+
+      // Tap "继续播放"
+      await tester.tap(find.textContaining('继续播放'));
+      await tester.pumpAndSettle();
+
+      expect(dialogResult, isTrue,
+          reason: '选择继续播放应返回 true，调用方应设置 startPositionMs');
+    });
+
+    // ── PRG-FIX-T02: 有进度文件 → 对话框 → 选择从头开始 → 从头播放 ──────
+
+    testWidgets('PRG-FIX-T02: dialog choose start over → returns false',
+        (WidgetTester tester) async {
+      final progress = _progress(positionMs: 60000, durationMs: 180000);
+
+      bool? dialogResult;
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: Builder(
+                builder: (context) {
+                  return ElevatedButton(
+                    onPressed: () async {
+                      dialogResult = await showProgressResumeDialog(
+                        context,
+                        ProviderScope.containerOf(context),
+                        progress,
+                      );
+                    },
+                    child: const Text('Show'),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Show'));
+      await tester.pumpAndSettle();
+
+      // Tap "从头播放"
+      await tester.tap(find.text('从头播放'));
+      await tester.pumpAndSettle();
+
+      expect(dialogResult, isFalse,
+          reason: '选择从头播放应返回 false，调用方不设置 startPositionMs');
+    });
+
+    // ── PRG-FIX-T03: 有进度文件 → 倒计时归零 → 自动选择继续播放 ──────────
+
+    test('PRG-FIX-T03: countdown expiry triggers auto-continue', () {
+      fakeAsync((async) {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        final notifier = container.read(progressResumeProvider.notifier);
+        final progress = _progress(positionMs: 120000);
+
+        notifier.show(progress);
+        expect(notifier.state!.countdownSeconds, equals(5));
+
+        // Advance 5 seconds
+        for (int i = 0; i < 5; i++) {
+          async.elapse(const Duration(seconds: 1));
+        }
+
+        expect(notifier.state!.isExpired, isTrue,
+            reason: '倒计时归零后 isExpired 应为 true，对话框应自动选择继续播放');
+        expect(notifier.state!.countdownSeconds, equals(0));
+
+        container.dispose();
+      });
+    });
+
+    // ── PRG-FIX-T04: 无进度文件 → 不弹对话框 → 直接从头播放 ──────────────
+
+    test('PRG-FIX-T04: null progress → no dialog → play from beginning',
+        () async {
+      // Verify: when no progress exists, the provider returns null
+      final container = ProviderContainer(
+        overrides: [
+          progressDaoProvider.overrideWithValue(dao),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      // progressForFileProvider queries the DAO — with empty DB it returns null
+      final result = await container.read(
+        progressForFileProvider((
+          connectionId: 1,
+          filePath: '/music/no_progress.mp3',
+        )).future,
+      );
+      expect(result, isNull,
+          reason: '无进度记录时 ProgressDao.find 返回 null → 不弹对话框 → 直接从头播放');
+    });
+
+    // ── PRG-FIX-T05: 播放单曲目点击 → 同样触发恢复对话框 ──────────────────
+
+    test('PRG-FIX-T05: playlist track tap queries progress via DAO', () async {
+      // Save progress for a file
+      await dao.upsert(
+        connectionId: 1,
+        filePath: '/music/playlist_song.mp3',
+        positionMs: 90000,
+        durationMs: 300000,
+      );
+
+      final container = ProviderContainer(
+        overrides: [
+          progressDaoProvider.overrideWithValue(dao),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      // progressForFileProvider queries by (connectionId, filePath)
+      final progress = await container.read(
+        progressForFileProvider((
+          connectionId: 1,
+          filePath: '/music/playlist_song.mp3',
+        )).future,
+      );
+
+      expect(progress, isNotNull,
+          reason: '播放单曲目有进度时 progressForFileProvider 应返回进度记录');
+      expect(progress!.positionMs, equals(90000),
+          reason: '应返回正确的 positionMs');
+      expect(progress.positionMs >= 5000, isTrue,
+          reason: 'positionMs >= 5000 时应触发恢复对话框');
+    });
+
+    // ── PRG-FIX-T06: 进度 positionMs < 5000 → 不弹对话框 ──────────────────
+
+    test('PRG-FIX-T06: position < 5s → skip dialog → direct play', () async {
+      // Save a progress with position < 5000
+      // Note: DAO.upsert would skip this (shouldSave returns false),
+      // but we insert directly to test the UI-layer threshold logic
+      final progress = _progress(
+        connectionId: 1,
+        filePath: '/music/brief.mp3',
+        positionMs: 3000, // 3 seconds
+        durationMs: 120000,
+      );
+      await dao.rawInsert(progress);
+
+      final container = ProviderContainer(
+        overrides: [
+          progressDaoProvider.overrideWithValue(dao),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final result = await container.read(
+        progressForFileProvider((
+          connectionId: 1,
+          filePath: '/music/brief.mp3',
+        )).future,
+      );
+
+      // The DAO still returns the record, but the UI checks positionMs >= 5000
+      if (result != null) {
+        expect(result.positionMs < 5000, isTrue,
+            reason: '进度 positionMs < 5000 的情况下获取到记录本身没问题，'
+                '但 onFileTap/onTrackTap 中的阈值检查应跳过对话框');
+      }
+
+      // Verify the threshold logic directly
+      final shouldShowDialog = result != null && result.positionMs >= 5000;
+      expect(shouldShowDialog, isFalse,
+          reason: 'positionMs < 5000 时不应弹出恢复对话框');
+    });
+
+    // ── Additional: PlayQueue constructed with startPositionMs ───────────────
+
+    test('PRG-FIX: PlayQueue carries startPositionMs when resuming', () {
+      const files = [
+        NasFile(path: '/music/a.mp3', name: 'a.mp3', isDirectory: false),
+        NasFile(path: '/music/b.mp3', name: 'b.mp3', isDirectory: false),
+      ];
+
+      // Without resume → no startPositionMs
+      const queueWithout = PlayQueue(files: files, currentIndex: 0);
+      expect(queueWithout.startPositionMs, isNull,
+          reason: '无进度恢复时 startPositionMs 应为 null');
+
+      // With resume → startPositionMs set
+      const queueWith = PlayQueue(
+        files: files,
+        currentIndex: 0,
+        startPositionMs: 120000,
+      );
+      expect(queueWith.startPositionMs, equals(120000),
+          reason: '恢复播放时 startPositionMs 应为保存的 positionMs');
     });
   });
 }

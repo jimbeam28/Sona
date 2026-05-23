@@ -9,8 +9,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../shared/models/play_queue.dart';
+import '../../shared/models/playlist.dart';
 import '../browser/browser_provider.dart';
 import '../connection/connection_provider.dart';
+import '../progress/progress_dialog.dart';
+import '../progress/progress_provider.dart';
 import 'playlist_provider.dart';
 import 'widgets/add_tracks_browser.dart';
 import 'widgets/playlist_track_item.dart';
@@ -34,6 +37,45 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
       _selectionMode = false;
       _selectedIds.clear();
     });
+  }
+
+  void _playTrackAtIndex(List<PlaylistTrack> tracks, int index) async {
+    final filePath = tracks[index].filePath;
+    final conn = ref.read(activeConnectionProvider).valueOrNull;
+
+    int? startPositionMs;
+
+    // PRG-01 / PLS-04: check for saved playback progress
+    if (conn != null && conn.id != null) {
+      try {
+        final progress = await ref.read(progressForFileProvider(
+            (connectionId: conn.id!, filePath: filePath)).future);
+        if (progress != null && progress.positionMs >= 5000) {
+          final resume = await showProgressResumeDialog(
+            context,
+            ProviderScope.containerOf(context),
+            progress,
+          );
+          if (resume == true) {
+            startPositionMs = progress.positionMs;
+          }
+        }
+      } catch (_) {
+        // On error, play from beginning
+      }
+    }
+
+    if (!context.mounted) return;
+
+    final nasFiles = tracks.map((t) => t.toNasFile()).toList();
+    final queue = PlayQueue(
+      files: nasFiles,
+      currentIndex: index,
+      startPositionMs: startPositionMs,
+    );
+    ref.read(currentPlayQueueProvider.notifier).state = queue;
+    ref.read(lastQueueConnectionIdProvider.notifier).state = conn?.id;
+    context.push('/player');
   }
 
   @override
@@ -117,18 +159,7 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
                       }
                     });
                   } else {
-                    // Build play queue from all tracks and start at tapped index
-                    final nasFiles = tracks.map((t) => t.toNasFile()).toList();
-                    final queue = PlayQueue(
-                      files: nasFiles,
-                      currentIndex: index,
-                    );
-                    ref.read(currentPlayQueueProvider.notifier).state = queue;
-                    final connId =
-                        ref.read(activeConnectionProvider).valueOrNull?.id;
-                    ref.read(lastQueueConnectionIdProvider.notifier).state =
-                        connId;
-                    context.push('/player');
+                    _playTrackAtIndex(tracks, index);
                   }
                 },
                 onLongPress: () {
