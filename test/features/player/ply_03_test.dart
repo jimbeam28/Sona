@@ -14,7 +14,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nas_audio_player/features/player/background_playback.dart';
+import 'package:nas_audio_player/core/services/timer_service.dart';
 import 'package:nas_audio_player/features/player/player_provider.dart';
+import 'package:nas_audio_player/features/timer/timer_provider.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Unit tests — PLY-T20~T23
@@ -878,6 +880,399 @@ void main() {
       expect(MediaControlAction.values, contains(MediaControlAction.stop));
       expect(MediaControlAction.values,
           contains(MediaControlAction.togglePlayPause));
+    });
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // TST-13: App lifecycle complete chain tests (TST-T99 ~ TST-T106)
+  // ═════════════════════════════════════════════════════════════════════════════
+
+  group('TST-13: App lifecycle complete chain', () {
+    // ── TST-T99: 播放中 → paused → progress 保存调用 ───────────────────────
+
+    group('TST-T99: playing → paused lifecycle', () {
+      test('ProviderContainer: paused sets isInForeground=false, '
+          'playbackState stays playing', () {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        final notifier = container.read(backgroundPlaybackProvider.notifier);
+
+        // Start playback
+        notifier.startPlayback();
+        expect(
+          container.read(backgroundPlaybackProvider).playbackState,
+          equals(BackgroundPlaybackState.playing),
+        );
+
+        // Simulate app lifecycle: paused (going to background)
+        notifier.onAppLifecycleChange(AppLifecycleState.paused);
+
+        final state = container.read(backgroundPlaybackProvider);
+        expect(state.isInForeground, isFalse,
+            reason: 'TST-T99: paused 后 isInForeground 应为 false');
+        expect(state.playbackState, equals(BackgroundPlaybackState.playing),
+            reason: 'TST-T99: backgroundEnabled=true 时播放状态应保持 playing');
+        expect(state.backgroundEnabled, isTrue,
+            reason: 'TST-T99: backgroundEnabled 标志不变');
+      });
+
+      test('pure function: paused lifecycle preserves playing state', () {
+        final after = computePlaybackStateAfterLifecycle(
+          newState: AppLifecycleState.paused,
+          backgroundEnabled: true,
+          currentPlaybackState: BackgroundPlaybackState.playing,
+        );
+
+        expect(after.isInForeground, isFalse,
+            reason: 'TST-T99: 纯函数 paused 后 isInForeground=false');
+        expect(after.playbackState, equals(BackgroundPlaybackState.playing),
+            reason: 'TST-T99: 纯函数 paused 后 playbackState 保持 playing');
+        expect(after.backgroundEnabled, isTrue);
+      });
+    });
+
+    // ── TST-T100: backgroundEnabled=true → playbackState 保持 playing ──────
+
+    group('TST-T100: backgroundEnabled keeps playing in background '
+        '(confirm PLY-T20)', () {
+      test('ProviderContainer confirms full integration link', () {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        final notifier = container.read(backgroundPlaybackProvider.notifier);
+        notifier.startPlayback();
+
+        // App goes to background while playing
+        notifier.onAppLifecycleChange(AppLifecycleState.paused);
+
+        final state = container.read(backgroundPlaybackProvider);
+        expect(state.playbackState, equals(BackgroundPlaybackState.playing),
+            reason: 'TST-T100: 后台播放启用时 paused 后播放继续 (confirm PLY-T20)');
+        expect(state.isInForeground, isFalse);
+        expect(state.backgroundEnabled, isTrue);
+      });
+    });
+
+    // ── TST-T101: detached → playbackState 变为 stopped ────────────────────
+
+    group('TST-T101: detached stops playback (confirm existing)', () {
+      test('ProviderContainer: playing → detached → stopped', () {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        final notifier = container.read(backgroundPlaybackProvider.notifier);
+        notifier.startPlayback();
+        notifier.onAppLifecycleChange(AppLifecycleState.detached);
+
+        final state = container.read(backgroundPlaybackProvider);
+        expect(state.playbackState, equals(BackgroundPlaybackState.stopped),
+            reason: 'TST-T101: detached 后播放应停止');
+        expect(state.isInForeground, isFalse,
+            reason: 'TST-T101: detached 后 isInForeground=false');
+      });
+
+      test('pure function: detached stops playback', () {
+        final after = computePlaybackStateAfterLifecycle(
+          newState: AppLifecycleState.detached,
+          backgroundEnabled: true,
+          currentPlaybackState: BackgroundPlaybackState.playing,
+        );
+
+        expect(after.playbackState, equals(BackgroundPlaybackState.stopped),
+            reason: 'TST-T101: 纯函数 detached → stopped');
+        expect(after.isInForeground, isFalse);
+      });
+    });
+
+    // ── TST-T102: 后台期间 timer 到期 → checkExpired=true ──────────────────
+
+    group('TST-T102: timer expiry during background triggers pause', () {
+      test('TimerService: startDuration(0) → checkExpired returns true, '
+          'state cleared', () {
+        final service = TimerService();
+
+        // Start a duration timer with 0 minutes (endTime = now)
+        final timerState = service.startDuration(0);
+        expect(timerState.mode, equals(TimerMode.duration));
+        expect(timerState.endTime, isNotNull);
+        expect(service.isActive, isTrue);
+
+        // checkExpired should return true since endTime <= now
+        final expired = service.checkExpired();
+        expect(expired, isTrue,
+            reason: 'TST-T102: startDuration(0) 后 checkExpired 应返回 true');
+
+        // State should be cleared after expiry
+        expect(service.state, isNull,
+            reason: 'TST-T102: checkExpired 后 state 应被清除为 null');
+        expect(service.isActive, isFalse);
+      });
+
+      test('TimerService: checkExpired is idempotent — '
+          'second call returns false', () {
+        final service = TimerService();
+
+        service.startDuration(0);
+
+        // First call: expires
+        final first = service.checkExpired();
+        expect(first, isTrue,
+            reason: 'TST-T102: 首次 checkExpired 返回 true');
+
+        // Second call: already cleared, returns false
+        final second = service.checkExpired();
+        expect(second, isFalse,
+            reason: 'TST-T102: 再次 checkExpired 返回 false（幂等）');
+        expect(service.state, isNull);
+      });
+
+      test('TimerService: checkExpired returns false when timer still active', () {
+        final service = TimerService();
+
+        // Start a timer far in the future
+        service.startDuration(60); // 60 minutes
+        expect(service.isActive, isTrue);
+
+        final expired = service.checkExpired();
+        expect(expired, isFalse,
+            reason: 'TST-T102: 未到期的 timer checkExpired 返回 false');
+        expect(service.isActive, isTrue,
+            reason: 'TST-T102: 未到期时 state 不被清除');
+      });
+
+      test('TimerService: afterCurrent mode checkExpired always returns false', () {
+        final service = TimerService();
+
+        service.startAfterCurrent();
+        expect(service.isActive, isTrue);
+        expect(service.state!.mode, equals(TimerMode.afterCurrent));
+
+        final expired = service.checkExpired();
+        expect(expired, isFalse,
+            reason: 'TST-T102: afterCurrent 模式 checkExpired 始终返回 false');
+        expect(service.isActive, isTrue,
+            reason: 'TST-T102: afterCurrent 模式 state 不被 checkExpired 清除');
+      });
+
+      test('ProviderContainer + TimerStateNotifier: startDuration(0) '
+          '→ checkExpired returns true', () {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        final notifier = container.read(timerStateProvider.notifier);
+        notifier.startDuration(0);
+
+        // Timer should be active
+        expect(container.read(timerStateProvider), isNotNull);
+        expect(container.read(timerActiveProvider), isTrue);
+
+        // checkExpired should return true
+        final expired = notifier.checkExpired();
+        expect(expired, isTrue,
+            reason: 'TST-T102: Notifier checkExpired 返回 true');
+
+        // State should be cleared
+        expect(container.read(timerStateProvider), isNull,
+            reason: 'TST-T102: checkExpired 后 provider state 应为 null');
+        expect(container.read(timerActiveProvider), isFalse);
+      });
+    });
+
+    // ── TST-T103: transient 音频焦点丢失 → 播放状态不变 ────────────────────
+
+    group('TST-T103: transient focus preserves playback (confirm)', () {
+      test('ProviderContainer: onAudioFocusChange(transient) keeps playing', () {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        final notifier = container.read(backgroundPlaybackProvider.notifier);
+        notifier.startPlayback();
+        notifier.onAudioFocusChange(AudioFocusState.transient);
+
+        final state = container.read(backgroundPlaybackProvider);
+        expect(state.playbackState, equals(BackgroundPlaybackState.playing),
+            reason: 'TST-T103: transient 焦点丢失不应改变播放状态');
+        expect(state.audioFocus, equals(AudioFocusState.transient));
+        expect(state.isAudioActive, isTrue,
+            reason: 'TST-T103: transient 焦点丢失时 isAudioActive 仍为 true');
+      });
+
+      test('pure state: transient focus preserves playing', () {
+        final state = BackgroundPlaybackConfig.playing(
+          backgroundEnabled: true,
+          isInForeground: true,
+        );
+
+        final after = state.updateAudioFocus(AudioFocusState.transient);
+
+        expect(after.playbackState, equals(BackgroundPlaybackState.playing),
+            reason: 'TST-T103: 纯状态 transient 焦点丢失不改变播放状态');
+        expect(after.audioFocus, equals(AudioFocusState.transient));
+      });
+    });
+
+    // ── TST-T104: 永久音频焦点丢失 → 播放状态变为 paused ──────────────────
+
+    group('TST-T104: permanent focus loss pauses playback (confirm)', () {
+      test('ProviderContainer: onAudioFocusChange(lost) pauses playback', () {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        final notifier = container.read(backgroundPlaybackProvider.notifier);
+        notifier.startPlayback();
+        notifier.onAudioFocusChange(AudioFocusState.lost);
+
+        final state = container.read(backgroundPlaybackProvider);
+        expect(state.playbackState, equals(BackgroundPlaybackState.paused),
+            reason: 'TST-T104: 永久焦点丢失应暂停播放');
+        expect(state.audioFocus, equals(AudioFocusState.lost));
+        expect(state.isAudioActive, isFalse,
+            reason: 'TST-T104: 永久焦点丢失后 isAudioActive=false');
+      });
+
+      test('pure state: lost focus pauses playback', () {
+        final state = BackgroundPlaybackConfig.playing(
+          backgroundEnabled: true,
+          isInForeground: false,
+        );
+
+        final after = state.updateAudioFocus(AudioFocusState.lost);
+
+        expect(after.playbackState, equals(BackgroundPlaybackState.paused),
+            reason: 'TST-T104: 纯状态 lost 焦点应暂停播放');
+        expect(after.audioFocus, equals(AudioFocusState.lost));
+      });
+    });
+
+    // ── TST-T105: 焦点丢失后恢复 → 保持 paused 等待用户手动播放 ──────────
+
+    group('TST-T105: focus regain stays paused (confirm)', () {
+      test('ProviderContainer: lost → gained keeps paused', () {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        final notifier = container.read(backgroundPlaybackProvider.notifier);
+        notifier.startPlayback();
+        notifier.onAudioFocusChange(AudioFocusState.lost);
+
+        // Verify we are paused
+        expect(container.read(backgroundPlaybackProvider).playbackState,
+            equals(BackgroundPlaybackState.paused));
+
+        // Regain focus — should stay paused
+        notifier.onAudioFocusChange(AudioFocusState.gained);
+
+        final state = container.read(backgroundPlaybackProvider);
+        expect(state.audioFocus, equals(AudioFocusState.gained),
+            reason: 'TST-T105: 焦点恢复标志应更新');
+        expect(state.playbackState, equals(BackgroundPlaybackState.paused),
+            reason: 'TST-T105: 焦点恢复后应保持 paused，等待用户手动播放');
+      });
+
+      test('pure state: lost → gained stays paused', () {
+        final lost = BackgroundPlaybackConfig.playing(
+          backgroundEnabled: true,
+          isInForeground: false,
+        ).updateAudioFocus(AudioFocusState.lost);
+
+        final regained = lost.updateAudioFocus(AudioFocusState.gained);
+
+        expect(regained.audioFocus, equals(AudioFocusState.gained));
+        expect(regained.playbackState, equals(BackgroundPlaybackState.paused),
+            reason: 'TST-T105: 纯状态焦点恢复后保持 paused');
+      });
+    });
+
+    // ── TST-T106: 完整生命周期序列 ────────────────────────────────────────
+
+    group('TST-T106: hidden → inactive → paused → resumed full sequence', () {
+      test('computePlaybackStateAfterLifecycle: full lifecycle sequence '
+          'while playing', () {
+        // Step 1: hidden
+        final hidden = computePlaybackStateAfterLifecycle(
+          newState: AppLifecycleState.hidden,
+          backgroundEnabled: true,
+          currentPlaybackState: BackgroundPlaybackState.playing,
+        );
+        expect(hidden.isInForeground, isFalse,
+            reason: 'TST-T106: hidden → isInForeground=false');
+        expect(hidden.playbackState, equals(BackgroundPlaybackState.playing),
+            reason: 'TST-T106: hidden → playbackState 保持 playing');
+
+        // Step 2: hidden → inactive
+        final inactive = computePlaybackStateAfterLifecycle(
+          newState: AppLifecycleState.inactive,
+          backgroundEnabled: true,
+          currentPlaybackState: BackgroundPlaybackState.playing,
+        );
+        expect(inactive.isInForeground, isFalse,
+            reason: 'TST-T106: inactive → isInForeground=false');
+        expect(inactive.playbackState, equals(BackgroundPlaybackState.playing),
+            reason: 'TST-T106: inactive → playbackState 保持 playing');
+
+        // Step 3: inactive → paused
+        final paused = computePlaybackStateAfterLifecycle(
+          newState: AppLifecycleState.paused,
+          backgroundEnabled: true,
+          currentPlaybackState: BackgroundPlaybackState.playing,
+        );
+        expect(paused.isInForeground, isFalse,
+            reason: 'TST-T106: paused → isInForeground=false');
+        expect(paused.playbackState, equals(BackgroundPlaybackState.playing),
+            reason: 'TST-T106: paused → playbackState 保持 playing');
+
+        // Step 4: paused → resumed (back to foreground)
+        final resumed = computePlaybackStateAfterLifecycle(
+          newState: AppLifecycleState.resumed,
+          backgroundEnabled: true,
+          currentPlaybackState: BackgroundPlaybackState.playing,
+        );
+        expect(resumed.isInForeground, isTrue,
+            reason: 'TST-T106: resumed → isInForeground=true');
+        expect(resumed.playbackState, equals(BackgroundPlaybackState.playing),
+            reason: 'TST-T106: resumed → playbackState 保持 playing');
+      });
+
+      test('BackgroundPlaybackNotifier: full lifecycle sequence via notifier', () {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        final notifier = container.read(backgroundPlaybackProvider.notifier);
+        notifier.startPlayback();
+
+        // hidden
+        notifier.onAppLifecycleChange(AppLifecycleState.hidden);
+        var state = container.read(backgroundPlaybackProvider);
+        expect(state.isInForeground, isFalse,
+            reason: 'TST-T106: notifier hidden → isInForeground=false');
+        expect(state.playbackState, equals(BackgroundPlaybackState.playing),
+            reason: 'TST-T106: notifier hidden → 播放继续');
+
+        // inactive
+        notifier.onAppLifecycleChange(AppLifecycleState.inactive);
+        state = container.read(backgroundPlaybackProvider);
+        expect(state.isInForeground, isFalse,
+            reason: 'TST-T106: notifier inactive → isInForeground=false');
+        expect(state.playbackState, equals(BackgroundPlaybackState.playing),
+            reason: 'TST-T106: notifier inactive → 播放继续');
+
+        // paused
+        notifier.onAppLifecycleChange(AppLifecycleState.paused);
+        state = container.read(backgroundPlaybackProvider);
+        expect(state.isInForeground, isFalse,
+            reason: 'TST-T106: notifier paused → isInForeground=false');
+        expect(state.playbackState, equals(BackgroundPlaybackState.playing),
+            reason: 'TST-T106: notifier paused → 播放继续');
+
+        // resumed
+        notifier.onAppLifecycleChange(AppLifecycleState.resumed);
+        state = container.read(backgroundPlaybackProvider);
+        expect(state.isInForeground, isTrue,
+            reason: 'TST-T106: notifier resumed → isInForeground=true');
+        expect(state.playbackState, equals(BackgroundPlaybackState.playing),
+            reason: 'TST-T106: notifier resumed → 回到前台播放继续');
+      });
     });
   });
 }

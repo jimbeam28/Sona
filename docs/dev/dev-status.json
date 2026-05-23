@@ -2,8 +2,8 @@
   "metadata": {
     "last_updated": "2026-05-23",
     "total": 43,
-    "pending": 5,
-    "done": 38
+    "pending": 4,
+    "done": 39
   },
   "order": [
     "PRG-01",
@@ -320,8 +320,8 @@
     "TST-13": {
       "name": "App 生命周期完整链路测试",
       "plan_section": "dev-plan.md §TST-13",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": []
     },
     "TST-14": {
