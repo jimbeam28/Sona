@@ -36,6 +36,8 @@ class BrowserScreen extends ConsumerWidget {
 
     // B-3: activate queue persistence listener.
     ref.watch(persistQueueOnChangeProvider);
+    // PLY-04: clear queue when active connection changes
+    ref.watch(clearQueueOnConnectionSwitchProvider);
 
     final contentsAsync = ref.watch(directoryContentsProvider(currentPath));
 

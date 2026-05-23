@@ -192,7 +192,7 @@ void main() {
       final cacheAfterReload = container.read(directoryCacheProvider);
       expect(cacheAfterReload.containsKey('1:/music'), isTrue,
           reason: '重新加载后缓存应被重新填充');
-      expect(cacheAfterReload['1:/music']!.length, equals(3),
+      expect(cacheAfterReload['1:/music']!.files.length, equals(3),
           reason: '缓存应包含更新后的 3 个文件');
     });
 
@@ -316,7 +316,7 @@ void main() {
 
       // Verify the cache reflects the new data
       final cacheAfterRefresh = container.read(directoryCacheProvider);
-      expect(cacheAfterRefresh['1:/music']!.length, equals(3),
+      expect(cacheAfterRefresh['1:/music']!.files.length, equals(3),
           reason: '缓存应包含 3 个更新后的文件');
     });
   });

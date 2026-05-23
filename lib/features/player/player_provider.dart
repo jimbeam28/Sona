@@ -616,6 +616,12 @@ final cancelProcessingListenerProvider = Provider<void Function()>((ref) {
 /// Extracted from [loadAndPlayProvider] so the PlayerScreen can re-register
 /// the listener when it re-opens and skips reloading a matching source.
 final startProcessingListenerProvider = Provider<void Function()>((ref) {
+  // PLY-05: cancel processing subscription on dispose to prevent
+  // the listener from reading stale Riverpod state after disposal.
+  ref.onDispose(() {
+    ref.read(_processingSubProvider)?.cancel();
+  });
+
   return () {
     final player = ref.read(audioPlayerProvider);
     ref.read(cancelProcessingListenerProvider)();

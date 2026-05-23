@@ -155,7 +155,7 @@ void main() {
       final cache = container.read(directoryCacheProvider);
       expect(cache.containsKey('1:/music'), isTrue,
           reason: '缓存中应有 key 1:/music');
-      expect(cache['1:/music']!.length, equals(2),
+      expect(cache['1:/music']!.files.length, equals(2),
           reason: '缓存条目应包含 2 个过滤后的文件');
     });
 
@@ -382,12 +382,12 @@ void main() {
           reason: '连接 1 的缓存不应出现在容器 2 中');
 
       // Connection 2's cached result should be empty, not conn1's data
-      expect(cache2['2:/music']!.length, equals(0),
+      expect(cache2['2:/music']!.files.length, equals(0),
           reason: '连接 2 的缓存条目应为空列表');
 
       // Connection 1's cache is independent
       final cache1 = container1.read(directoryCacheProvider);
-      expect(cache1['1:/music']!.length, equals(1),
+      expect(cache1['1:/music']!.files.length, equals(1),
           reason: '连接 1 的缓存应保持不变');
     });
   });

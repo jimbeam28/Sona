@@ -87,11 +87,22 @@ final sortOptionProvider =
 
 // ── Directory contents cache ────────────────────────────────────────────────────
 
-/// In-memory cache for directory contents, keyed by `connectionId:path`.
+/// Default cache TTL: entries older than 5 minutes are considered stale.
+const _cacheTtl = Duration(minutes: 5);
+
+/// In-memory cache for directory contents with TTL, keyed by `connectionId:path`.
+/// Each entry stores the file list and the timestamp when it was created.
 /// Survives for the lifetime of the provider container (app lifecycle).
 /// Cleared on pull-to-refresh via [clearDirectoryCacheProvider].
 final directoryCacheProvider =
-    StateProvider<Map<String, List<NasFile>>>((ref) => {});
+    StateProvider<Map<String, CacheEntry>>((ref) => {});
+
+/// A cached directory listing with its creation timestamp for TTL checking.
+class CacheEntry {
+  final List<NasFile> files;
+  final DateTime createdAt;
+  const CacheEntry({required this.files, required this.createdAt});
+}
 
 /// Clears the directory contents cache and invalidates the corresponding
 /// [directoryContentsProvider] so the next read triggers a fresh network
@@ -114,7 +125,7 @@ final clearDirectoryCacheProvider = Provider<void Function(String? path)>((ref) 
       final keysToRemove = cache.keys.where((k) => k.endsWith(suffix)).toList();
       if (keysToRemove.isNotEmpty) {
         ref.read(directoryCacheProvider.notifier).update((state) {
-          final updated = Map<String, List<NasFile>>.from(state);
+          final updated = Map<String, CacheEntry>.from(state);
           for (final key in keysToRemove) {
             updated.remove(key);
           }
@@ -157,13 +168,17 @@ final directoryContentsProvider =
     throw const WebDavException('没有活跃的连接');
   }
 
-  // 2. Check the in-memory cache
+  // 2. Check the in-memory cache with TTL (PRG-03)
   final cache = ref.read(directoryCacheProvider);
   final cacheKey = '${activeConn.id}:$path';
-  if (cache.containsKey(cacheKey)) {
-    // Re-sort with the current sort option (does not mutate cached list).
-    debugPrint('[Browser] dirContents: cache hit path=$path');
-    return sortFiles(cache[cacheKey]!, sortOption);
+  final cachedEntry = cache[cacheKey];
+  if (cachedEntry != null) {
+    final age = DateTime.now().difference(cachedEntry.createdAt);
+    if (age < _cacheTtl) {
+      debugPrint('[Browser] dirContents: cache hit path=$path (age=${age.inSeconds}s)');
+      return sortFiles(cachedEntry.files, sortOption);
+    }
+    debugPrint('[Browser] dirContents: cache expired path=$path (age=${age.inSeconds}s)');
   }
   debugPrint('[Browser] dirContents: cache miss path=$path, fetching');
 
@@ -203,9 +218,12 @@ final directoryContentsProvider =
   // 6. Sort with current sort option
   final sorted = sortFiles(filtered, sortOption);
 
-  // 7. Write to cache (H-2: limit to 50 entries to prevent unbounded growth)
+  // 7. Write to cache with TTL (PRG-03: limit to 50 entries)
   ref.read(directoryCacheProvider.notifier).update((state) {
-    final updated = {...state, cacheKey: sorted};
+    final updated = {
+      ...state,
+      cacheKey: CacheEntry(files: sorted, createdAt: DateTime.now()),
+    };
     if (updated.length > 50) {
       final keysToRemove = updated.keys.take(updated.length - 50).toList();
       for (final k in keysToRemove) {
@@ -303,6 +321,23 @@ final currentPlayQueueProvider = StateProvider<PlayQueue?>((ref) => null);
 /// while a queue is loaded, mini-bar skip/queue operations should warn the user
 /// because file paths may not exist on the new connection.
 final lastQueueConnectionIdProvider = StateProvider<int?>((ref) => null);
+
+/// PLY-04: watches for connection switches and clears the play queue when
+/// the active connection no longer matches the queue's origin connection.
+///
+/// Without this, a phantom mini-player bar appears after switching connections
+/// because the queue is still in memory but can't play on the new connection.
+final clearQueueOnConnectionSwitchProvider = Provider<void>((ref) {
+  ref.listen(activeConnectionProvider, (prev, next) {
+    final activeId = next.valueOrNull?.id;
+    final queueConnId = ref.read(lastQueueConnectionIdProvider);
+    if (activeId != null && queueConnId != null && activeId != queueConnId) {
+      debugPrint('[Browser] connection switched, clearing stale queue');
+      ref.read(currentPlayQueueProvider.notifier).state = null;
+      ref.read(lastQueueConnectionIdProvider.notifier).state = null;
+    }
+  });
+});
 
 // ── Queue persistence (B-3) ─────────────────────────────────────────────────
 
