@@ -191,7 +191,11 @@ class _OnboardingPage extends ConsumerWidget {
       loading: () => const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       ),
-      error: (_, __) => _onboardingScaffold(context),
+      // CON-07: show error page with retry instead of silent fallthrough to CTA
+      error: (error, _) => _OnboardingErrorView(
+        message: '无法读取连接列表：$error',
+        onRetry: () => ref.invalidate(connectionListProvider),
+      ),
       data: (connections) {
         if (connections.isNotEmpty) {
           // Watch startup validation to trigger auto-validation (CON-T15 / CON-T16).
@@ -275,6 +279,56 @@ class _OnboardingPage extends ConsumerWidget {
                   style: FilledButton.styleFrom(
                     minimumSize: const Size(200, 48),
                   ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OnboardingErrorView extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+
+  const _OnboardingErrorView({
+    required this.message,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.error_outline,
+                    size: 64, color: Theme.of(context).colorScheme.error),
+                const SizedBox(height: 16),
+                Text(
+                  '数据加载失败',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  message,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                FilledButton.icon(
+                  onPressed: onRetry,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('重试'),
                 ),
               ],
             ),

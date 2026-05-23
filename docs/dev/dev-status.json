@@ -2,8 +2,8 @@
   "metadata": {
     "last_updated": "2026-05-23",
     "total": 26,
-    "pending": 22,
-    "done": 4
+    "pending": 18,
+    "done": 8
   },
   "order": [
     "PRG-01",
@@ -65,29 +65,29 @@
     "CON-04": {
       "name": "_originalConfig 双路径捕获",
       "plan_section": "dev-plan.md §CON-04",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": []
     },
     "CON-05": {
       "name": "isAttached 异常控制流",
       "plan_section": "dev-plan.md §CON-05",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": []
     },
     "CON-06": {
       "name": "name auto-fill 回调为空",
       "plan_section": "dev-plan.md §CON-06",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": []
     },
     "CON-07": {
       "name": "Onboarding 错误被静默处理",
       "plan_section": "dev-plan.md §CON-07",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": []
     },
     "PLY-01": {

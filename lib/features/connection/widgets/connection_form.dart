@@ -11,17 +11,17 @@ import '../../../shared/models/connection_config.dart';
 
 class ConnectionFormController {
   late _ConnectionFormState _state;
+  bool _isAttached = false;
 
-  void _attach(_ConnectionFormState state) => _state = state;
-
-  bool get isAttached {
-    try {
-      _state;
-      return true;
-    } catch (_) {
-      return false;
-    }
+  void _attach(_ConnectionFormState state) {
+    _state = state;
+    _isAttached = true;
   }
+
+  void _detach() => _isAttached = false;
+
+  // CON-05: use an explicit flag instead of catching LateInitializationError.
+  bool get isAttached => _isAttached;
 
   String get url => _state._urlController.text.trim();
   String get username => _state._usernameController.text.trim();
@@ -109,31 +109,24 @@ class _ConnectionFormState extends State<ConnectionForm> {
     }
   }
 
+  // CON-06: auto-fill display name from URL hostname on every URL change,
+  // not just on focus lost — so users who type a URL then tap test/save
+  // without leaving the field still get the name auto-filled.
   void _onUrlChanged() {
-    if (_nameController.text.isEmpty) {
-      final hostname =
-          ConnectionConfig.hostnameFromUrl(_urlController.text.trim());
-      if (hostname.isNotEmpty && hostname != _urlController.text.trim()) {
-        // Only prefill; don't override if the user already typed something.
-        // We use setState here only to trigger rebuild if needed elsewhere.
-      }
-    }
-  }
-
-  /// Called when URL field loses focus — fill display name from hostname if
-  /// the user hasn't typed a custom name yet.
-  void _onUrlFocusLost() {
     if (_nameController.text.isEmpty) {
       final raw = _urlController.text.trim();
       if (raw.isNotEmpty) {
         final hostname = ConnectionConfig.hostnameFromUrl(raw);
-        setState(() => _nameController.text = hostname);
+        if (hostname.isNotEmpty && hostname != raw) {
+          _nameController.text = hostname;
+        }
       }
     }
   }
 
   @override
   void dispose() {
+    widget.controller._detach();
     _urlController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
@@ -168,14 +161,10 @@ class _ConnectionFormState extends State<ConnectionForm> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // ── Server URL ────────────────────────────────────────────────────
-          Focus(
-            onFocusChange: (hasFocus) {
-              if (!hasFocus) _onUrlFocusLost();
-            },
-            child: TextFormField(
-              controller: _urlController,
-              decoration: const InputDecoration(
-                labelText: '服务器地址 *',
+          TextFormField(
+            controller: _urlController,
+            decoration: const InputDecoration(
+              labelText: '服务器地址 *',
                 hintText: 'http://192.168.1.100:5005 或 http://nas.example.com',
                 prefixIcon: Icon(Icons.dns_outlined),
                 border: OutlineInputBorder(),
@@ -185,7 +174,6 @@ class _ConnectionFormState extends State<ConnectionForm> {
               autocorrect: false,
               validator: _validateUrl,
             ),
-          ),
           const SizedBox(height: 16),
 
           // ── Username ──────────────────────────────────────────────────────

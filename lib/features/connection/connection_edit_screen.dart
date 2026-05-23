@@ -104,9 +104,8 @@ class _ConnectionEditScreenState extends ConsumerState<ConnectionEditScreen> {
             );
           }
 
-          // Capture original config once the data is available
-          _originalConfig ??= connection;
-
+          // CON-04: _originalConfig is captured in addPostFrameCallback,
+          // not here — avoids ambiguous dual-path capture semantics.
           return SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
