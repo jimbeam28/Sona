@@ -9,10 +9,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fake_async/fake_async.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nas_audio_player/features/playlist/playlist_detail_screen.dart';
 import 'package:nas_audio_player/features/playlist/playlist_provider.dart';
 import 'package:nas_audio_player/shared/models/playlist.dart';
+import 'package:nas_audio_player/features/browser/browser_provider.dart';
+import 'package:nas_audio_player/features/connection/connection_provider.dart';
+import 'package:nas_audio_player/features/progress/progress_provider.dart';
+import 'package:nas_audio_player/shared/models/connection_config.dart';
+import 'package:nas_audio_player/shared/models/play_progress.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -42,6 +48,30 @@ final _testPlaylist = Playlist(
 );
 
 final _testPlaylists = [_testPlaylist];
+
+// ── TST-04 test data ───────────────────────────────────────────────────────
+
+final _tstConn = ConnectionConfig(
+  id: 1,
+  name: 'Test Conn',
+  url: 'http://test.local',
+  username: 'testuser',
+  createdAt: _now,
+  updatedAt: _now,
+);
+
+PlayProgress _tstProgress({
+  String filePath = '/music/with_progress.mp3',
+  int positionMs = 120000,
+}) {
+  return PlayProgress(
+    connectionId: 1,
+    filePath: filePath,
+    positionMs: positionMs,
+    durationMs: 240000,
+    lastPlayedAt: _now,
+  );
+}
 
 Widget _buildTestApp(Widget child, {List<Override>? overrides}) {
   final router = GoRouter(
@@ -356,6 +386,297 @@ void main() {
       // Should be back to normal mode
       expect(find.text('Test Playlist'), findsOneWidget);
       expect(find.byIcon(Icons.add), findsOneWidget);
+    });
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // TST-04: 进度恢复集成测试 (TST-T20~TST-T25)
+  // ═════════════════════════════════════════════════════════════════════════════
+
+  group('TST-T20 resume with saved progress', () {
+    testWidgets('shows dialog, choose resume, queue has startPositionMs',
+        (WidgetTester tester) async {
+      final progress = _tstProgress(filePath: '/music/resume.mp3');
+
+      await tester.pumpWidget(_buildTestApp(
+        const PlaylistDetailScreen(playlistId: 1),
+        overrides: [
+          playlistTracksProvider(1).overrideWith((ref) => Future.value([
+                _testTrack(
+                    id: 1,
+                    filePath: '/music/resume.mp3',
+                    fileName: 'resume.mp3'),
+              ])),
+          playlistListProvider
+              .overrideWith((ref) => Future.value(_testPlaylists)),
+          activeConnectionProvider
+              .overrideWith((ref) => Future.value(_tstConn)),
+          progressForFileProvider((connectionId: 1, filePath: '/music/resume.mp3'))
+              .overrideWith((ref) => Future.value(progress)),
+        ],
+      ));
+      await tester.pumpAndSettle();
+
+      // Pre-heat activeConnectionProvider so valueOrNull returns _tstConn
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(PlaylistDetailScreen)),
+      );
+      container.read(activeConnectionProvider);
+      await tester.pump(); // Process state transition to AsyncData
+
+      // Tap track triggers _playTrackAtIndex
+      await tester.tap(find.text('resume.mp3'));
+      await tester.pump(); // Process tap event
+      await tester.pump(); // Process async continuation → showDialog
+      await tester.pump(); // Build dialog route
+
+      // Dialog should be visible
+      expect(find.text('恢复播放进度'), findsOneWidget);
+
+      // Tap "继续播放" button
+      await tester.tap(find.textContaining('继续播放'));
+      await tester.pump(); // Process Navigator.pop(true) → then callback
+      await tester.pump(); // Process await → build queue → push /player
+      await tester.pump(); // Build player route
+
+      // Verify navigation to /player
+      expect(find.text('Player'), findsOneWidget);
+
+      // Verify PlayQueue has startPositionMs
+      final ctx = tester.element(find.text('Player'));
+      final playerContainer = ProviderScope.containerOf(ctx);
+      final queue = playerContainer.read(currentPlayQueueProvider);
+      expect(queue, isNotNull);
+      expect(queue!.startPositionMs, equals(120000));
+      expect(queue.currentIndex, equals(0));
+    });
+  });
+
+  group('TST-T21 resume dialog choose restart', () {
+    testWidgets('shows dialog, choose restart, queue has no startPositionMs',
+        (WidgetTester tester) async {
+      final progress = _tstProgress(filePath: '/music/restart.mp3');
+
+      await tester.pumpWidget(_buildTestApp(
+        const PlaylistDetailScreen(playlistId: 1),
+        overrides: [
+          playlistTracksProvider(1).overrideWith((ref) => Future.value([
+                _testTrack(
+                    id: 1,
+                    filePath: '/music/restart.mp3',
+                    fileName: 'restart.mp3'),
+              ])),
+          playlistListProvider
+              .overrideWith((ref) => Future.value(_testPlaylists)),
+          activeConnectionProvider
+              .overrideWith((ref) => Future.value(_tstConn)),
+          progressForFileProvider((connectionId: 1, filePath: '/music/restart.mp3'))
+              .overrideWith((ref) => Future.value(progress)),
+        ],
+      ));
+      await tester.pumpAndSettle();
+
+      // Pre-heat activeConnectionProvider
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(PlaylistDetailScreen)),
+      );
+      container.read(activeConnectionProvider);
+      await tester.pump();
+
+      // Tap track
+      await tester.tap(find.text('restart.mp3'));
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+
+      // Dialog should be visible
+      expect(find.text('恢复播放进度'), findsOneWidget);
+
+      // Tap "从头播放" button
+      await tester.tap(find.text('从头播放'));
+      await tester.pump(); // Process Navigator.pop(false) → then callback
+      await tester.pump(); // Process await → startPositionMs=null → push /player
+      await tester.pump(); // Build player route
+
+      // Verify navigation to /player
+      expect(find.text('Player'), findsOneWidget);
+
+      // Verify PlayQueue has no startPositionMs
+      final ctx = tester.element(find.text('Player'));
+      final playerContainer = ProviderScope.containerOf(ctx);
+      final queue = playerContainer.read(currentPlayQueueProvider);
+      expect(queue, isNotNull);
+      expect(queue!.startPositionMs, isNull);
+      expect(queue.currentIndex, equals(0));
+    });
+  });
+
+  group('TST-T22 no progress → direct play', () {
+    testWidgets('no dialog, queue has no startPositionMs',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(_buildTestApp(
+        const PlaylistDetailScreen(playlistId: 1),
+        overrides: [
+          playlistTracksProvider(1).overrideWith((ref) => Future.value([
+                _testTrack(
+                    id: 1,
+                    filePath: '/music/noprogress.mp3',
+                    fileName: 'noprogress.mp3'),
+              ])),
+          playlistListProvider
+              .overrideWith((ref) => Future.value(_testPlaylists)),
+          activeConnectionProvider
+              .overrideWith((ref) => Future.value(_tstConn)),
+          progressForFileProvider
+              .overrideWith((ref, key) => Future.value(null)),
+        ],
+      ));
+      await tester.pumpAndSettle();
+
+      // Tap track
+      await tester.tap(find.text('noprogress.mp3'));
+      await tester.pump(); // Process tap
+      await tester.pump(); // Process await → progress null → skip → push /player
+      await tester.pump(); // Build player route
+
+      // Should navigate directly without dialog
+      expect(find.text('恢复播放进度'), findsNothing);
+      expect(find.text('Player'), findsOneWidget);
+
+      // Verify PlayQueue has no startPositionMs
+      final ctx = tester.element(find.text('Player'));
+      final container = ProviderScope.containerOf(ctx);
+      final queue = container.read(currentPlayQueueProvider);
+      expect(queue, isNotNull);
+      expect(queue!.startPositionMs, isNull);
+      expect(queue.currentIndex, equals(0));
+    });
+  });
+
+  group('TST-T23 positionMs < 5000 → skip dialog', () {
+    testWidgets('short progress skipped, no dialog',
+        (WidgetTester tester) async {
+      final shortProgress = _tstProgress(
+        filePath: '/music/short.mp3',
+        positionMs: 3000,
+      );
+
+      await tester.pumpWidget(_buildTestApp(
+        const PlaylistDetailScreen(playlistId: 1),
+        overrides: [
+          playlistTracksProvider(1).overrideWith((ref) => Future.value([
+                _testTrack(
+                    id: 1,
+                    filePath: '/music/short.mp3',
+                    fileName: 'short.mp3'),
+              ])),
+          playlistListProvider
+              .overrideWith((ref) => Future.value(_testPlaylists)),
+          activeConnectionProvider
+              .overrideWith((ref) => Future.value(_tstConn)),
+          progressForFileProvider.overrideWith((ref, key) {
+            if (key.filePath == '/music/short.mp3') {
+              return Future.value(shortProgress);
+            }
+            return Future.value(null);
+          }),
+        ],
+      ));
+      await tester.pumpAndSettle();
+
+      // Tap track
+      await tester.tap(find.text('short.mp3'));
+      await tester.pump(); // Process tap
+      await tester.pump(); // Process await → positionMs=3000 < 5000 → skip → push /player
+      await tester.pump(); // Build player route
+
+      // Should NOT show dialog (positionMs < 5000 threshold)
+      expect(find.text('恢复播放进度'), findsNothing);
+      expect(find.text('Player'), findsOneWidget);
+
+      // Verify PlayQueue has no startPositionMs
+      final ctx = tester.element(find.text('Player'));
+      final container = ProviderScope.containerOf(ctx);
+      final queue = container.read(currentPlayQueueProvider);
+      expect(queue, isNotNull);
+      expect(queue!.startPositionMs, isNull);
+    });
+  });
+
+  group('TST-T24 countdown expires → auto-resume', () {
+    test('countdown reaches 0, state reflects auto-select', () {
+      fakeAsync((async) {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        final notifier = container.read(progressResumeProvider.notifier);
+        final progress = _tstProgress(filePath: '/music/auto.mp3');
+
+        // Show dialog (starts countdown at 5)
+        notifier.show(progress);
+        expect(notifier.state, isNotNull);
+        expect(notifier.state!.countdownSeconds, equals(5));
+        expect(notifier.state!.isExpired, isFalse);
+
+        // Elapse 1 second → countdown should be 4
+        async.elapse(const Duration(seconds: 1));
+        expect(notifier.state!.countdownSeconds, equals(4));
+
+        // Elapse 4 more seconds → countdown should be 0, isExpired true
+        async.elapse(const Duration(seconds: 4));
+        expect(notifier.state!.countdownSeconds, equals(0));
+        expect(notifier.state!.isExpired, isTrue);
+
+        // Verify progress is still accessible
+        expect(notifier.state!.progress.filePath, equals('/music/auto.mp3'));
+        expect(notifier.state!.progress.positionMs, equals(120000));
+      });
+    });
+  });
+
+  group('TST-T25 multi-track → correct currentIndex', () {
+    testWidgets('tapping 3rd track sets queue.currentIndex to 2',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(_buildTestApp(
+        const PlaylistDetailScreen(playlistId: 1),
+        overrides: [
+          playlistTracksProvider(1).overrideWith((ref) => Future.value([
+                _testTrack(
+                    id: 1, filePath: '/music/01.mp3', fileName: '01.mp3'),
+                _testTrack(
+                    id: 2, filePath: '/music/02.mp3', fileName: '02.mp3'),
+                _testTrack(
+                    id: 3, filePath: '/music/03.mp3', fileName: '03.mp3'),
+                _testTrack(
+                    id: 4, filePath: '/music/04.mp3', fileName: '04.mp3'),
+                _testTrack(
+                    id: 5, filePath: '/music/05.mp3', fileName: '05.mp3'),
+              ])),
+          playlistListProvider
+              .overrideWith((ref) => Future.value(_testPlaylists)),
+          activeConnectionProvider
+              .overrideWith((ref) => Future.value(_tstConn)),
+          progressForFileProvider
+              .overrideWith((ref, key) => Future.value(null)),
+        ],
+      ));
+      await tester.pumpAndSettle();
+
+      // Tap the 3rd track (0-based index 2)
+      await tester.tap(find.text('03.mp3'));
+      await tester.pump(); // Process tap
+      await tester.pump(); // Process await → no progress → push /player
+      await tester.pump(); // Build player route
+
+      expect(find.text('Player'), findsOneWidget);
+
+      // Verify currentIndex is 2 (3rd track, 0-based)
+      final ctx = tester.element(find.text('Player'));
+      final container = ProviderScope.containerOf(ctx);
+      final queue = container.read(currentPlayQueueProvider);
+      expect(queue, isNotNull);
+      expect(queue!.currentIndex, equals(2));
+      expect(queue.files.length, equals(5));
     });
   });
 }
