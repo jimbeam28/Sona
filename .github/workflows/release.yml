@@ -1,0 +1,73 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 获取所有历史，用于生成 changelog
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - run: flutter pub get
+
+      - name: 静态分析
+        run: flutter analyze
+
+      - name: 单元测试
+        run: flutter test
+
+      - name: 构建 Release APK
+        run: flutter build apk --release
+
+      - name: 构建 Release App Bundle
+        run: flutter build appbundle --release
+
+      - name: 生成 Release 说明
+        id: changelog
+        run: |
+          TAG="${{ github.ref_name }}"
+          PREV_TAG=$(git tag --sort=-creatordate | grep -v "^$TAG$" | head -1)
+          if [ -z "$PREV_TAG" ]; then
+            NOTES="Initial release $TAG"
+          else
+            NOTES=$(git log "$PREV_TAG..$TAG" --oneline --no-decorate | grep -v '^[a-f0-9]* bump\|^[a-f0-9]* chore\|^[a-f0-9]* docs' | head -50)
+          fi
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: 创建 Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Sona ${{ github.ref_name }}
+          body: |
+            ## 下载
+
+            - [APK (arm64-v8a)](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/app-release.apk)
+            - [App Bundle](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/app-release.aab)
+
+            ---
+
+            ${{ steps.changelog.outputs.notes }}
+          files: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/bundle/release/app-release.aab
