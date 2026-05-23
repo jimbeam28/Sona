@@ -35,14 +35,72 @@ final timerServiceProvider = Provider<TimerService>((ref) {
 
 // ── Timer state ───────────────────────────────────────────────────────────────
 
-/// Tracks the active [TimerState], or `null` when no timer is active.
+/// TMR-01: Notifier that wraps [TimerService] and automatically keeps
+/// the timer state in sync without manual [ref.invalidate] calls.
 ///
-/// This is a simple [StateProvider] because the state transitions are driven
-/// by the [TimerService] methods.  UI reads this to decide what to display.
-final timerStateProvider = StateProvider<TimerState?>((ref) {
-  final service = ref.watch(timerServiceProvider);
-  return service.state;
-});
+/// All timer actions go through this notifier so UI listeners are
+/// notified automatically on every state change.
+class TimerStateNotifier extends Notifier<TimerState?> {
+  TimerService get _service => ref.read(timerServiceProvider);
+
+  @override
+  TimerState? build() => _service.state;
+
+  void startDuration(int minutes) {
+    debugPrint('[Timer] startDuration: ${minutes}min');
+    _service.startDuration(minutes);
+    ref.read(setLastCustomTimerMinutesProvider)(minutes);
+    state = _service.state;
+  }
+
+  void startAfterCurrent() {
+    debugPrint('[Timer] startAfterCurrent');
+    _service.startAfterCurrent();
+    state = _service.state;
+  }
+
+  void cancel() {
+    debugPrint('[Timer] cancel');
+    _service.cancel();
+    state = _service.state;
+  }
+
+  /// Returns `true` if the duration timer expired and pause should be called.
+  bool checkExpired() {
+    final expired = _service.checkExpired();
+    if (expired) {
+      debugPrint('[Timer] expired, pausing');
+      state = _service.state;
+    }
+    return expired;
+  }
+
+  /// Returns `true` if an afterCurrent timer was active and triggered the stop.
+  bool onTrackCompleted() {
+    final triggered = _service.onTrackCompleted();
+    if (triggered) {
+      debugPrint('[Timer] afterCurrent completed, triggering stop');
+      state = _service.state;
+    }
+    return triggered;
+  }
+
+  // TMR-03: pause/resume support
+  void pause() {
+    _service.pause();
+    state = _service.state;
+  }
+
+  void resume() {
+    _service.resume();
+    state = _service.state;
+  }
+}
+
+/// TMR-01: uses [TimerStateNotifier] so state updates auto-notify listeners.
+final timerStateProvider =
+    NotifierProvider<TimerStateNotifier, TimerState?>(
+        TimerStateNotifier.new);
 
 // ── Timer active ──────────────────────────────────────────────────────────────
 
@@ -134,34 +192,21 @@ final formattedRemainingProvider = Provider<String?>((ref) {
 /// Usage: `ref.read(startDurationTimerProvider)(5)` for 5 minutes.
 final startDurationTimerProvider = Provider<void Function(int minutes)>((ref) {
   return (int minutes) {
-    debugPrint('[Timer] startDuration: ${minutes}min');
-    final service = ref.read(timerServiceProvider);
-    service.startDuration(minutes);
-    ref.read(setLastCustomTimerMinutesProvider)(minutes);
-    ref.invalidate(timerStateProvider);
-    ref.invalidate(remainingTimeProvider);
+    ref.read(timerStateProvider.notifier).startDuration(minutes);
   };
 });
 
 /// Provider of the [VoidCallback] to set after-current mode (TMR-02).
 final startAfterCurrentProvider = Provider<void Function()>((ref) {
   return () {
-    debugPrint('[Timer] startAfterCurrent');
-    final service = ref.read(timerServiceProvider);
-    service.startAfterCurrent();
-    ref.invalidate(timerStateProvider);
-    ref.invalidate(remainingTimeProvider);
+    ref.read(timerStateProvider.notifier).startAfterCurrent();
   };
 });
 
 /// Provider of the [VoidCallback] to cancel the active timer (TMR-04).
 final cancelTimerProvider = Provider<void Function()>((ref) {
   return () {
-    debugPrint('[Timer] cancel');
-    final service = ref.read(timerServiceProvider);
-    service.cancel();
-    ref.invalidate(timerStateProvider);
-    ref.invalidate(remainingTimeProvider);
+    ref.read(timerStateProvider.notifier).cancel();
   };
 });
 
@@ -172,14 +217,7 @@ final cancelTimerProvider = Provider<void Function()>((ref) {
 /// if the app is in the foreground.
 final checkTimerExpiryProvider = Provider<bool Function()>((ref) {
   return () {
-    final service = ref.read(timerServiceProvider);
-    final expired = service.checkExpired();
-    if (expired) {
-      debugPrint('[Timer] expired, pausing');
-      ref.invalidate(timerStateProvider);
-      ref.invalidate(remainingTimeProvider);
-    }
-    return expired;
+    return ref.read(timerStateProvider.notifier).checkExpired();
   };
 });
 
@@ -189,13 +227,6 @@ final checkTimerExpiryProvider = Provider<bool Function()>((ref) {
 /// The caller should then call `AudioHandler.pause()`.
 final onTrackCompletedProvider = Provider<bool Function()>((ref) {
   return () {
-    final service = ref.read(timerServiceProvider);
-    final triggered = service.onTrackCompleted();
-    if (triggered) {
-      debugPrint('[Timer] afterCurrent completed, triggering stop');
-      ref.invalidate(timerStateProvider);
-      ref.invalidate(remainingTimeProvider);
-    }
-    return triggered;
+    return ref.read(timerStateProvider.notifier).onTrackCompleted();
   };
 });

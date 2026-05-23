@@ -95,6 +95,15 @@ final deletePlaylistProvider =
   };
 });
 
+final updatePlaylistProvider =
+    Provider<Future<void> Function(Playlist playlist)>((ref) {
+  final dao = ref.watch(playlistDaoProvider);
+  return (Playlist playlist) async {
+    await dao.updatePlaylist(playlist);
+    ref.invalidate(playlistListProvider);
+  };
+});
+
 final addTracksToPlaylistProvider =
     Provider<Future<void> Function(int playlistId, List<NasFile> files)>((ref) {
   final dao = ref.watch(playlistDaoProvider);

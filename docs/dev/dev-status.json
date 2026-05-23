@@ -2,8 +2,8 @@
   "metadata": {
     "last_updated": "2026-05-23",
     "total": 26,
-    "pending": 7,
-    "done": 19
+    "pending": 3,
+    "done": 23
   },
   "order": [
     "PRG-01",
@@ -135,8 +135,8 @@
     "TMR-01": {
       "name": "定时器状态手动 invalidate 脆弱",
       "plan_section": "dev-plan.md §TMR-01",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": []
     },
     "TMR-02": {
@@ -149,8 +149,8 @@
     "TMR-03": {
       "name": "定时器无暂停状态",
       "plan_section": "dev-plan.md §TMR-03",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": ["TMR-01"]
     },
     "PRG-02": {
@@ -170,15 +170,15 @@
     "PLS-01": {
       "name": "播放单重命名",
       "plan_section": "dev-plan.md §PLS-01",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": []
     },
     "PLS-02": {
       "name": "播放单元数据编辑",
       "plan_section": "dev-plan.md §PLS-02",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": []
     },
     "PLS-03": {

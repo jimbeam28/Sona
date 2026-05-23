@@ -20,6 +20,9 @@ enum TimerMode {
 
   /// Stop after the current track finishes (TMR-02).
   afterCurrent,
+
+  /// Duration timer is paused (TMR-03).
+  paused,
 }
 
 /// Immutable value object representing the current sleep-timer state.
@@ -33,20 +36,28 @@ class TimerState {
   final TimerMode mode;
   final DateTime? endTime;
   final DateTime startedAt;
+  /// Saved remaining milliseconds when pausing. Used to resume from the
+  /// same position (TMR-03).
+  final int? remainingMs;
 
   const TimerState({
     required this.mode,
     this.endTime,
     required this.startedAt,
+    this.remainingMs,
   });
 
   /// Returns the remaining time until expiry, or `null` for afterCurrent mode.
   ///
   /// For duration mode, this is `endTime - now`.  When the timer has already
   /// passed its end time, returns [Duration.zero].
+  /// For paused mode, returns the saved [remainingMs].
   /// TMR-T09: remaining time query returns correct Duration.
   Duration? get remainingTime {
     if (mode == TimerMode.afterCurrent) return null;
+    if (mode == TimerMode.paused && remainingMs != null) {
+      return Duration(milliseconds: remainingMs!);
+    }
     if (endTime == null) return null;
     final now = DateTime.now();
     final remaining = endTime!.difference(now);
@@ -70,10 +81,11 @@ class TimerState {
       other is TimerState &&
           mode == other.mode &&
           endTime == other.endTime &&
-          startedAt == other.startedAt;
+          startedAt == other.startedAt &&
+          remainingMs == other.remainingMs;
 
   @override
-  int get hashCode => Object.hash(mode, endTime, startedAt);
+  int get hashCode => Object.hash(mode, endTime, startedAt, remainingMs);
 
   @override
   String toString() =>
@@ -174,6 +186,39 @@ class TimerService {
   }
 
   // ── TMR-05: Check for duration-timer expiry ──────────────────────────────
+
+  // ── TMR-03: Pause / resume ────────────────────────────────────────────────
+
+  /// Pauses a running duration timer, saving the remaining time. (TMR-03)
+  ///
+  /// Only works for duration mode.  AfterCurrent timers cannot be paused.
+  /// Returns `true` if the timer was paused, `false` otherwise.
+  bool pause() {
+    if (_state == null || _state!.mode != TimerMode.duration) return false;
+    final remaining = _state!.remainingTime;
+    _state = TimerState(
+      mode: TimerMode.paused,
+      startedAt: _state!.startedAt,
+      remainingMs: remaining?.inMilliseconds ?? 0,
+    );
+    return true;
+  }
+
+  /// Resumes a paused timer from the saved remaining time. (TMR-03)
+  ///
+  /// Only works for paused mode. Returns `true` if resumed, `false` otherwise.
+  bool resume() {
+    if (_state == null || _state!.mode != TimerMode.paused) return false;
+    final ms = _state!.remainingMs ?? 0;
+    final minutes = (ms / 60000).ceil();
+    final now = DateTime.now();
+    _state = TimerState(
+      mode: TimerMode.duration,
+      endTime: now.add(Duration(minutes: minutes)),
+      startedAt: _state!.startedAt,
+    );
+    return true;
+  }
 
   /// Checks whether a duration timer has expired. (TMR-05)
   ///

@@ -183,6 +183,12 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
       title: Text(playlistName),
       centerTitle: true,
       actions: [
+        // PLS-01: rename playlist
+        IconButton(
+          icon: const Icon(Icons.edit_outlined),
+          tooltip: '重命名',
+          onPressed: () => _showRenameDialog(playlistId, playlistName),
+        ),
         IconButton(
           icon: const Icon(Icons.add),
           tooltip: '添加曲目',
@@ -205,6 +211,46 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
         ),
       ],
     );
+  }
+
+  Future<void> _showRenameDialog(int playlistId, String currentName) async {
+    final controller = TextEditingController(text: currentName);
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('重命名播放单'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: '名称',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+
+    if (newName != null && newName.isNotEmpty && newName != currentName) {
+      final playlistsAsync = ref.read(playlistListProvider);
+      final playlist = playlistsAsync.valueOrNull
+          ?.where((p) => p.id == playlistId)
+          .firstOrNull;
+      if (playlist != null) {
+        await ref.read(updatePlaylistProvider)(
+          playlist.copyWith(name: newName, updatedAt: DateTime.now()),
+        );
+      }
+    }
   }
 
   AppBar _selectionAppBar(int playlistId) {
