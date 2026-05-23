@@ -958,10 +958,12 @@ final Provider<Future<TrackLoadResult> Function()> loadAndPlayProvider =
 /// Cancels all background subscriptions set up by [loadAndPlayProvider].
 ///
 /// Call this when the player screen is disposed to stop auto-save and
-/// completion listeners.
+/// pause-save listeners.
+///
+/// Does NOT cancel the processing-state listener — it must persist so that
+/// auto-advance works when only the mini player bar is visible.
 final cancelPlaybackSubscriptionsProvider = Provider<void Function()>((ref) {
   return () {
-    ref.read(cancelProcessingListenerProvider)();
     ref.read(_cancelAutoSaveProvider)();
     ref.read(_cancelPauseSaveProvider)();
   };
