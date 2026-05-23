@@ -42,9 +42,9 @@ final audioPlayerProvider = Provider<AudioPlayer>((ref) {
 ///
 /// Provided via [ProviderScope.overrides] in [main] so that the player
 /// screen and other widgets can interact with the handler directly.
-final audioHandlerProvider = Provider<NasAudioHandler?>((ref) {
-  throw UnimplementedError('audioHandlerProvider must be overridden in main');
-});
+/// Returns `null` by default — overridden in [main] with the actual instance
+/// (which may also be null if [AudioService.init] fails).
+final audioHandlerProvider = Provider<NasAudioHandler?>((ref) => null);
 
 // ── Player load state ──────────────────────────────────────────────────────────
 
@@ -564,6 +564,12 @@ class BackgroundPlaybackNotifier
   void setBackgroundEnabled(bool enabled) {
     state = state.copyWith(backgroundEnabled: enabled);
   }
+
+  /// Mirrors the config pushed by [NasAudioHandler] so the Riverpod layer
+  /// stays in sync with the handler's internal state machine (PLY-F).
+  void syncFromHandler(BackgroundPlaybackConfig config) {
+    state = config;
+  }
 }
 
 /// Provider for the background-playback state notifier.
@@ -571,6 +577,20 @@ final backgroundPlaybackProvider =
     StateNotifierProvider<BackgroundPlaybackNotifier, BackgroundPlaybackConfig>(
   (ref) => BackgroundPlaybackNotifier(),
 );
+
+/// Bridges [NasAudioHandler.onConfigChanged] to [BackgroundPlaybackNotifier]
+/// so the Riverpod layer mirrors the handler's internal state machine (PLY-F).
+///
+/// This provider is read once at app startup (via [HomeScreen]) and kept alive
+/// for the lifetime of the app — the callback is unregistered on dispose.
+final backgroundPlaybackSyncProvider = Provider<void>((ref) {
+  final handler = ref.read(audioHandlerProvider);
+  final notifier = ref.read(backgroundPlaybackProvider.notifier);
+  handler?.onConfigChanged = notifier.syncFromHandler;
+  ref.onDispose(() {
+    handler?.onConfigChanged = null;
+  });
+});
 
 /// Helper function that determines whether playback should continue
 /// when the app transitions to background, given the current

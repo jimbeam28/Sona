@@ -9,12 +9,17 @@
 // the application-wide [AudioPlayer] instance directly.  State is synced
 // from the player streams into [playbackState] and [mediaItem] so that
 // the system notification reflects the current track and playback state.
+//
+// PLY-F: background-playback behaviour is driven by [BackgroundPlaybackConfig],
+// a pure-logic state machine that models audio focus, media controls, and
+// foreground/background transitions.
 
 import 'dart:async';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
 
+import '../../features/player/background_playback.dart';
 import '../../features/player/media_control_model.dart' hide MediaAction;
 
 /// Callback for when the handler needs to advance to the next track.
@@ -23,6 +28,10 @@ import '../../features/player/media_control_model.dart' hide MediaAction;
 /// queue navigation to the app layer which has access to Riverpod state.
 typedef NextTrackCallback = void Function();
 typedef PreviousTrackCallback = void Function();
+
+/// Callback invoked whenever [BackgroundPlaybackConfig] changes inside the
+/// handler, so that the Riverpod [BackgroundPlaybackNotifier] can stay in sync.
+typedef ConfigChangeCallback = void Function(BackgroundPlaybackConfig config);
 
 /// The [BaseAudioHandler] implementation for NAS Audio Player.
 ///
@@ -37,6 +46,18 @@ class NasAudioHandler extends BaseAudioHandler
   /// Callbacks for queue navigation — set by the app after initialisation.
   NextTrackCallback? onSkipToNextRequested;
   PreviousTrackCallback? onSkipToPreviousRequested;
+
+  /// Callback fired when the background-playback config changes, so the
+  /// Riverpod-layer [BackgroundPlaybackNotifier] can mirror the state.
+  ConfigChangeCallback? onConfigChanged;
+
+  // ── Background-playback state ──────────────────────────────────────────
+
+  BackgroundPlaybackConfig _config = BackgroundPlaybackConfig.initial;
+
+  /// The current background-playback configuration, driven by the pure-logic
+  /// state machine in [BackgroundPlaybackConfig].
+  BackgroundPlaybackConfig get config => _config;
 
   // ── Subscriptions ──────────────────────────────────────────────────────
 
@@ -53,7 +74,10 @@ class NasAudioHandler extends BaseAudioHandler
   // ── State sync ─────────────────────────────────────────────────────────
 
   void _onPlayerStateChanged(PlayerState state) {
-    final controls = _buildControls(state.playing);
+    // Sync the background-playback config with the actual player state.
+    _syncConfigFromPlayerState(state.playing);
+
+    final controls = _buildControls();
     playbackState.add(playbackState.value.copyWith(
       controls: controls,
       systemActions: const {
@@ -93,12 +117,33 @@ class NasAudioHandler extends BaseAudioHandler
     ));
   }
 
+  // ── Config sync ────────────────────────────────────────────────────────
+
+  /// Synchronises the internal [BackgroundPlaybackConfig] with the raw
+  /// playing state from [AudioPlayer].
+  void _syncConfigFromPlayerState(bool playing) {
+    if (playing && _config.playbackState != BackgroundPlaybackState.playing) {
+      _updateConfig(_config.copyWith(
+          playbackState: BackgroundPlaybackState.playing));
+    } else if (!playing &&
+        _config.playbackState == BackgroundPlaybackState.playing) {
+      _updateConfig(_config.copyWith(
+          playbackState: BackgroundPlaybackState.paused));
+    }
+  }
+
+  void _updateConfig(BackgroundPlaybackConfig next) {
+    if (_config == next) return;
+    _config = next;
+    onConfigChanged?.call(_config);
+  }
+
   // ── Media controls ─────────────────────────────────────────────────────
 
-  List<MediaControl> _buildControls(bool playing) {
+  List<MediaControl> _buildControls() {
     return [
       MediaControl.skipToPrevious,
-      if (playing) MediaControl.pause else MediaControl.play,
+      if (_config.showPauseAction) MediaControl.pause else MediaControl.play,
       MediaControl.skipToNext,
     ];
   }
@@ -118,16 +163,54 @@ class NasAudioHandler extends BaseAudioHandler
     }
   }
 
+  // ── Audio focus ────────────────────────────────────────────────────────
+
+  /// Drives the background-playback state machine with an audio-focus change.
+  ///
+  /// Called by the app layer when the system audio focus changes (e.g.
+  /// another app starts playing, a phone call begins/ends).
+  ///
+  /// When focus is permanently [lost], playback is paused.  When focus is
+  /// [gained] back, playback may resume if the config state allows it.
+  void onAudioFocusChange(AudioFocusState focus) {
+    final next = _config.updateAudioFocus(focus);
+    _updateConfig(next);
+
+    // Act on the focus change.
+    switch (focus) {
+      case AudioFocusState.lost:
+        _player.pause();
+      case AudioFocusState.transient:
+        // Ducking handled by platform — no explicit action needed here.
+        break;
+      case AudioFocusState.gained:
+        // Resume if the state machine says audio should be active.
+        if (_config.isAudioActive && !_player.playing) {
+          _player.play();
+        }
+    }
+  }
+
   // ── BaseAudioHandler overrides ─────────────────────────────────────────
 
   @override
-  Future<void> play() => _player.play();
+  Future<void> play() async {
+    final next = _config.handleMediaControl(MediaControlAction.play);
+    _updateConfig(next);
+    await _player.play();
+  }
 
   @override
-  Future<void> pause() => _player.pause();
+  Future<void> pause() async {
+    final next = _config.handleMediaControl(MediaControlAction.pause);
+    _updateConfig(next);
+    await _player.pause();
+  }
 
   @override
   Future<void> stop() async {
+    final next = _config.handleMediaControl(MediaControlAction.stop);
+    _updateConfig(next);
     await _player.stop();
     await super.stop();
   }
@@ -153,6 +236,8 @@ class NasAudioHandler extends BaseAudioHandler
   @override
   Future<void> onTaskRemoved() async {
     // Stop playback when the user swipes away the notification.
+    final next = _config.handleMediaControl(MediaControlAction.stop);
+    _updateConfig(next);
     await _player.stop();
   }
 

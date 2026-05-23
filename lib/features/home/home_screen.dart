@@ -10,6 +10,7 @@ import '../browser/browser_provider.dart';
 import '../browser/browser_screen.dart';
 import '../playlist/playlist_list_screen.dart';
 import '../playlist/playlist_provider.dart';
+import '../player/player_provider.dart';
 import '../player/widgets/mini_player_bar.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -53,6 +54,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
+    // PLY-F: eagerly wire NasAudioHandler.onConfigChanged → BackgroundPlaybackNotifier
+    ref.read(backgroundPlaybackSyncProvider);
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
