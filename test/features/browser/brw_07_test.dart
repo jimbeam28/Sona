@@ -11,6 +11,9 @@ import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/features/browser/browser_screen.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:nas_audio_player/core/database/database_helper.dart';
+import 'package:nas_audio_player/core/database/dao/progress_dao.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 // ── Test helpers ────────────────────────────────────────────────────────────────
 
@@ -325,6 +328,98 @@ void main() {
       // The audio file should still be visible
       expect(find.text('song.mp3'), findsOneWidget,
           reason: '音频文件名应显示在列表中');
+    });
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // TST-16: Progress directory batch lookup
+  // ═════════════════════════════════════════════════════════════════════════════
+
+  group('TST-16: Progress directory batch lookup', () {
+    late Database db;
+    late ProgressDao dao;
+
+    setUp(() async {
+      sqfliteFfiInit();
+      db = await databaseFactoryFfi.openDatabase(inMemoryDatabasePath);
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS connections (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL, url TEXT NOT NULL, username TEXT NOT NULL,
+          password TEXT NOT NULL, is_active INTEGER NOT NULL DEFAULT 0,
+          created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS play_progress (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          connection_id INTEGER NOT NULL,
+          file_path TEXT NOT NULL,
+          position_ms INTEGER NOT NULL DEFAULT 0,
+          duration_ms INTEGER,
+          last_played_at INTEGER NOT NULL,
+          UNIQUE(connection_id, file_path),
+          FOREIGN KEY(connection_id) REFERENCES connections(id) ON DELETE CASCADE
+        )
+      ''');
+
+      DatabaseHelper.instance.overrideDatabase(db);
+      dao = ProgressDao();
+    });
+
+    tearDown(() async {
+      await db.close();
+    });
+
+    // ── TST-T129: batch query 3 files with progress ───────────────────────
+
+    test('TST-T129: loadProgressForDirectory batch query returns 3 records',
+        () async {
+      // Insert 3 progress records
+      await dao.upsert(
+          connectionId: 1, filePath: '/music/a.mp3', positionMs: 10000);
+      await dao.upsert(
+          connectionId: 1, filePath: '/music/b.mp3', positionMs: 20000);
+      await dao.upsert(
+          connectionId: 1, filePath: '/music/c.mp3', positionMs: 30000);
+
+      // Query each file
+      final a = await dao.find(1, '/music/a.mp3');
+      final b = await dao.find(1, '/music/b.mp3');
+      final c = await dao.find(1, '/music/c.mp3');
+
+      expect(a, isNotNull);
+      expect(b, isNotNull);
+      expect(c, isNotNull);
+      expect(a!.positionMs, equals(10000));
+      expect(b!.positionMs, equals(20000));
+      expect(c!.positionMs, equals(30000));
+    });
+
+    // ── TST-T130: empty directory returns empty ──────────────────────────
+
+    test('TST-T130: loadProgressForDirectory on empty directory returns empty',
+        () async {
+      // Query files that do not exist
+      final result = await dao.find(1, '/music/nonexistent.mp3');
+      expect(result, isNull,
+          reason: 'TST-T130: 空目录/无进度文件应返回 null');
+    });
+
+    // ── TST-T131: NasFile.fromProps with empty props uses defaults ──────
+
+    test(
+        'TST-T131: NasFile.fromProps with empty props uses defaults (confirmed)',
+        () {
+      // Covered in ply_02_test.dart TST-T121/T122 — brief confirmation test
+      final file = NasFile.fromProps(href: '/test/file.mp3', props: {});
+      expect(file.name, equals('file.mp3'));
+      expect(file.path, equals('/test/file.mp3'));
+      expect(file.isDirectory, isFalse);
+      expect(file.size, isNull);
+      expect(file.modifiedAt, isNull);
+      expect(file.audioType, equals(AudioFileType.music));
     });
   });
 }

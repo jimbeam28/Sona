@@ -2,8 +2,8 @@
   "metadata": {
     "last_updated": "2026-05-23",
     "total": 43,
-    "pending": 2,
-    "done": 41
+    "pending": 1,
+    "done": 42
   },
   "order": [
     "PRG-01",
@@ -341,8 +341,8 @@
     "TST-16": {
       "name": "各模块补充测试（一）：Connection + Browser",
       "plan_section": "dev-plan.md §TST-16",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": []
     },
     "TST-17": {

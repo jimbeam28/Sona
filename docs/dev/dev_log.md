@@ -164,6 +164,20 @@
 
 ---
 
+## [2026-05-24] [TST-16] - 各模块补充测试（一）：Connection + Browser
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `test/features/connection/con_01_test.dart` — 追加 TST-T123~T125 测试（ONB_CTA + Slidable）
+- `test/features/browser/brw_04_test.dart` — 追加 TST-T126~T128 测试（长按清除进度）
+- `test/features/browser/brw_07_test.dart` — 追加 TST-T129~T131 测试（目录批量进度查询）
+
+### 测试结果
+- 通过: 790 / 总计: 790
+
+---
+
 ## [2026-05-24] [TST-15] - URL编码边界与并发竞争测试
 
 **状态**: ✅ 成功

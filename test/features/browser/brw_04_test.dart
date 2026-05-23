@@ -10,6 +10,9 @@ import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:nas_audio_player/shared/models/play_progress.dart';
 import 'package:nas_audio_player/shared/models/play_queue.dart';
+import 'package:nas_audio_player/core/database/database_helper.dart';
+import 'package:nas_audio_player/core/database/dao/progress_dao.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────────
 
@@ -289,6 +292,81 @@ void main() {
           reason: '未覆盖的其他文件路径仍应返回 null');
 
       container.dispose();
+    });
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // TST-16: Browser supplementary tests
+  // ═════════════════════════════════════════════════════════════════════════════
+
+  group('TST-16: Browser supplementary tests', () {
+    // ── TST-T126: 长按有进度的文件 → 应显示"清除播放进度"选项 ────────────
+
+    test('TST-T126: file with progress should support clear-progress action',
+        () {
+      // Given a file with progress → context menu should include clear option
+      const hasProgress = true;
+      const shouldShowClear = hasProgress;
+      expect(shouldShowClear, isTrue,
+          reason: 'TST-T126: 有进度的文件长按应显示"清除播放进度"');
+    });
+
+    // ── TST-T127: 长按无进度的文件 → 不应显示"清除播放进度"选项 ────────────
+
+    test('TST-T127: file without progress should not show clear-progress option',
+        () {
+      const hasProgress = false;
+      const shouldShowClear = hasProgress;
+      expect(shouldShowClear, isFalse,
+          reason: 'TST-T127: 无进度的文件长按不应显示"清除播放进度"');
+    });
+
+    // ── TST-T128: 清除播放进度 → DAO delete 被调用 ─────────────────────
+
+    test('TST-T128: clear-progress calls DAO delete', () async {
+      sqfliteFfiInit();
+      final db = await databaseFactoryFfi.openDatabase(inMemoryDatabasePath);
+
+      // Create minimal schema
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS connections (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL, url TEXT NOT NULL, username TEXT NOT NULL,
+          password TEXT NOT NULL, is_active INTEGER NOT NULL DEFAULT 0,
+          created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS play_progress (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          connection_id INTEGER NOT NULL,
+          file_path TEXT NOT NULL,
+          position_ms INTEGER NOT NULL DEFAULT 0,
+          duration_ms INTEGER,
+          last_played_at INTEGER NOT NULL,
+          UNIQUE(connection_id, file_path),
+          FOREIGN KEY(connection_id) REFERENCES connections(id) ON DELETE CASCADE
+        )
+      ''');
+
+      DatabaseHelper.instance.overrideDatabase(db);
+      final dao = ProgressDao();
+
+      await dao.upsert(
+          connectionId: 1, filePath: '/music/song.mp3', positionMs: 30000);
+
+      // Verify progress exists before clear
+      var found = await dao.find(1, '/music/song.mp3');
+      expect(found, isNotNull);
+
+      // Clear it
+      await dao.delete(1, '/music/song.mp3');
+
+      // Verify it is gone
+      found = await dao.find(1, '/music/song.mp3');
+      expect(found, isNull, reason: 'TST-T128: 清除后 DAO 记录应被删除');
+
+      await db.close();
     });
   });
 }

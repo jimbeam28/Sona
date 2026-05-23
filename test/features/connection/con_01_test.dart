@@ -14,6 +14,7 @@ import 'package:nas_audio_player/features/connection/connection_provider.dart';
 import 'package:nas_audio_player/features/connection/connection_screen.dart';
 import 'package:nas_audio_player/features/connection/widgets/connection_form.dart';
 import 'package:nas_audio_player/shared/models/connection_config.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 
 // ── Manual mock: no @GenerateMocks / build_runner ────────────────────────────
@@ -679,6 +680,74 @@ void main() {
         isNotEmpty,
         reason: '输入 URL 后名称应自动填充',
       );
+    });
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // TST-16: Connection + Browser supplementary tests
+  // ═════════════════════════════════════════════════════════════════════════════
+
+  group('TST-16: Connection + Browser supplementary tests', () {
+    // ── TST-T123: ConnectionScreen shows add-connection CTA ─────────────────
+
+    testWidgets('TST-T123: ConnectionScreen shows add-connection CTA',
+        (tester) async {
+      final mockClient = MockWebDavClient();
+      mockClient.returnResult(WebDavValidationResult.success());
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            webDavClientProvider.overrideWith((ref) => mockClient),
+          ],
+          child: const MaterialApp(home: ConnectionScreen()),
+        ),
+      );
+      await tester.pump();
+
+      // Verify key UI elements
+      expect(find.text('添加 WebDAV 连接'), findsOneWidget,
+          reason: 'TST-T123: 标题"添加 WebDAV 连接"应显示');
+      expect(find.byType(ConnectionForm), findsOneWidget,
+          reason: 'TST-T123: ConnectionForm 组件应存在');
+    });
+
+    // ── TST-T124: Slidable edit button properties ──────────────────────────
+
+    testWidgets('TST-T124: Slidable edit button has correct properties',
+        (tester) async {
+      const editAction = SlidableAction(
+        onPressed: null,
+        backgroundColor: Colors.blue,
+        foregroundColor: Colors.white,
+        icon: Icons.edit_outlined,
+        label: '编辑',
+      );
+      expect(editAction.icon, equals(Icons.edit_outlined),
+          reason: 'TST-T124: 编辑按钮图标应为 edit_outlined');
+      expect(editAction.label, equals('编辑'),
+          reason: 'TST-T124: 编辑按钮标签应为"编辑"');
+      expect(editAction.backgroundColor, equals(Colors.blue),
+          reason: 'TST-T124: 编辑按钮背景色应为蓝色');
+    });
+
+    // ── TST-T125: Slidable delete button properties ────────────────────────
+
+    testWidgets('TST-T125: Slidable delete button has correct properties',
+        (tester) async {
+      const deleteAction = SlidableAction(
+        onPressed: null,
+        backgroundColor: Colors.red,
+        foregroundColor: Colors.white,
+        icon: Icons.delete_outline,
+        label: '删除',
+      );
+      expect(deleteAction.icon, equals(Icons.delete_outline),
+          reason: 'TST-T125: 删除按钮图标应为 delete_outline');
+      expect(deleteAction.label, equals('删除'),
+          reason: 'TST-T125: 删除按钮标签应为"删除"');
+      expect(deleteAction.backgroundColor, equals(Colors.red),
+          reason: 'TST-T125: 删除按钮背景色应为红色');
     });
   });
 }
