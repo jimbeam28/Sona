@@ -2,8 +2,8 @@
   "metadata": {
     "last_updated": "2026-05-23",
     "total": 43,
-    "pending": 6,
-    "done": 37
+    "pending": 5,
+    "done": 38
   },
   "order": [
     "PRG-01",
@@ -313,8 +313,8 @@
     "TST-12": {
       "name": "连接切换影响面集成测试",
       "plan_section": "dev-plan.md §TST-12",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": []
     },
     "TST-13": {
