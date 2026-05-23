@@ -391,4 +391,362 @@ void main() {
           reason: '连接 1 的缓存应保持不变');
     });
   });
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // Unit tests — TST-09: TST-T64~TST-T71 (cache TTL + capacity)
+  // ═════════════════════════════════════════════════════════════════════════════
+
+  group('TST-09: TST-T64~TST-T71 — cache TTL and capacity', () {
+    // ── TST-T64: Cache within 3min → cache hit, no new request ──────────────
+
+    test('TST-T64: cache in 3min → reuse cache, no new request', () async {
+      final mockClient = _MockWebDavClient();
+      mockClient.returnResult(_musicRawEntries());
+      final fakeStorage = _FakeSecureStorage();
+      fakeStorage.setPassword(1, 'test-password');
+
+      final container = ProviderContainer(
+        overrides: [
+          webDavClientProvider.overrideWith((ref) => mockClient),
+          activeConnectionProvider
+              .overrideWith((ref) async => _connection(id: 1)),
+          secureStorageProvider.overrideWith((ref) => fakeStorage),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      // First load populates cache
+      await container.read(directoryContentsProvider('/music').future);
+      expect(mockClient.listDirectoryCallCount, equals(1),
+          reason: '首次加载应触发一次 listDirectory');
+
+      // Re-set the cache entry createdAt to 3 minutes ago (within TTL)
+      container.read(directoryCacheProvider.notifier).update((state) {
+        final updated = Map<String, CacheEntry>.from(state);
+        updated['1:/music'] = CacheEntry(
+          files: updated['1:/music']!.files,
+          createdAt: DateTime.now().subtract(const Duration(minutes: 3)),
+        );
+        return updated;
+      });
+
+      // Invalidate so FutureProvider re-executes on next read
+      container.invalidate(directoryContentsProvider('/music'));
+      await container.read(directoryContentsProvider('/music').future);
+
+      // Must be a cache hit (age ≈ 3 min < 5 min TTL)
+      expect(mockClient.listDirectoryCallCount, equals(1),
+          reason: '3min 内缓存未过期，不应发起新网络请求');
+
+      // Verify the cache entry is still present
+      final cache = container.read(directoryCacheProvider);
+      expect(cache.containsKey('1:/music'), isTrue,
+          reason: '3min 内缓存条目应仍然存在');
+    });
+
+    // ── TST-T65: Cache older than 5min → auto-refetch ─────────────────────
+
+    test('TST-T65: cache expired (6min > 5min TTL) → triggers new request',
+        () async {
+      final mockClient = _MockWebDavClient();
+      mockClient.returnResult(_musicRawEntries());
+      final fakeStorage = _FakeSecureStorage();
+      fakeStorage.setPassword(1, 'test-password');
+
+      final container = ProviderContainer(
+        overrides: [
+          webDavClientProvider.overrideWith((ref) => mockClient),
+          activeConnectionProvider
+              .overrideWith((ref) async => _connection(id: 1)),
+          secureStorageProvider.overrideWith((ref) => fakeStorage),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      // First load populates cache
+      await container.read(directoryContentsProvider('/music').future);
+      expect(mockClient.listDirectoryCallCount, equals(1));
+
+      // Re-set the cache entry createdAt to 6 minutes ago (past TTL)
+      container.read(directoryCacheProvider.notifier).update((state) {
+        final updated = Map<String, CacheEntry>.from(state);
+        updated['1:/music'] = CacheEntry(
+          files: updated['1:/music']!.files,
+          createdAt: DateTime.now().subtract(const Duration(minutes: 6)),
+        );
+        return updated;
+      });
+
+      // Invalidate and re-read — cache should be expired
+      container.invalidate(directoryContentsProvider('/music'));
+      await container.read(directoryContentsProvider('/music').future);
+
+      expect(mockClient.listDirectoryCallCount, equals(2),
+          reason: '超过 5min TTL 后缓存过期，应发起新的 listDirectory');
+    });
+
+    // ── TST-T66: TTL boundary (exactly 5min) ──────────────────────────────
+
+    test('TST-T66: at exactly 5min boundary → cache expired, refetches',
+        () async {
+      final mockClient = _MockWebDavClient();
+      mockClient.returnResult(_musicRawEntries());
+      final fakeStorage = _FakeSecureStorage();
+      fakeStorage.setPassword(1, 'test-password');
+
+      final container = ProviderContainer(
+        overrides: [
+          webDavClientProvider.overrideWith((ref) => mockClient),
+          activeConnectionProvider
+              .overrideWith((ref) async => _connection(id: 1)),
+          secureStorageProvider.overrideWith((ref) => fakeStorage),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      // First load populates cache
+      await container.read(directoryContentsProvider('/music').future);
+      expect(mockClient.listDirectoryCallCount, equals(1));
+
+      // Re-set the cache entry createdAt to exactly 5 minutes ago (boundary)
+      container.read(directoryCacheProvider.notifier).update((state) {
+        final updated = Map<String, CacheEntry>.from(state);
+        updated['1:/music'] = CacheEntry(
+          files: updated['1:/music']!.files,
+          createdAt: DateTime.now().subtract(const Duration(minutes: 5)),
+        );
+        return updated;
+      });
+
+      // Invalidate and re-read
+      container.invalidate(directoryContentsProvider('/music'));
+      await container.read(directoryContentsProvider('/music').future);
+
+      // Implementation uses `age < _cacheTtl` (strict less-than, not <=).
+      // At exactly 5 min, age == TTL, so the condition is false → cache expired.
+      expect(mockClient.listDirectoryCallCount, equals(2),
+          reason:
+              '恰好 5min 时 age < TTL 为 false，cache expired → 触发重取');
+    });
+
+    // ── TST-T67: Pull-to-refresh → clear → refetch regardless of TTL ──────
+
+    test('TST-T67: pull-to-refresh clears cache, refetches regardless of TTL',
+        () async {
+      final mockClient = _MockWebDavClient();
+      mockClient.returnResult(_musicRawEntries());
+      final fakeStorage = _FakeSecureStorage();
+      fakeStorage.setPassword(1, 'test-password');
+
+      final container = ProviderContainer(
+        overrides: [
+          webDavClientProvider.overrideWith((ref) => mockClient),
+          activeConnectionProvider
+              .overrideWith((ref) async => _connection(id: 1)),
+          secureStorageProvider.overrideWith((ref) => fakeStorage),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      // First load populates the cache
+      await container.read(directoryContentsProvider('/music').future);
+      expect(mockClient.listDirectoryCallCount, equals(1));
+
+      // Cache is populated
+      final cacheBefore = container.read(directoryCacheProvider);
+      expect(cacheBefore.containsKey('1:/music'), isTrue,
+          reason: '加载后缓存应包含条目');
+
+      // Pull-to-refresh: clear the cache for /music
+      final clearCache = container.read(clearDirectoryCacheProvider);
+      clearCache('/music');
+
+      // Verify cache is cleared
+      final cacheAfterClear = container.read(directoryCacheProvider);
+      expect(cacheAfterClear.containsKey('1:/music'), isFalse,
+          reason: '下拉刷新后缓存 key 应被清除');
+
+      // Re-read — should trigger a new request even though TTL hasn't elapsed
+      await container.read(directoryContentsProvider('/music').future);
+      expect(mockClient.listDirectoryCallCount, equals(2),
+          reason: '清除缓存后应立即重取，无视 TTL');
+    });
+
+    // ── TST-T68: Capacity at 50 → all entries retained ─────────────────────
+
+    test('TST-T68: 50 cache entries → all retained', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      // Directly populate the cache with 50 entries keyed by connection 1
+      container.read(directoryCacheProvider.notifier).update((state) {
+        final updated = Map<String, CacheEntry>.from(state);
+        for (int i = 1; i <= 50; i++) {
+          updated['1:/music$i'] = CacheEntry(
+            files: [_audio('song$i.mp3', '/music$i/song$i.mp3')],
+            createdAt: DateTime.now(),
+          );
+        }
+        return updated;
+      });
+
+      final cache = container.read(directoryCacheProvider);
+      expect(cache.length, equals(50),
+          reason: '恰好 50 条时所有条目应保留');
+      for (int i = 1; i <= 50; i++) {
+        expect(cache.containsKey('1:/music$i'), isTrue,
+            reason: '1:/music$i 应存在于缓存中');
+      }
+    });
+
+    // ── TST-T69: Capacity at 51 → oldest entry evicted ─────────────────────
+
+    test('TST-T69: 51st entry triggers eviction of oldest', () async {
+      final mockClient = _MockWebDavClient();
+      mockClient.returnResult(_musicRawEntries());
+      final fakeStorage = _FakeSecureStorage();
+      fakeStorage.setPassword(1, 'test-password');
+
+      final container = ProviderContainer(
+        overrides: [
+          webDavClientProvider.overrideWith((ref) => mockClient),
+          activeConnectionProvider
+              .overrideWith((ref) async => _connection(id: 1)),
+          secureStorageProvider.overrideWith((ref) => fakeStorage),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      // Pre-populate 50 cache entries (music1 is oldest in insertion order)
+      container.read(directoryCacheProvider.notifier).update((state) {
+        final updated = Map<String, CacheEntry>.from(state);
+        for (int i = 1; i <= 50; i++) {
+          updated['1:/music$i'] = CacheEntry(
+            files: [_audio('song$i.mp3', '/music$i/song$i.mp3')],
+            createdAt:
+                DateTime.now().subtract(Duration(minutes: 51 - i)),
+          );
+        }
+        return updated;
+      });
+      expect(container.read(directoryCacheProvider).length, equals(50));
+
+      // Load a 51st path through the provider — this triggers eviction
+      await container.read(directoryContentsProvider('/music51').future);
+
+      final cache = container.read(directoryCacheProvider);
+      expect(cache.length, equals(50),
+          reason: '缓存容量上限 50 条，第 51 条触发淘汰后仍为 50 条');
+      expect(cache.containsKey('1:/music1'), isFalse,
+          reason: 'music1 是最早插入的条目，应被淘汰');
+      expect(cache.containsKey('1:/music2'), isTrue,
+          reason: 'music2 是第二早插入的条目，应保留');
+      expect(cache.containsKey('1:/music50'), isTrue,
+          reason: 'music50 是第 50 个插入的条目，应保留');
+      expect(cache.containsKey('1:/music51'), isTrue,
+          reason: '新条目 music51 应被写入缓存');
+    });
+
+    // ── TST-T70: After overflow → new entry is readable ────────────────────
+
+    test('TST-T70: after overflow, new entry is readable', () async {
+      final mockClient = _MockWebDavClient();
+      mockClient.returnResult(_musicRawEntries());
+      final fakeStorage = _FakeSecureStorage();
+      fakeStorage.setPassword(1, 'test-password');
+
+      final container = ProviderContainer(
+        overrides: [
+          webDavClientProvider.overrideWith((ref) => mockClient),
+          activeConnectionProvider
+              .overrideWith((ref) async => _connection(id: 1)),
+          secureStorageProvider.overrideWith((ref) => fakeStorage),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      // Pre-populate 50 entries
+      container.read(directoryCacheProvider.notifier).update((state) {
+        final updated = Map<String, CacheEntry>.from(state);
+        for (int i = 1; i <= 50; i++) {
+          updated['1:/music$i'] = CacheEntry(
+            files: [_audio('song$i.mp3', '/music$i/song$i.mp3')],
+            createdAt:
+                DateTime.now().subtract(Duration(minutes: 51 - i)),
+          );
+        }
+        return updated;
+      });
+
+      // Load 51st — triggers eviction of oldest
+      await container.read(directoryContentsProvider('/music51').future);
+
+      // The new entry is in the cache
+      final cache = container.read(directoryCacheProvider);
+      expect(cache.containsKey('1:/music51'), isTrue,
+          reason: 'music51 应已写入缓存');
+      expect(cache['1:/music51']!.files, isNotEmpty,
+          reason: 'music51 的缓存数据应非空');
+
+      // Reading /music51 again uses the cache (no new network request)
+      final previousCallCount = mockClient.listDirectoryCallCount;
+      await container.read(directoryContentsProvider('/music51').future);
+      expect(mockClient.listDirectoryCallCount, equals(previousCallCount),
+          reason: '再次读取同一路径应使用缓存，不发起新请求');
+    });
+
+    // ── TST-T71: Evicted entry re-accessed → triggers new request ──────────
+
+    test('TST-T71: evicted entry re-accessed → new network request', () async {
+      final mockClient = _MockWebDavClient();
+      mockClient.returnResult(_musicRawEntries());
+      final fakeStorage = _FakeSecureStorage();
+      fakeStorage.setPassword(1, 'test-password');
+
+      final container = ProviderContainer(
+        overrides: [
+          webDavClientProvider.overrideWith((ref) => mockClient),
+          activeConnectionProvider
+              .overrideWith((ref) async => _connection(id: 1)),
+          secureStorageProvider.overrideWith((ref) => fakeStorage),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      // Pre-populate 50 entries (music1 is oldest)
+      container.read(directoryCacheProvider.notifier).update((state) {
+        final updated = Map<String, CacheEntry>.from(state);
+        for (int i = 1; i <= 50; i++) {
+          updated['1:/music$i'] = CacheEntry(
+            files: [_audio('song$i.mp3', '/music$i/song$i.mp3')],
+            createdAt:
+                DateTime.now().subtract(Duration(minutes: 51 - i)),
+          );
+        }
+        return updated;
+      });
+
+      // Load 51st — evicts music1
+      await container.read(directoryContentsProvider('/music51').future);
+      final cacheAfterEviction = container.read(directoryCacheProvider);
+      expect(cacheAfterEviction.containsKey('1:/music1'), isFalse,
+          reason: 'music1 已被淘汰');
+
+      final callsBeforeRefetch = mockClient.listDirectoryCallCount;
+
+      // Access the evicted entry — cache miss, triggers new network request
+      await container.read(directoryContentsProvider('/music1').future);
+
+      expect(
+        mockClient.listDirectoryCallCount,
+        equals(callsBeforeRefetch + 1),
+        reason: '被淘汰的 music1 不在缓存中，重新访问应触发新 listDirectory',
+      );
+
+      // Verify music1 is now back in the cache
+      final cache = container.read(directoryCacheProvider);
+      expect(cache.containsKey('1:/music1'), isTrue,
+          reason: '重取后 music1 应重新出现在缓存中');
+    });
+  });
 }
