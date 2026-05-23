@@ -3,9 +3,13 @@
 //
 // Unit tests (PLY-T40~T55): DAO CRUD, model serialisation, toNasFile, migration.
 
+import 'dart:convert';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nas_audio_player/core/database/dao/playlist_dao.dart';
 import 'package:nas_audio_player/core/database/database_helper.dart';
+import 'package:nas_audio_player/features/playlist/playlist_provider.dart';
 import 'package:nas_audio_player/shared/models/playlist.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -390,6 +394,257 @@ void main() {
       expect(rows.first['name'], 'Migrated');
 
       await db2.close();
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TST-06: Export / Import Provider tests — TST-T35~T42
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  group('TST-06 Export / Import', () {
+    /// Creates a [ProviderContainer] that overrides [playlistDaoProvider]
+    /// so the DAO uses the test database injected via [DatabaseHelper].
+    ProviderContainer makeContainer() {
+      return ProviderContainer(overrides: [
+        playlistDaoProvider.overrideWith((ref) => PlaylistDao()),
+      ]);
+    }
+
+    // ── TST-T35: Export playlist with 5 tracks → JSON contains all fields ──
+
+    test('test_TST_T35_exportPlaylist_with5Tracks_jsonContainsAllFields',
+        () async {
+      final id = await dao.insertPlaylist(_testPlaylist(name: 'Export Test'));
+      await dao.addTracks([
+        _testTrack(
+            playlistId: id, filePath: '/music/01.mp3', fileName: '01.mp3'),
+        _testTrack(
+            playlistId: id, filePath: '/music/02.mp3', fileName: '02.mp3'),
+        _testTrack(
+            playlistId: id, filePath: '/music/03.mp3', fileName: '03.mp3'),
+        _testTrack(
+            playlistId: id, filePath: '/music/04.mp3', fileName: '04.mp3'),
+        _testTrack(
+            playlistId: id, filePath: '/music/05.flac', fileName: '05.flac'),
+      ]);
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      final jsonStr =
+          await container.read(exportPlaylistProvider(id).future);
+      final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+
+      expect(data['name'], 'Export Test');
+      expect(data['tracks'], isA<List>());
+      expect((data['tracks'] as List).length, 5);
+
+      final tracks = data['tracks'] as List;
+      final first = tracks[0] as Map<String, dynamic>;
+      final last = tracks[4] as Map<String, dynamic>;
+      expect(first['filePath'], '/music/01.mp3');
+      expect(first['fileName'], '01.mp3');
+      expect(last['filePath'], '/music/05.flac');
+      expect(last['fileName'], '05.flac');
+    });
+
+    // ── TST-T36: Export empty playlist → JSON tracks is empty array ────────
+
+    test('test_TST_T36_exportEmptyPlaylist_tracksIsEmptyArray', () async {
+      await dao.insertPlaylist(_testPlaylist(name: 'Empty Playlist'));
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      final playlists = await container.read(playlistListProvider.future);
+      final id = playlists.first.id!;
+
+      final jsonStr =
+          await container.read(exportPlaylistProvider(id).future);
+      final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+
+      expect(data['name'], 'Empty Playlist');
+      expect(data['tracks'], isEmpty);
+    });
+
+    // ── TST-T37: Import valid JSON → playlist created, tracks correct ─────
+
+    test('test_TST_T37_importValidJson_createsPlaylistAndTracks', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      const jsonStr = '{"name":"Imported","tracks":['
+          '{"filePath":"/a.mp3","fileName":"a.mp3"},'
+          '{"filePath":"/b.mp3","fileName":"b.mp3"},'
+          '{"filePath":"/c.flac","fileName":"c.flac"}'
+          ']}';
+
+      final importFn = container.read(importPlaylistProvider);
+      final newId = await importFn(jsonStr);
+
+      expect(newId, greaterThan(0));
+
+      final playlists = await container.read(playlistListProvider.future);
+      final imported = playlists.firstWhere((p) => p.id == newId);
+      expect(imported.name, 'Imported');
+
+      final tracks =
+          await container.read(playlistTracksProvider(newId).future);
+      expect(tracks.length, 3);
+      expect(tracks[0].filePath, '/a.mp3');
+      expect(tracks[0].fileName, 'a.mp3');
+      expect(tracks[1].filePath, '/b.mp3');
+      expect(tracks[1].fileName, 'b.mp3');
+      expect(tracks[2].filePath, '/c.flac');
+      expect(tracks[2].fileName, 'c.flac');
+    });
+
+    // ── TST-T38: Import JSON → track count matches original content ────────
+
+    test('test_TST_T38_importJson_trackCountMatches', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      const jsonStr = '{"name":"Count Test","tracks":['
+          '{"filePath":"/1.mp3","fileName":"1.mp3"},'
+          '{"filePath":"/2.mp3","fileName":"2.mp3"},'
+          '{"filePath":"/3.mp3","fileName":"3.mp3"},'
+          '{"filePath":"/4.mp3","fileName":"4.mp3"},'
+          '{"filePath":"/5.mp3","fileName":"5.mp3"}'
+          ']}';
+
+      final importFn = container.read(importPlaylistProvider);
+      final newId = await importFn(jsonStr);
+
+      final tracks =
+          await container.read(playlistTracksProvider(newId).future);
+      expect(tracks.length, 5);
+    });
+
+    // ── TST-T39: Import same JSON twice → two independent playlists ───────
+
+    test('test_TST_T39_importSameJsonTwice_createsTwoPlaylists', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      const jsonStr = '{"name":"Double","tracks":['
+          '{"filePath":"/x.mp3","fileName":"x.mp3"}'
+          ']}';
+
+      final importFn = container.read(importPlaylistProvider);
+      final id1 = await importFn(jsonStr);
+      final id2 = await importFn(jsonStr);
+
+      expect(id1, isNot(equals(id2)));
+
+      // Both should appear in the playlist list
+      final playlists = await container.read(playlistListProvider.future);
+      final doubles = playlists.where((p) => p.name == 'Double');
+      expect(doubles.length, 2);
+
+      // Each has its own tracks
+      final tracks1 =
+          await container.read(playlistTracksProvider(id1).future);
+      final tracks2 =
+          await container.read(playlistTracksProvider(id2).future);
+      expect(tracks1.length, 1);
+      expect(tracks2.length, 1);
+    });
+
+    // ── TST-T40: Import JSON with duplicate paths → dedup skips ───────────
+
+    test('test_TST_T40_importJson_duplicateFilePaths_skipsDuplicates',
+        () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      const jsonStr = '{"name":"Dedup Import","tracks":['
+          '{"filePath":"/dup.mp3","fileName":"dup.mp3"},'
+          '{"filePath":"/dup.mp3","fileName":"dup.mp3"},'
+          '{"filePath":"/unique.mp3","fileName":"unique.mp3"}'
+          ']}';
+
+      final importFn = container.read(importPlaylistProvider);
+      final newId = await importFn(jsonStr);
+
+      final tracks =
+          await container.read(playlistTracksProvider(newId).future);
+      // Should only have 2 tracks — duplicate filePath skipped
+      expect(tracks.length, 2);
+      final paths = tracks.map((t) => t.filePath).toSet();
+      expect(paths, containsAll(['/dup.mp3', '/unique.mp3']));
+    });
+
+    // ── TST-T41: Import malformed JSON → no crash, returns error info ─────
+
+    test('test_TST_T41_importMalformedJson_noCrash_returnsError', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      final importFn = container.read(importPlaylistProvider);
+
+      // Invalid JSON should throw a FormatException (error information)
+      // rather than crashing the app
+      expect(
+        () => importFn('{not valid json}'),
+        throwsA(isA<FormatException>()),
+      );
+
+      // Verify no playlist was created from the failed import
+      final playlists = await container.read(playlistListProvider.future);
+      expect(playlists, isEmpty);
+    });
+
+    // ── TST-T42: Export + Import round-trip → name and tracks identical ──
+
+    test('test_TST_T42_exportImportRoundTrip_nameAndTracksMatch', () async {
+      // Create a playlist with tracks via DAO
+      final originalId =
+          await dao.insertPlaylist(_testPlaylist(name: 'Round Trip'));
+      await dao.addTracks([
+        _testTrack(
+            playlistId: originalId,
+            filePath: '/music/a.mp3',
+            fileName: 'a.mp3'),
+        _testTrack(
+            playlistId: originalId,
+            filePath: '/music/b.flac',
+            fileName: 'b.flac'),
+        _testTrack(
+            playlistId: originalId,
+            filePath: '/books/c.m4b',
+            fileName: 'c.m4b'),
+      ]);
+
+      // Export
+      final exportContainer = makeContainer();
+      addTearDown(exportContainer.dispose);
+      final jsonStr = await exportContainer
+          .read(exportPlaylistProvider(originalId).future);
+
+      // Import into an independent container
+      final importContainer = makeContainer();
+      addTearDown(importContainer.dispose);
+      final importFn = importContainer.read(importPlaylistProvider);
+      final importedId = await importFn(jsonStr);
+
+      // Verify name matches
+      final importedPlaylists =
+          await importContainer.read(playlistListProvider.future);
+      final imported =
+          importedPlaylists.firstWhere((p) => p.id == importedId);
+      expect(imported.name, 'Round Trip');
+
+      // Verify tracks match (same count, same filePaths, same fileNames)
+      final originalTracks = await dao.findTracksForPlaylist(originalId);
+      final importedTracks = await importContainer
+          .read(playlistTracksProvider(importedId).future);
+
+      expect(importedTracks.length, originalTracks.length);
+      for (int i = 0; i < originalTracks.length; i++) {
+        expect(importedTracks[i].filePath, originalTracks[i].filePath);
+        expect(importedTracks[i].fileName, originalTracks[i].fileName);
+      }
     });
   });
 }

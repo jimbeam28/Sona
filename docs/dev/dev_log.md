@@ -53,6 +53,19 @@
 
 ---
 
+## [2026-05-24] [TST-06] - 播放单导出/导入测试
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `test/features/playlist/ply_10_test.dart` — 追加 TST-06 测试 group，8 个测试用例
+- `lib/features/playlist/playlist_provider.dart` — 修复导入去重逻辑（TST-T40 暴露）
+
+### 测试结果
+- 通过: 673 / 总计: 673
+
+---
+
 ## [2026-05-24] [TST-05] - 定时器暂停/恢复功能测试
 
 **状态**: ✅ 成功

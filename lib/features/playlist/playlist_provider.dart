@@ -188,6 +188,7 @@ final importPlaylistProvider =
       updatedAt: now,
     ));
 
+    final seen = <String>{};
     final tracks = trackList
         .map((t) => PlaylistTrack(
               playlistId: playlistId,
@@ -195,7 +196,7 @@ final importPlaylistProvider =
               fileName: t['fileName'] as String? ?? '',
               addedAt: now,
             ))
-        .where((t) => t.filePath.isNotEmpty)
+        .where((t) => t.filePath.isNotEmpty && seen.add(t.filePath))
         .toList();
 
     if (tracks.isNotEmpty) {
