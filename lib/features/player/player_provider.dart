@@ -632,7 +632,12 @@ final startProcessingListenerProvider = Provider<void Function()>((ref) {
           final m = ref.read(playModeProvider);
           if (q == null) return;
           final ni = PlayQueue.nextIndex(q.currentIndex, q.length, m);
-          if (ni == null) return;
+          if (ni == null) {
+            debugPrint('[Player] no next track, seeking to start');
+            player.seek(Duration.zero);
+            player.pause();
+            return;
+          }
           ref.read(saveProgressProvider)();
           final nq = q.withIndex(ni);
           ref.read(currentPlayQueueProvider.notifier).state = nq;
