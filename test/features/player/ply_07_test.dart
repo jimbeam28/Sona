@@ -13,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/features/player/player_provider.dart';
+import 'package:nas_audio_player/features/settings/settings_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -442,6 +443,276 @@ void main() {
         expect(speedOptions[i], greaterThan(speedOptions[i - 1]),
             reason: '速度选项应按升序排列');
       }
+    });
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // TST-10: rememberSpeed 功能 — TST-T72 ~ TST-T78
+  // ═════════════════════════════════════════════════════════════════════════════
+
+  group('TST-10: rememberSpeed 功能', () {
+    // ── TST-T72: rememberSpeed 默认值 ──────────────────────────────────────
+
+    test('TST-T72: rememberSpeed default value', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+
+      // Pure function: getRememberSpeed returns false when no value stored
+      expect(getRememberSpeed(prefs), isFalse,
+          reason: '无存储时 getRememberSpeed 应返回 false');
+      expect(getRememberSpeed(null), isFalse,
+          reason: 'prefs 为 null 时应返回 false');
+
+      final container = ProviderContainer(
+        overrides: [
+          sharedPreferencesProvider.overrideWith((ref) => prefs),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      expect(container.read(rememberSpeedProvider), isFalse,
+          reason: 'rememberSpeedProvider 默认值应为 false');
+    });
+
+    // ── TST-T73: 开启时调速到 2.0x → defaultSpeed 同步更新 ───────────────
+
+    test('TST-T73: 开启 rememberSpeed 调速, defaultSpeed 同步更新', () async {
+      SharedPreferences.setMockInitialValues({
+        'default_playback_speed': 1.0,
+        'remember_playback_speed': true,
+      });
+      final prefs = await SharedPreferences.getInstance();
+
+      final container = ProviderContainer(
+        overrides: [
+          sharedPreferencesProvider.overrideWith((ref) => prefs),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      // Verify initial state
+      expect(container.read(rememberSpeedProvider), isTrue);
+      expect(container.read(defaultSpeedProvider), equals(1.0));
+      expect(container.read(currentSpeedProvider), equals(1.0));
+
+      // Simulate the player speed selector logic (player_screen.dart):
+      // 1. Update currentSpeed via player UI
+      container.read(currentSpeedProvider.notifier).state = 2.0;
+      // 2. If rememberSpeed is on, sync defaultSpeed too
+      if (container.read(rememberSpeedProvider)) {
+        container.read(setDefaultSpeedProvider)(2.0);
+      }
+
+      // defaultSpeed should now be 2.0 (synced from player)
+      expect(container.read(defaultSpeedProvider), equals(2.0),
+          reason: '开启记住速度时调速到 2.0x, defaultSpeed 应同步更新为 2.0');
+      expect(container.read(currentSpeedProvider), equals(2.0),
+          reason: 'currentSpeed 应为 2.0');
+    });
+
+    // ── TST-T74: 开启时调速到 2.0x → SharedPreferences 持久化 ────────────
+
+    test('TST-T74: 开启 rememberSpeed 调速, SharedPreferences 持久化', () async {
+      SharedPreferences.setMockInitialValues({
+        'default_playback_speed': 1.0,
+        'remember_playback_speed': true,
+      });
+      final prefs = await SharedPreferences.getInstance();
+
+      final container = ProviderContainer(
+        overrides: [
+          sharedPreferencesProvider.overrideWith((ref) => prefs),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      expect(container.read(rememberSpeedProvider), isTrue);
+
+      // Simulate speed change with rememberSpeed ON
+      container.read(currentSpeedProvider.notifier).state = 2.0;
+      if (container.read(rememberSpeedProvider)) {
+        container.read(setDefaultSpeedProvider)(2.0);
+      }
+
+      // SharedPreferences should have the new default speed
+      expect(prefs.getDouble('default_playback_speed'), equals(2.0),
+          reason: '开启 rememberSpeed 时调速到 2.0x 应持久化到 SharedPreferences');
+    });
+
+    // ── TST-T75: 关闭时调速到 2.0x → defaultSpeed 保持原值 ───────────────
+
+    test('TST-T75: 关闭 rememberSpeed 调速, defaultSpeed 保持不变', () async {
+      SharedPreferences.setMockInitialValues({
+        'default_playback_speed': 1.0,
+        'remember_playback_speed': false,
+      });
+      final prefs = await SharedPreferences.getInstance();
+
+      final container = ProviderContainer(
+        overrides: [
+          sharedPreferencesProvider.overrideWith((ref) => prefs),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      expect(container.read(rememberSpeedProvider), isFalse);
+      expect(container.read(defaultSpeedProvider), equals(1.0));
+
+      // Simulate speed change with rememberSpeed OFF
+      container.read(currentSpeedProvider.notifier).state = 2.0;
+      // RememberSpeed is off — do NOT call setDefaultSpeedProvider
+      if (container.read(rememberSpeedProvider)) {
+        container.read(setDefaultSpeedProvider)(2.0);
+      }
+
+      // defaultSpeed should remain unchanged
+      expect(container.read(defaultSpeedProvider), equals(1.0),
+          reason: '关闭记住速度时调速, defaultSpeed 应保持原值 1.0');
+      expect(container.read(currentSpeedProvider), equals(2.0),
+          reason: 'currentSpeed 应变更为 2.0');
+      expect(prefs.getDouble('default_playback_speed'), equals(1.0),
+          reason: 'SharedPreferences 中的值应保持 1.0 不变');
+    });
+
+    // ── TST-T76: 关闭时切歌 → 新曲目使用 Settings 中的 defaultSpeed ─────
+
+    test('TST-T76: 关闭 rememberSpeed 切歌, 新曲目使用 Settings defaultSpeed',
+        () async {
+      SharedPreferences.setMockInitialValues({
+        'default_playback_speed': 1.0,
+        'remember_playback_speed': false,
+      });
+      final prefs = await SharedPreferences.getInstance();
+
+      // Simulate current session where user changed speed to 2.0
+      // but rememberSpeed is off, so defaultSpeed stays at 1.0
+      {
+        final container = ProviderContainer(
+          overrides: [
+            sharedPreferencesProvider.overrideWith((ref) => prefs),
+          ],
+        );
+        container.read(currentSpeedProvider.notifier).state = 2.0;
+        // rememberSpeed is off — don't update default
+        expect(container.read(defaultSpeedProvider), equals(1.0));
+        expect(container.read(currentSpeedProvider), equals(2.0));
+        container.dispose();
+      }
+
+      // New file ("next song") — new container simulates fresh load.
+      // currentSpeed initializes from defaultSpeed (= 1.0),
+      // NOT from the previous session's currentSpeed (2.0).
+      {
+        final container2 = ProviderContainer(
+          overrides: [
+            sharedPreferencesProvider.overrideWith((ref) => prefs),
+          ],
+        );
+        addTearDown(container2.dispose);
+
+        expect(container2.read(currentSpeedProvider), equals(1.0),
+            reason:
+                '关闭记住速度时切歌, 新曲目应使用 Settings 中的 defaultSpeed 1.0x');
+      }
+    });
+
+    // ── TST-T77: 开启时切歌 → 新曲目使用上次播放器中的速度 ──────────────
+
+    test('TST-T77: 开启 rememberSpeed 切歌, 新曲目使用上次调速后的速度',
+        () async {
+      SharedPreferences.setMockInitialValues({
+        'default_playback_speed': 1.0,
+        'remember_playback_speed': true,
+      });
+      final prefs = await SharedPreferences.getInstance();
+
+      // Simulate current session where user changed speed to 2.0
+      // and rememberSpeed is on, so defaultSpeed gets updated too
+      {
+        final container = ProviderContainer(
+          overrides: [
+            sharedPreferencesProvider.overrideWith((ref) => prefs),
+          ],
+        );
+        container.read(currentSpeedProvider.notifier).state = 2.0;
+        if (container.read(rememberSpeedProvider)) {
+          container.read(setDefaultSpeedProvider)(2.0);
+        }
+        expect(container.read(defaultSpeedProvider), equals(2.0));
+        container.dispose();
+      }
+
+      // New file ("next song") — new container.
+      // defaultSpeed from SharedPreferences should be 2.0,
+      // so currentSpeed initializes to 2.0.
+      {
+        final container2 = ProviderContainer(
+          overrides: [
+            sharedPreferencesProvider.overrideWith((ref) => prefs),
+          ],
+        );
+        addTearDown(container2.dispose);
+
+        expect(container2.read(defaultSpeedProvider), equals(2.0),
+            reason:
+                '开启记住速度时, SharedPreferences 中的 defaultSpeed 应为 2.0');
+        expect(container2.read(currentSpeedProvider), equals(2.0),
+            reason:
+                '开启记住速度时切歌, 新曲目应使用上次调速后的速度 2.0x');
+      }
+    });
+
+    // ── TST-T78: setRememberSpeed 持久化到 SharedPreferences ──────────────
+
+    test('TST-T78: setRememberSpeed 持久化到 SharedPreferences', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+
+      final container = ProviderContainer(
+        overrides: [
+          sharedPreferencesProvider.overrideWith((ref) => prefs),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      // Initially false (default)
+      expect(container.read(rememberSpeedProvider), isFalse);
+
+      // Set to true
+      container.read(setRememberSpeedProvider)(true);
+      expect(prefs.getBool('remember_playback_speed'), isTrue,
+          reason: 'setRememberSpeed(true) 应持久化 true 到 SharedPreferences');
+      expect(container.read(rememberSpeedProvider), isTrue,
+          reason: 'rememberSpeedProvider 应反映 true');
+
+      // Set to false
+      container.read(setRememberSpeedProvider)(false);
+      expect(prefs.getBool('remember_playback_speed'), isFalse,
+          reason: 'setRememberSpeed(false) 应持久化 false 到 SharedPreferences');
+      expect(container.read(rememberSpeedProvider), isFalse,
+          reason: 'rememberSpeedProvider 应反映 false');
+    });
+
+    // ── 补充: rememberSpeed 重启后持久化 ─────────────────────────────────
+
+    test('rememberSpeed survives restart via SharedPreferences', () async {
+      SharedPreferences.setMockInitialValues({
+        'remember_playback_speed': true,
+        'default_playback_speed': 1.5,
+      });
+      final prefs = await SharedPreferences.getInstance();
+
+      final container = ProviderContainer(
+        overrides: [
+          sharedPreferencesProvider.overrideWith((ref) => prefs),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      expect(container.read(rememberSpeedProvider), isTrue,
+          reason: '重启后 rememberSpeed 应从 SharedPreferences 恢复为 true');
+      expect(container.read(defaultSpeedProvider), equals(1.5),
+          reason: '重启后 defaultSpeed 应恢复为 1.5');
     });
   });
 

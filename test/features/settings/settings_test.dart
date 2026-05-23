@@ -692,7 +692,98 @@ void main() {
   });
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // Additional provider integration tests
+  // TST-10: rememberSpeed widget tests — TST-T79
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  group('TST-10: rememberSpeed widget tests', () {
+    testWidgets('TST-T79: "记住播放速度" 开关渲染, 切换后值更新', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+
+      await pumpSettingsScreen(tester, prefs: prefs);
+      await tester.pumpAndSettle();
+
+      // Verify the tile renders with correct title and subtitle
+      expect(find.text('记住播放速度'), findsOneWidget,
+          reason: '设置页应显示"记住播放速度"开关标题');
+      expect(find.text('调速后自动设为默认，切歌不重置'), findsOneWidget,
+          reason: '应显示副标题说明文字');
+
+      // Find the SwitchListTile and verify initial state (off by default)
+      final switchTile = find.byType(SwitchListTile);
+      expect(switchTile, findsOneWidget,
+          reason: '应有一个 SwitchListTile widget');
+
+      // Switch should be off by default
+      expect(prefs.getBool('remember_playback_speed'), isNull,
+          reason: '默认不应设置 remember_playback_speed');
+      expect(getRememberSpeed(prefs), isFalse,
+          reason: '未持久化时 getRememberSpeed 应返回 false');
+
+      // Tap the switch tile to turn it on
+      await tester.tap(switchTile);
+      await tester.pumpAndSettle();
+
+      // SharedPreferences should now have true
+      expect(prefs.getBool('remember_playback_speed'), isTrue,
+          reason: '切换开启后 SharedPreferences 应为 true');
+      expect(getRememberSpeed(prefs), isTrue,
+          reason: '切换开启后 getRememberSpeed 应返回 true');
+    });
+
+    testWidgets('TST-T79b: rememberSpeed 开关从持久化值初始化并切换关',
+        (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'remember_playback_speed': true,
+      });
+      final prefs = await SharedPreferences.getInstance();
+
+      await pumpSettingsScreen(tester, prefs: prefs);
+      await tester.pumpAndSettle();
+
+      // Switch should be on (initialized from SharedPreferences)
+      expect(find.text('记住播放速度'), findsOneWidget);
+      expect(getRememberSpeed(prefs), isTrue,
+          reason: '从 SharedPreferences 初始化后应为 true');
+
+      // Tap to turn off
+      await tester.tap(find.byType(SwitchListTile));
+      await tester.pumpAndSettle();
+
+      // Should now be false
+      expect(prefs.getBool('remember_playback_speed'), isFalse,
+          reason: '再次切换后 SharedPreferences 应为 false');
+      expect(getRememberSpeed(prefs), isFalse,
+          reason: '再次切换后 getRememberSpeed 应返回 false');
+    });
+
+    testWidgets('TST-T79c: rememberSpeed 开关切换后重新读取反映新值',
+        (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+
+      await pumpSettingsScreen(tester, prefs: prefs);
+      await tester.pumpAndSettle();
+
+      // Initially off
+      expect(getRememberSpeed(prefs), isFalse);
+
+      // Toggle on
+      await tester.tap(find.byType(SwitchListTile));
+      await tester.pumpAndSettle();
+      expect(prefs.getBool('remember_playback_speed'), isTrue);
+
+      // Rebuild the screen (simulating leaving and coming back)
+      await pumpSettingsScreen(tester, prefs: prefs);
+      await tester.pumpAndSettle();
+
+      // Tile should still be there and SharedPreferences should still be true
+      expect(find.text('记住播放速度'), findsOneWidget);
+      expect(prefs.getBool('remember_playback_speed'), isTrue,
+          reason: '重建页面后持久化值应保持不变');
+    });
+  });
+
   // ═══════════════════════════════════════════════════════════════════════════════
 
   group('setSeekStepSettingProvider propagates to seekStepProvider', () {

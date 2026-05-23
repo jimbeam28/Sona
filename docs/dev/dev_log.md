@@ -53,6 +53,19 @@
 
 ---
 
+## [2026-05-24] [TST-10] - 记住播放速度开关测试
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `test/features/player/ply_07_test.dart` — 追加 TST-10 测试，8 个测试用例
+- `test/features/settings/settings_test.dart` — 追加 TST-T79 widget 测试
+
+### 测试结果
+- 通过: 723 / 总计: 723
+
+---
+
 ## [2026-05-24] [TST-09] - 目录缓存 TTL 过期与容量上限测试
 
 **状态**: ✅ 成功
