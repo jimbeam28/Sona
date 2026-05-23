@@ -49,5 +49,17 @@
 - `test/features/progress/prg_test.dart` — 追加 TST-02 测试 group，7 个测试用例
 
 ### 测试结果
-- 通过: 644 / 总计: 644
+- 通过: 650 / 总计: 650
+
+---
+
+## [2026-05-24] [TST-03] - Timer 到期 → Player 暂停集成链路
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `test/features/timer/timer_test.dart` — 追加 TST-03 测试 group，6 个测试用例
+
+### 测试结果
+- 通过: 650 / 总计: 650
 
