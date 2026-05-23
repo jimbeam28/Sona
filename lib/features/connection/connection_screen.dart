@@ -69,7 +69,10 @@ class _ConnectionScreenState extends ConsumerState<ConnectionScreen> {
               if (startupErrorMsg != null) const SizedBox(height: 16),
 
               // Form fields
-              ConnectionForm(controller: _formController),
+              ConnectionForm(
+                controller: _formController,
+                onFieldChanged: _onFieldChanged,
+              ),
               const SizedBox(height: 24),
 
               // Validation result banner
@@ -143,6 +146,15 @@ class _ConnectionScreenState extends ConsumerState<ConnectionScreen> {
   }
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
+
+  // CON-01: reset validation state when credential fields change,
+  // so the user cannot rely on a stale validation result after
+  // modifying URL, username, password, or basePath.
+  void _onFieldChanged() {
+    if (!mounted) return;
+    final validator = ref.read(connectionValidatorProvider.notifier);
+    validator.reset();
+  }
 
   Future<void> _onTestConnection() async {
     // Validate form fields first

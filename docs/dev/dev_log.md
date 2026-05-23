@@ -14,3 +14,16 @@
 ### 测试结果
 - 通过: 621 / 总计: 621
 
+---
+
+## [2026-05-23] [CON-01] - 添加连接页面验证状态过期
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/connection/connection_screen.dart` — 添加 onFieldChanged 回调，凭证变更时重置验证器
+- `test/features/connection/con_01_test.dart` — 新增 3 个测试用例 (CON-FIX-T01~T03)
+
+### 测试结果
+- 通过: 624 / 总计: 624
+

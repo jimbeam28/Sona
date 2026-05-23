@@ -232,6 +232,80 @@ void main() {
       expect(state, isA<ValidationSuccess>(),
           reason: '连接测试成功后保存按钮应激活');
     });
+
+    // ── CON-FIX-T01: 验证成功后修改 URL → 保存按钮禁用 ───────────────────
+
+    test('CON-FIX-T01: after validation, changing URL resets validator', () async {
+      final mock = MockWebDavClient();
+      mock.returnResult(WebDavValidationResult.success());
+
+      final container = makeContainer(mock);
+      addTearDown(container.dispose);
+
+      // 1. Validate successfully
+      await container.read(connectionValidatorProvider.notifier).validate(
+            url: 'http://192.168.1.100',
+            username: 'admin',
+            password: 'secret',
+          );
+
+      expect(container.read(connectionValidatorProvider), isA<ValidationSuccess>(),
+          reason: '验证成功');
+
+      // 2. Simulate onFieldChanged (credential field changed → reset)
+      container.read(connectionValidatorProvider.notifier).reset();
+
+      expect(container.read(connectionValidatorProvider), isA<ValidationIdle>(),
+          reason: '凭证字段变更后验证器应重置为 Idle，保存按钮恢复禁用');
+    });
+
+    // ── CON-FIX-T02: 验证成功后修改密码 → 保存按钮禁用 ───────────────────
+
+    test('CON-FIX-T02: after validation, changing password resets validator', () async {
+      final mock = MockWebDavClient();
+      mock.returnResult(WebDavValidationResult.success());
+
+      final container = makeContainer(mock);
+      addTearDown(container.dispose);
+
+      await container.read(connectionValidatorProvider.notifier).validate(
+            url: 'http://192.168.1.100',
+            username: 'admin',
+            password: 'secret',
+          );
+
+      expect(container.read(connectionValidatorProvider), isA<ValidationSuccess>());
+
+      // onFieldChanged resets regardless of which credential field changed
+      container.read(connectionValidatorProvider.notifier).reset();
+
+      expect(container.read(connectionValidatorProvider), isA<ValidationIdle>(),
+          reason: '修改密码后验证器应重置，保存按钮恢复禁用');
+    });
+
+    // ── CON-FIX-T03: 验证成功后仅修改显示名称 → 保存按钮保持启用 ────────
+
+    test('CON-FIX-T03: changing display name does NOT reset validator', () async {
+      final mock = MockWebDavClient();
+      mock.returnResult(WebDavValidationResult.success());
+
+      final container = makeContainer(mock);
+      addTearDown(container.dispose);
+
+      await container.read(connectionValidatorProvider.notifier).validate(
+            url: 'http://192.168.1.100',
+            username: 'admin',
+            password: 'secret',
+          );
+
+      expect(container.read(connectionValidatorProvider), isA<ValidationSuccess>());
+
+      // Display name changes do NOT trigger onFieldChanged
+      // (ConnectionForm only listens to url/username/password/basePath).
+      // So the validator stays at ValidationSuccess — save remains enabled.
+      expect(container.read(connectionValidatorProvider), isA<ValidationSuccess>(),
+          reason: '仅修改显示名称时验证器应保持成功状态，保存按钮保持启用');
+    });
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
