@@ -184,6 +184,110 @@ void main() {
     });
   });
 
+  // ── TST-15: SerializedRequestGate concurrent contention ──────────────────
+
+  group('TST-15: SerializedRequestGate concurrent contention', () {
+    test('TST-T119: 50 rapid requests → only last executes, rest superseded',
+        () async {
+      final gate = SerializedRequestGate();
+      final firstFinish = Completer<void>();
+      int executedCount = 0;
+      int supersededCount = 0;
+
+      // Start first request that will block all others
+      final futures = <Future<String>>[];
+
+      // Request 1: blocks the gate
+      futures.add(gate.schedule<String>(
+        onSuperseded: () {
+          supersededCount++;
+          return 'superseded';
+        },
+        task: (_) async {
+          executedCount++;
+          await firstFinish.future; // block
+          return 'first';
+        },
+      ));
+
+      // Give it time to start executing
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      // Requests 2-50: all queued, each supersedes previous pending
+      for (int i = 2; i <= 50; i++) {
+        futures.add(gate.schedule<String>(
+          onSuperseded: () {
+            supersededCount++;
+            return 'superseded';
+          },
+          task: (_) async {
+            executedCount++;
+            return 'request-$i';
+          },
+        ));
+      }
+
+      // Unblock: request 1 finishes → pending (request 50) starts
+      firstFinish.complete();
+
+      final results = await Future.wait(futures);
+
+      // Request 1 was superseded (not the latest)
+      // Requests 2-49 were superseded in queue
+      // Request 50 was the only one that executed normally
+      expect(executedCount, equals(2),
+          reason: 'TST-T119: 只有第1个(阻塞者)和第50个(最终胜者)执行');
+      // 49 superseded
+      expect(supersededCount, equals(49),
+          reason: 'TST-T119: 49个请求被 supersede');
+      expect(results.last, equals('request-50'),
+          reason: 'TST-T119: 最后一个请求应正常完成');
+    });
+
+    test(
+        'TST-T120: pending request gets superseded by newer request', () async {
+      final gate = SerializedRequestGate();
+      final firstBlock = Completer<void>();
+      final started = <String>[];
+
+      // Request A: starts immediately
+      final a = gate.schedule<String>(
+        onSuperseded: () => 'a-superseded',
+        task: (_) async {
+          started.add('A');
+          await firstBlock.future;
+          return 'A-done';
+        },
+      );
+
+      // Request B: becomes pending
+      final b = gate.schedule<String>(
+        onSuperseded: () => 'b-superseded',
+        task: (_) async {
+          started.add('B');
+          return 'B-done';
+        },
+      );
+
+      // Request C: supersedes B as pending, before B starts
+      final c = gate.schedule<String>(
+        onSuperseded: () => 'c-superseded',
+        task: (_) async {
+          started.add('C');
+          return 'C-done';
+        },
+      );
+
+      firstBlock.complete();
+
+      expect(await a, equals('a-superseded'));
+      expect(await b, equals('b-superseded'));
+      expect(await c, equals('C-done'));
+      expect(started, equals(['A', 'C']),
+          reason: 'TST-T120: B从未执行，被C取代');
+    });
+  });
+
   group('B-3: queue button placement on player screen', () {
     testWidgets('queue button is rendered beside next button, not in AppBar',
         (tester) async {
@@ -857,6 +961,71 @@ void main() {
 
     test('1.25x NOT detected as selected when currentSpeed is 1.0', () {
       expect((1.25 - 1.0).abs() < 0.01, isFalse);
+    });
+  });
+
+  // ── TST-15: NasFile.fromProps edge cases ─────────────────────────────────
+
+  group('TST-T121/T122: NasFile.fromProps edge cases', () {
+    test('TST-T121: NasFile.fromProps with empty props does not crash', () {
+      final file = NasFile.fromProps(
+        href: '/music/test.mp3',
+        props: {},
+      );
+      expect(file.name, equals('test.mp3'),
+          reason: 'TST-T121: 空 props 时应从 href 提取名称');
+      expect(file.isDirectory, isFalse);
+      expect(file.size, isNull);
+      expect(file.modifiedAt, isNull);
+    });
+
+    test('TST-T121: NasFile.fromProps handles null prop values', () {
+      final file = NasFile.fromProps(
+        href: '/music/song.mp3',
+        props: <String, String?>{
+          'displayname': null,
+          'getcontentlength': null,
+          'getlastmodified': null,
+          'resourcetype': null,
+        },
+      );
+      expect(file.name, equals('song.mp3'),
+          reason: 'null displayname 时 fallback 到 href 最后一段');
+      expect(file.isDirectory, isFalse,
+          reason: 'null resourcetype → 不是目录');
+      expect(file.size, isNull);
+      expect(file.modifiedAt, isNull);
+    });
+
+    test('TST-T122: missing fields use defaults', () {
+      final file = NasFile.fromProps(
+        href: '/music/audio.mp3',
+        props: <String, String?>{},
+      );
+      expect(file.name, equals('audio.mp3'));
+      expect(file.path, equals('/music/audio.mp3'));
+      expect(file.isDirectory, isFalse,
+          reason: '缺失 resourcetype → 默认不是目录');
+      expect(file.size, isNull,
+          reason: '缺失 getcontentlength → size=null');
+      expect(file.modifiedAt, isNull,
+          reason: '缺失 getlastmodified → modifiedAt=null');
+      expect(file.audioType, equals(AudioFileType.music),
+          reason: '.mp3 文件应分类为 music');
+    });
+
+    test('TST-T122: directory detection with collection in resourcetype', () {
+      final file = NasFile.fromProps(
+        href: '/music/',
+        props: <String, String?>{
+          'resourcetype': '<collection/>',
+        },
+      );
+      expect(file.isDirectory, isTrue,
+          reason: 'resourcetype 含 collection → 是目录');
+      expect(file.name, equals('music'));
+      expect(file.audioType, isNull,
+          reason: '目录不应有 audioType');
     });
   });
 }

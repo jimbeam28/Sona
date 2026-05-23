@@ -430,6 +430,83 @@ void main() {
     });
   });
 
+  // ── TST-15: URL encoding boundary characters ──────────────────────────────────
+
+  group('TST-15: URL encoding boundary characters', () {
+    test('TST-T114: emoji in file path is percent-encoded', () {
+      final uri = AudioSourceBuilder.buildUri(
+        baseUrl: 'http://192.168.1.1:8080',
+        filePath: '/music/song🎵.mp3',
+      );
+      final uriStr = uri.toString();
+      // 🎵 = U+1F3B5, UTF-8: F0 9F 8E B5
+      expect(uriStr, contains('%F0%9F%8E%B5'),
+          reason: 'emoji 应被正确 UTF-8 编码');
+      // Verify URI can be re-parsed
+      final reparsed = Uri.parse(uriStr);
+      expect(reparsed.scheme, equals('http'));
+    });
+
+    test('TST-T115: # in file path encoded as %23', () {
+      final uri = AudioSourceBuilder.buildUri(
+        baseUrl: 'http://192.168.1.1:8080',
+        filePath: '/music/song#1.mp3',
+      );
+      final uriStr = uri.toString();
+      expect(uriStr, contains('%23'),
+          reason: '# 应编码为 %23 避免被解析为 fragment');
+      expect(uriStr, isNot(contains('#')),
+          reason: '最终 URL 不应包含未编码的 #');
+    });
+
+    test('TST-T116: ? in file path encoded as %3F', () {
+      final uri = AudioSourceBuilder.buildUri(
+        baseUrl: 'http://192.168.1.1:8080',
+        filePath: '/music/whats that?.mp3',
+      );
+      final uriStr = uri.toString();
+      expect(uriStr, contains('%3F'),
+          reason: '? 应编码为 %3F 避免被解析为 query');
+      expect(uriStr, isNot(contains('?')),
+          reason: '最终 URL 不应包含未编码的 ?');
+    });
+
+    test('TST-T117: & + % in file path are each correctly encoded', () {
+      final uri = AudioSourceBuilder.buildUri(
+        baseUrl: 'http://192.168.1.1:8080',
+        filePath: '/music/a&b+c%d.mp3',
+      );
+      final uriStr = uri.toString();
+      // & → %26, + → %2B, % → %25
+      expect(uriStr, contains('%26'), reason: '& 应编码为 %26');
+      expect(uriStr, contains('%2B'), reason: '+ 应编码为 %2B');
+      expect(uriStr, contains('%25'), reason: '% 应编码为 %25');
+      // The %25d part: % → %25, then 'd' remains as-is
+      expect(uriStr, contains('%25d'), reason: '%d 中的 % 应编码为 %25');
+    });
+
+    test('TST-T118: single and double quotes in file path are encoded', () {
+      final uri = AudioSourceBuilder.buildUri(
+        baseUrl: 'http://192.168.1.1:8080',
+        filePath: '/music/it\'s "great".mp3',
+      );
+      final uriStr = uri.toString();
+      // Double-quote is NOT a valid URI path character → must be encoded
+      expect(uriStr, contains('%22'), reason: '双引号应编码为 %22');
+      expect(uriStr, isNot(contains('"')), reason: 'URL 不应含未编码的双引号');
+      // Single-quote (apostrophe) is an RFC 3986 sub-delims character and
+      // Uri.encodeComponent intentionally leaves it unencoded in path segments.
+      // This is correct per spec — only verify it does not crash or produce
+      // invalid output.
+      expect(uriStr, isNot(contains('%27')),
+          reason: '单引号是合法 path 字符，Uri.encodeComponent 不会编码它');
+      // URI must remain parseable
+      final reparsed = Uri.parse(uriStr);
+      expect(reparsed.scheme, equals('http'));
+      expect(reparsed.path, contains("it's"));
+    });
+  });
+
   // ── Duration formatting ───────────────────────────────────────────────────────
 
   group('formatDuration helper', () {

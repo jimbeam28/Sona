@@ -164,6 +164,19 @@
 
 ---
 
+## [2026-05-24] [TST-15] - URL编码边界与并发竞争测试
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `test/features/player/ply_01_test.dart` — 追加 TST-T114~T118 URL 编码边界字符测试
+- `test/features/player/ply_02_test.dart` — 追加 TST-T119~T120 并发竞争测试 + TST-T121~T122 NasFile.fromProps 边界测试
+
+### 测试结果
+- 通过: 781 / 总计: 781
+
+---
+
 ## [2026-05-24] [TST-14] - 运行日志查看器测试
 
 **状态**: ✅ 成功
