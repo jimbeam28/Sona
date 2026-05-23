@@ -1312,12 +1312,12 @@ void main() {
       ];
 
       // Without resume → no startPositionMs
-      const queueWithout = PlayQueue(files: files, currentIndex: 0);
+      final queueWithout = PlayQueue(files: files, currentIndex: 0);
       expect(queueWithout.startPositionMs, isNull,
           reason: '无进度恢复时 startPositionMs 应为 null');
 
       // With resume → startPositionMs set
-      const queueWith = PlayQueue(
+      final queueWith = PlayQueue(
         files: files,
         currentIndex: 0,
         startPositionMs: 120000,

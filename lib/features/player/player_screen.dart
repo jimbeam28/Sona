@@ -624,11 +624,16 @@ class _PlaybackControls extends ConsumerWidget {
     final queue = ref.watch(currentPlayQueueProvider);
     final mode = ref.watch(playModeProvider);
 
+    // PLY-01: use deterministic shuffle methods for shuffle mode
     final prevIdx = queue != null
-        ? PlayQueue.previousIndex(queue.currentIndex, queue.length, mode)
+        ? (mode == PlayMode.shuffle
+            ? queue.previousShuffleIndex()
+            : PlayQueue.previousIndex(queue.currentIndex, queue.length, mode))
         : null;
     final nextIdx = queue != null
-        ? PlayQueue.nextIndex(queue.currentIndex, queue.length, mode)
+        ? (mode == PlayMode.shuffle
+            ? queue.nextShuffleIndex()
+            : PlayQueue.nextIndex(queue.currentIndex, queue.length, mode))
         : null;
 
     return Row(

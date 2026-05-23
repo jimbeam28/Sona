@@ -2,8 +2,8 @@
   "metadata": {
     "last_updated": "2026-05-23",
     "total": 26,
-    "pending": 18,
-    "done": 8
+    "pending": 17,
+    "done": 9
   },
   "order": [
     "PRG-01",
@@ -93,8 +93,8 @@
     "PLY-01": {
       "name": "Shuffle 模式非确定性",
       "plan_section": "dev-plan.md §PLY-01",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": []
     },
     "PLY-02": {

@@ -631,15 +631,23 @@ final startProcessingListenerProvider = Provider<void Function()>((ref) {
           final q = ref.read(currentPlayQueueProvider);
           final m = ref.read(playModeProvider);
           if (q == null) return;
-          final ni = PlayQueue.nextIndex(q.currentIndex, q.length, m);
-          if (ni == null) {
+          // PLY-01: use deterministic shuffle order for shuffle mode
+          PlayQueue? nq;
+          if (m == PlayMode.shuffle) {
+            nq = q.advanceShuffle();
+          }
+          nq ??= () {
+            final ni = PlayQueue.nextIndex(q.currentIndex, q.length, m);
+            if (ni == null) return null;
+            return q.withIndex(ni);
+          }();
+          if (nq == null) {
             debugPrint('[Player] no next track, seeking to start');
             player.seek(Duration.zero);
             player.pause();
             return;
           }
           ref.read(saveProgressProvider)();
-          final nq = q.withIndex(ni);
           ref.read(currentPlayQueueProvider.notifier).state = nq;
           unawaited(ref.read(loadAndPlayProvider)());
         }
@@ -744,14 +752,19 @@ final Provider<Future<TrackLoadResult> Function()> skipToNextProvider =
     final queue = ref.read(currentPlayQueueProvider);
     final mode = ref.read(playModeProvider);
     if (queue == null) return const TrackLoadResult.failed();
-    final nextIdx = PlayQueue.nextIndex(queue.currentIndex, queue.length, mode);
-    if (nextIdx == null) {
+    // PLY-01: use deterministic shuffle order for shuffle mode
+    final nextQueue = mode == PlayMode.shuffle
+        ? queue.advanceShuffle()
+        : () {
+            final ni = PlayQueue.nextIndex(queue.currentIndex, queue.length, mode);
+            return ni != null ? queue.withIndex(ni) : null;
+          }();
+    if (nextQueue == null) {
       debugPrint('[Player] skipNext: no next track (mode=$mode)');
       return const TrackLoadResult.failed();
     }
-    debugPrint('[Player] skipNext: idx=$nextIdx file=${queue.files[nextIdx].path}');
+    debugPrint('[Player] skipNext: idx=${nextQueue.currentIndex} file=${nextQueue.current.path}');
     ref.read(saveProgressProvider)();
-    final nextQueue = queue.withIndex(nextIdx);
     ref.read(currentPlayQueueProvider.notifier).state = nextQueue;
     return ref.read(loadAndPlayProvider)();
   };
@@ -765,15 +778,19 @@ final skipToPreviousProvider =
     final queue = ref.read(currentPlayQueueProvider);
     final mode = ref.read(playModeProvider);
     if (queue == null) return const TrackLoadResult.failed();
-    final prevIdx =
-        PlayQueue.previousIndex(queue.currentIndex, queue.length, mode);
-    if (prevIdx == null) {
+    // PLY-01: use deterministic shuffle history for shuffle mode
+    final prevQueue = mode == PlayMode.shuffle
+        ? queue.retreatShuffle()
+        : () {
+            final pi = PlayQueue.previousIndex(queue.currentIndex, queue.length, mode);
+            return pi != null ? queue.withIndex(pi) : null;
+          }();
+    if (prevQueue == null) {
       debugPrint('[Player] skipPrev: no previous track (mode=$mode)');
       return const TrackLoadResult.failed();
     }
-    debugPrint('[Player] skipPrev: idx=$prevIdx file=${queue.files[prevIdx].path}');
+    debugPrint('[Player] skipPrev: idx=${prevQueue.currentIndex} file=${prevQueue.current.path}');
     ref.read(saveProgressProvider)();
-    final prevQueue = queue.withIndex(prevIdx);
     ref.read(currentPlayQueueProvider.notifier).state = prevQueue;
     return ref.read(loadAndPlayProvider)();
   };

@@ -42,18 +42,48 @@ enum PlayMode {
 /// playback.
 ///
 /// [playMode] controls what happens when a track ends (sequential by default).
+///
+/// When [playMode] is [PlayMode.shuffle], [_shuffleOrder] holds a Fisher-Yates
+/// permutation of all indices so that each track plays exactly once per cycle
+/// and prev/next are deterministic.
 class PlayQueue {
   final List<NasFile> files;
   final int currentIndex;
   final int? startPositionMs;
   final PlayMode playMode;
+  final List<int>? _shuffleOrder;
+  final int? _shufflePosition;
 
-  const PlayQueue({
+  /// Creates a [PlayQueue].  When [playMode] is [PlayMode.shuffle], a
+  /// Fisher-Yates permutation of [0 .. files.length-1] is generated (seeded
+  /// with [random] for testability).  The optional [_shuffleOrder] and
+  /// [_shufflePosition] are used when restoring a persisted queue.
+  PlayQueue({
     required this.files,
     required this.currentIndex,
     this.startPositionMs,
     this.playMode = PlayMode.sequential,
-  });
+    List<int>? shuffleOrder,
+    int? shufflePosition,
+    Random? random,
+  })  : _shuffleOrder = shuffleOrder ??
+            (playMode == PlayMode.shuffle && files.length > 1
+                ? _generateShuffleOrder(files.length, random ?? Random())
+                : null),
+        _shufflePosition = shufflePosition ??
+            (playMode == PlayMode.shuffle && files.length > 1 ? 0 : null);
+
+  /// Fisher-Yates shuffle returning a random permutation of [0 .. n-1].
+  static List<int> _generateShuffleOrder(int n, Random rng) {
+    final order = List<int>.generate(n, (i) => i);
+    for (int i = n - 1; i > 0; i--) {
+      final j = rng.nextInt(i + 1);
+      final tmp = order[i];
+      order[i] = order[j];
+      order[j] = tmp;
+    }
+    return order;
+  }
 
   /// The file currently being played.
   NasFile get current => files[currentIndex];
@@ -68,11 +98,15 @@ class PlayQueue {
   int get length => files.length;
 
   /// Returns a copy of this queue with a different [playMode].
+  /// Entering shuffle mode generates a fresh Fisher-Yates permutation.
   PlayQueue withMode(PlayMode mode) => PlayQueue(
         files: files,
         currentIndex: currentIndex,
         startPositionMs: startPositionMs,
         playMode: mode,
+        // Preserve existing shuffle order only if staying in shuffle mode
+        shuffleOrder: mode == PlayMode.shuffle ? _shuffleOrder : null,
+        shufflePosition: mode == PlayMode.shuffle ? _shufflePosition : null,
       );
 
   /// Returns a copy of this queue with a different [currentIndex].
@@ -81,6 +115,8 @@ class PlayQueue {
         currentIndex: newIndex,
         startPositionMs: startPositionMs,
         playMode: playMode,
+        shuffleOrder: _shuffleOrder,
+        shufflePosition: _shufflePosition,
       );
 
   /// Returns a copy of this queue with a different [startPositionMs].
@@ -89,6 +125,8 @@ class PlayQueue {
         currentIndex: currentIndex,
         startPositionMs: ms,
         playMode: playMode,
+        shuffleOrder: _shuffleOrder,
+        shufflePosition: _shufflePosition,
       );
 
   /// Returns a copy of this queue with the track at [index] removed.
@@ -97,6 +135,8 @@ class PlayQueue {
   /// - If the removed track is before [currentIndex], decrement
   /// - If the removed track IS [currentIndex], keep the same index (the next
   ///   track shifts into this position) unless it was the last track
+  ///
+  /// Shuffle order is regenerated if in shuffle mode and a track is removed.
   PlayQueue withoutIndex(int index) {
     final newList = files.toList();
     newList.removeAt(index);
@@ -121,10 +161,69 @@ class PlayQueue {
       currentIndex: newIndex,
       startPositionMs: index == currentIndex ? null : startPositionMs,
       playMode: playMode,
+      // Regenerate shuffle order after removal (must be null to trigger
+      // fresh generation in constructor)
+      shuffleOrder: null,
+      shufflePosition: null,
     );
   }
 
   // ── Queue navigation (PLY-05) ──────────────────────────────────────────
+
+  /// Returns the index of the next track in shuffle order, or `null` when
+  /// there is no next track in the current mode.
+  ///
+  /// For [PlayMode.shuffle] this advances through the Fisher-Yates
+  /// permutation.  The caller should use [withIndex] to persist the new
+  /// position.
+  int? nextShuffleIndex() {
+    final order = _shuffleOrder;
+    final pos = _shufflePosition;
+    if (order == null || pos == null || pos >= order.length - 1) return null;
+    return order[pos + 1];
+  }
+
+  /// Returns the index of the previous track in shuffle history.
+  int? previousShuffleIndex() {
+    final order = _shuffleOrder;
+    final pos = _shufflePosition;
+    if (order == null || pos == null || pos <= 0) return null;
+    return order[pos - 1];
+  }
+
+  /// Advances [_shufflePosition] by one and returns a new queue.
+  /// Returns `null` when already at the end of the shuffle order.
+  PlayQueue? advanceShuffle() {
+    final order = _shuffleOrder;
+    final pos = _shufflePosition;
+    if (order == null || pos == null || pos >= order.length - 1) return null;
+    final newPos = pos + 1;
+    return PlayQueue(
+      files: files,
+      currentIndex: order[newPos],
+      startPositionMs: null,
+      playMode: playMode,
+      shuffleOrder: order,
+      shufflePosition: newPos,
+    );
+  }
+
+  /// Goes back one step in shuffle history and returns a new queue.
+  /// Returns `null` when already at the start of the shuffle order.
+  PlayQueue? retreatShuffle() {
+    final order = _shuffleOrder;
+    final pos = _shufflePosition;
+    if (order == null || pos == null || pos <= 0) return null;
+    final newPos = pos - 1;
+    return PlayQueue(
+      files: files,
+      currentIndex: order[newPos],
+      startPositionMs: null,
+      playMode: playMode,
+      shuffleOrder: order,
+      shufflePosition: newPos,
+    );
+  }
 
   /// Returns the index of the next track given [mode], or `null` when
   /// playback should stop (sequential mode at end of queue).
@@ -148,6 +247,8 @@ class PlayQueue {
       case PlayMode.repeatAll:
         return (current + 1) % length;
       case PlayMode.shuffle:
+        // Instance methods nextShuffleIndex / advanceShuffle should be
+        // used instead for deterministic shuffle navigation.
         if (length <= 1) return null;
         final rng = random ?? Random();
         int next;
@@ -175,6 +276,8 @@ class PlayQueue {
       case PlayMode.repeatAll:
         return (current - 1 + length) % length;
       case PlayMode.shuffle:
+        // Instance methods previousShuffleIndex / retreatShuffle should be
+        // used instead for deterministic shuffle navigation.
         if (length <= 1) return null;
         final rng = random ?? Random();
         int prev;
@@ -191,11 +294,14 @@ class PlayQueue {
   ///
   /// File identities are stored as paths; the caller is responsible for
   /// reconstructing [NasFile] objects on deserialisation.
+  /// Shuffle order is persisted so restored queues retain the same sequence.
   Map<String, dynamic> toMap() => {
         'filePaths': files.map((f) => f.path).toList(),
         'currentIndex': currentIndex,
         'startPositionMs': startPositionMs,
         'playMode': playMode.name,
+        if (_shuffleOrder != null) 'shuffleOrder': _shuffleOrder,
+        if (_shufflePosition != null) 'shufflePosition': _shufflePosition,
       };
 
   /// Reconstructs a [PlayQueue] from a previously-serialised map and a
@@ -210,11 +316,17 @@ class PlayQueue {
         ? PlayMode.values.firstWhere((m) => m.name == modeName,
             orElse: () => PlayMode.sequential)
         : PlayMode.sequential;
+    final shuffleOrderRaw = map['shuffleOrder'] as List<dynamic>?;
+    final shuffleOrder =
+        shuffleOrderRaw?.map((e) => (e as num).toInt()).toList();
+    final shufflePosition = map['shufflePosition'] as int?;
     return PlayQueue(
       files: files,
       currentIndex: map['currentIndex'] as int? ?? 0,
       startPositionMs: map['startPositionMs'] as int?,
       playMode: mode,
+      shuffleOrder: shuffleOrder,
+      shufflePosition: shufflePosition,
     );
   }
 
