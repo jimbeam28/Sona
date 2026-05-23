@@ -71,7 +71,8 @@ final upsertProgressProvider = Provider<
     final dao = ref.read(progressDaoProvider);
     debugPrint('[Progress] upsert: file=$filePath pos=${positionMs}ms'
         ' dur=${durationMs ?? 'null'}ms');
-    await dao.upsertLatest(
+    // PRG-02: use composite-key UPSERT instead of single-record mode
+    await dao.upsert(
       connectionId: connectionId,
       filePath: filePath,
       positionMs: positionMs,

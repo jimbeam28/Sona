@@ -138,6 +138,50 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
               ),
             );
           }
+          // PLS-03: use ReorderableListView for drag-to-reorder
+          // Only enable when sorted by added time (manual order).
+          if (ref.watch(trackSortProvider) == TrackSortOption.addedAsc) {
+            return ReorderableListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: tracks.length,
+              onReorder: (oldIndex, newIndex) {
+                if (newIndex > oldIndex) newIndex--;
+                ref.read(reorderPlaylistTrackProvider)(
+                  playlistId, oldIndex, newIndex,
+                );
+              },
+              itemBuilder: (context, index) {
+                final track = tracks[index];
+                return PlaylistTrackItem(
+                  key: ValueKey(track.id),
+                  track: track,
+                  selected: _selectedIds.contains(track.id),
+                  onTap: () {
+                    if (_selectionMode) {
+                      setState(() {
+                        if (_selectedIds.contains(track.id)) {
+                          _selectedIds.remove(track.id);
+                          if (_selectedIds.isEmpty) _exitSelectionMode();
+                        } else {
+                          _selectedIds.add(track.id!);
+                        }
+                      });
+                    } else {
+                      _playTrackAtIndex(tracks, index);
+                    }
+                  },
+                  onLongPress: () {
+                    if (!_selectionMode) {
+                      setState(() {
+                        _selectionMode = true;
+                        _selectedIds.add(track.id!);
+                      });
+                    }
+                  },
+                );
+              },
+            );
+          }
           return ListView.separated(
             padding: const EdgeInsets.symmetric(vertical: 8),
             itemCount: tracks.length,

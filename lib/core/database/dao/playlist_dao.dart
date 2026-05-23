@@ -89,4 +89,34 @@ class PlaylistDao {
     );
     return (result.first['cnt'] as int) > 0;
   }
+
+  /// Reorders a track within a playlist by updating `added_at` timestamps
+  /// to reflect the new positional order (PLS-03).
+  Future<void> reorderTrack(int playlistId, int oldIndex, int newIndex) async {
+    final db = await _db;
+    final tracks = await db.query(
+      'playlist_tracks',
+      where: 'playlist_id = ?',
+      whereArgs: [playlistId],
+      orderBy: 'added_at ASC, id ASC',
+    );
+    if (tracks.length < 2) return;
+    if (oldIndex == newIndex) return;
+
+    final moved = List<Map<String, dynamic>>.from(tracks);
+    moved.removeAt(oldIndex);
+    moved.insert(newIndex, tracks[oldIndex]);
+
+    final base = DateTime.now().millisecondsSinceEpoch;
+    final batch = db.batch();
+    for (int i = 0; i < moved.length; i++) {
+      batch.update(
+        'playlist_tracks',
+        {'added_at': base + i},
+        where: 'id = ?',
+        whereArgs: [moved[i]['id']],
+      );
+    }
+    await batch.commit(noResult: true);
+  }
 }

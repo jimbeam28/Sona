@@ -1,6 +1,8 @@
 // lib/features/playlist/playlist_provider.dart
 // Riverpod providers for the Playlist feature.
 
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/database/dao/playlist_dao.dart';
@@ -129,6 +131,16 @@ final addTracksToPlaylistProvider =
   };
 });
 
+final reorderPlaylistTrackProvider =
+    Provider<Future<void> Function(int playlistId, int oldIndex, int newIndex)>(
+        (ref) {
+  final dao = ref.watch(playlistDaoProvider);
+  return (int playlistId, int oldIndex, int newIndex) async {
+    await dao.reorderTrack(playlistId, oldIndex, newIndex);
+    ref.invalidate(playlistTracksProvider(playlistId));
+  };
+});
+
 final removeTracksFromPlaylistProvider =
     Provider<Future<void> Function(int playlistId, List<int> trackIds)>((ref) {
   final dao = ref.watch(playlistDaoProvider);
@@ -136,5 +148,61 @@ final removeTracksFromPlaylistProvider =
     await dao.removeTracks(trackIds);
     ref.invalidate(playlistTracksProvider(playlistId));
     ref.invalidate(playlistListProvider);
+  };
+});
+
+// ── PLS-05: Export / Import ─────────────────────────────────────────────────
+
+/// Exports a playlist to a JSON string containing name, track list.
+final exportPlaylistProvider =
+    FutureProvider.family<String, int>((ref, playlistId) async {
+  final playlists =
+      await ref.read(playlistListProvider.future);
+  final playlist = playlists.where((p) => p.id == playlistId).firstOrNull;
+  if (playlist == null) throw Exception('播放单不存在');
+
+  final tracks =
+      await ref.read(playlistTracksProvider(playlistId).future);
+  final json = {
+    'name': playlist.name,
+    'tracks': tracks
+        .map((t) => {'filePath': t.filePath, 'fileName': t.fileName})
+        .toList(),
+  };
+  return const JsonEncoder.withIndent('  ').convert(json);
+});
+
+/// Imports a playlist from a JSON string. Returns the created playlist ID.
+final importPlaylistProvider =
+    Provider<Future<int> Function(String jsonString)>((ref) {
+  final dao = ref.watch(playlistDaoProvider);
+  return (String jsonString) async {
+    final data = jsonDecode(jsonString) as Map<String, dynamic>;
+    final name = (data['name'] as String?) ?? '导入的播放单';
+    final trackList = (data['tracks'] as List<dynamic>?) ?? [];
+
+    final now = DateTime.now();
+    final playlistId = await dao.insertPlaylist(Playlist(
+      name: name,
+      createdAt: now,
+      updatedAt: now,
+    ));
+
+    final tracks = trackList
+        .map((t) => PlaylistTrack(
+              playlistId: playlistId,
+              filePath: t['filePath'] as String? ?? '',
+              fileName: t['fileName'] as String? ?? '',
+              addedAt: now,
+            ))
+        .where((t) => t.filePath.isNotEmpty)
+        .toList();
+
+    if (tracks.isNotEmpty) {
+      await dao.addTracks(tracks);
+    }
+
+    ref.invalidate(playlistListProvider);
+    return playlistId;
   };
 });

@@ -464,22 +464,16 @@ final loadProgressForDirectoryProvider =
   final contents = ref.read(directoryContentsProvider(path)).valueOrNull;
   if (contents == null) return;
 
-  // C-4: only expose the single active progress record.
+  // PRG-02: load progress for each file in the directory independently.
   final registry = <String, PlayProgress?>{};
-  PlayProgress? latest;
-  try {
-    latest = await dao.findLatest();
-  } catch (_) {
-    latest = null;
-  }
-
   for (final file in contents) {
     if (file.isDirectory) continue;
-    registry[file.path] = latest != null &&
-            latest.connectionId == activeConn.id &&
-            latest.filePath == file.path
-        ? latest
-        : null;
+    try {
+      registry[file.path] =
+          await dao.find(activeConn.id!, file.path);
+    } catch (_) {
+      registry[file.path] = null;
+    }
   }
 
   ref.read(_progressRegistryProvider.notifier).state = registry;
