@@ -68,6 +68,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
           (player.playing || player.processingState == ProcessingState.ready)) {
         debugPrint('[Player] skipping load — source matches and player ready');
         setState(() => _loadState = PlayerLoadState.ready);
+        // Re-register listeners cancelled by the previous screen's dispose().
+        ref.read(reconnectPlaybackListenersProvider)();
       } else {
         debugPrint('[Player] calling _loadAndPlay, needsReload=$needsReload');
         _loadAndPlay();

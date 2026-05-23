@@ -610,6 +610,40 @@ final cancelProcessingListenerProvider = Provider<void Function()>((ref) {
   };
 });
 
+/// Registers (or re-registers) the processing-state listener that handles
+/// track completion — auto-advance to next or afterCurrent timer stop.
+///
+/// Extracted from [loadAndPlayProvider] so the PlayerScreen can re-register
+/// the listener when it re-opens and skips reloading a matching source.
+final startProcessingListenerProvider = Provider<void Function()>((ref) {
+  return () {
+    final player = ref.read(audioPlayerProvider);
+    ref.read(cancelProcessingListenerProvider)();
+    final sub = player.processingStateStream.listen((state) {
+      if (state == ProcessingState.completed) {
+        debugPrint('[Player] track completed');
+        final triggered = ref.read(onTrackCompletedProvider)();
+        if (triggered) {
+          debugPrint('[Player] afterCurrent timer triggered, pausing');
+          player.pause();
+        } else {
+          debugPrint('[Player] advancing to next track');
+          final q = ref.read(currentPlayQueueProvider);
+          final m = ref.read(playModeProvider);
+          if (q == null) return;
+          final ni = PlayQueue.nextIndex(q.currentIndex, q.length, m);
+          if (ni == null) return;
+          ref.read(saveProgressProvider)();
+          final nq = q.withIndex(ni);
+          ref.read(currentPlayQueueProvider.notifier).state = nq;
+          unawaited(ref.read(loadAndPlayProvider)());
+        }
+      }
+    });
+    ref.read(_processingSubProvider.notifier).state = sub;
+  };
+});
+
 /// Saves the current playback position to the database.
 final saveProgressProvider = Provider<void Function()>((ref) {
   return () {
@@ -671,6 +705,17 @@ final _startPauseSaveProvider = Provider<void Function(AudioPlayer)>((ref) {
       wasPlaying = playing;
     });
     ref.read(_pauseSaveSubProvider.notifier).state = sub;
+  };
+});
+
+/// Re-registers all playback listeners that were cancelled when the
+/// PlayerScreen was disposed.  Call this when the screen re-opens and
+/// skips [_loadAndPlay] because the source already matches.
+final reconnectPlaybackListenersProvider = Provider<void Function()>((ref) {
+  return () {
+    ref.read(startProcessingListenerProvider)();
+    ref.read(_startAutoSaveProvider)();
+    ref.read(_startPauseSaveProvider)(ref.read(audioPlayerProvider));
   };
 });
 
@@ -787,24 +832,8 @@ final removeTrackFromQueueProvider =
 /// Returns the [AudioPlayer] after the source is loaded and playing, or
 /// `null` on failure.
 ///
-/// G-2: the processing listener calls an inlined _advanceToNext helper
-/// instead of reading [skipToNextProvider], breaking the cycle.
 final Provider<Future<TrackLoadResult> Function()> loadAndPlayProvider =
     Provider<Future<TrackLoadResult> Function()>((ref) {
-  /// G-2: inline helper — advances the queue and re-enters loadAndPlay,
-  /// avoiding a circular Provider reference.
-  void advanceToNext() {
-    final q = ref.read(currentPlayQueueProvider);
-    final m = ref.read(playModeProvider);
-    if (q == null) return;
-    final ni = PlayQueue.nextIndex(q.currentIndex, q.length, m);
-    if (ni == null) return;
-    ref.read(saveProgressProvider)();
-    final nq = q.withIndex(ni);
-    ref.read(currentPlayQueueProvider.notifier).state = nq;
-    unawaited(ref.read(loadAndPlayProvider)());
-  }
-
   return () async {
     final gate = ref.read(_loadRequestGateProvider);
     return gate.schedule<TrackLoadResult>(
@@ -856,23 +885,7 @@ final Provider<Future<TrackLoadResult> Function()> loadAndPlayProvider =
           final player = ref.read(audioPlayerProvider);
 
           // Register completion listener BEFORE stop (preserves A-2 fix).
-          // G-2: uses advanceToNext() defined above, not skipToNextProvider,
-          // to break the circular dependency.
-          ref.read(cancelProcessingListenerProvider)();
-          final sub = player.processingStateStream.listen((state) {
-            if (state == ProcessingState.completed) {
-              debugPrint('[Player] track completed');
-              final triggered = ref.read(onTrackCompletedProvider)();
-              if (triggered) {
-                debugPrint('[Player] afterCurrent timer triggered, pausing');
-                player.pause();
-              } else {
-                debugPrint('[Player] advancing to next track');
-                advanceToNext();
-              }
-            }
-          });
-          ref.read(_processingSubProvider.notifier).state = sub;
+          ref.read(startProcessingListenerProvider)();
 
           debugPrint('[Provider] loadAndPlay: calling player.stop()');
           await player.stop();
