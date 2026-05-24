@@ -541,4 +541,42 @@ void main() {
       expect(selectedIndex, equals(1));
     });
   });
+
+  // ── TST-02a: Mini player play button restarts from beginning in completed state
+
+  group('TST-02a: Mini player play button in completed state', () {
+    testWidgets('press play in completed state seeks to zero then plays',
+        (WidgetTester tester) async {
+      final player = MockAudioPlayer();
+
+      when(player.positionStream)
+          .thenAnswer((_) => Stream.value(const Duration(seconds: 200)));
+      when(player.durationStream)
+          .thenAnswer((_) => Stream.value(const Duration(seconds: 200)));
+      when(player.playerStateStream).thenAnswer(
+          (_) => Stream.value(PlayerState(false, ProcessingState.completed)));
+      when(player.processingState).thenReturn(ProcessingState.completed);
+
+      final queue = _queue([_audio('song.mp3', '/music/song.mp3')]);
+
+      await tester.pumpWidget(_wrapMiniPlayer(
+        queue: queue,
+        player: player,
+        child: const MiniPlayerBar(),
+      ));
+      await tester.pumpAndSettle();
+
+      // Completed state shows play_arrow (not pause)
+      expect(find.byIcon(Icons.play_arrow), findsOneWidget,
+          reason: 'completed 状态下应显示播放图标');
+
+      // Tap the play button
+      await tester.tap(find.byIcon(Icons.play_arrow));
+      await tester.pumpAndSettle();
+
+      // Should seek to zero before playing
+      verify(player.seek(Duration.zero)).called(1);
+      verify(player.play()).called(1);
+    });
+  });
 }

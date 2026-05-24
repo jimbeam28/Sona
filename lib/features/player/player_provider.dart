@@ -674,11 +674,7 @@ final startProcessingListenerProvider = Provider<void Function()>((ref) {
             return q.withIndex(ni);
           }();
           if (nq == null) {
-            debugPrint('[Player] no next track, seeking to start');
-            unawaited(() async {
-              await player.seek(Duration.zero);
-              player.pause();
-            }());
+            debugPrint('[Player] no next track, completed');
             ref.read(_completingProvider.notifier).state = false;
             return;
           }

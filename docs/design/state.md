@@ -199,7 +199,7 @@ idle ──▶ loading ──▶ ready
 
 | 模式 | `nextIndex()` | `previousIndex()` | 队列结束时 |
 |------|---------------|-------------------|-----------|
-| `sequential` | `current + 1` | `current - 1` | `nextIndex` 返回 `null`，调用方 stop+pause |
+| `sequential` | `current + 1` | `current - 1` | `nextIndex` 返回 `null`，调用方保持在结束位置（completed 状态） |
 | `repeatOne` | 返回 `current` | 返回 `current` | 永不返回 null |
 | `repeatAll` | `(current + 1) % length` | `(current - 1 + length) % length` | 循环，永不返回 null |
 | `shuffle` | 随机选非当前索引 | 随机选非当前索引 | `length <= 1` 时返回 null |
@@ -249,7 +249,9 @@ idle ──▶ loading ──▶ ready
           PAUSED     处理状态机      skipToNext/Previous
                │        │              │
                │        ├── afterCurrent timer 触发? ──▶ pause
-               │        ├── nextIndex == null? ──▶ seek(0), pause  ← 队列到头
+               │        ├── nextIndex == null? ──▶ 保持结束位置 (completed 状态, 进度条不动)
+               │        │                        用户可拖动进度条 → seek + auto-play
+               │        │                        用户可点播放 → seek(0) + play
                │        └── nextIndex 有效 ──▶ 保存进度 → 更新 index → loadAndPlay
                │
      用户点播放 │

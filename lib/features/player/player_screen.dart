@@ -583,7 +583,12 @@ class _ProgressSliderState extends ConsumerState<_ProgressSlider> {
                   },
                   onChangeEnd: (v) {
                     setState(() => _isDragging = false);
+                    final wasCompleted =
+                        player.processingState == ProcessingState.completed;
                     player.seek(Duration(milliseconds: v.round()));
+                    if (wasCompleted) {
+                      player.play();
+                    }
                   },
                 );
               },
@@ -687,6 +692,9 @@ class _PlaybackControls extends ConsumerWidget {
                 if (isPlaying) {
                   player.pause();
                 } else {
+                  if (player.processingState == ProcessingState.completed) {
+                    player.seek(Duration.zero);
+                  }
                   player.play();
                 }
               },

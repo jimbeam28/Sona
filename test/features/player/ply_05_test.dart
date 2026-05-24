@@ -867,7 +867,7 @@ void main() {
 
     // ── TST-T02: sequential — last track → stop + pause ─────────────────────
 
-    test('TST-T02: sequential mode - last track completes, stops and pauses',
+    test('TST-T02: sequential mode - last track completes, stops at end',
         () async {
       final queue = buildQueue(5, 4);
       container.read(currentPlayQueueProvider.notifier).state = queue;
@@ -875,19 +875,17 @@ void main() {
 
       await emitCompleted();
 
-      // 1. player.seek(Duration.zero) was called
-      verify(mockPlayer.seek(Duration.zero)).called(1);
+      // 1. player stays at end position — no seek to zero and no pause
+      verifyNever(mockPlayer.seek(Duration.zero));
+      verifyNever(mockPlayer.pause());
 
-      // 2. player.pause() was called
-      verify(mockPlayer.pause()).called(1);
-
-      // 3. saveProgress was NOT called (code returns before saveProgress line)
+      // 2. saveProgress was NOT called (code returns before saveProgress line)
       expect(saveProgressCalls, isEmpty, reason: '队尾停止时不应保存进度');
 
-      // 4. loadAndPlay was NOT called
+      // 3. loadAndPlay was NOT called
       expect(loadAndPlayCalls, isEmpty, reason: '队尾停止时不应调用 loadAndPlay');
 
-      // 5. Queue was not replaced (original reference preserved)
+      // 4. Queue was not replaced (original reference preserved)
       final currentQueue = container.read(currentPlayQueueProvider);
       expect(identical(currentQueue, queue), isTrue, reason: '队尾停止时队列应保持不变');
     });

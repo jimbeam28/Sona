@@ -229,6 +229,9 @@ class _PlayPauseButton extends StatelessWidget {
                 GoRouter.of(context).push('/player');
               }
             } else {
+              if (player.processingState == ProcessingState.completed) {
+                player.seek(Duration.zero);
+              }
               player.play();
             }
           },
