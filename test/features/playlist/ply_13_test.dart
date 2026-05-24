@@ -889,6 +889,114 @@ void main() {
   });
 
   // ═════════════════════════════════════════════════════════════════════════════
+  // PLY-T83: delete tracks end-to-end (regression guard for async-gap bug)
+  // ═════════════════════════════════════════════════════════════════════════════
+
+  group('PLY-T83 delete tracks end-to-end', () {
+    testWidgets('delete removes tracks and exits selection mode',
+        (WidgetTester tester) async {
+      // In-memory track list mutated by the overridden remove provider so we
+      // can verify the widget rebuild without hitting a real database.
+      final tracks = [
+        _testTrack(id: 1, fileName: 'A.mp3'),
+        _testTrack(id: 2, fileName: 'B.mp3'),
+        _testTrack(id: 3, fileName: 'C.mp3'),
+      ];
+
+      await tester.pumpWidget(_buildTestApp(
+        const PlaylistDetailScreen(playlistId: 1),
+        overrides: [
+          playlistTracksProvider(1)
+              .overrideWith((ref) => Future.value(tracks)),
+          playlistListProvider
+              .overrideWith((ref) => Future.value(_testPlaylists)),
+          removeTracksFromPlaylistProvider.overrideWith((ref) {
+            return (int playlistId, List<int> idsToRemove) async {
+              tracks.removeWhere((t) => idsToRemove.contains(t.id));
+              ref.invalidate(playlistTracksProvider(playlistId));
+              ref.invalidate(playlistListProvider);
+            };
+          }),
+        ],
+      ));
+      await tester.pumpAndSettle();
+
+      // All 3 tracks visible
+      expect(find.text('A.mp3'), findsOneWidget);
+      expect(find.text('B.mp3'), findsOneWidget);
+      expect(find.text('C.mp3'), findsOneWidget);
+
+      // Enter selection mode
+      await tester.longPress(find.text('A.mp3'));
+      await tester.pumpAndSettle();
+      expect(find.text('已选 1 首'), findsOneWidget);
+
+      // Select C as well
+      await tester.tap(find.text('C.mp3'));
+      await tester.pumpAndSettle();
+      expect(find.text('已选 2 首'), findsOneWidget);
+
+      // Tap delete → confirmation dialog
+      await tester.tap(find.byIcon(Icons.delete_outline));
+      await tester.pumpAndSettle();
+      expect(find.text('确认删除'), findsOneWidget);
+
+      // Confirm deletion
+      await tester.tap(find.text('删除'));
+      await tester.pumpAndSettle();
+
+      // Selection mode exited → normal AppBar with playlist name
+      expect(find.text('Test Playlist'), findsOneWidget);
+      expect(find.text('已选 1 首'), findsNothing);
+      expect(find.text('已选 2 首'), findsNothing);
+
+      // A and C removed, only B remains
+      expect(find.text('A.mp3'), findsNothing);
+      expect(find.text('C.mp3'), findsNothing);
+      expect(find.text('B.mp3'), findsOneWidget);
+    });
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // PLY-T84: ReorderableListView disabled during selection mode
+  // ═════════════════════════════════════════════════════════════════════════════
+
+  group('PLY-T84 no ReorderableListView during selection', () {
+    testWidgets('uses ListView during selection, ReorderableListView otherwise',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(_buildTestApp(
+        const PlaylistDetailScreen(playlistId: 1),
+        overrides: [
+          playlistTracksProvider(1).overrideWith((ref) => Future.value([
+                _testTrack(id: 1, fileName: 'A.mp3'),
+                _testTrack(id: 2, fileName: 'B.mp3'),
+              ])),
+          playlistListProvider
+              .overrideWith((ref) => Future.value(_testPlaylists)),
+        ],
+      ));
+      await tester.pumpAndSettle();
+
+      // Default (sort=addedAsc, not in selection mode): ReorderableListView
+      expect(find.byType(ReorderableListView), findsOneWidget);
+
+      // Enter selection mode
+      await tester.longPress(find.text('A.mp3'));
+      await tester.pumpAndSettle();
+
+      // ReorderableListView gone during selection mode
+      expect(find.byType(ReorderableListView), findsNothing);
+
+      // Exit selection mode
+      await tester.tap(find.byIcon(Icons.close));
+      await tester.pumpAndSettle();
+
+      // ReorderableListView back
+      expect(find.byType(ReorderableListView), findsOneWidget);
+    });
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════════
   // TST-17: Playlist rename dialog logic
   // ═════════════════════════════════════════════════════════════════════════════
 

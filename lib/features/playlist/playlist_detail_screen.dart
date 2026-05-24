@@ -140,7 +140,42 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
           }
           // PLS-03: use ReorderableListView for drag-to-reorder
           // Only enable when sorted by added time (manual order).
-          if (ref.watch(trackSortProvider) == TrackSortOption.addedAsc) {
+          // Use ReorderableListView only when sorted by added time AND not in
+          // selection mode.  During selection mode the long-press gesture for
+          // drag-to-reorder conflicts with the long-press-to-select handler.
+          Widget trackItemBuilder(BuildContext context, int index) {
+            final track = tracks[index];
+            return PlaylistTrackItem(
+              key: ValueKey(track.id),
+              track: track,
+              selected: _selectedIds.contains(track.id),
+              onTap: () {
+                if (_selectionMode) {
+                  setState(() {
+                    if (_selectedIds.contains(track.id)) {
+                      _selectedIds.remove(track.id);
+                      if (_selectedIds.isEmpty) _exitSelectionMode();
+                    } else {
+                      _selectedIds.add(track.id!);
+                    }
+                  });
+                } else {
+                  _playTrackAtIndex(tracks, index);
+                }
+              },
+              onLongPress: () {
+                if (!_selectionMode) {
+                  setState(() {
+                    _selectionMode = true;
+                    _selectedIds.add(track.id!);
+                  });
+                }
+              },
+            );
+          }
+
+          if (ref.watch(trackSortProvider) == TrackSortOption.addedAsc &&
+              !_selectionMode) {
             return ReorderableListView.builder(
               padding: const EdgeInsets.symmetric(vertical: 8),
               itemCount: tracks.length,
@@ -150,36 +185,7 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
                   playlistId, oldIndex, newIndex,
                 );
               },
-              itemBuilder: (context, index) {
-                final track = tracks[index];
-                return PlaylistTrackItem(
-                  key: ValueKey(track.id),
-                  track: track,
-                  selected: _selectedIds.contains(track.id),
-                  onTap: () {
-                    if (_selectionMode) {
-                      setState(() {
-                        if (_selectedIds.contains(track.id)) {
-                          _selectedIds.remove(track.id);
-                          if (_selectedIds.isEmpty) _exitSelectionMode();
-                        } else {
-                          _selectedIds.add(track.id!);
-                        }
-                      });
-                    } else {
-                      _playTrackAtIndex(tracks, index);
-                    }
-                  },
-                  onLongPress: () {
-                    if (!_selectionMode) {
-                      setState(() {
-                        _selectionMode = true;
-                        _selectedIds.add(track.id!);
-                      });
-                    }
-                  },
-                );
-              },
+              itemBuilder: trackItemBuilder,
             );
           }
           return ListView.separated(
@@ -187,35 +193,7 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
             itemCount: tracks.length,
             separatorBuilder: (_, __) =>
                 const Divider(height: 1, indent: 72),
-            itemBuilder: (context, index) {
-              final track = tracks[index];
-              return PlaylistTrackItem(
-                track: track,
-                selected: _selectedIds.contains(track.id),
-                onTap: () {
-                  if (_selectionMode) {
-                    setState(() {
-                      if (_selectedIds.contains(track.id)) {
-                        _selectedIds.remove(track.id);
-                        if (_selectedIds.isEmpty) _exitSelectionMode();
-                      } else {
-                        _selectedIds.add(track.id!);
-                      }
-                    });
-                  } else {
-                    _playTrackAtIndex(tracks, index);
-                  }
-                },
-                onLongPress: () {
-                  if (!_selectionMode) {
-                    setState(() {
-                      _selectionMode = true;
-                      _selectedIds.add(track.id!);
-                    });
-                  }
-                },
-              );
-            },
+            itemBuilder: trackItemBuilder,
           );
         },
       ),
@@ -349,11 +327,12 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
               ),
             );
             if (confirmed == true) {
+              final idsToRemove = _selectedIds.toList();
+              _exitSelectionMode();
               await ref.read(removeTracksFromPlaylistProvider)(
                 playlistId,
-                _selectedIds.toList(),
+                idsToRemove,
               );
-              _exitSelectionMode();
             }
           },
         ),

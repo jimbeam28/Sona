@@ -572,13 +572,13 @@ processingStateStream 发出 completed
      │
      ├──▶ [error]  ── 错误图标 + 消息 + 重试
      ├──▶ [empty]  ── "播放单是空的，点击 + 添加曲目"
-     └──▶ [data]   ── 曲目列表 (ReorderableListView 拖拽排序)
+     └──▶ [data]   ── 曲目列表 (默认 ReorderableListView 拖拽排序；selection 模式时切换为 ListView)
             │
             ├── 点击曲目 ──▶ 检查进度 → resume dialog → 构建 PlayQueue → push('/player')
-            ├── 长按曲目 ──▶ 进入 selection 模式
+            ├── 长按曲目 ──▶ 进入 selection 模式 (禁用拖拽排序以免手势冲突)
             │     │
             │     ├── 全选/反选
-            │     └── 删除选中 ──▶ 确认弹窗 → 删除 → 刷新
+            │     └── 删除选中 ──▶ 确认弹窗 → 退出 selection 模式 → 删除（异步） → 刷新
             │
             ├── AppBar 编辑 ──▶ showRenameDialog → 重命名
             │
@@ -594,7 +594,7 @@ processingStateStream 发出 completed
 读取: playlistListProvider → dao.findAllPlaylists() → 排序 → AsyncValue
 重命名: AppBar 编辑 → 弹窗 → updatePlaylistProvider → dao.updatePlaylist() → invalidate
 添加曲目: 底部弹窗选文件 → addTracksToPlaylistProvider → dao.addTracks(去重) → invalidate(tracksProvider + listProvider)
-删除曲目: selection → 确认 → removeTracksFromPlaylistProvider → dao.removeTracks() → invalidate(tracksProvider + listProvider)
+删除曲目: selection → 确认 → 退出 selection → removeTracksFromPlaylistProvider → dao.removeTracks() → invalidate(tracksProvider + listProvider)
 排序曲目: 拖拽 → reorderPlaylistTrackProvider → dao.reorderTrack() → invalidate(tracksProvider)
 导出: exportPlaylistProvider → dao.getTracks() → JSON encode → 分享/保存
 导入: importPlaylistProvider → JSON decode → dao.insertPlaylist() + dao.addTracks() → invalidate
