@@ -729,7 +729,7 @@ void main() {
       // it uses MultiDragGestureRecognizer internally.
       final reorderable =
           tester.widget<ReorderableListView>(find.byType(ReorderableListView));
-      reorderable.onReorder(2, 0);
+      reorderable!.onReorder(2, 0);
       await tester.pumpAndSettle();
 
       // Verify the callback forwarded to reorderPlaylistTrackProvider with
@@ -782,7 +782,7 @@ void main() {
       // Simulate drag from index 2 to index 0 by invoking onReorder directly.
       final reorderable =
           tester.widget<ReorderableListView>(find.byType(ReorderableListView));
-      reorderable.onReorder(2, 0);
+      reorderable!.onReorder(2, 0);
       await tester.pumpAndSettle();
 
       // Verify new order: C, A, B
