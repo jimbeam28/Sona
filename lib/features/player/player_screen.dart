@@ -322,11 +322,22 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   Widget build(BuildContext context) {
     final queue = ref.watch(currentPlayQueueProvider);
 
+    // If all tracks were removed from the queue, clear playback state and
+    // navigate back to the home screen.
+    if (queue == null || queue.length == 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
+      });
+      return const Scaffold(body: SizedBox.shrink());
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
           _loadState.status == PlayerLoadStatus.ready
-              ? queue?.current.name ?? '播放器'
+              ? queue.current.name
               : '播放器',
         ),
         centerTitle: true,

@@ -647,11 +647,17 @@ final startProcessingListenerProvider = Provider<void Function()>((ref) {
     ref.read(cancelProcessingListenerProvider)();
     final sub = player.processingStateStream.listen((state) {
       if (state == ProcessingState.completed) {
+        if (ref.read(_completingProvider)) {
+          debugPrint('[Player] track completed (ignored, already completing)');
+          return;
+        }
+        ref.read(_completingProvider.notifier).state = true;
         debugPrint('[Player] track completed');
         final triggered = ref.read(onTrackCompletedProvider)();
         if (triggered) {
           debugPrint('[Player] afterCurrent timer triggered, pausing');
           player.pause();
+          ref.read(_completingProvider.notifier).state = false;
         } else {
           debugPrint('[Player] advancing to next track');
           final q = ref.read(currentPlayQueueProvider);
@@ -669,8 +675,11 @@ final startProcessingListenerProvider = Provider<void Function()>((ref) {
           }();
           if (nq == null) {
             debugPrint('[Player] no next track, seeking to start');
-            player.seek(Duration.zero);
-            player.pause();
+            unawaited(() async {
+              await player.seek(Duration.zero);
+              player.pause();
+            }());
+            ref.read(_completingProvider.notifier).state = false;
             return;
           }
           ref.read(saveProgressProvider)();
@@ -724,6 +733,11 @@ final _cancelAutoSaveProvider = Provider<void Function()>((ref) {
 /// Holds the player-state subscription for pause-triggered saves.
 final _pauseSaveSubProvider =
     StateProvider<StreamSubscription<void>?>((ref) => null);
+
+/// Guards against duplicate [ProcessingState.completed] events so that
+/// a second completion does not advance the queue an extra time while
+/// the first advance is still loading the next track.
+final _completingProvider = StateProvider<bool>((ref) => false);
 
 /// Gate that serializes load requests for the shared [AudioPlayer].
 final _loadRequestGateProvider = Provider<SerializedRequestGate>((ref) {
@@ -1007,6 +1021,8 @@ final Provider<Future<TrackLoadResult> Function()> loadAndPlayProvider =
         } catch (e, st) {
           debugPrint('loadAndPlayProvider error: $e\n$st');
           return const TrackLoadResult.failed();
+        } finally {
+          ref.read(_completingProvider.notifier).state = false;
         }
       },
     );

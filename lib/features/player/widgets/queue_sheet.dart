@@ -78,7 +78,6 @@ class QueueSheet extends StatelessWidget {
                         IconButton(
                           onPressed: () {
                             onRemoveIndex(index);
-                            Navigator.of(context).pop();
                           },
                           icon: const Icon(Icons.close, size: 18),
                           color: Colors.grey,

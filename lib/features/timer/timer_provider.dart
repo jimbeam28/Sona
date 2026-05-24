@@ -158,6 +158,7 @@ final remainingTimeProvider = StreamProvider<Duration?>((ref) {
   // Emit the remaining time every second.  Stop the stream (by emitting
   // null which takeWhile discards) when the timer is cancelled or reaches
   // zero.
+  var didEmitZero = false;
   return Stream.periodic(const Duration(seconds: 1), (_) {
     final currentState = ref.read(timerStateProvider);
     if (currentState == null || currentState.mode != TimerMode.duration) {
@@ -166,7 +167,12 @@ final remainingTimeProvider = StreamProvider<Duration?>((ref) {
     return currentState.remainingTime;
   }).takeWhile((d) {
     if (d == null) return false;
-    return d.inSeconds > 0;
+    if (d == Duration.zero) {
+      if (didEmitZero) return false;
+      didEmitZero = true;
+      return true;
+    }
+    return true;
   });
 });
 

@@ -1,6 +1,8 @@
 // lib/features/home/home_screen.dart
 // Home screen with Tab navigation: Playlists | File Browser.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -12,6 +14,7 @@ import '../playlist/playlist_list_screen.dart';
 import '../playlist/playlist_provider.dart';
 import '../player/player_provider.dart';
 import '../player/widgets/mini_player_bar.dart';
+import '../timer/timer_provider.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -21,14 +24,17 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   late final TabController _tabController;
 
   static const _tabIndexKey = 'home_tab_index';
 
+  Timer? _timerExpiryChecker;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _tabController = TabController(length: 2, vsync: this);
 
     // HOM-01: restore persisted tab index
@@ -44,10 +50,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         prefs?.setInt(_tabIndexKey, _tabController.index);
       }
     });
+
+    // TMR-05: check for duration-timer expiry every second so the countdown
+    // works even when the full PlayerScreen is not visible.
+    _timerExpiryChecker = Timer.periodic(const Duration(seconds: 1), (_) {
+      final expired = ref.read(checkTimerExpiryProvider)();
+      if (expired) {
+        ref.read(audioPlayerProvider).pause();
+      }
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      final expired = ref.read(checkTimerExpiryProvider)();
+      if (expired) {
+        ref.read(audioPlayerProvider).pause();
+      }
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _timerExpiryChecker?.cancel();
     _tabController.dispose();
     super.dispose();
   }
