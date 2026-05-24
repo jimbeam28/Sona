@@ -229,14 +229,13 @@ idle ──▶ loading ──▶ ready
                │                3. 读取 SecureStorage 密码
                │                4. 构建 AudioSource
                │                5. 注册 processingStateStream 监听器 (自动切歌)
-               │                6. player.stop()
-               │                7. player.setAudioSource()
-               │                8. player.seek(startPositionMs) [如有]
-               │                9. handler.setMediaItem() [更新通知栏]
-               │               10. 应用默认速度
-               │               11. player.play() [unawaited, 12s poll timeout]
-               │               12. 启动自动保存定时器 (10s 间隔)
-               │               13. 启动暂停保存监听器
+               │                6. player.setAudioSource()  (内部处理停止旧源)
+               │                7. player.seek(startPositionMs) [如有]
+               │                8. handler.setMediaItem() [更新通知栏]
+               │                9. 应用默认速度
+               │               10. player.play() [unawaited, 12s poll timeout]
+               │               11. 启动自动保存定时器 (10s 间隔)
+               │               12. 启动暂停保存监听器
                │                      │
                ▼                      ▼
           ┌──────────────────────────────────────┐
@@ -249,7 +248,7 @@ idle ──▶ loading ──▶ ready
           PAUSED     处理状态机      skipToNext/Previous
                │        │              │
                │        ├── afterCurrent timer 触发? ──▶ pause
-               │        ├── nextIndex == null? ──▶ 保持结束位置 (completed 状态, 进度条不动)
+               │        ├── nextIndex == null? ──▶ pause() → 保持结束位置 (completed 状态, 进度条不动)
                │        │                        用户可拖动进度条 → seek + auto-play
                │        │                        用户可点播放 → seek(0) + play
                │        └── nextIndex 有效 ──▶ 保存进度 → 更新 index → loadAndPlay

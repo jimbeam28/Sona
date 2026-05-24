@@ -675,6 +675,7 @@ final startProcessingListenerProvider = Provider<void Function()>((ref) {
           }();
           if (nq == null) {
             debugPrint('[Player] no next track, completed');
+            player.pause();
             ref.read(_completingProvider.notifier).state = false;
             return;
           }
@@ -942,14 +943,13 @@ final Provider<Future<TrackLoadResult> Function()> loadAndPlayProvider =
 
           final player = ref.read(audioPlayerProvider);
 
-          // Register completion listener BEFORE stop (preserves A-2 fix).
+          // Register completion listener before loading new source
+          // (preserves A-2 fix).  Do NOT call player.stop() here —
+          // setAudioSource() handles stopping the current source internally,
+          // and an explicit stop() causes an idle state transition that
+          // triggers audio_service's androidStopForegroundOnPause, which
+          // can cause a native crash when switching tracks during playback.
           ref.read(startProcessingListenerProvider)();
-
-          debugPrint('[Provider] loadAndPlay: calling player.stop()');
-          await player.stop();
-          if (!gate.isLatest(requestId)) {
-            return const TrackLoadResult.superseded();
-          }
 
           debugPrint('[Provider] loadAndPlay: calling setAudioSource');
           await player.setAudioSource(source);

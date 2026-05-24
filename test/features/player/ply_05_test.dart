@@ -875,9 +875,10 @@ void main() {
 
       await emitCompleted();
 
-      // 1. player stays at end position — no seek to zero and no pause
+      // 1. player stays at end position — no seek to zero,
+      //    but pause is called to ensure playing=false for UI consistency.
       verifyNever(mockPlayer.seek(Duration.zero));
-      verifyNever(mockPlayer.pause());
+      verify(mockPlayer.pause()).called(1);
 
       // 2. saveProgress was NOT called (code returns before saveProgress line)
       expect(saveProgressCalls, isEmpty, reason: '队尾停止时不应保存进度');
@@ -1100,6 +1101,246 @@ void main() {
       // Default play mode should be sequential
       expect(restored.playMode, equals(PlayMode.sequential),
           reason: 'TST-T137: 未指定模式应默认 sequential');
+    });
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // Integration tests — TST-18: processing listener guard & lifecycle
+  // ═════════════════════════════════════════════════════════════════════════════
+  //
+  // These tests guard the track-switch flow where loadAndPlayProvider loads a
+  // new AudioSource without an explicit player.stop() call.  The processing
+  // listener must correctly handle completion events even when the player
+  // transitions directly from playing → loading → ready (no idle state).
+
+  group('TST-18: Processing listener guard behavior', () {
+    late MockAudioPlayer mockPlayer;
+    late StreamController<ProcessingState> processingController;
+    late ProviderContainer container;
+    late List<String> loadAndPlayCalls;
+
+    PlayQueue buildQueue(int count, int currentIndex) {
+      final files = List.generate(count, (i) {
+        final n = (i + 1).toString().padLeft(2, '0');
+        return _audio('track_$n.mp3', '/music/track_$n.mp3');
+      });
+      return PlayQueue(files: files, currentIndex: currentIndex);
+    }
+
+    setUp(() {
+      mockPlayer = MockAudioPlayer();
+      processingController = StreamController<ProcessingState>.broadcast();
+
+      when(mockPlayer.processingStateStream)
+          .thenAnswer((_) => processingController.stream);
+      when(mockPlayer.position).thenReturn(const Duration(seconds: 30));
+      when(mockPlayer.duration).thenReturn(const Duration(minutes: 3));
+
+      loadAndPlayCalls = [];
+
+      container = ProviderContainer(
+        overrides: [
+          audioPlayerProvider.overrideWithValue(mockPlayer),
+          onTrackCompletedProvider.overrideWithValue(() => false),
+          saveProgressProvider.overrideWithValue(() {}),
+          // Mock that does NOT reset _completingProvider — simulates the
+          // async gap between the processing listener setting the guard
+          // and the real loadAndPlayProvider's finally block resetting it.
+          loadAndPlayProvider.overrideWithValue(() async {
+            loadAndPlayCalls.add('loadAndPlay');
+            return TrackLoadResult.loaded(mockPlayer);
+          }),
+        ],
+      );
+    });
+
+    tearDown(() {
+      processingController.close();
+    });
+
+    // ── TST-T138: Guard prevents duplicate completion ──────────────────────
+
+    test('TST-T138: duplicate completed events only advance queue once',
+        () async {
+      final queue = buildQueue(5, 2);
+      container.read(currentPlayQueueProvider.notifier).state = queue;
+      container.read(playModeProvider.notifier).state = PlayMode.sequential;
+
+      // Register the processing listener
+      final startFn = container.read(startProcessingListenerProvider);
+      startFn();
+
+      // Emit two completed events synchronously — simulates a race where
+      // the platform fires duplicate events before loadAndPlay completes.
+      processingController.add(ProcessingState.completed);
+      processingController.add(ProcessingState.completed);
+      await Future<void>.delayed(Duration.zero);
+
+      // Queue should have advanced only ONCE (index 2 → 3)
+      final newQueue = container.read(currentPlayQueueProvider);
+      expect(newQueue, isNotNull);
+      expect(newQueue!.currentIndex, equals(3),
+          reason: '重复的 completed 事件应被 _completingProvider 守卫拦截，'
+              '队列只应前进一次 (2→3)，而非两次 (2→4)');
+
+      // loadAndPlay should have been called only once
+      expect(loadAndPlayCalls.length, equals(1),
+          reason: '重复的 completed 事件只应触发一次 loadAndPlay');
+    });
+
+    // ── TST-T139: Guard doesn't block first completion ────────────────────
+
+    test('TST-T139: single completed event advances queue correctly', () async {
+      final queue = buildQueue(5, 2);
+      container.read(currentPlayQueueProvider.notifier).state = queue;
+      container.read(playModeProvider.notifier).state = PlayMode.sequential;
+
+      final startFn = container.read(startProcessingListenerProvider);
+      startFn();
+      processingController.add(ProcessingState.completed);
+      await Future<void>.delayed(Duration.zero);
+
+      // Queue should advance from index 2 to 3
+      final newQueue = container.read(currentPlayQueueProvider);
+      expect(newQueue, isNotNull);
+      expect(newQueue!.currentIndex, equals(3),
+          reason: '单个 completed 事件应正常触发队列前进');
+
+      expect(loadAndPlayCalls.length, equals(1),
+          reason: '单个 completed 事件应调用一次 loadAndPlay');
+    });
+
+    // ── TST-T140: Cancel then re-register on fresh container ──────────────
+
+    test('TST-T140: cancelled listener stops responding; fresh one works',
+        () async {
+      // Phase 1: register listener, then cancel it
+      final queue1 = buildQueue(5, 1);
+      container.read(currentPlayQueueProvider.notifier).state = queue1;
+      container.read(playModeProvider.notifier).state = PlayMode.sequential;
+
+      var startFn = container.read(startProcessingListenerProvider);
+      startFn();
+
+      // Cancel the listener
+      container.read(cancelProcessingListenerProvider)();
+
+      // Emit completed — listener should NOT react (was cancelled)
+      processingController.add(ProcessingState.completed);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(container.read(currentPlayQueueProvider)!.currentIndex, equals(1),
+          reason: '取消后的 listener 不应响应 completed 事件');
+      expect(loadAndPlayCalls, isEmpty,
+          reason: '取消后的 listener 不应触发 loadAndPlay');
+
+      // Phase 2: fresh container, register listener — should work
+      final player2 = MockAudioPlayer();
+      final procCtrl2 = StreamController<ProcessingState>.broadcast();
+      when(player2.processingStateStream)
+          .thenAnswer((_) => procCtrl2.stream);
+      when(player2.position).thenReturn(const Duration(seconds: 30));
+      when(player2.duration).thenReturn(const Duration(minutes: 3));
+
+      final loadCalls2 = <String>[];
+      final container2 = ProviderContainer(
+        overrides: [
+          audioPlayerProvider.overrideWithValue(player2),
+          onTrackCompletedProvider.overrideWithValue(() => false),
+          saveProgressProvider.overrideWithValue(() {}),
+          loadAndPlayProvider.overrideWithValue(() async {
+            loadCalls2.add('loadAndPlay');
+            return TrackLoadResult.loaded(player2);
+          }),
+        ],
+      );
+      try {
+        final queue2 = buildQueue(5, 1);
+        container2.read(currentPlayQueueProvider.notifier).state = queue2;
+        container2
+            .read(playModeProvider.notifier)
+            .state = PlayMode.sequential;
+
+        final startFn2 =
+            container2.read(startProcessingListenerProvider);
+        startFn2();
+
+        procCtrl2.add(ProcessingState.completed);
+        await Future<void>.delayed(Duration.zero);
+
+        expect(container2.read(currentPlayQueueProvider)!.currentIndex,
+            equals(2),
+            reason: '新容器的 listener 应正确捕获 completed 并前进队列');
+        expect(loadCalls2, isNotEmpty,
+            reason: '新容器的 listener 应触发 loadAndPlay');
+      } finally {
+        procCtrl2.close();
+      }
+    });
+
+    // ── TST-T141: Listener handles idle state (not completed) correctly ───
+
+    test('TST-T141: listener ignores non-completed processing states',
+        () async {
+      final queue = buildQueue(5, 2);
+      container.read(currentPlayQueueProvider.notifier).state = queue;
+      container.read(playModeProvider.notifier).state = PlayMode.sequential;
+
+      final startFn = container.read(startProcessingListenerProvider);
+      startFn();
+
+      // Emit idle (was triggered by explicit stop() in old code;
+      // now only triggered internally by setAudioSource, but the listener
+      // should still ignore it)
+      processingController.add(ProcessingState.idle);
+      await Future<void>.delayed(Duration.zero);
+
+      // Emit loading (setAudioSource transition)
+      processingController.add(ProcessingState.loading);
+      await Future<void>.delayed(Duration.zero);
+
+      // Emit ready
+      processingController.add(ProcessingState.ready);
+      await Future<void>.delayed(Duration.zero);
+
+      // Queue should NOT have changed — listener only reacts to completed
+      final newQueue = container.read(currentPlayQueueProvider);
+      expect(newQueue!.currentIndex, equals(2),
+          reason: 'processing listener 应忽略 idle/loading/ready 状态，'
+              '仅在 completed 时触发切歌');
+
+      expect(loadAndPlayCalls, isEmpty,
+          reason: '非 completed 状态不应触发 loadAndPlay');
+    });
+
+    // ── TST-T142: Last track pause ensures play button state ──────────────
+
+    test('TST-T142: sequential last track completion calls pause(),'
+        ' queue unchanged', () async {
+      // Single-track queue: index 0 is both first and last.
+      final queue = buildQueue(1, 0);
+      container.read(currentPlayQueueProvider.notifier).state = queue;
+      container.read(playModeProvider.notifier).state = PlayMode.sequential;
+
+      final startFn = container.read(startProcessingListenerProvider);
+      startFn();
+      processingController.add(ProcessingState.completed);
+      await Future<void>.delayed(Duration.zero);
+
+      // 1. player.pause() was called to ensure playing=false for UI.
+      verify(mockPlayer.pause()).called(1);
+
+      // 2. player.seek(Duration.zero) was NOT called — position stays at end.
+      verifyNever(mockPlayer.seek(Duration.zero));
+
+      // 3. Queue was not modified — no next track to advance to.
+      final q = container.read(currentPlayQueueProvider);
+      expect(identical(q, queue), isTrue,
+          reason: '队尾停止时队列应保持不变');
+
+      // 4. loadAndPlay was NOT called — nothing to load.
+      expect(loadAndPlayCalls, isEmpty,
+          reason: '队尾停止时不应触发 loadAndPlay');
     });
   });
 }
