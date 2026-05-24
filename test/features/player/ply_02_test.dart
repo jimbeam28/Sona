@@ -1093,15 +1093,15 @@ void main() {
       //   }
       //   player.play();
 
-      final processingState = ProcessingState.completed;
-      final isPlaying = false;
+      const processingState = ProcessingState.completed;
+      const isPlaying = false;
 
       // When completed and not playing, the button shows play_arrow.
       expect(isPlaying, isFalse,
           reason: 'completed 状态下 playing 为 false');
 
       // The handler must seek to zero before playing.
-      final shouldSeekToZero =
+      const shouldSeekToZero =
           processingState == ProcessingState.completed;
       expect(shouldSeekToZero, isTrue,
           reason: 'completed 状态下按下播放应先 seek 到开头');
@@ -1111,12 +1111,12 @@ void main() {
       // When the player is paused (processingState == ready, just not playing),
       // pressing play should just call play() without seeking.
 
-      final processingState = ProcessingState.ready;
-      final isPlaying = false;
+      const processingState = ProcessingState.ready;
+      const isPlaying = false;
 
       expect(isPlaying, isFalse);
 
-      final shouldSeekToZero =
+      const shouldSeekToZero =
           processingState == ProcessingState.completed;
       expect(shouldSeekToZero, isFalse,
           reason: '非 completed 状态下按下播放不应额外 seek');
@@ -1133,7 +1133,7 @@ void main() {
       //   2. call play() to resume playback
       // This is verified as pure logic matching the _ProgressSlider handler.
 
-      final processingState = ProcessingState.completed;
+      const processingState = ProcessingState.completed;
       const dragTargetMs = 45000; // user dragged to 45s
 
       // Simulate the onChangeEnd logic:
@@ -1141,12 +1141,12 @@ void main() {
       //   player.seek(Duration(milliseconds: v.round()));
       //   if (wasCompleted) { player.play(); }
 
-      final wasCompleted =
+      const wasCompleted =
           processingState == ProcessingState.completed;
       expect(wasCompleted, isTrue,
           reason: 'completed 状态下拖动进度条应检测到 wasCompleted = true');
 
-      final seekTarget = Duration(milliseconds: dragTargetMs);
+      const seekTarget = Duration(milliseconds: dragTargetMs);
       expect(seekTarget, equals(const Duration(seconds: 45)),
           reason: '应 seek 到用户拖动的目标位置');
 
@@ -1156,15 +1156,15 @@ void main() {
     });
 
     test('non-completed state + drag slider → seek(pos) only, no play()', () {
-      final processingState = ProcessingState.ready;
+      const processingState = ProcessingState.ready;
       const dragTargetMs = 30000;
 
-      final wasCompleted =
+      const wasCompleted =
           processingState == ProcessingState.completed;
       expect(wasCompleted, isFalse,
           reason: '非 completed 状态下拖动进度条不应自动 play()');
 
-      final seekTarget = Duration(milliseconds: dragTargetMs);
+      const seekTarget = Duration(milliseconds: dragTargetMs);
       expect(seekTarget, equals(const Duration(seconds: 30)));
     });
   });
