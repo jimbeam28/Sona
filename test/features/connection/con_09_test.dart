@@ -176,7 +176,7 @@ void main() {
       addTearDown(container.dispose);
 
       // Populate directoryCache with entries belonging to connection 1
-      final testFile = NasFile(
+      const testFile = NasFile(
           name: 'song.mp3', path: '/music/song.mp3', isDirectory: false);
       container.read(directoryCacheProvider.notifier).state = {
         '$conn1Id:/music': CacheEntry(files: [testFile], createdAt: DateTime.now()),
@@ -245,7 +245,7 @@ void main() {
       await container.read(activeConnectionProvider.future);
 
       // Set up an active play queue linked to connection 1
-      final testFile = NasFile(
+      const testFile = NasFile(
           name: 'song.mp3', path: '/music/song.mp3', isDirectory: false);
       final queue = PlayQueue(files: [testFile], currentIndex: 0);
       container.read(currentPlayQueueProvider.notifier).state = queue;
@@ -301,9 +301,9 @@ void main() {
       addTearDown(container.dispose);
 
       // Populate directoryCache with entries for BOTH connections
-      final testFile = NasFile(
+      const testFile = NasFile(
           name: 'song.mp3', path: '/music/song.mp3', isDirectory: false);
-      final conn2File = NasFile(
+      const conn2File = NasFile(
           name: 'book.m4b', path: '/books/book.m4b', isDirectory: false);
       container.read(directoryCacheProvider.notifier).state = {
         '$conn1Id:/music': CacheEntry(files: [testFile], createdAt: DateTime.now()),
