@@ -14,7 +14,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/services/audio_handler.dart';
 import '../../core/services/audio_source_builder.dart';
@@ -26,7 +25,10 @@ import '../progress/progress_provider.dart';
 import '../timer/timer_provider.dart';
 import 'background_playback.dart';
 import 'domain/play_mode.dart';
+import 'domain/speed_manager.dart';
 export 'domain/play_mode.dart' show PlayMode, labelForPlayMode;
+export 'domain/speed_manager.dart'
+    show speedOptions, isValidSpeed, getDefaultSpeed, readSeekStep;
 
 // ── AudioPlayer instance ───────────────────────────────────────────────────────
 
@@ -235,21 +237,10 @@ class _QueuedRequest<T> {
 // Seek utility functions (clampSeek, skipForward, skipBackward) are now
 // in domain/seek_utils.dart — imported above (REF-08).
 
-// ── Seek step persistence (SET-04) ──────────────────────────────────────────
-
-/// SharedPreferences key for the seek step setting.
-const _seekStepPrefsKey = 'seek_step_seconds';
-
-/// Default seek step in seconds.
-const _defaultSeekStep = 15;
-
-/// Returns the seek step stored in [prefs], or [_defaultSeekStep] if not set.
-///
-/// Pure function — testable without any providers or platform channels.
-int readSeekStep(SharedPreferences? prefs) {
-  if (prefs == null) return _defaultSeekStep;
-  return prefs.getInt(_seekStepPrefsKey) ?? _defaultSeekStep;
-}
+// ── Seek step persistence (SET-04, REF-10) ──────────────────────────────────
+//
+// readSeekStep is now in domain/speed_manager.dart — imported above and
+// re-exported for backward compatibility.
 
 /// Configurable seek step in seconds (default 15), read from SharedPreferences.
 ///
@@ -302,32 +293,11 @@ IconData iconForPlayMode(PlayMode mode) {
   }
 }
 
-// ── Speed options ───────────────────────────────────────────────────────────────
-
-/// Available playback speed multipliers.
-const List<double> speedOptions = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
-
-// ── Speed persistence (PLY-07) ───────────────────────────────────────────────
-
-/// SharedPreferences key for the default playback speed.
-const _defaultSpeedKey = 'default_playback_speed';
-
-/// Returns the default playback speed from [prefs], or 1.0 if not set.
-///
-/// Pure function — testable without any providers or platform channels.
-double getDefaultSpeed(SharedPreferences? prefs) {
-  if (prefs == null) return 1.0;
-  final value = prefs.getDouble(_defaultSpeedKey);
-  return value ?? 1.0;
-}
-
-/// Returns `true` if [speed] is one of the valid [speedOptions].
-///
-/// Uses a tolerance of 0.01 for floating-point comparison.
-/// Pure function — testable without any providers or platform channels.
-bool isValidSpeed(double speed) {
-  return speedOptions.any((s) => (s - speed).abs() < 0.01);
-}
+// ── Speed options & persistence (PLY-07, REF-10) ─────────────────────────────
+//
+// speedOptions, isValidSpeed, getDefaultSpeed, readSeekStep are now in
+// domain/speed_manager.dart — imported above and re-exported for backward
+// compatibility.
 
 /// The default playback speed, persisted to SharedPreferences.
 ///
@@ -353,7 +323,7 @@ final setDefaultSpeedProvider = Provider<void Function(double)>((ref) {
     if (!isValidSpeed(speed)) return;
     debugPrint('[Settings] defaultSpeed: ${speed}x');
     final prefs = ref.read(sharedPreferencesProvider);
-    prefs?.setDouble(_defaultSpeedKey, speed);
+    prefs?.setDouble(defaultSpeedKey, speed);
     ref.invalidate(defaultSpeedProvider);
     // Sync the runtime speed provider so the player UI reflects the change
     // immediately.  The next loadAndPlayProvider call (triggered by selecting

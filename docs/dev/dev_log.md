@@ -511,3 +511,17 @@
 
 ### 测试结果
 - 通过: 918 / 总计: 918
+
+---
+
+## [2026-06-09] [REF-10] - 创建 player/domain/speed_manager.dart
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/player/domain/speed_manager.dart` — 新建，speedOptions/isValidSpeed/getDefaultSpeed/readSeekStep
+- `lib/features/player/player_provider.dart` — 移除重复定义
+- `test/features/player/ref_10_test.dart` — 新建，24 个测试用例
+
+### 测试结果
+- 通过: 942 / 总计: 942
