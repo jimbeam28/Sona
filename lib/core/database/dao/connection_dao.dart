@@ -3,6 +3,7 @@
 // The `password` column stores a flutter_secure_storage reference key.
 
 import 'package:sqflite/sqflite.dart';
+import '../../contracts/database_contract.dart';
 import '../../database/database_helper.dart';
 import '../../../shared/models/connection_config.dart';
 
@@ -15,7 +16,7 @@ class LastConnectionException implements Exception {
   String toString() => message;
 }
 
-class ConnectionDao {
+class ConnectionDao implements IConnectionDao {
   final DatabaseHelper _helper;
 
   ConnectionDao({DatabaseHelper? helper})

@@ -785,3 +785,17 @@
 
 ### 测试结果
 - 通过: 1219 / 总计: 1219
+
+---
+
+## [2026-06-09] [REF-30] - Data 层实现接口
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/core/database/dao/connection_dao.dart` — implements IConnectionDao
+- `lib/core/database/dao/progress_dao.dart` — implements IProgressDao
+- `lib/core/database/dao/playlist_dao.dart` — implements IPlaylistDao
+
+### 测试结果
+- 通过: 1219 / 总计: 1219

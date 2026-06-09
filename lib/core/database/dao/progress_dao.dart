@@ -7,12 +7,13 @@
 // a duplicate (PRG-T02).
 
 import 'package:sqflite/sqflite.dart';
+import '../../contracts/database_contract.dart';
 import '../../database/database_helper.dart';
 import '../../../shared/models/play_progress.dart';
 import '../../../features/progress/domain/progress_policy.dart'
     as progress_policy;
 
-class ProgressDao {
+class ProgressDao implements IProgressDao {
   final DatabaseHelper _helper;
 
   ProgressDao({DatabaseHelper? helper})

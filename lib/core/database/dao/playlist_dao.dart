@@ -2,10 +2,11 @@
 // Data-access object for the `playlists` and `playlist_tracks` tables.
 
 import 'package:sqflite/sqflite.dart';
+import '../../contracts/database_contract.dart';
 import '../../database/database_helper.dart';
 import '../../../shared/models/playlist.dart';
 
-class PlaylistDao {
+class PlaylistDao implements IPlaylistDao {
   final DatabaseHelper _helper;
 
   PlaylistDao({DatabaseHelper? helper})
