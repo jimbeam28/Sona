@@ -608,3 +608,17 @@
 
 ### 测试结果
 - 通过: 1075 / 总计: 1075
+
+---
+
+## [2026-06-09] [REF-17] - 创建 browser/domain/navigation_stack.dart
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/browser/domain/navigation_stack.dart` — 新建，NavigationStackNotifier
+- `lib/features/browser/browser_provider.dart` — 移除内联定义
+- `test/features/browser/ref_17_test.dart` — 新建，6 个测试用例
+
+### 测试结果
+- 通过: 1081 / 总计: 1081
