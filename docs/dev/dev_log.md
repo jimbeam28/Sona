@@ -799,3 +799,15 @@
 
 ### 测试结果
 - 通过: 1219 / 总计: 1219
+
+---
+
+## [2026-06-09] [REF-31] - 创建 shared/di/providers.dart
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/shared/di/providers.dart` — 新建，跨 feature provider 桥接文件
+
+### 测试结果
+- 通过: 1219 / 总计: 1219
