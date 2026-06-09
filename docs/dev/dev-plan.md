@@ -1,25 +1,841 @@
 # 开发计划
 
-> 基于 state.md 状态机分析和 test.md 测试缺口分析生成。
-> 来源：Sona 全功能状态机分析 + 测试覆盖率审计。
+> 基于 state.md 状态机规格书 + refactor-plan.md 重构计划 + 代码审查发现生成。
+> 更新日期: 2026-06-09
 
 ---
 
-## 待实现 — 测试补充（P0 核心路径）
+## 待实现 — Bug 修复（P0）
+
+### BUG-01 `_completingProvider` 卡死导致自动切歌永久失效
+
+**来源**：代码审查 | **优先级**：P0
+**涉及文件**：`lib/features/player/player_provider.dart`
+**依赖**：无
+**关联缺陷**：refactor-plan.md Bug 1
+
+**根因**：
+processing-state 监听器中，当曲目完成且 afterCurrent 未触发时，如果 `currentPlayQueueProvider` 为 null，代码直接 `return`，未将 `_completingProvider` 重置为 `false`。
+
+**代码锚点**：
+- `lib/features/player/player_provider.dart:665` 当前实现
+  ```dart
+  if (q == null) return;  // ← _completingProvider 未重置
+  ```
+
+**修复方案**：
+在 `return` 前添加 `ref.read(_completingProvider.notifier).state = false;`
+
+**测试用例**：BUG-01-T01 ~ BUG-01-T03
+- BUG-01-T01: 队列为 null 时曲目完成 → `_completingProvider` 被重置为 false
+- BUG-01-T02: Bug 修复后再次曲目完成 → 自动切歌正常工作
+- BUG-01-T03: afterCurrent 触发路径 → `_completingProvider` 仍被正确重置（回归）
+
+**验收标准**：
+- [ ] BUG-01-T01 ~ T03 全部通过
+- [ ] `flutter test test/features/player/` 全量回归通过
+- [ ] `flutter analyze` 0 issues
+
+---
+
+### BUG-02 播放单"取消全选"不退出选择模式
+
+**来源**：代码审查 | **优先级**：P0
+**涉及文件**：`lib/features/playlist/playlist_detail_screen.dart`
+**依赖**：无
+**关联缺陷**：refactor-plan.md Bug 2
+
+**根因**：
+"取消全选"按钮只调用 `setState(() => _selectedIds.clear())`，未调用 `_exitSelectionMode()`。
+
+**代码锚点**：
+- `lib/features/playlist/playlist_detail_screen.dart:300-305` 当前实现
+  ```dart
+  onPressed: () => setState(() => _selectedIds.clear()),
+  // 缺少: _exitSelectionMode() 调用
+  ```
+
+**修复方案**：
+```dart
+onPressed: () => _exitSelectionMode(),
+```
+
+**测试用例**：BUG-02-T01 ~ BUG-02-T03
+- BUG-02-T01: 长按进入选择 → 全选 → 取消全选 → selectionMode 恢复为 false
+- BUG-02-T02: 取消全选后 AppBar 恢复为普通模式
+- BUG-02-T03: 取消全选后可正常点击曲目播放（回归）
+
+**验收标准**：
+- [ ] BUG-02-T01 ~ T03 全部通过
+- [ ] `flutter test test/features/playlist/` 全量回归通过
+- [ ] `flutter analyze` 0 issues
+
+---
+
+### BUG-03 目录缓存淘汰不是 LRU
+
+**来源**：代码审查 | **优先级**：P1
+**涉及文件**：`lib/features/browser/browser_provider.dart`
+**依赖**：无
+**关联缺陷**：refactor-plan.md Bug 3
+
+**根因**：
+缓存淘汰按 Map 插入顺序移除最旧条目，不是按最近使用时间。重新访问旧目录不会更新其淘汰优先级。
+
+**代码锚点**：
+- `lib/features/browser/browser_provider.dart:222-234` 当前实现
+  ```dart
+  if (updated.length > 50) {
+    final keysToRemove = updated.keys.take(updated.length - 50);
+    // ← 按插入顺序淘汰，非 LRU
+  }
+  ```
+
+**修复方案**：
+在 `CacheEntry` 中添加 `lastAccessedAt` 字段，缓存命中时更新。淘汰时按 `lastAccessedAt` 排序，移除最久未访问的条目。
+
+**测试用例**：BUG-03-T01 ~ BUG-03-T04
+- BUG-03-T01: 50 条缓存 → 访问第 1 条 → 插入第 51 条 → 第 1 条不被淘汰
+- BUG-03-T02: 50 条缓存 → 不访问第 1 条 → 插入第 51 条 → 第 1 条被淘汰
+- BUG-03-T03: 缓存命中时 lastAccessedAt 更新
+- BUG-03-T04: 多次访问同一旧条目 → 该条目始终不被淘汰
+
+**验收标准**：
+- [ ] BUG-03-T01 ~ T04 全部通过
+- [ ] `flutter test test/features/browser/` 全量回归通过
+- [ ] `flutter analyze` 0 issues
+
+---
+
+### BUG-04 播放单曲目排序缺少防御检查
+
+**来源**：代码审查 | **优先级**：P2
+**涉及文件**：`lib/features/playlist/playlist_provider.dart`
+**依赖**：无
+**关联缺陷**：refactor-plan.md Bug 4
+
+**根因**：
+`reorderPlaylistTrackProvider` 没有检查当前排序模式，仅靠 UI 层阻止调用。
+
+**代码锚点**：
+- `lib/features/playlist/playlist_provider.dart:134-142` 当前实现
+  ```dart
+  final reorderPlaylistTrackProvider = Provider<void Function(int, int)>((ref) {
+    return (oldIndex, newIndex) {
+      // 缺少: if (ref.read(trackSortProvider) != TrackSortOption.addedAsc) return;
+    };
+  });
+  ```
+
+**修复方案**：
+在 Provider 中添加排序模式检查。
+
+**测试用例**：BUG-04-T01 ~ BUG-04-T02
+- BUG-04-T01: 非 addedAsc 排序下调用 reorder → 操作被忽略
+- BUG-04-T02: addedAsc 排序下调用 reorder → 正常执行（回归）
+
+**验收标准**：
+- [ ] BUG-04-T01 ~ T02 全部通过
+- [ ] `flutter test test/features/playlist/` 全量回归通过
+- [ ] `flutter analyze` 0 issues
+
+---
+
+## 待实现 — 重构 Phase 0：测试基础设施
+
+### REF-01 创建 test/helpers/ 目录结构
+
+**来源**：重构计划 Phase 0 | **优先级**：P0
+**涉及文件**：新建 `test/helpers/` 目录
+**依赖**：无
+
+**实现要点**：
+- 创建 `test/helpers/` 目录
+- 创建 `test/helpers/test_database.dart` — 共享数据库初始化
+- 创建 `test/helpers/fake_secure_storage.dart` — 共享 FakeSecureStorage
+- 创建 `test/helpers/test_factories.dart` — 共享 _audio()/_dir() 工厂
+- 创建 `test/helpers/widget_helpers.dart` — 共享 widget 包装函数
+
+**验收标准**：
+- [ ] 目录结构创建完成
+- [ ] 所有文件可被现有测试 import
+
+---
+
+### REF-02 提取 FakeSecureStorage 到共享模块
+
+**来源**：重构计划 Phase 0 | **优先级**：P0
+**涉及文件**：`test/helpers/fake_secure_storage.dart`（新建）
+**依赖**：REF-01
+
+**实现要点**：
+- 从 `con_09_test.dart`、`brw_05_test.dart`、`brw_06_test.dart` 提取 FakeSecureStorage
+- 合并为一个共享实现，支持 `stub()`、`read()`、`write()`、`delete()`
+- 包含 `ThrowingFakeSecureStorage` 变体
+- 更新 3 个源文件使用共享版本
+
+**测试用例**：REF-02-T01
+- REF-02-T01: 3 个源文件 import 共享 FakeSecureStorage 后测试全部通过
+
+**验收标准**：
+- [ ] `flutter test` 全量回归通过
+- [ ] 无重复的 FakeSecureStorage 定义
+
+---
+
+### REF-03 提取 openTestDatabase 到共享模块
+
+**来源**：重构计划 Phase 0 | **优先级**：P0
+**涉及文件**：`test/helpers/test_database.dart`（新建）
+**依赖**：REF-01
+
+**实现要点**：
+- 从 7+ 个测试文件提取 `_openTestDatabase()` 函数
+- 支持 `TestSchema` 枚举：connections / progress / playlist / full
+- 包含 `initSqfliteFfi()` 辅助函数
+- 更新所有源文件使用共享版本
+
+**测试用例**：REF-03-T01
+- REF-03-T01: 所有使用 _openTestDatabase 的测试文件 import 共享版本后测试全部通过
+
+**验收标准**：
+- [ ] `flutter test` 全量回归通过
+- [ ] 无重复的 _openTestDatabase 定义
+
+---
+
+### REF-04 提取 _audio()/_dir() 工厂函数
+
+**来源**：重构计划 Phase 0 | **优先级**：P0
+**涉及文件**：`test/helpers/test_factories.dart`（新建）
+**依赖**：REF-01
+
+**实现要点**：
+- 从 5+ 个测试文件提取 `_audio()` 和 `_dir()` 工厂函数
+- 支持可选参数：size、type、audioType
+- 包含 `_testConfig()` 和 `_progress()` 等常用工厂
+- 更新所有源文件使用共享版本
+
+**测试用例**：REF-04-T01
+- REF-04-T01: 所有使用 _audio()/_dir() 的测试文件 import 共享版本后测试全部通过
+
+**验收标准**：
+- [ ] `flutter test` 全量回归通过
+- [ ] 无重复的工厂函数定义
+
+---
+
+### REF-05 提取 MockWebDavClient 到共享模块
+
+**来源**：重构计划 Phase 0 | **优先级**：P1
+**涉及文件**：`test/helpers/fake_webdav_client.dart`（新建）
+**依赖**：REF-01
+
+**实现要点**：
+- 从 `con_01_test.dart` 提取 MockWebDavClient
+- 支持 `returnResult()` 和 `hangUntilCompleted()` 两种模式
+- 支持 `listDirectory` 和 `validate` 两个方法
+- 包含 `_MockWebDavClient`（brw_05_test.dart 的简单版本）
+
+**测试用例**：REF-05-T01
+- REF-05-T01: con_01_test.dart 和 brw_05_test.dart import 共享版本后测试全部通过
+
+**验收标准**：
+- [ ] `flutter test` 全量回归通过
+- [ ] 无重复的 MockWebDavClient 定义
+
+---
+
+### REF-06 提取 MockAudioPlayer 到共享模块
+
+**来源**：重构计划 Phase 0 | **优先级**：P0
+**涉及文件**：`test/helpers/mock_audio_player.dart`（新建）
+**依赖**：REF-01
+
+**实现要点**：
+- 替代 `ply_08_test.mocks.dart` 的跨 feature import
+- 使用 `@GenerateMocks([AudioPlayer])` 在共享文件中生成
+- 或使用手写 fake 实现（推荐，避免 build_runner 依赖）
+- 更新 6 个导入 `ply_08_test.mocks.dart` 的文件
+
+**测试用例**：REF-06-T01
+- REF-06-T01: 所有导入 ply_08_test.mocks.dart 的文件改用共享版本后测试全部通过
+
+**验收标准**：
+- [ ] `flutter test` 全量回归通过
+- [ ] 无跨 feature 目录的 mock import
+
+---
+
+### REF-07 提取 widget 测试包装函数
+
+**来源**：重构计划 Phase 0 | **优先级**：P1
+**涉及文件**：`test/helpers/widget_helpers.dart`（新建）
+**依赖**：REF-01
+
+**实现要点**：
+- 提取 `_wrapMiniPlayer()`、`_wrapWithRouter()`、`wrapWithTimerProviders()` 等
+- 提取 `buildTestApp()`、`makeContainer()` 等通用包装
+- 支持可选的 ProviderScope overrides 参数
+
+**测试用例**：REF-07-T01
+- REF-07-T01: 使用共享包装函数的 widget 测试全部通过
+
+**验收标准**：
+- [ ] `flutter test` 全量回归通过
+- [ ] 无重复的 widget 包装函数定义
+
+---
+
+## 待实现 — 重构 Phase 1：Player Domain 提取
+
+### REF-08 创建 player/domain/seek_utils.dart
+
+**来源**：重构计划 Phase 1 Day 1 | **优先级**：P0
+**涉及文件**：新建 `lib/features/player/domain/seek_utils.dart`
+**依赖**：无
+
+**实现要点**：
+- 从 `player_provider.dart` 提取 `clampSeek()`、`skipForward()`、`skipBackward()`
+- 纯函数，零 Flutter 依赖
+- 保留现有测试，更新 import 路径
+
+**测试用例**：REF-08-T01 ~ REF-08-T03
+- REF-08-T01: clampSeek 边界测试（负数、超出范围、正常值）
+- REF-08-T02: skipForward 各步长测试
+- REF-08-T03: skipBackward 各步长测试
+
+**验收标准**：
+- [ ] `flutter test test/features/player/` 全量回归通过
+- [ ] 新文件零 Flutter 依赖
+
+---
+
+### REF-09 创建 player/domain/play_mode.dart
+
+**来源**：重构计划 Phase 1 Day 1 | **优先级**：P0
+**涉及文件**：新建 `lib/features/player/domain/play_mode.dart`
+**依赖**：无
+
+**实现要点**：
+- 从 `player_provider.dart` 提取 `PlayMode` 枚举、`iconForPlayMode()`、`labelForPlayMode()`
+- 从 `play_queue.dart` 提取 `nextIndex()`、`previousIndex()` 的纯逻辑
+- 纯 Dart，零 Flutter 依赖
+
+**测试用例**：REF-09-T01 ~ REF-09-T04
+- REF-09-T01: 4 种模式的 nextIndex 行为
+- REF-09-T02: 4 种模式的 previousIndex 行为
+- REF-09-T03: 边界条件（空队列、单曲目、越界）
+- REF-09-T04: 模式切换循环
+
+**验收标准**：
+- [ ] `flutter test test/features/player/` 全量回归通过
+- [ ] 新文件零 Flutter 依赖
+
+---
+
+### REF-10 创建 player/domain/speed_manager.dart
+
+**来源**：重构计划 Phase 1 Day 1 | **优先级**：P0
+**涉及文件**：新建 `lib/features/player/domain/speed_manager.dart`
+**依赖**：无
+
+**实现要点**：
+- 从 `player_provider.dart` 提取 `speedOptions`、`isValidSpeed()`、`getDefaultSpeed()`、`readSeekStep()`
+- 纯函数，零 Flutter 依赖
+
+**测试用例**：REF-10-T01 ~ REF-10-T03
+- REF-10-T01: 6 个速度选项验证
+- REF-10-T02: isValidSpeed 边界测试
+- REF-10-T03: getDefaultSpeed 从 SharedPreferences 读取
+
+**验收标准**：
+- [ ] `flutter test test/features/player/` 全量回归通过
+- [ ] 新文件零 Flutter 依赖
+
+---
+
+### REF-11 创建 player/domain/request_gate.dart
+
+**来源**：重构计划 Phase 1 Day 1 | **优先级**：P0
+**涉及文件**：新建 `lib/features/player/domain/request_gate.dart`
+**依赖**：无
+
+**实现要点**：
+- 从 `player_provider.dart` 提取 `SerializedRequestGate`、`PlayerLoadStatus`、`TrackLoadStatus`、`TrackLoadResult`
+- 纯 Dart 类，零 Flutter 依赖
+
+**测试用例**：REF-11-T01 ~ REF-11-T04
+- REF-11-T01: 单请求正常执行
+- REF-11-T02: 并发请求 → 最新请求优先
+- REF-11-T03: 排队请求被取代 → 返回 superseded
+- REF-11-T04: 执行完成后自动启动排队请求
+
+**验收标准**：
+- [ ] `flutter test test/features/player/` 全量回归通过
+- [ ] 新文件零 Flutter 依赖
+
+---
+
+### REF-12 创建 player/domain/media_control.dart
+
+**来源**：重构计划 Phase 1 Day 1 | **优先级**：P1
+**涉及文件**：新建 `lib/features/player/domain/media_control.dart`
+**依赖**：无
+
+**实现要点**：
+- 从 `media_control_model.dart` 移入 `extractTitleFromPath()`、`mapHeadphoneAction()`
+- 从 `player_provider.dart` 提取 `formatDuration()`
+- 纯函数，零 Flutter 依赖
+
+**测试用例**：REF-12-T01 ~ REF-12-T03
+- REF-12-T01: extractTitleFromPath 各种路径格式
+- REF-12-T02: mapHeadphoneAction 3 种映射
+- REF-12-T03: formatDuration MM:SS 和 H:MM:SS
+
+**验收标准**：
+- [ ] `flutter test test/features/player/` 全量回归通过
+- [ ] 新文件零 Flutter 依赖
+
+---
+
+### REF-13 创建 player/domain/background_playback.dart
+
+**来源**：重构计划 Phase 1 Day 1 | **优先级**：P1
+**涉及文件**：新建 `lib/features/player/domain/background_playback.dart`（移自 `lib/features/player/background_playback.dart`）
+**依赖**：无
+
+**实现要点**：
+- 移入 `BackgroundPlaybackConfig`、`BackgroundPlaybackNotifier`
+- 移入 `shouldContinueInBackground()`、`computePlaybackStateAfterLifecycle()`
+- 纯 Dart StateNotifier，零平台依赖
+
+**测试用例**：REF-13-T01 ~ REF-13-T04
+- REF-13-T01: 媒体控制 play/pause/stop/toggle 状态转移
+- REF-13-T02: 音频焦点 gained/lost/transient 转移
+- REF-13-T03: 前后台切换对播放状态的影响
+- REF-13-T04: isAudioActive/showPauseAction 派生属性
+
+**验收标准**：
+- [ ] `flutter test test/features/player/` 全量回归通过
+- [ ] 新文件零平台依赖
+
+---
+
+### REF-14 创建 player/domain/playback_orchestrator.dart
+
+**来源**：重构计划 Phase 1 Day 2 | **优先级**：P0
+**涉及文件**：新建 `lib/features/player/domain/playback_orchestrator.dart`
+**依赖**：REF-08, REF-09, REF-10, REF-11, REF-13
+
+**实现要点**：
+- 核心类 `PlaybackOrchestrator`，构造函数接收依赖接口
+- 方法：`loadAndPlay()`、`skipToNext()`、`skipToPrevious()`、`selectQueueIndex()`、`removeTrack()`、`saveProgress()`
+- 内部管理 `RequestGate`、自动保存定时器、processing 监听器
+- 所有依赖通过构造函数注入，不读取 Riverpod provider
+
+**测试用例**：REF-14-T01 ~ REF-14-T08
+- REF-14-T01: loadAndPlay 正常流程 → loaded
+- REF-14-T02: loadAndPlay 无连接 → failed
+- REF-14-T03: loadAndPlay 无密码 → failed
+- REF-14-T04: skipToNext → 保存进度 → 更新队列 → loadAndPlay
+- REF-14-T05: skipToPrevious → 保存进度 → 更新队列 → loadAndPlay
+- REF-14-T06: removeTrack 空队列 → stop
+- REF-14-T07: removeTrack 当前曲目 → 下一曲
+- REF-14-T08: removeTrack 非当前曲目 → 仅更新队列
+
+**验收标准**：
+- [ ] 所有测试用例通过
+- [ ] 新文件零 Riverpod 依赖
+- [ ] 纯 Dart 可直接 test()
+
+---
+
+### REF-15 重写 player_provider.dart 为薄胶水
+
+**来源**：重构计划 Phase 1 Day 3 | **优先级**：P0
+**涉及文件**：`lib/features/player/player_provider.dart`（大幅重写）
+**依赖**：REF-14
+
+**实现要点**：
+- 新的 provider 只包含：`playbackOrchestratorProvider`、薄包装 provider、状态暴露 provider
+- 移除所有业务逻辑，仅做依赖组装
+- 文件从 1092 行缩减到 ~200 行
+
+**测试用例**：REF-15-T01
+- REF-15-T01: `flutter test test/features/player/` 全量回归通过
+
+**验收标准**：
+- [ ] 文件 < 300 行
+- [ ] `flutter test test/features/player/` 全量回归通过
+- [ ] `flutter analyze` 0 issues
+
+---
+
+### REF-16 更新 player_screen.dart 使用新 provider
+
+**来源**：重构计划 Phase 1 Day 3 | **优先级**：P0
+**涉及文件**：`lib/features/player/player_screen.dart`
+**依赖**：REF-15
+
+**实现要点**：
+- 更新 import 路径
+- 使用新的薄胶水 provider
+- 保持 UI 行为不变
+
+**测试用例**：REF-16-T01
+- REF-16-T01: `flutter test test/features/player/` 全量回归通过
+
+**验收标准**：
+- [ ] `flutter test test/features/player/` 全量回归通过
+- [ ] `flutter analyze` 0 issues
+
+---
+
+## 待实现 — 重构 Phase 2：Browser Domain 提取
+
+### REF-17 创建 browser/domain/navigation_stack.dart
+
+**来源**：重构计划 Phase 2 Day 1 | **优先级**：P0
+**涉及文件**：新建 `lib/features/browser/domain/navigation_stack.dart`
+**依赖**：无
+
+**实现要点**：
+- 从 `browser_provider.dart` 移入 `NavigationStackNotifier`
+- 纯 Dart StateNotifier，零 Flutter 依赖
+
+**测试用例**：REF-17-T01 ~ REF-17-T04
+- REF-17-T01: push 追加路径
+- REF-17-T02: pop 移除栈顶
+- REF-17-T03: popTo 截断到目标
+- REF-17-T04: 根目录 pop 无效
+
+**验收标准**：
+- [ ] `flutter test test/features/browser/` 全量回归通过
+- [ ] 新文件零 Flutter 依赖
+
+---
+
+### REF-18 创建 browser/domain/cache_policy.dart
+
+**来源**：重构计划 Phase 2 Day 1 | **优先级**：P0
+**涉及文件**：新建 `lib/features/browser/domain/cache_policy.dart`
+**依赖**：BUG-03
+
+**实现要点**：
+- 定义 `CacheEntry` 类（含 `lastAccessedAt` 字段）
+- 实现 LRU 淘汰策略（按 lastAccessedAt 排序）
+- 实现 TTL 过期检查（5 分钟）
+- 纯 Dart，零 Flutter 依赖
+
+**测试用例**：REF-18-T01 ~ REF-18-T05
+- REF-18-T01: TTL 5 分钟内 → 命中
+- REF-18-T02: TTL 超过 5 分钟 → 过期
+- REF-18-T03: 容量 50 条 → 不淘汰
+- REF-18-T04: 容量 51 条 → LRU 淘汰
+- REF-18-T05: 访问旧条目 → 更新 lastAccessedAt → 不被淘汰
+
+**验收标准**：
+- [ ] `flutter test test/features/browser/` 全量回归通过
+- [ ] 新文件零 Flutter 依赖
+
+---
+
+### REF-19 创建 browser/domain/directory_service.dart
+
+**来源**：重构计划 Phase 2 Day 1 | **优先级**：P0
+**涉及文件**：新建 `lib/features/browser/domain/directory_service.dart`
+**依赖**：REF-17, REF-18
+
+**实现要点**：
+- 从 `browser_provider.dart` 移入目录加载逻辑、排序逻辑
+- 接收 `IWebDavClient`、`ISecureStorage` 依赖
+- 使用 `CachePolicy` 管理缓存
+
+**测试用例**：REF-19-T01 ~ REF-19-T04
+- REF-19-T01: 目录加载 → 缓存 → 排序
+- REF-19-T02: 缓存命中 → 无网络请求
+- REF-19-T03: 缓存过期 → 重新请求
+- REF-19-T04: 排序变化 → 重新排序（无网络请求）
+
+**验收标准**：
+- [ ] `flutter test test/features/browser/` 全量回归通过
+- [ ] 新文件零 Flutter 依赖
+
+---
+
+### REF-20 重写 browser_provider.dart 为薄胶水
+
+**来源**：重构计划 Phase 2 Day 2 | **优先级**：P0
+**涉及文件**：`lib/features/browser/browser_provider.dart`（大幅重写）
+**依赖**：REF-19
+
+**实现要点**：
+- 新的 provider 只包含依赖组装和状态暴露
+- 移除所有业务逻辑
+- 文件从 495 行缩减到 ~150 行
+
+**测试用例**：REF-20-T01
+- REF-20-T01: `flutter test test/features/browser/` 全量回归通过
+
+**验收标准**：
+- [ ] 文件 < 200 行
+- [ ] `flutter test test/features/browser/` 全量回归通过
+- [ ] `flutter analyze` 0 issues
+
+---
+
+## 待实现 — 重构 Phase 3：Connection Domain 提取
+
+### REF-21 创建 connection/domain/connection_validator.dart
+
+**来源**：重构计划 Phase 3 | **优先级**：P0
+**涉及文件**：新建 `lib/features/connection/domain/connection_validator.dart`
+**依赖**：无
+
+**实现要点**：
+- 从 `connection_provider.dart` 和 `connection_screen.dart` 提取 URL 验证、表单校验逻辑
+- 纯函数：`validateUrl()`、`validateRequired()`、`validateBasePath()`
+
+**测试用例**：REF-21-T01 ~ REF-21-T04
+- REF-21-T01: URL 验证 — 空值、格式错误、有效地址
+- REF-21-T02: 用户名/密码必填验证
+- REF-21-T03: basePath 默认值和格式验证
+- REF-21-T04: DDNS 域名验证
+
+**验收标准**：
+- [ ] `flutter test test/features/connection/` 全量回归通过
+- [ ] 新文件零 Flutter 依赖
+
+---
+
+### REF-22 创建 connection/domain/connection_service.dart
+
+**来源**：重构计划 Phase 3 | **优先级**：P0
+**涉及文件**：新建 `lib/features/connection/domain/connection_service.dart`
+**依赖**：REF-21
+
+**实现要点**：
+- 从 `connection_provider.dart` 提取保存流程（原子性：DB + SecureStorage + 回滚）
+- 提取删除流程（最后连接保护 + 自动激活）
+- 提取切换流程（setActive 事务）
+
+**测试用例**：REF-22-T01 ~ REF-22-T05
+- REF-22-T01: 保存成功 → DB + SecureStorage 都写入
+- REF-22-T02: SecureStorage 失败 → DB 回滚
+- REF-22-T03: 删除最后连接 → LastConnectionException
+- REF-22-T04: 删除活跃连接 → 自动激活另一个
+- REF-22-T05: 切换连接 → 事务保证唯一活跃
+
+**验收标准**：
+- [ ] `flutter test test/features/connection/` 全量回归通过
+- [ ] 新文件零 Flutter 依赖
+
+---
+
+### REF-23 重写 connection_provider.dart 为薄胶水
+
+**来源**：重构计划 Phase 3 | **优先级**：P0
+**涉及文件**：`lib/features/connection/connection_provider.dart`（重写）
+**依赖**：REF-22
+
+**实现要点**：
+- 新的 provider 只包含依赖组装
+- 移除所有业务逻辑
+
+**测试用例**：REF-23-T01
+- REF-23-T01: `flutter test test/features/connection/` 全量回归通过
+
+**验收标准**：
+- [ ] `flutter test test/features/connection/` 全量回归通过
+- [ ] `flutter analyze` 0 issues
+
+---
+
+## 待实现 — 重构 Phase 4：其他 Feature Domain 提取
+
+### REF-24 创建 progress/domain/progress_policy.dart
+
+**来源**：重构计划 Phase 4 | **优先级**：P0
+**涉及文件**：新建 `lib/features/progress/domain/progress_policy.dart`
+**依赖**：无
+
+**实现要点**：
+- 从 `progress_dao.dart` 移出 `shouldSave()`、`shouldClear()` 静态方法
+- 纯函数，零 Flutter 依赖
+
+**测试用例**：REF-24-T01 ~ REF-24-T04
+- REF-24-T01: shouldSave 边界测试（4999/5000）
+- REF-24-T02: shouldClear 边界测试（durationMs-10001/durationMs-10000）
+- REF-24-T03: 短文件保护（durationMs <= 10000）
+- REF-24-T04: 未知时长保护（durationMs == null）
+
+**验收标准**：
+- [ ] `flutter test test/features/progress/` 全量回归通过
+- [ ] 新文件零 Flutter 依赖
+
+---
+
+### REF-25 创建 progress/domain/progress_service.dart
+
+**来源**：重构计划 Phase 4 | **优先级**：P1
+**涉及文件**：新建 `lib/features/progress/domain/progress_service.dart`
+**依赖**：REF-24
+
+**实现要点**：
+- 封装 5 个保存触发点的编排逻辑
+- 封装恢复对话框的状态管理
+
+**测试用例**：REF-25-T01 ~ REF-25-T03
+- REF-25-T01: 5 个触发点分别调用 upsert
+- REF-25-T02: 恢复对话框状态转移
+- REF-25-T03: 倒计时归零自动选择
+
+**验收标准**：
+- [ ] `flutter test test/features/progress/` 全量回归通过
+
+---
+
+### REF-26 创建 playlist/domain/playlist_service.dart
+
+**来源**：重构计划 Phase 4 | **优先级**：P1
+**涉及文件**：新建 `lib/features/playlist/domain/playlist_service.dart`
+**依赖**：无
+
+**实现要点**：
+- 从 `playlist_provider.dart` 提取 CRUD + 去重 + 导入导出逻辑
+- 纯 Dart，通过接口访问 DAO
+
+**测试用例**：REF-26-T01 ~ REF-26-T04
+- REF-26-T01: 创建播放单
+- REF-26-T02: 添加曲目去重
+- REF-26-T03: 导出 JSON 格式正确
+- REF-26-T04: 导入去重 + 容错
+
+**验收标准**：
+- [ ] `flutter test test/features/playlist/` 全量回归通过
+
+---
+
+### REF-27 创建 settings/domain/settings_service.dart
+
+**来源**：重构计划 Phase 4 | **优先级**：P1
+**涉及文件**：新建 `lib/features/settings/domain/settings_service.dart`
+**依赖**：无
+
+**实现要点**：
+- 从 `settings_provider.dart` 提取主题、速度、步长的读写逻辑
+- 纯 Dart，通过接口访问 SharedPreferences
+
+**测试用例**：REF-27-T01 ~ REF-27-T03
+- REF-27-T01: 主题读写持久化
+- REF-27-T02: 默认速度读写
+- REF-27-T03: 快进步长读写
+
+**验收标准**：
+- [ ] `flutter test test/features/settings/` 全量回归通过
+
+---
+
+### REF-28 移动 timer_service.dart 到 timer/domain/
+
+**来源**：重构计划 Phase 4 | **优先级**：P1
+**涉及文件**：`lib/core/services/timer_service.dart` → `lib/features/timer/domain/timer_service.dart`
+**依赖**：无
+
+**实现要点**：
+- 移动文件到新位置
+- 更新所有 import 路径
+- timer_service.dart 已是纯逻辑，无需修改内容
+
+**测试用例**：REF-28-T01
+- REF-28-T01: `flutter test test/features/timer/` 全量回归通过
+
+**验收标准**：
+- [ ] `flutter test` 全量回归通过
+- [ ] 旧位置文件已删除
+
+---
+
+## 待实现 — 重构 Phase 5：接口化 + 依赖注入
+
+### REF-29 定义 core/contracts/ 接口
+
+**来源**：重构计划 Phase 5 | **优先级**：P0
+**涉及文件**：新建 4 个接口文件
+**依赖**：REF-14, REF-19, REF-22
+
+**实现要点**：
+- `lib/core/contracts/audio_player_contract.dart` — IAudioPlayer 接口
+- `lib/core/contracts/storage_contract.dart` — ISecureStorage 接口
+- `lib/core/contracts/audio_handler_contract.dart` — IAudioHandler 接口
+- `lib/core/contracts/database_contract.dart` — IConnectionDao, IProgressDao, IPlaylistDao 接口
+
+**验收标准**：
+- [ ] 所有接口文件创建完成
+- [ ] 接口方法签名与现有实现一致
+
+---
+
+### REF-30 Data 层实现接口
+
+**来源**：重构计划 Phase 5 | **优先级**：P0
+**涉及文件**：`lib/core/database/dao/*.dart`、`lib/core/network/webdav_client.dart`
+**依赖**：REF-29
+
+**实现要点**：
+- ConnectionDao implements IConnectionDao
+- ProgressDao implements IProgressDao
+- PlaylistDao implements IPlaylistDao
+- WebDavClient implements IWebDavClient（已有）
+
+**验收标准**：
+- [ ] 所有 DAO 类实现对应接口
+- [ ] `flutter analyze` 0 issues
+
+---
+
+### REF-31 创建 shared/di/providers.dart
+
+**来源**：重构计划 Phase 5 | **优先级**：P0
+**涉及文件**：新建 `lib/shared/di/providers.dart`
+**依赖**：REF-30
+
+**实现要点**：
+- 唯一允许 import 多个 feature 的文件
+- 通过接口将各 feature 连接起来
+- 跨 feature 的 provider 桥接
+
+**验收标准**：
+- [ ] 文件创建完成
+- [ ] 所有跨 feature 依赖通过此文件
+
+---
+
+### REF-32 更新所有 feature provider 使用接口
+
+**来源**：重构计划 Phase 5 | **优先级**：P0
+**涉及文件**：所有 feature 的 provider 文件
+**依赖**：REF-31
+
+**实现要点**：
+- 更新所有 provider 文件，只依赖接口不依赖具体实现
+- 消除跨 feature 直接 import
+
+**验收标准**：
+- [ ] `flutter test` 全量回归通过
+- [ ] 跨 feature import 只存在于 `shared/di/providers.dart`
+
+---
+
+## 待实现 — 重构 Phase 6：集成测试补全
 
 ### TST-01 自动切歌流程集成测试
 
 **来源**：测试缺口 (test.md §PLY-G01) | **优先级**：P0
-**涉及文件**：`test/features/player/ply_05_test.dart`（追加）、`lib/features/player/player_provider.dart`
+**涉及文件**：`test/features/player/ply_05_test.dart`（追加）
 **依赖**：无
 **关联缺口**：PLY-G01
-
-**实现要点**：
-- 覆盖 processingState=completed → nextIndex（基于 playMode）→ 构建新 AudioSource → loadAndPlay 完整链路
-- 使用 mock AudioPlayer（已有 `ply_08_test.mocks.dart`），模拟 `processingStateStream` 发出 `ProcessingState.completed`
-- 验证 4 种播放模式下切歌行为：sequential 队尾停播、repeatOne 同曲重放(seek 0)、repeatAll 循环到队首、shuffle 随机跳转
-- 验证切歌前先保存旧曲目进度、切歌后更新 `currentPlayQueueProvider.currentIndex`
-- 在现有 `ply_05_test.dart` 文件末尾追加测试 group
 
 **测试用例**：TST-T01 ~ TST-T06
 - TST-T01: sequential 模式 — 中间曲目完成 → 自动跳到下一首
@@ -27,451 +843,239 @@
 - TST-T03: repeatOne 模式 — 曲目完成 → seek(0)+play 同曲重放
 - TST-T04: repeatAll 模式 — 最后一首完成 → 循环到第一首
 - TST-T05: shuffle 模式 — 曲目完成 → 随机跳到非当前索引
-- TST-T06: 切歌前验证 `upsertProgressProvider` 被调用（保存旧曲目进度）
+- TST-T06: 切歌前验证 upsertProgressProvider 被调用
+
+**验收标准**：
+- [ ] TST-T01 ~ T06 全部通过
+- [ ] `flutter test` 全量回归通过
 
 ---
 
 ### TST-02 播放进度保存与恢复端到端链路
 
 **来源**：测试缺口 (test.md §INT-G02) | **优先级**：P0
-**涉及文件**：`test/features/progress/prg_test.dart`（追加）、`lib/features/player/player_provider.dart`、`lib/features/progress/progress_provider.dart`
+**涉及文件**：`test/features/progress/prg_test.dart`（追加）
 **依赖**：无
-**关联缺口**：INT-G02, PRG-G01, PRG-G04
-
-**实现要点**：
-- 模拟完整流程：构建 PlayQueue → 播放 → position 推进 → 10s 周期自动保存 → pause 时保存 → App 模拟重启（新 ProviderContainer）→ 读 latestPlayedProgress → 恢复队列 → seek 到保存位置
-- 使用 fake_async 模拟时间流逝，验证 10s 周期定时器触发保存
-- 验证 5 个保存触发点全部执行：周期保存、暂停保存、切歌保存、后台保存、dispose 保存
-- 验证 upsertLatest 替换旧记录后旧 connectionId+filePath 记录确实删除
-- 使用 sqflite_ffi 内存数据库，模拟跨 session 的进度持久化
-- 验证重启后不自动播放（仅恢复位置，等待用户点击）
+**关联缺口**：INT-G02, PRG-G01
 
 **测试用例**：TST-T07 ~ TST-T13
-- TST-T07: 10s 周期保存 — fake_async 推进 30s → 3 次 upsert 调用
-- TST-T08: 暂停触发保存 — playerStateStream 发出 playing: true→false
-- TST-T09: 切歌前保存 — skipToNext 前调用 upsert 保存旧曲目
-- TST-T10: 进入后台保存 — AppLifecycleState.paused → 保存当前进度
-- TST-T11: dispose 保存 — PlayerScreen dispose → 保存当前进度
-- TST-T12: 重启恢复 — 新 ProviderContainer → findLatest → 构建带 startPositionMs 的队列
-- TST-T13: upsertLatest 旧记录确实被物理删除（count=1 非累积）
+- TST-T07: 10s 周期保存 — fake_async 推进 30s → 3 次 upsert
+- TST-T08: 暂停触发保存
+- TST-T09: 切歌前保存
+- TST-T10: 进入后台保存
+- TST-T11: dispose 保存
+- TST-T12: 重启恢复 → 构建带 startPositionMs 的队列
+- TST-T13: upsertLatest 旧记录物理删除
+
+**验收标准**：
+- [ ] TST-T07 ~ T13 全部通过
+- [ ] `flutter test` 全量回归通过
 
 ---
 
 ### TST-03 Timer 到期 → Player 暂停集成链路
 
-**来源**：测试缺口 (test.md §INT-G03, TMR-G02, TMR-G04) | **优先级**：P0
-**涉及文件**：`test/features/timer/timer_test.dart`（追加）、`lib/core/services/timer_service.dart`、`lib/features/timer/timer_provider.dart`
+**来源**：测试缺口 (test.md §INT-G03) | **优先级**：P0
+**涉及文件**：`test/features/timer/timer_test.dart`（追加）
 **依赖**：无
 **关联缺口**：INT-G03, TMR-G02, TMR-G04
 
-**实现要点**：
-- 固定时长到期链路：启动 duration timer → fake_async 推进到 endTime → checkExpired() 返回 true → 验证 player.pause() 被调用 → timerState 清除为 null
-- afterCurrent 到期链路：启动 afterCurrent → mock processingStateStream 发出 completed → onTrackCompleted() 返回 true → 验证 player.pause() 被调用
-- 使用 mock AudioPlayer（MockAudioPlayer from ply_08_test.mocks.dart）
-- 验证到期后 timerStateProvider 状态为 null（清除）
-- 验证 checkExpired/trackCompleted 的幂等性（再次调用返回 false）
-
 **测试用例**：TST-T14 ~ TST-T19
-- TST-T14: 5min duration timer → fake_async elapse 5min → checkExpired=true → pause() 被调用
-- TST-T15: duration timer 未到期 → checkExpired=false → pause() 未被调用
-- TST-T16: afterCurrent timer → processingState=completed → onTrackCompleted=true → pause() 被调用
-- TST-T17: afterCurrent timer → 手动切歌（skipToNext）→ onTrackCompleted 未被调用 → timer 保持 active
-- TST-T18: 到期后再次 checkExpired → 返回 false（state 已清除，幂等）
-- TST-T19: afterCurrent 触发后再次 onTrackCompleted → 返回 false（幂等）
+- TST-T14: 5min duration → 到期 → pause()
+- TST-T15: duration 未到期 → 无操作
+- TST-T16: afterCurrent → completed → pause()
+- TST-T17: afterCurrent → 手动切歌 → timer 保持
+- TST-T18: 到期后再次 checkExpired → false（幂等）
+- TST-T19: afterCurrent 触发后再次 onTrackCompleted → false
+
+**验收标准**：
+- [ ] TST-T14 ~ T19 全部通过
+- [ ] `flutter test` 全量回归通过
 
 ---
 
 ### TST-04 播放单曲目点击完整播放流程
 
-**来源**：测试缺口 (test.md §INT-G04, PRG-G03) | **优先级**：P0
-**涉及文件**：`test/features/playlist/ply_13_test.dart`（追加）、`lib/features/playlist/playlist_detail_screen.dart`
-**依赖**：TST-02（共享进度恢复测试基础设施）
+**来源**：测试缺口 (test.md §INT-G04) | **优先级**：P0
+**涉及文件**：`test/features/playlist/ply_13_test.dart`（追加）
+**依赖**：无
 **关联缺口**：INT-G04, PRG-G03
 
-**实现要点**：
-- 完整流程：点击播放单曲目 → progressForFileProvider 查询进度 → 有进度→弹恢复对话框 → 选择继续/从头 → 构建 PlayQueue(startPositionMs) → 导航 /player → 加载 AudioSource → seek 到保存位置（或从头播放）
-- 使用 GoRouter mock 路由，验证导航到 /player
-- 使用 sqflite_ffi 预置进度数据，验证 progressForFileProvider 返回正确 PlayProgress
-- 验证 PlayQueue 携带 startPositionMs 传递到 PlayerScreen
-- 无进度文件直接构建队列，不弹对话框
-
 **测试用例**：TST-T20 ~ TST-T25
-- TST-T20: 有进度的曲目点击 → 弹出恢复对话框 → 选择继续 → 构建带 startPositionMs 的队列 → 导航 /player
-- TST-T21: 有进度的曲目点击 → 弹出恢复对话框 → 选择从头 → 构建不带 startPositionMs 的队列 → 导航 /player
-- TST-T22: 无进度的曲目点击 → 不弹对话框 → 直接构建队列 → 导航 /player
-- TST-T23: positionMs < 5000 的曲目 → threshold 检查 → 不弹对话框
-- TST-T24: 恢复对话框倒计时归零 → 自动选择继续
-- TST-T25: 多曲目播放单点击任意曲目 → queue.currentIndex 正确指向被点击曲目
+- TST-T20: 有进度 → 恢复对话框 → 继续 → 带 startPositionMs
+- TST-T21: 有进度 → 恢复对话框 → 从头 → 不带 startPositionMs
+- TST-T22: 无进度 → 直接播放
+- TST-T23: positionMs < 5000 → 不弹对话框
+- TST-T24: 倒计时归零 → 自动继续
+- TST-T25: 多曲目点击任意曲目 → currentIndex 正确
+
+**验收标准**：
+- [ ] TST-T20 ~ T25 全部通过
+- [ ] `flutter test` 全量回归通过
 
 ---
 
-## 待实现 — 测试补充（P1 重要功能）
+## 待实现 — 重构 Phase 7：测试覆盖审计 + 补全
 
-### TST-05 定时器暂停/恢复功能测试
+### AUD-01 测试覆盖映射审计
 
-**来源**：测试缺口 (test.md §TMR-G01) | **优先级**：P1
-**涉及文件**：`test/features/timer/timer_test.dart`（追加）、`lib/core/services/timer_service.dart`
-**依赖**：无
-**关联缺口**：TMR-G01
+**来源**：深度审查维度 1 | **优先级**：P1
+**涉及文件**：所有测试文件
+**依赖**：Phase 0-6 完成
 
 **实现要点**：
-- 新增 paused 状态的单元测试（state.md 4.1-4.2 设计的状态转移）
-- 测试 pause()：duration timer 运行中 → 暂停 → 记录 remainingMs → 状态变为 paused
-- 测试 resume()：paused 状态 → 恢复 → 从 remainingMs 重新计算 endTime
-- 测试 cancel() on paused → 回到 idle
-- 测试 startDuration() on paused → 覆盖旧 timer → 新定时器启动
-- 测试 checkExpired() on paused → 不触发到期（paused 不倒计时）
-- 测试 afterCurrent → pause → resume 的转换链路
-- 测试 formattedRemaining 在 paused 状态下显示正确的剩余时间
+- 逐条对照 state.md 每个转移 vs 现有测试
+- 生成完整覆盖矩阵
+- 标记所有缺测试的转移
+- 补写缺失测试
 
-**测试用例**：TST-T26 ~ TST-T34
-- TST-T26: duration timer → pause → state.mode==paused, remainingMs 不变
-- TST-T27: paused → resume → 恢复倒计时，endTime 重新计算
-- TST-T28: paused → cancel → state==null (idle)
-- TST-T29: paused → startDuration(10) → 新 timer 覆盖 paused
-- TST-T30: afterCurrent → pause → state.mode==paused
-- TST-T31: paused(afterCurrent) → resume → 回到 afterCurrent
-- TST-T32: paused → checkExpired → 返回 false（不触发到期）
-- TST-T33: formattedRemaining 在 paused 状态下正确显示
-- TST-T34: 暂停→恢复完整循环，endTime 差值正确
+**验收标准**：
+- [ ] 覆盖率从 81% 提升到 95%+
+- [ ] 所有标记的缺失转移都有测试
 
 ---
 
-### TST-06 播放单导出/导入测试
+### AUD-02 边界值测试补全
 
-**来源**：测试缺口 (test.md §PLS-G04, PLS-G05) | **优先级**：P1
-**涉及文件**：`test/features/playlist/ply_10_test.dart`（追加）、`lib/features/playlist/playlist_provider.dart`
+**来源**：深度审查维度 2 | **优先级**：P1
+**涉及文件**：多个测试文件
 **依赖**：无
-**关联缺口**：PLS-G04, PLS-G05, LOG-G05
 
 **实现要点**：
-- 使用 sqflite_ffi 内存数据库，创建播放单并添加曲目 → 调用 exportPlaylistProvider → 验证 JSON 结构正确
-- JSON 格式：`{name, tracks: [{filePath, fileName}], exportedAt}`
-- 导入：`importPlaylistProvider(jsonString)` → 创建新播放单 → 添加曲目 → 验证 DAO 数据正确
-- 导入去重：同一 filePath 跳过
-- 导入容错：JSON 格式错误 → 不崩溃 → 返回错误
-- 导入含不存在路径的 JSON → 跳过缺失曲目
+- Browser 缓存 TTL 边界（4:59/5:00）
+- Browser 缓存容量边界（49/50/51）
+- Player 超时边界（12s/15s）
+- Timer 边界（startDuration(0)）
 
-**测试用例**：TST-T35 ~ TST-T42
-- TST-T35: 导出含 5 首曲目的播放单 → JSON 包含所有字段
-- TST-T36: 导出空播放单 → JSON tracks 为空数组
-- TST-T37: 导入有效 JSON → 新播放单创建成功 → 曲目列表正确
-- TST-T38: 导入 JSON → 曲目数匹配原始播放单
-- TST-T39: 重复导入同一 JSON → 创建两个独立播放单（非覆盖）
-- TST-T40: 导入含已存在路径的 JSON → 去重跳过
-- TST-T41: 导入格式错误的 JSON → 不崩溃 → 返回错误信息
-- TST-T42: export+import round-trip → 名称和曲目完全一致
+**测试用例**：AUD-02-T01 ~ AUD-02-T10
+- AUD-02-T01: 缓存 age=4:59 → 命中
+- AUD-02-T02: 缓存 age=5:00 → 过期
+- AUD-02-T03: 缓存 49 条 → 不淘汰
+- AUD-02-T04: 缓存 50 条 → 不淘汰
+- AUD-02-T05: 缓存 51 条 → 淘汰 1 条
+- AUD-02-T06: play() 轮询 11.8s 成功 → loaded
+- AUD-02-T07: play() 轮询 12.0s 未开始 → failed
+- AUD-02-T08: 屏幕超时 14.9s 完成 → loaded
+- AUD-02-T09: 屏幕超时 15.0s → TimeoutException
+- AUD-02-T10: startDuration(0) → 立即过期
+
+**验收标准**：
+- [ ] AUD-02-T01 ~ T10 全部通过
 
 ---
 
-### TST-07 PlayerScreen 全屏播放器 Widget 测试
+### AUD-03 错误注入测试补全
 
-**来源**：测试缺口 (test.md §UI-G01, PLY-G04) | **优先级**：P1
-**涉及文件**：新建 `test/features/player/ply_14_test.dart`、`lib/features/player/player_screen.dart`
+**来源**：深度审查维度 3 | **优先级**：P1
+**涉及文件**：多个测试文件
 **依赖**：无
-**关联缺口**：UI-G01, PLY-G04
 
 **实现要点**：
-- 使用 MockAudioPlayer（ply_08_test.mocks.dart），mock 所有必要的 Stream（positionStream、durationStream、playerStateStream、speedStream）
-- 验证全屏播放器页面的控件渲染：封面区域、进度条 Slider、播放/暂停按钮、上一首/下一首、快进/快退、速度按钮、播放模式按钮、定时器按钮、队列按钮
-- 验证进度条 Slider 的 onChanged 和 onChangeEnd 触发 seek
-- 验证速度按钮点击弹出 6 选项底部弹窗
-- 验证播放模式按钮点击循环切换 4 种模式
-- 验证当前曲目名和艺术家信息（从文件名提取）的显示
-- 验证 AppBar 返回按钮存在
+- SecureStorage 写入失败回滚
+- setAudioSource 失败
+- 播放中连接断开
+- 密码缺失恢复
 
-**测试用例**：TST-T43 ~ TST-T54
-- TST-T43: 播放器页面渲染 → AppBar + 封面区域 + 进度条 + 控制按钮全部可见
-- TST-T44: 当前曲目名显示（从 queue.current.name 读取）
-- TST-T45: 播放中按钮显示 pause 图标，暂停中显示 play_arrow
-- TST-T46: 上一首/下一首按钮渲染并可点击
-- TST-T47: 快进/快退按钮显示当前步长标签
-- TST-T48: 进度条 Slider value 与 position/duration 同步
-- TST-T49: Slider onChangeEnd → player.seek() 被调用到正确位置
-- TST-T50: 速度按钮点击 → 底部弹窗出现 6 个速度选项
-- TST-T51: 选中速度后弹窗关闭，按钮标签更新
-- TST-T52: 播放模式按钮点击 → 循环切换 4 个图标
-- TST-T53: 定时器按钮渲染（沙漏图标）
-- TST-T54: 队列按钮渲染 → 点击弹出 QueueSheet
+**测试用例**：AUD-03-T01 ~ AUD-03-T06
+- AUD-03-T01: SecureStorage 写入失败 → DB 回滚
+- AUD-03-T02: setAudioSource 失败 → PlayerLoadState.error
+- AUD-03-T03: play() 超时 → failed + stop
+- AUD-03-T04: 播放中密码被清除 → 下次加载失败 → error
+- AUD-03-T05: 恢复对话框期间页面销毁 → 无崩溃
+- AUD-03-T06: DB 锁定时 upsert → 不崩溃
+
+**验收标准**：
+- [ ] AUD-03-T01 ~ T06 全部通过
 
 ---
 
-### TST-08 BreadcrumbBar 面包屑交互测试
+### AUD-04 并发场景测试补全
 
-**来源**：测试缺口 (test.md §UI-G03, BRW-G01, BRW-G02) | **优先级**：P1
-**涉及文件**：新建 `test/features/browser/brw_08_test.dart`、`lib/features/browser/widgets/breadcrumb_bar.dart`、`lib/features/browser/browser_screen.dart`
+**来源**：深度审查维度 4 | **优先级**：P0
+**涉及文件**：多个测试文件
 **依赖**：无
-**关联缺口**：UI-G03, BRW-G01, BRW-G02
 
 **实现要点**：
-- Widget 测试：使用 ProviderScope override directoryContentsProvider，模拟多级目录导航
-- 面包屑渲染：验证每个路径段显示为可点击的 Chip/Text
-- 点击面包屑段 → popTo(targetPath) → 目录内容切换到目标路径
-- 溢出折叠显示：窄屏幕宽度 → 中间段折叠为 "..." → 根目录和最深目录始终可见
-- PopScope 返回拦截：子目录按 back → 导航栈 pop → 面包屑更新
-- 根目录按 back → PopScope 允许系统返回（退出 Browser）
+- 播放中切换连接
+- 删除当前曲目 + 曲目完成同时触发
+- 快速进出 PlayerScreen
+- 定时到期 + 曲目完成同时到达
 
-**测试用例**：TST-T55 ~ TST-T63
-- TST-T55: 根目录渲染 → 面包屑显示 "根目录"
-- TST-T56: /music/artist/album → 面包屑显示 "根目录 > music > artist > album"
-- TST-T57: 点击 breadcrumb "music" → popTo(/music) → 目录切换到 /music
-- TST-T58: 点击 breadcrumb "根目录" → popTo(/) → 回到根目录
-- TST-T59: 窄宽度 → 中间段溢出折叠 → "根目录" 和 "album" 始终可见
-- TST-T60: 子目录按系统 back → pop() → 回到上级目录
-- TST-T61: 根目录按系统 back → PopScope 允许退出
-- TST-T62: 面包屑段数量与 navigationStack.length 一致
-- TST-T63: 快速连续点击不同面包屑 → 每次 popTo 正确
+**测试用例**：AUD-04-T01 ~ AUD-04-T06
+- AUD-04-T01: 播放中切换连接 → 队列清空 + 新加载正确
+- AUD-04-T02: 删除当前曲目 + completed 同时 → 无双重触发
+- AUD-04-T03: 快速进出 PlayerScreen → 无内存泄漏
+- AUD-04-T04: dispose 时 loadAndPlay 在飞 → token 检查丢弃结果
+- AUD-04-T05: 定时到期 + completed 同时 → 无双重 pause
+- AUD-04-T06: App 后台恢复 + timer 到期 + 播放恢复 → 三重事件正确处理
+
+**验收标准**：
+- [ ] AUD-04-T01 ~ T06 全部通过
 
 ---
 
-### TST-09 目录缓存 TTL 过期与容量上限测试
+### AUD-05 状态可达性审计
 
-**来源**：测试缺口 (test.md §BRW-G03, BRW-G04) | **优先级**：P1
-**涉及文件**：`test/features/browser/brw_05_test.dart`（追加）、`lib/features/browser/browser_provider.dart`
-**依赖**：无
-**关联缺口**：BRW-G03, BRW-G04
+**来源**：深度审查维度 5 | **优先级**：P2
+**涉及文件**：所有测试文件
+**依赖**：Phase 0-6 完成
 
 **实现要点**：
-- 缓存 TTL 过期：插入带时间戳的缓存条目 → fake_async 推进超过 TTL(5min) → 再次读取同路径 → 验证触发新的 listDirectory 请求
-- 缓存未过期：插入条目 → 推进 3min → 再次读取 → 使用缓存（不触发新请求）
-- 容量上限：插入 50+ 条缓存条目 → 验证最旧条目被移除 → 新条目正常写入
-- 容量边界：恰好 50 条时所有条目保留 → 第 51 条触发淘汰
-- 使用 _MockWebDavClient 跟踪 listDirectory 调用次数
+- 确认每个状态都能被到达
+- 移除不可达代码
+- 确认 SelectingEmpty 状态不应存在（Bug 2 相关）
 
-**测试用例**：TST-T64 ~ TST-T71
-- TST-T64: 缓存条目在 3min 内 → 复用缓存，无新网络请求
-- TST-T65: 缓存条目超过 5min → 自动重取 → 触发新 listDirectory
-- TST-T66: TTL 边界（恰好 5min）→ 根据实现（<=或<）验证行为
-- TST-T67: 下拉刷新 → 清除缓存 → 无视 TTL 立即重取
-- TST-T68: 容量 50 条时 → 所有条目保留
-- TST-T69: 容量 51 条 → 最旧条目被移除
-- TST-T70: 容量溢出后 → 新条目正常写入且可读取
-- TST-T71: 被移除的条目再次访问 → 触发新网络请求
+**验收标准**：
+- [ ] 无死状态
+- [ ] 无不可达代码
 
 ---
 
-## 待实现 — 测试补充（P2 完善性）
+## 待实现 — 重构 Phase 8：文档更新 + CI 加固
 
-### TST-10 "记住播放速度"开关测试
+### DOC-01 更新 CLAUDE.md 反映新架构
 
-**来源**：测试缺口 (test.md §PLY-G08, SET-G01) | **优先级**：P2
-**涉及文件**：`test/features/player/ply_07_test.dart`（追加）、`test/features/settings/settings_test.dart`（追加）
-**依赖**：无
-**关联缺口**：PLY-G08, SET-G01
+**来源**：重构计划 Phase 8 | **优先级**：P1
+**涉及文件**：`CLAUDE.md`
+**依赖**：Phase 1-5 完成
 
 **实现要点**：
-- `rememberSpeedProvider` 默认值测试（true/false）
-- 开启时：播放器中调速 → 同时更新 currentSpeed 和 defaultSpeed（持久化）
-- 关闭时：播放器中调速 → 仅更新 currentSpeed，defaultSpeed 保持不变
-- 切歌时：开启 → 新曲目使用上次调速后的 defaultSpeed；关闭 → 新曲目使用 Settings 中的 defaultSpeed
-- `setRememberSpeedProvider` 持久化到 SharedPreferences
-- Settings 页面 "记住播放速度" 开关 widget 测试
+- 更新目录结构
+- 更新架构分层说明
+- 更新常用命令
 
-**测试用例**：TST-T72 ~ TST-T79
-- TST-T72: rememberSpeed 默认为 true
-- TST-T73: 开启时调速到 2.0x → defaultSpeed 同步更新为 2.0
-- TST-T74: 开启时调速到 2.0x → SharedPreferences 持久化为 2.0
-- TST-T75: 关闭时调速到 2.0x → defaultSpeed 保持原值不变
-- TST-T76: 关闭时切歌 → 新曲目使用 Settings 中的 defaultSpeed
-- TST-T77: 开启时切歌 → 新曲目使用上次播放器中的速度
-- TST-T78: setRememberSpeed 持久化到 SharedPreferences
-- TST-T79: Settings 页面开关 widget 渲染 → 切换后值更新
+**验收标准**：
+- [ ] CLAUDE.md 与实际代码一致
 
 ---
 
-### TST-11 播放单拖拽排序与添加曲目弹窗
+### DOC-02 更新 architecture.md
 
-**来源**：测试缺口 (test.md §PLS-G02, PLS-G03, UI-G02) | **优先级**：P2
-**涉及文件**：`test/features/playlist/ply_13_test.dart`（追加）、新建 `test/features/playlist/ply_14_test.dart`
-**依赖**：无
-**关联缺口**：PLS-G02, PLS-G03, UI-G02, LOG-G04
+**来源**：重构计划 Phase 8 | **优先级**：P1
+**涉及文件**：`docs/design/architecture.md`
+**依赖**：Phase 1-5 完成
 
 **实现要点**：
-- 拖拽排序 Widget 测试：验证 ReorderableListView 渲染 → 长按拖拽 → onReorder 回调 → reorderPlaylistTrackProvider 被调用
-- AddTracksBrowser Widget 测试：点击 FAB → 底部弹窗出现 → 目录浏览 → 选中文件(checkbox) → 全选/取消 → 确认添加 → addTracksToPlaylistProvider 被调用
-- 独立 ProviderScope 隔离：验证 AddTracksBrowser 的导航状态不影响主页 Browser
-- 去重：已存在的曲目不显示 checkbox（或标记为已添加）
+- 更新架构图
+- 更新模块说明
+- 更新设计原则
 
-**测试用例**：TST-T80 ~ TST-T90
-- TST-T80: 拖拽曲目从 index 2 到 index 0 → onReorder 回调参数正确
-- TST-T81: 拖拽后 track 列表顺序更新
-- TST-T82: 拖拽后重新打开详情页 → 排序持久化
-- TST-T83: AddTracksBrowser 弹窗出现 → 显示当前目录文件列表
-- TST-T84: 选中 3 个文件 → 确认 → addTracks 被调用
-- TST-T85: 全选按钮 → 所有文件被选中
-- TST-T86: 取消全选 → 所有选择清除
-- TST-T87: 已存在的曲目在弹窗中标记为不可选
-- TST-T88: 弹窗内目录导航不污染主页 browser 导航栈
-- TST-T89: 弹窗关闭 → 主页 browser 状态不变
-- TST-T90: 取消弹窗 → 不添加任何曲目
+**验收标准**：
+- [ ] architecture.md 与实际代码一致
 
 ---
 
-### TST-12 连接切换影响面集成测试
+### CI-01 CI 增加架构边界检查
 
-**来源**：测试缺口 (test.md §INT-G01, CON-G02) | **优先级**：P2
-**涉及文件**：新建 `test/features/connection/con_09_test.dart`
-**依赖**：无
-**关联缺口**：INT-G01, CON-G02, CON-G03
-
-**实现要点**：
-- 使用 sqflite_ffi + ProviderContainer，模拟两个连接的完整切换流程
-- 步骤：连接 1 激活 → 浏览器加载缓存 → 播放队列活跃 → 切换到连接 2 → 验证缓存清除、队列清空
-- 验证 `switchActiveConnectionProvider` 触发后：directoryCache 中旧连接 key 被清除、currentPlayQueueProvider 变为 null
-- 验证密码写入失败时 DB 回滚的原子性
-- 验证连接切换后 MiniPlayerBar 隐藏
-
-**测试用例**：TST-T91 ~ TST-T98
-- TST-T91: 切换连接 → directoryCache 中 connectionId=1 的条目被清除
-- TST-T92: 切换连接 → currentPlayQueueProvider 变为 null
-- TST-T93: 切换连接 → connectionId=2 的缓存不受影响（旧容器残留无关）
-- TST-T94: 保存连接时 SecureStorage 写入失败 → DB 行回滚 → 连接不存在
-- TST-T95: 保存连接时 DB 写入成功 + SecureStorage 成功 → 完整保存
-- TST-T96: 切换后 Browser 使用新连接的 WebDAV 地址
-- TST-T97: 切换后 activeConnectionProvider 返回新连接
-- TST-T98: 切换后 connectionListProvider 刷新 → 新连接 isActive=true
-
----
-
-### TST-13 App 生命周期完整链路测试
-
-**来源**：测试缺口 (test.md §INT-G06, TMR-G03) | **优先级**：P2
-**涉及文件**：`test/features/player/ply_03_test.dart`（追加）
-**依赖**：无
-**关联缺口**：INT-G06, TMR-G03
+**来源**：重构计划 Phase 8 | **优先级**：P1
+**涉及文件**：`.github/workflows/ci.yml`
+**依赖**：Phase 5 完成
 
 **实现要点**：
-- 模拟完整生命周期：前台播放 → AppLifecycleState.paused（后台）→ 验证进度保存 + 后台播放继续 → AppLifecycleState.resumed（前台）→ 验证立即检查定时器到期
-- 使用 mock AudioPlayer 和 BackgroundPlaybackNotifier
-- 验证后台期间 duration timer 到期 → resume 时 checkExpired 立即返回 true
-- 验证音频焦点变化：transient 丢失 → 不暂停 → 恢复 → gained
+- 禁止跨 feature 直接 import（shared/di/providers.dart 除外）
+- 增加测试覆盖率阈值
+- 增加单文件行数上限检查（500 行）
 
-**测试用例**：TST-T99 ~ TST-T106
-- TST-T99: 播放中 → paused → progress 保存调用
-- TST-T100: 播放中 → paused → backgroundEnabled=true → playbackState 保持 playing
-- TST-T101: 播放中 → detached → playbackState 变为 stopped
-- TST-T102: 后台期间 timer 到期 → resume → checkExpired=true → pause() 立即调用
-- TST-T103: transient 音频焦点丢失 → 播放状态不变
-- TST-T104: 永久音频焦点丢失 → 播放状态变为 paused
-- TST-T105: 焦点丢失后恢复 → 保持 paused 等待用户手动播放
-- TST-T106: hidden → inactive → paused → resumed 完整生命周期序列
-
----
-
-### TST-14 运行日志查看器测试
-
-**来源**：测试缺口 (test.md §SET-G02, UI-G04) | **优先级**：P2
-**涉及文件**：新建 `test/features/settings/log_viewer_test.dart`、`lib/features/settings/log_viewer_screen.dart`、`lib/core/services/log_buffer.dart`
-**依赖**：无
-**关联缺口**：SET-G02, UI-G04
-
-**实现要点**：
-- 单元测试 LogBuffer：环形缓冲区写入、容量 1000 条、溢出时移除最旧条目
-- Widget 测试 LogViewerScreen（需 kDebugMode=true 或 override）
-- 验证日志列表渲染 → 最新日志在底部 → 可滚动
-- 验证空日志状态显示
-- 验证日志级别颜色区分（info/debug/error）
-
-**测试用例**：TST-T107 ~ TST-T113
-- TST-T107: LogBuffer 写入 1 条 → 读取包含该条
-- TST-T108: LogBuffer 写入 1001 条 → 最旧 1 条被移除 → size=1000
-- TST-T109: LogViewerScreen 渲染日志列表
-- TST-T110: 空日志 → 显示 "暂无日志" 空状态
-- TST-T111: 新日志条目追加到列表底部
-- TST-T112: error 级别日志显示红色文字
-- TST-T113: LogBuffer.clear() → 所有条目清除
-
----
-
-### TST-15 URL编码边界与并发竞争测试
-
-**来源**：测试缺口 (test.md §LOG-G01, LOG-G02, PLY-G12) | **优先级**：P2
-**涉及文件**：`test/features/player/ply_01_test.dart`（追加）、`test/features/player/ply_02_test.dart`（追加）
-**依赖**：无
-**关联缺口**：LOG-G01, LOG-G02, PLY-G12
-
-**实现要点**：
-- URL 编码更多边界字符：emoji(🎵)、#、?、&、+、单引号、双引号、% 自身
-- 验证 buildUri 对所有特殊字符的正确 percent-encode
-- SerializedRequestGate 并发竞争：3 个并发 schedule → 验证执行顺序 → 最新请求前的旧排队请求被 supersede
-- SerializedRequestGate 快速连续 schedule 50 个请求 → 只有最后一个执行，其余被 supersede
-- NasFile.fromProps 缺失字段容错：null props、空字符串、缺失 resourcetype
-
-**测试用例**：TST-T114 ~ TST-T122
-- TST-T114: URL 含 emoji → 正确 UTF-8 encode
-- TST-T115: URL 含 # → 编码为 %23（非 fragment）
-- TST-T116: URL 含 ? → 编码为 %3F（非 query）
-- TST-T117: URL 含 & / + / % → 各自正确编码
-- TST-T118: 单引号/双引号 → 正确编码
-- TST-T119: SerializedRequestGate 50 个请求 → 仅最后一个执行，其余 superseded
-- TST-T120: SerializedRequestGate 执行中 schedule 新请求 → 排队 → 旧排队被取代
-- TST-T121: NasFile.fromProps(null props) → 不崩溃 → 返回有效 NasFile
-- TST-T122: NasFile.fromProps 缺失字段 → 使用默认值
-
----
-
-### TST-16 各模块补充测试（一）：Connection + Browser
-
-**来源**：测试缺口汇总 | **优先级**：P2
-**涉及文件**：`test/features/connection/con_01_test.dart`（追加）、`test/features/browser/brw_04_test.dart`（追加）、`test/features/browser/brw_07_test.dart`（追加）
-**依赖**：无
-**关联缺口**：CON-G04, CON-G05, BRW-G05, BRW-G06, BRW-G07, LOG-G03
-
-**实现要点**：
-- CON-G04: Widget 测试 — startupValidationProvider 返回 null → 显示 ONB_CTA 引导页
-- CON-G05: Widget 测试 — 连接列表 Slidable 滑动 → 显示编辑/删除按钮 → 点击编辑跳转
-- BRW-G05: Widget 测试 — 长按有进度文件 → context menu 含"清除播放进度" → 点击清除 → 进度条消失
-- BRW-G06: 集成测试 — onFileTap 完整流程（已在 TST-04 覆盖，此处补充 browser 侧入口逻辑）
-- BRW-G07: 单元测试 — loadProgressForDirectoryProvider → batch 查询目录内文件进度 → 返回 Map<filePath, PlayProgress>
-
-**测试用例**：TST-T123 ~ TST-T131
-- TST-T123: ONB_CTA 引导页渲染 → 图标 + 标题 + 描述 + 按钮
-- TST-T124: Slidable 左滑 → 编辑按钮可见 → 点击 → push /connections/edit/:id
-- TST-T125: Slidable 左滑 → 删除按钮可见 → 点击 → 确认弹窗
-- TST-T126: 长按音频文件（有进度）→ context menu 出现"清除播放进度"
-- TST-T127: 长按音频文件（无进度）→ context menu 不含"清除播放进度"
-- TST-T128: 点击"清除播放进度" → progress bar 消失 → DAO 记录删除
-- TST-T129: loadProgressForDirectoryProvider → 3 个文件有进度 → 返回 3 条
-- TST-T130: loadProgressForDirectoryProvider → 空目录 → 返回空 Map
-- TST-T131: NasFile.fromProps(null) / 空 props → 使用默认值不崩溃
-
----
-
-### TST-17 各模块补充测试（二）：Player + Progress + Settings + Home
-
-**来源**：测试缺口汇总 | **优先级**：P2
-**涉及文件**：多个测试文件追加
-**依赖**：无
-**关联缺口**：PLY-G02, PLY-G03, PLY-G05, PLY-G06, PLY-G09, PLY-G10, PLY-G11, PRG-G02, PLS-G01, PLS-G06, SET-G03, UI-G05, UI-G06, UI-G07
-
-**实现要点**：
-- PLY-G02: 单元测试 — play() poll timeout 12s → TrackLoadResult.failed()
-- PLY-G03: 单元测试 — setAudioSource 失败 → PlayerLoadState.error
-- PLY-G06: Widget 测试 — QueueSheet 点击移除按钮 → 移除当前/非当前曲目 → 队列更新
-- PLY-G11: 集成测试 — 队列 toMap → 新 session fromMap → 恢复不自动播放
-- PRG-G02: 单元测试 — durationMs <= 10000 的文件不会被自动清理
-- PLS-G01: Widget 测试 — 详情页 AppBar 编辑按钮 → 重命名弹窗 → 输入名称 → 列表更新
-- PLS-G06: 单元测试 — Tab index 持久化到 SharedPreferences → 重启恢复
-- SET-G03: Widget 测试 — 设置页 → 点击"管理 NAS 连接" → 导航到 /connections
-- UI-G07: Widget 测试 — HomeScreen PopScope → 按 back → moveTaskToBack 被调用
-
-**测试用例**：TST-T132 ~ TST-T148
-- TST-T132: play() 12s poll timeout → TrackLoadResult.failed()
-- TST-T133: setAudioSource throws → PlayerLoadState.error
-- TST-T134: QueueSheet 移除当前曲目 → queue 自动切到下一首
-- TST-T135: QueueSheet 移除非当前曲目 → currentIndex 调整
-- TST-T136: QueueSheet 移除所有曲目 → queue=null → MiniPlayerBar 隐藏
-- TST-T137: toMap/fromMap round-trip → 队列完整恢复 → 不自动播放
-- TST-T138: durationMs <= 10000 的文件 → position > duration-10s → 不自动清除
-- TST-T139: 重命名弹窗 → 输入"新名称" → 确认 → DAO updatePlaylist 被调用
-- TST-T140: 重命名弹窗 → 空名称 → 确认按钮禁用
-- TST-T141: Tab index 默认 0 → 切换到 1 → 持久化 → 新 container 读取为 1
-- TST-T142: Tab index 首次启动 → 默认 0
-- TST-T143: 设置页点击"管理 NAS 连接" → 导航到 /connections
-- TST-T144: HomeScreen 按 back → moveTaskToBack 被调用 → 不退出 App
-- TST-T145: 连接列表页渲染 → 有连接时显示连接列表
-- TST-T146: 编辑连接页 → 表单预填原始数据
-- TST-T147: 编辑连接页 → 修改 URL → 验证器重置为 idle
-- TST-T148: 进度恢复队列 → startPositionMs 设置 → 播放器 seek 到该位置（但不自动播放）
-
-
+**验收标准**：
+- [ ] CI 流水线通过
+- [ ] 违反架构边界的代码无法合并
