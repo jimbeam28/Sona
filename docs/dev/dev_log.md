@@ -691,3 +691,15 @@
 
 ### 测试结果
 - 通过: 1142 / 总计: 1142
+
+---
+
+## [2026-06-09] [REF-23] - 重写 connection_provider.dart 为薄胶水
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/connection/connection_provider.dart` — 添加 connectionServiceProvider，委托到 ConnectionService
+
+### 测试结果
+- 通过: 1142 / 总计: 1142

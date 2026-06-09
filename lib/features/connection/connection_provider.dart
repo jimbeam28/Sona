@@ -1,7 +1,10 @@
 // lib/features/connection/connection_provider.dart
-// Riverpod providers for the Connection feature.
-// Written without code generation — uses StateNotifier / AsyncNotifier patterns
-// from flutter_riverpod directly (no @riverpod annotations, no build_runner).
+// Thin Riverpod glue: providers that wire dependencies into the domain layer.
+//
+// All business logic lives in [ConnectionService] (domain/connection_service.dart)
+// and [ConnectionValidatorNotifier] (which delegates WebDAV probing to
+// [WebDavClientInterface]).  This file only exposes Riverpod providers with
+// stable public APIs so the rest of the app can `ref.watch` / `ref.read` them.
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +14,7 @@ import '../../core/database/dao/connection_dao.dart';
 import '../../core/network/webdav_client.dart';
 import '../../core/services/storage_utils.dart';
 import '../../shared/models/connection_config.dart';
+import 'domain/connection_service.dart';
 
 // ── Infrastructure providers ──────────────────────────────────────────────────
 
@@ -21,6 +25,14 @@ final webDavClientProvider =
 
 final secureStorageProvider =
     Provider<FlutterSecureStorage>((ref) => const FlutterSecureStorage());
+
+/// Provider for [ConnectionService] — the pure-Dart CRUD facade.
+final connectionServiceProvider = Provider<ConnectionService>((ref) {
+  return ConnectionService(
+    ref.watch(connectionDaoProvider),
+    ref.watch(secureStorageProvider),
+  );
+});
 
 // ── Active connection ─────────────────────────────────────────────────────────
 
@@ -164,9 +176,9 @@ final startupValidationProvider =
 /// UI reacts immediately.
 final switchActiveConnectionProvider =
     FutureProvider.family<void, int>((ref, id) async {
-  final dao = ref.watch(connectionDaoProvider);
+  final service = ref.watch(connectionServiceProvider);
   debugPrint('[Conn] switch: id=$id');
-  await dao.setActive(id);
+  await service.setActive(id);
   ref.invalidate(activeConnectionProvider);
   ref.invalidate(connectionListProvider);
   debugPrint('[Conn] switch: done id=$id');
@@ -174,121 +186,76 @@ final switchActiveConnectionProvider =
 
 // ── Save connection use-case ──────────────────────────────────────────────────
 
-/// Encapsulates saving a new connection to the DB and secure storage.
+/// Backward-compatible shim: exposes [ConnectionService.save] via the same
+/// `ConnectionSaver` interface that screens already use.
+///
+/// Supports two construction patterns:
+/// - `ConnectionSaver(service)` — new style, delegates to [ConnectionService].
+/// - `ConnectionSaver(dao, storage)` — legacy style, wraps in a [ConnectionService].
 class ConnectionSaver {
-  final ConnectionDao _dao;
-  final FlutterSecureStorage _storage;
+  final ConnectionService _service;
 
-  ConnectionSaver(this._dao, this._storage);
+  ConnectionSaver(Object daoOrService, [FlutterSecureStorage? storage])
+      : _service = daoOrService is ConnectionService
+            ? daoOrService
+            : ConnectionService(daoOrService as ConnectionDao, storage!);
 
-  /// Saves [config] + [password] atomically:
-  /// 1. Insert row with a temp key.
-  /// 2. Read the assigned id.
-  /// 3. Write password to secure storage under `connection_password_{id}`.
-  /// 4. Update the row's password column to the final key.
-  ///
-  /// Returns the saved [ConnectionConfig] with its database id set.
   Future<ConnectionConfig> save({
     required ConnectionConfig config,
     required String password,
-  }) async {
-    const tempKey = 'connection_password_temp';
-
-    // Insert with temp key to get the AUTOINCREMENT id
-    final id = await _dao.insert(config, passwordKey: tempKey);
-    debugPrint('[Conn] save: inserted id=$id name=${config.name}');
-
-    // Persist password under the permanent key
-    final permanentKey = 'connection_password_$id';
-    try {
-      await safeStorageWrite(_storage, key: permanentKey, value: password);
-    } catch (_) {
-      // H-1: rollback the DB insert if secure-storage write fails.
-      debugPrint('[Conn] save: secure-storage write failed, rolling back');
-      await _dao.delete(id);
-      rethrow;
-    }
-
-    // Update the row to reference the permanent key
-    final savedConfig = config.copyWith(id: id, isActive: true);
-    await _dao.update(savedConfig, passwordKey: permanentKey);
-
-    // Mark as active (clears any previous active flag)
-    await _dao.setActive(id);
-    debugPrint('[Conn] save: done id=$id');
-
-    return savedConfig;
-  }
+  }) =>
+      _service.save(config: config, password: password);
 }
 
 final connectionSaverProvider = Provider<ConnectionSaver>((ref) {
-  return ConnectionSaver(
-    ref.watch(connectionDaoProvider),
-    ref.watch(secureStorageProvider),
-  );
+  return ConnectionSaver(ref.watch(connectionServiceProvider));
 });
 
 // ── Update connection use-case ──────────────────────────────────────────────────
 
-/// Encapsulates updating an existing connection in the DB and secure storage.
+/// Backward-compatible shim: exposes [ConnectionService.update] via the same
+/// `ConnectionUpdater` interface that screens already use.
+///
+/// Supports two construction patterns:
+/// - `ConnectionUpdater(service)` — new style, delegates to [ConnectionService].
+/// - `ConnectionUpdater(dao, storage)` — legacy style, wraps in a [ConnectionService].
 class ConnectionUpdater {
-  final ConnectionDao _dao;
-  final FlutterSecureStorage _storage;
+  final ConnectionService _service;
 
-  ConnectionUpdater(this._dao, this._storage);
+  ConnectionUpdater(Object daoOrService, [FlutterSecureStorage? storage])
+      : _service = daoOrService is ConnectionService
+            ? daoOrService
+            : ConnectionService(daoOrService as ConnectionDao, storage!);
 
-  /// Updates [config] in the database.
-  ///
-  /// If [password] is non-null and non-empty it is written to secure storage;
-  /// otherwise the existing stored password is left untouched.
   Future<void> update({
     required ConnectionConfig config,
     String? password,
-  }) async {
-    final permanentKey = 'connection_password_${config.id}';
-
-    if (password != null && password.isNotEmpty) {
-      await safeStorageWrite(_storage, key: permanentKey, value: password);
-    }
-    debugPrint('[Conn] update: id=${config.id} name=${config.name}');
-
-    await _dao.update(config, passwordKey: permanentKey);
-    debugPrint('[Conn] update: done id=${config.id}');
-  }
+  }) =>
+      _service.update(config: config, password: password);
 }
 
 final connectionUpdaterProvider = Provider<ConnectionUpdater>((ref) {
-  return ConnectionUpdater(
-    ref.watch(connectionDaoProvider),
-    ref.watch(secureStorageProvider),
-  );
+  return ConnectionUpdater(ref.watch(connectionServiceProvider));
 });
 
 // ── Delete connection use-case ──────────────────────────────────────────────────
 
 /// Deletes the connection with [id].
 ///
-/// Cascades to:
-/// - play_progress records for this connection (DAO level, CON-T31)
-/// - secure-storage password entry (CON-T31)
-///
 /// Throws [LastConnectionException] when only one connection remains (CON-T32).
+/// Cascades to play_progress records and secure-storage password entry (CON-T31).
 /// Auto-activates another connection if the deleted one was active (CON-T34).
 final deleteConnectionProvider =
     FutureProvider.family<void, int>((ref, id) async {
-  final dao = ref.watch(connectionDaoProvider);
-  final storage = ref.watch(secureStorageProvider);
+  final service = ref.watch(connectionServiceProvider);
 
   debugPrint('[Conn] delete: id=$id');
   try {
-    await dao.delete(id);
+    await service.delete(id);
   } on LastConnectionException {
     debugPrint('[Conn] delete: blocked — last connection');
     throw const LastConnectionException('无法删除最后一个连接');
   }
-
-  // Remove the password from secure storage (CON-T31)
-  await safeStorageDelete(storage, key: 'connection_password_$id');
   debugPrint('[Conn] delete: done id=$id');
 
   ref.invalidate(activeConnectionProvider);
