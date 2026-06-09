@@ -15,7 +15,6 @@ import 'package:fake_async/fake_async.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:mockito/mockito.dart';
 import 'package:nas_audio_player/core/database/dao/progress_dao.dart';
-import 'package:nas_audio_player/core/database/database_helper.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/features/connection/connection_provider.dart';
 import 'package:nas_audio_player/features/player/player_provider.dart';
@@ -27,53 +26,10 @@ import 'package:nas_audio_player/shared/models/play_progress.dart';
 import 'package:nas_audio_player/shared/models/play_queue.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import '../../helpers/test_database.dart';
 import '../player/ply_08_test.mocks.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-/// SQL that mirrors the [play_progress] table definition in DatabaseHelper.
-const _createTables = '''
-  CREATE TABLE connections (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    name        TEXT NOT NULL,
-    url         TEXT NOT NULL,
-    username    TEXT NOT NULL,
-    password    TEXT NOT NULL,
-    base_path   TEXT NOT NULL DEFAULT '/',
-    is_active   INTEGER NOT NULL DEFAULT 0,
-    created_at  INTEGER NOT NULL,
-    updated_at  INTEGER NOT NULL
-  );
-
-  CREATE TABLE play_progress (
-    id             INTEGER PRIMARY KEY AUTOINCREMENT,
-    connection_id  INTEGER NOT NULL,
-    file_path      TEXT NOT NULL,
-    position_ms    INTEGER NOT NULL DEFAULT 0,
-    duration_ms    INTEGER,
-    last_played_at INTEGER NOT NULL,
-    UNIQUE(connection_id, file_path),
-    FOREIGN KEY(connection_id) REFERENCES connections(id) ON DELETE CASCADE
-  );
-
-  CREATE INDEX idx_progress_lookup
-  ON play_progress(connection_id, file_path);
-''';
-
-/// Opens a fresh in-memory database, applies the schema, injects it into
-/// [DatabaseHelper], and returns the handle so the test can close it.
-Future<Database> _openTestDatabase() async {
-  final db = await databaseFactoryFfi.openDatabase(inMemoryDatabasePath);
-  // Execute each statement separately
-  for (final stmt in _createTables.split(';')) {
-    final trimmed = stmt.trim();
-    if (trimmed.isNotEmpty) {
-      await db.execute(trimmed);
-    }
-  }
-  DatabaseHelper.instance.overrideDatabase(db);
-  return db;
-}
 
 /// Helper: build a test [PlayProgress] with the given fields.
 PlayProgress _progress({
@@ -127,11 +83,11 @@ void main() {
     late ProgressDao dao;
 
     setUpAll(() {
-      sqfliteFfiInit();
+      initSqfliteFfi();
     });
 
     setUp(() async {
-      db = await _openTestDatabase();
+      db = await openTestDatabase(TestSchema.progress);
       dao = ProgressDao();
     });
 
@@ -389,11 +345,11 @@ void main() {
     late ProgressDao dao;
 
     setUpAll(() {
-      sqfliteFfiInit();
+      initSqfliteFfi();
     });
 
     setUp(() async {
-      db = await _openTestDatabase();
+      db = await openTestDatabase(TestSchema.progress);
       dao = ProgressDao();
     });
 
@@ -903,11 +859,11 @@ void main() {
     late ProgressDao dao;
 
     setUpAll(() {
-      sqfliteFfiInit();
+      initSqfliteFfi();
     });
 
     setUp(() async {
-      db = await _openTestDatabase();
+      db = await openTestDatabase(TestSchema.progress);
       dao = ProgressDao();
     });
 
@@ -1086,11 +1042,11 @@ void main() {
     late ProgressDao dao;
 
     setUpAll(() {
-      sqfliteFfiInit();
+      initSqfliteFfi();
     });
 
     setUp(() async {
-      db = await _openTestDatabase();
+      db = await openTestDatabase(TestSchema.progress);
       dao = ProgressDao();
     });
 
@@ -1343,11 +1299,11 @@ void main() {
     late ProgressDao dao;
 
     setUpAll(() {
-      sqfliteFfiInit();
+      initSqfliteFfi();
     });
 
     setUp(() async {
-      db = await _openTestDatabase();
+      db = await openTestDatabase(TestSchema.progress);
       dao = ProgressDao();
       // Insert a test connection so activeConnectionProvider can resolve it
       await db.insert('connections', {

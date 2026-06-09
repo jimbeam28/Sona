@@ -10,10 +10,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nas_audio_player/core/database/dao/connection_dao.dart';
-import 'package:nas_audio_player/core/database/database_helper.dart';
 import 'package:nas_audio_player/features/connection/connection_provider.dart';
 import 'package:nas_audio_player/shared/models/connection_config.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+import '../../helpers/test_database.dart';
 
 // ── Fake storage ──────────────────────────────────────────────────────────────────
 
@@ -96,22 +97,8 @@ ConnectionConfig _testConfig({
   );
 }
 
-/// SQL that mirrors [DatabaseHelper._onCreate].
-const _createConnectionsTable = '''
-  CREATE TABLE connections (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    name        TEXT NOT NULL,
-    url         TEXT NOT NULL,
-    username    TEXT NOT NULL,
-    password    TEXT NOT NULL,
-    base_path   TEXT NOT NULL DEFAULT '/',
-    is_active   INTEGER NOT NULL DEFAULT 0,
-    created_at  INTEGER NOT NULL,
-    updated_at  INTEGER NOT NULL
-  )
-''';
-
 /// SQL for the play_progress table used in CON-T31 cascade-delete tests.
+/// This is a simplified version (no FK constraint) matching the original test.
 const _createPlayProgressTable = '''
   CREATE TABLE play_progress (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -121,15 +108,6 @@ const _createPlayProgressTable = '''
     updated_at    INTEGER NOT NULL
   )
 ''';
-
-/// Opens a fresh in-memory database, applies the connections schema, injects it
-/// into [DatabaseHelper], and returns the handle.
-Future<Database> _openTestDatabase() async {
-  final db = await databaseFactoryFfi.openDatabase(inMemoryDatabasePath);
-  await db.execute(_createConnectionsTable);
-  DatabaseHelper.instance.overrideDatabase(db);
-  return db;
-}
 
 /// Creates the play_progress table in [db] and returns [db] for chaining.
 Future<Database> _withPlayProgressTable(Database db) async {
@@ -143,7 +121,7 @@ Future<Database> _withPlayProgressTable(Database db) async {
 
 void main() {
   setUpAll(() {
-    sqfliteFfiInit();
+    initSqfliteFfi();
   });
 
   group('CON-T31 cascade delete to play_progress', () {
@@ -151,7 +129,7 @@ void main() {
     late ConnectionDao dao;
 
     setUp(() async {
-      db = await _openTestDatabase();
+      db = await openTestDatabase(TestSchema.connections);
       await _withPlayProgressTable(db);
       dao = ConnectionDao();
     });
@@ -218,7 +196,7 @@ void main() {
     late ConnectionDao dao;
 
     setUp(() async {
-      db = await _openTestDatabase();
+      db = await openTestDatabase(TestSchema.connections);
       dao = ConnectionDao();
     });
 
@@ -252,7 +230,7 @@ void main() {
     late ConnectionDao dao;
 
     setUp(() async {
-      db = await _openTestDatabase();
+      db = await openTestDatabase(TestSchema.connections);
       dao = ConnectionDao();
     });
 
@@ -295,7 +273,7 @@ void main() {
     late ConnectionDao dao;
 
     setUp(() async {
-      db = await _openTestDatabase();
+      db = await openTestDatabase(TestSchema.connections);
       dao = ConnectionDao();
     });
 
@@ -345,7 +323,7 @@ void main() {
     late FakeSecureStorage storage;
 
     setUp(() async {
-      db = await _openTestDatabase();
+      db = await openTestDatabase(TestSchema.connections);
       dao = ConnectionDao();
       storage = FakeSecureStorage();
     });
@@ -407,7 +385,7 @@ void main() {
     late FakeSecureStorage storage;
 
     setUp(() async {
-      db = await _openTestDatabase();
+      db = await openTestDatabase(TestSchema.connections);
       dao = ConnectionDao();
       storage = FakeSecureStorage();
     });

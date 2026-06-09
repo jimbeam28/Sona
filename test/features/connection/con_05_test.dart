@@ -11,12 +11,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nas_audio_player/core/database/dao/connection_dao.dart';
-import 'package:nas_audio_player/core/database/database_helper.dart';
 import 'package:nas_audio_player/core/network/webdav_client.dart';
 import 'package:nas_audio_player/features/connection/connection_provider.dart';
 import 'package:nas_audio_player/shared/models/connection_config.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+import '../../helpers/test_database.dart';
 
 // ── Mocks ────────────────────────────────────────────────────────────────────────
 
@@ -111,29 +112,6 @@ ConnectionConfig _testConfig({
   );
 }
 
-/// SQL that mirrors [DatabaseHelper._onCreate].
-const _createConnectionsTable = '''
-  CREATE TABLE connections (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    name        TEXT NOT NULL,
-    url         TEXT NOT NULL,
-    username    TEXT NOT NULL,
-    password    TEXT NOT NULL,
-    base_path   TEXT NOT NULL DEFAULT '/',
-    is_active   INTEGER NOT NULL DEFAULT 0,
-    created_at  INTEGER NOT NULL,
-    updated_at  INTEGER NOT NULL
-  )
-''';
-
-/// Opens a fresh in-memory database, applies the schema, injects it into
-/// [DatabaseHelper], and returns the handle.
-Future<Database> _openTestDatabase() async {
-  final db = await databaseFactoryFfi.openDatabase(inMemoryDatabasePath);
-  await db.execute(_createConnectionsTable);
-  DatabaseHelper.instance.overrideDatabase(db);
-  return db;
-}
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Unit tests — CON-T28~T30
@@ -144,11 +122,11 @@ void main() {
   late ConnectionDao dao;
 
   setUpAll(() {
-    sqfliteFfiInit();
+    initSqfliteFfi();
   });
 
   setUp(() async {
-    db = await _openTestDatabase();
+    db = await openTestDatabase(TestSchema.connections);
     dao = ConnectionDao();
   });
 

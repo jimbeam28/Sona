@@ -14,6 +14,8 @@ import 'package:nas_audio_player/shared/models/playlist.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import '../../helpers/test_database.dart';
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 Playlist _testPlaylist({
@@ -49,31 +51,6 @@ PlaylistTrack _testTrack({
   );
 }
 
-const _createTables = '''
-  CREATE TABLE playlists (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL
-  );
-  CREATE TABLE playlist_tracks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    playlist_id INTEGER NOT NULL,
-    file_path TEXT NOT NULL,
-    file_name TEXT NOT NULL,
-    added_at INTEGER NOT NULL,
-    FOREIGN KEY(playlist_id) REFERENCES playlists(id) ON DELETE CASCADE
-  );
-  CREATE INDEX idx_playlist_tracks_playlist_id ON playlist_tracks(playlist_id);
-''';
-
-Future<Database> _openTestDatabase() async {
-  final db = await databaseFactoryFfi.openDatabase(inMemoryDatabasePath);
-  await db.execute('PRAGMA foreign_keys = ON');
-  await db.execute(_createTables);
-  DatabaseHelper.instance.overrideDatabase(db);
-  return db;
-}
 
 // ═════════════════════════════════════════════════════════════════════════════
 // DAO unit tests — PLY-T40~T48
@@ -84,11 +61,11 @@ void main() {
   late PlaylistDao dao;
 
   setUpAll(() {
-    sqfliteFfiInit();
+    initSqfliteFfi();
   });
 
   setUp(() async {
-    db = await _openTestDatabase();
+    db = await openTestDatabase(TestSchema.playlist);
     dao = PlaylistDao();
   });
 

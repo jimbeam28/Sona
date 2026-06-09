@@ -9,8 +9,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import '../../helpers/fake_secure_storage.dart';
+import '../../helpers/test_database.dart';
 import 'package:nas_audio_player/core/database/dao/connection_dao.dart';
-import 'package:nas_audio_player/core/database/database_helper.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/features/connection/connection_provider.dart';
 import 'package:nas_audio_player/shared/models/connection_config.dart';
@@ -44,29 +44,6 @@ ConnectionConfig _testConfig({
   );
 }
 
-/// SQL that mirrors [DatabaseHelper._onCreate] for the connections table.
-const _createConnectionsTable = '''
-  CREATE TABLE connections (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    name        TEXT NOT NULL,
-    url         TEXT NOT NULL,
-    username    TEXT NOT NULL,
-    password    TEXT NOT NULL,
-    base_path   TEXT NOT NULL DEFAULT '/',
-    is_active   INTEGER NOT NULL DEFAULT 0,
-    created_at  INTEGER NOT NULL,
-    updated_at  INTEGER NOT NULL
-  )
-''';
-
-/// Opens a fresh in-memory database, applies the connections schema, injects it
-/// into [DatabaseHelper], and returns the handle.
-Future<Database> _openTestDatabase() async {
-  final db = await databaseFactoryFfi.openDatabase(inMemoryDatabasePath);
-  await db.execute(_createConnectionsTable);
-  DatabaseHelper.instance.overrideDatabase(db);
-  return db;
-}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TST-T91 ~ TST-T98
@@ -74,7 +51,7 @@ Future<Database> _openTestDatabase() async {
 
 void main() {
   setUpAll(() {
-    sqfliteFfiInit();
+    initSqfliteFfi();
   });
 
   // ── TST-T91: directoryCache 中 connectionId=1 的条目被清除 ─────────────────
@@ -86,7 +63,7 @@ void main() {
     late int conn2Id;
 
     setUp(() async {
-      db = await _openTestDatabase();
+      db = await openTestDatabase(TestSchema.connections);
       dao = ConnectionDao();
       final c1 = _testConfig(name: 'NAS-1', url: 'http://nas1.local:5005');
       final c2 = _testConfig(name: 'NAS-2', url: 'http://nas2.local:5005');
@@ -143,7 +120,7 @@ void main() {
     late int conn2Id;
 
     setUp(() async {
-      db = await _openTestDatabase();
+      db = await openTestDatabase(TestSchema.connections);
       dao = ConnectionDao();
       storage = FakeSecureStorage();
       final c1 = _testConfig(name: 'NAS-1', url: 'http://nas1.local:5005');
@@ -212,7 +189,7 @@ void main() {
     late int conn2Id;
 
     setUp(() async {
-      db = await _openTestDatabase();
+      db = await openTestDatabase(TestSchema.connections);
       dao = ConnectionDao();
       final c1 = _testConfig(name: 'NAS-1', url: 'http://nas1.local:5005');
       final c2 = _testConfig(name: 'NAS-2', url: 'http://nas2.local:5005');
@@ -273,7 +250,7 @@ void main() {
     late ConnectionDao dao;
 
     setUp(() async {
-      db = await _openTestDatabase();
+      db = await openTestDatabase(TestSchema.connections);
       dao = ConnectionDao();
       // Pre-populate with one connection so the rollback delete in
       // ConnectionSaver.save does not trigger LastConnectionException.
@@ -324,7 +301,7 @@ void main() {
     late FakeSecureStorage storage;
 
     setUp(() async {
-      db = await _openTestDatabase();
+      db = await openTestDatabase(TestSchema.connections);
       dao = ConnectionDao();
       storage = FakeSecureStorage();
     });
@@ -376,7 +353,7 @@ void main() {
     late int conn2Id;
 
     setUp(() async {
-      db = await _openTestDatabase();
+      db = await openTestDatabase(TestSchema.connections);
       dao = ConnectionDao();
       storage = FakeSecureStorage();
       final c1 = _testConfig(name: 'NAS-A', url: 'http://nas-a.local:5005');
@@ -430,7 +407,7 @@ void main() {
     late int conn2Id;
 
     setUp(() async {
-      db = await _openTestDatabase();
+      db = await openTestDatabase(TestSchema.connections);
       dao = ConnectionDao();
       storage = FakeSecureStorage();
       final c1 = _testConfig(name: 'Old', url: 'http://old.local:5005');
@@ -475,7 +452,7 @@ void main() {
     late int conn2Id;
 
     setUp(() async {
-      db = await _openTestDatabase();
+      db = await openTestDatabase(TestSchema.connections);
       dao = ConnectionDao();
       storage = FakeSecureStorage();
       final c1 = _testConfig(name: 'First', url: 'http://first.local:5005');

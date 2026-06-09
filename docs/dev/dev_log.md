@@ -412,3 +412,16 @@
 
 ### 测试结果
 - 通过: 864 / 总计: 864
+
+---
+
+## [2026-06-09] [REF-03] - 提取 openTestDatabase 到共享模块
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `test/helpers/test_database.dart` — 实现共享 openTestDatabase + TestSchema 枚举
+- 8 个测试文件 — 使用共享版本
+
+### 测试结果
+- 通过: 864 / 总计: 864
