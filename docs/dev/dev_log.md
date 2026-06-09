@@ -637,3 +637,16 @@
 
 ### 测试结果
 - 通过: 1086 / 总计: 1086
+
+---
+
+## [2026-06-09] [REF-19] - 创建 browser/domain/directory_service.dart
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/browser/domain/directory_service.dart` — 新建，DirectoryService + SortOption
+- `test/features/browser/ref_19_test.dart` — 新建，9 个测试用例
+
+### 测试结果
+- 通过: 1095 / 总计: 1095
