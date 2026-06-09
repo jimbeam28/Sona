@@ -24,78 +24,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:mockito/mockito.dart';
 import 'package:nas_audio_player/core/services/timer_service.dart';
-import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/features/player/player_provider.dart';
 import 'package:nas_audio_player/features/timer/timer_provider.dart';
 import 'package:nas_audio_player/features/timer/widgets/timer_button.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../helpers/mock_audio_player.dart';
+import '../../helpers/widget_helpers.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Helpers
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/// Overrides that suppress the periodic [remainingTimeProvider] stream so
-/// that widget tests (which run under [FakeAsync]) do not accumulate pending
-/// periodic timers.
-///
-/// The stream logic is covered by the unit tests on [TimerService] directly.
-List<Override> _noopRemainingTimeOverride() => [
-      remainingTimeProvider.overrideWith((ref) => Stream.value(null)),
-    ];
-
-/// Wraps [child] in a [ProviderScope] with a fresh [TimerService] and the
-/// no-op remaining-time stream override.
-Widget wrapWithTimerProviders(Widget child) {
-  return ProviderScope(
-    overrides: [
-      timerServiceProvider.overrideWith((ref) => TimerService()),
-      sharedPreferencesProvider.overrideWith((ref) => null),
-      ..._noopRemainingTimeOverride(),
-    ],
-    child: MaterialApp(
-      home: Scaffold(body: child),
-    ),
-  );
-}
-
-Widget wrapWithTimerProvidersAndPrefs(
-  Widget child, {
-  SharedPreferences? prefs,
-}) {
-  return ProviderScope(
-    overrides: [
-      timerServiceProvider.overrideWith((ref) => TimerService()),
-      sharedPreferencesProvider.overrideWith((ref) => prefs),
-      ..._noopRemainingTimeOverride(),
-    ],
-    child: MaterialApp(
-      home: Scaffold(body: child),
-    ),
-  );
-}
-
-/// Creates a [ProviderContainer] suitable for provider-level tests,
-/// with the no-op remaining-time stream override so no periodic timers
-/// are created.
-ProviderContainer createTimerTestContainer() {
-  return ProviderContainer(
-    overrides: [
-      timerServiceProvider.overrideWith((ref) => TimerService()),
-      ..._noopRemainingTimeOverride(),
-    ],
-  );
-}
-
-/// Helper to pump a widget with timer providers.
-Future<void> pumpTimerWidget(WidgetTester tester, Widget child) async {
-  await tester.pumpWidget(wrapWithTimerProviders(child));
-}
-
-ProviderContainer timerContainerOf(WidgetTester tester) {
-  return ProviderScope.containerOf(tester.element(find.byType(TimerButton)));
-}
+// wrapWithTimerProviders(), wrapWithTimerProvidersAndPrefs(),
+// createTimerTestContainer(), pumpTimerWidget(), timerContainerOf()
+// are imported from widget_helpers.dart.
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Unit tests — TMR-01: 设置固定时长定时
@@ -628,7 +571,7 @@ void main() {
         ProviderScope(
           overrides: [
             timerServiceProvider.overrideWith((ref) => TimerService()),
-            ..._noopRemainingTimeOverride(),
+            ...noopRemainingTimeOverride(),
           ],
           child: const _ActiveTimerTestApp(),
         ),
@@ -677,7 +620,7 @@ void main() {
         ProviderScope(
           overrides: [
             timerServiceProvider.overrideWith((ref) => TimerService()),
-            ..._noopRemainingTimeOverride(),
+            ...noopRemainingTimeOverride(),
           ],
           child: const _ActiveTimerTestApp(),
         ),
@@ -899,7 +842,7 @@ void main() {
       final container = ProviderContainer(overrides: [
         audioPlayerProvider.overrideWith((ref) => player),
         timerServiceProvider.overrideWith((ref) => TimerService()),
-        ..._noopRemainingTimeOverride(),
+        ...noopRemainingTimeOverride(),
       ]);
       addTearDown(() {
         processingStateController.close();

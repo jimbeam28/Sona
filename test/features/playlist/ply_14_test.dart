@@ -7,7 +7,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 import 'package:nas_audio_player/core/database/dao/playlist_dao.dart';
 import 'package:nas_audio_player/core/database/database_helper.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
@@ -16,6 +15,8 @@ import 'package:nas_audio_player/features/playlist/playlist_provider.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:nas_audio_player/shared/models/playlist.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+import '../../helpers/widget_helpers.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -44,23 +45,7 @@ NasFile _testNasFile({
   );
 }
 
-Widget _buildTestApp(Widget child, {List<Override>? overrides}) {
-  final router = GoRouter(
-    initialLocation: '/',
-    routes: [
-      GoRoute(
-        path: '/',
-        builder: (_, __) => child,
-      ),
-    ],
-  );
-  return ProviderScope(
-    overrides: overrides ?? [],
-    child: MaterialApp.router(
-      routerConfig: router,
-    ),
-  );
-}
+// buildTestAppWithRouter() is imported from widget_helpers.dart.
 
 /// Counts how many Checkbox widgets have value == true.
 int _checkedCount(WidgetTester tester) {
@@ -109,7 +94,7 @@ void main() {
         _testNasFile(name: 'song2.flac', path: '/song2.flac'),
       ];
 
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithRouter(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1)
@@ -157,7 +142,7 @@ void main() {
       int? capturedPlaylistId;
       List<NasFile>? capturedFiles;
 
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithRouter(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1)
@@ -223,7 +208,7 @@ void main() {
         _testNasFile(name: 'track3.mp3', path: '/track3.mp3'),
       ];
 
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithRouter(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1)
@@ -263,7 +248,7 @@ void main() {
         _testNasFile(name: 'track2.mp3', path: '/track2.mp3'),
       ];
 
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithRouter(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1)
@@ -401,7 +386,7 @@ void main() {
         _testNasFile(name: 'nested.mp3', path: '/music/nested.mp3'),
       ];
 
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithRouter(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1)
@@ -457,7 +442,7 @@ void main() {
         _testNasFile(name: 'track.mp3', path: '/track.mp3'),
       ];
 
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithRouter(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1)
@@ -515,7 +500,7 @@ void main() {
 
       bool addTracksCalled = false;
 
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithRouter(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1)

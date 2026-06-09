@@ -6,24 +6,18 @@
 //   BUG-08-T02: ConnectionConfig.id != null → 正常操作（回归）
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:nas_audio_player/features/connection/connection_list_screen.dart';
 import 'package:nas_audio_player/features/connection/connection_provider.dart';
 
 import '../../helpers/test_factories.dart';
+import '../../helpers/widget_helpers.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 // testConfig() is imported from test_factories.dart as testConfig().
-
-Widget _buildTestApp(Widget child, {List<Override>? overrides}) {
-  return ProviderScope(
-    overrides: overrides ?? [],
-    child: MaterialApp(home: child),
-  );
-}
+// buildTestApp() is imported from widget_helpers.dart.
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Widget tests
@@ -38,7 +32,7 @@ void main() {
       final connWithNullId = testConfig(id: null, name: 'Null ID Conn');
       final connWithId = testConfig(id: 1, name: 'Valid Conn', isActive: true);
 
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestApp(
         const ConnectionListScreen(),
         overrides: [
           connectionListProvider
@@ -66,7 +60,7 @@ void main() {
       final connWithNullId = testConfig(id: null, name: 'Null ID Conn');
       final connWithId = testConfig(id: 1, name: 'Valid Conn', isActive: true);
 
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestApp(
         const ConnectionListScreen(),
         overrides: [
           connectionListProvider
@@ -102,7 +96,7 @@ void main() {
       // Track whether the slidable onPressed was invoked without crashing
       bool slidableDeleteInvoked = false;
 
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestApp(
         const ConnectionListScreen(),
         overrides: [
           connectionListProvider
@@ -138,7 +132,7 @@ void main() {
       final conn1 = testConfig(id: 1, name: 'NAS 1', isActive: true);
       final conn2 = testConfig(id: 2, name: 'NAS 2', isActive: false);
 
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestApp(
         const ConnectionListScreen(),
         overrides: [
           connectionListProvider
@@ -166,7 +160,7 @@ void main() {
       final conn1 = testConfig(id: 1, name: 'NAS 1', isActive: true);
       final conn2 = testConfig(id: 2, name: 'NAS 2', isActive: false);
 
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestApp(
         const ConnectionListScreen(),
         overrides: [
           connectionListProvider

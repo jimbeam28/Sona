@@ -6,12 +6,12 @@
 //   BUG-08-T04: PlaylistTrack.id != null → 正常操作（回归）
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 import 'package:nas_audio_player/features/playlist/playlist_detail_screen.dart';
 import 'package:nas_audio_player/features/playlist/playlist_provider.dart';
 import 'package:nas_audio_player/shared/models/playlist.dart';
+
+import '../../helpers/widget_helpers.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -40,28 +40,7 @@ final _testPlaylist = Playlist(
   updatedAt: _now,
 );
 
-Widget _buildTestApp(Widget child, {List<Override>? overrides}) {
-  final router = GoRouter(
-    initialLocation: '/',
-    routes: [
-      GoRoute(
-        path: '/',
-        builder: (_, __) => child,
-      ),
-      GoRoute(
-        path: '/player',
-        builder: (_, __) =>
-            const Scaffold(body: Center(child: Text('Player'))),
-      ),
-    ],
-  );
-  return ProviderScope(
-    overrides: overrides ?? [],
-    child: MaterialApp.router(
-      routerConfig: router,
-    ),
-  );
-}
+// buildTestAppWithPlayerRoute() is imported from widget_helpers.dart.
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Widget tests
@@ -77,7 +56,7 @@ void main() {
       final validTrack = _testTrack(id: 1, fileName: 'valid.mp3');
       final nullIdTrack = _testTrack(id: null, fileName: 'null_id.mp3');
 
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithPlayerRoute(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1).overrideWith(
@@ -109,7 +88,7 @@ void main() {
         (WidgetTester tester) async {
       final nullIdTrack = _testTrack(id: null, fileName: 'null_id.mp3');
 
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithPlayerRoute(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1)
@@ -141,7 +120,7 @@ void main() {
       final track1 = _testTrack(id: 1, fileName: 'track1.mp3');
       final track2 = _testTrack(id: 2, fileName: 'track2.mp3');
 
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithPlayerRoute(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1)
@@ -169,7 +148,7 @@ void main() {
         (WidgetTester tester) async {
       final track = _testTrack(id: 1, fileName: 'track.mp3');
 
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithPlayerRoute(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1)

@@ -12,13 +12,13 @@
 //   BUG-02-T03: 取消全选后可正常点击曲目播放（回归）
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 import 'package:nas_audio_player/features/playlist/playlist_detail_screen.dart';
 import 'package:nas_audio_player/features/playlist/playlist_provider.dart';
 import 'package:nas_audio_player/shared/models/playlist.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+import '../../helpers/widget_helpers.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -47,28 +47,7 @@ final _testPlaylist = Playlist(
   updatedAt: _now,
 );
 
-Widget _buildTestApp(Widget child, {List<Override>? overrides}) {
-  final router = GoRouter(
-    initialLocation: '/',
-    routes: [
-      GoRoute(
-        path: '/',
-        builder: (_, __) => child,
-      ),
-      GoRoute(
-        path: '/player',
-        builder: (_, __) =>
-            const Scaffold(body: Center(child: Text('Player'))),
-      ),
-    ],
-  );
-  return ProviderScope(
-    overrides: overrides ?? [],
-    child: MaterialApp.router(
-      routerConfig: router,
-    ),
-  );
-}
+// buildTestAppWithPlayerRoute() is imported from widget_helpers.dart.
 
 List<PlaylistTrack> _threeTracks() => [
       _testTrack(id: 1, fileName: 'A.mp3', filePath: '/music/A.mp3'),
@@ -91,7 +70,7 @@ void main() {
     testWidgets(
         'long press -> select all -> deselect all -> no longer in selection mode',
         (WidgetTester tester) async {
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithPlayerRoute(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1)
@@ -132,7 +111,7 @@ void main() {
     testWidgets(
         'deselect all shows normal AppBar with playlist name and actions',
         (WidgetTester tester) async {
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithPlayerRoute(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1)
@@ -168,7 +147,7 @@ void main() {
   group('BUG-02-T03 tapping track plays after deselect all', () {
     testWidgets('tapping track navigates to player after deselect all',
         (WidgetTester tester) async {
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithPlayerRoute(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1)

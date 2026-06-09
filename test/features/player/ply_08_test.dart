@@ -13,13 +13,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:mockito/mockito.dart';
-import 'package:nas_audio_player/features/browser/browser_provider.dart';
-import 'package:nas_audio_player/features/player/player_provider.dart';
 import 'package:nas_audio_player/features/player/widgets/mini_player_bar.dart';
 import 'package:nas_audio_player/features/player/widgets/queue_sheet.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
@@ -27,71 +23,16 @@ import 'package:nas_audio_player/shared/models/play_queue.dart';
 
 import '../../helpers/mock_audio_player.dart';
 import '../../helpers/test_factories.dart';
+import '../../helpers/widget_helpers.dart';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 // testAudio() is imported from test_factories.dart as testAudio().
+// wrapMiniPlayer() and wrapWithRouter() are imported from widget_helpers.dart.
 
 /// Builds a [PlayQueue] from a list of audio [NasFile] entries.
 PlayQueue _queue(List<NasFile> files, {int currentIndex = 0}) {
   return PlayQueue(files: files, currentIndex: currentIndex);
-}
-
-/// Wraps [child] in the minimal widget/material context needed for
-/// MiniPlayerBar tests.
-Widget _wrapMiniPlayer({
-  required PlayQueue? queue,
-  required AudioPlayer player,
-  required Widget child,
-  PlayMode playMode = PlayMode.sequential,
-}) {
-  return ProviderScope(
-    overrides: [
-      currentPlayQueueProvider.overrideWith((ref) => queue),
-      audioPlayerProvider.overrideWith((ref) => player),
-      playModeProvider.overrideWith((ref) => playMode),
-    ],
-    child: MaterialApp(
-      home: Scaffold(body: Column(children: [Expanded(child: child)])),
-    ),
-  );
-}
-
-/// Creates a full MaterialApp.router wrapper for navigation tests.
-Widget _wrapWithRouter({
-  required PlayQueue? queue,
-  required AudioPlayer player,
-  required Widget child,
-  PlayMode playMode = PlayMode.sequential,
-}) {
-  final router = GoRouter(
-    initialLocation: '/browser',
-    routes: [
-      GoRoute(
-        path: '/browser',
-        name: 'browser',
-        builder: (context, state) => ProviderScope(
-          overrides: [
-            currentPlayQueueProvider.overrideWith((ref) => queue),
-            audioPlayerProvider.overrideWith((ref) => player),
-            playModeProvider.overrideWith((ref) => playMode),
-          ],
-          child: Scaffold(body: Column(children: [Expanded(child: child)])),
-        ),
-      ),
-      GoRoute(
-        path: '/player',
-        name: 'player',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Player Page')),
-        ),
-      ),
-    ],
-  );
-
-  return MaterialApp.router(
-    routerConfig: router,
-  );
 }
 
 Widget _wrapQueueSheetLauncher({
@@ -143,7 +84,7 @@ void main() {
 
       final queue = _queue([testAudio('track.mp3', '/music/track.mp3')]);
 
-      await tester.pumpWidget(_wrapMiniPlayer(
+      await tester.pumpWidget(wrapMiniPlayer(
         queue: queue,
         player: player,
         child: const MiniPlayerBar(),
@@ -167,7 +108,7 @@ void main() {
       // be provided via ProviderScope, but its streams are never accessed
       // because the widget returns SizedBox.shrink() before building the
       // stream-dependent children.
-      await tester.pumpWidget(_wrapMiniPlayer(
+      await tester.pumpWidget(wrapMiniPlayer(
         queue: null,
         player: player,
         child: const MiniPlayerBar(),
@@ -187,7 +128,7 @@ void main() {
 
       final emptyQueue = _queue([]);
 
-      await tester.pumpWidget(_wrapMiniPlayer(
+      await tester.pumpWidget(wrapMiniPlayer(
         queue: emptyQueue,
         player: player,
         child: const MiniPlayerBar(),
@@ -219,7 +160,7 @@ void main() {
         testAudio('02_song.flac', '/music/02_song.flac'),
       ], currentIndex: 0);
 
-      await tester.pumpWidget(_wrapMiniPlayer(
+      await tester.pumpWidget(wrapMiniPlayer(
         queue: queue,
         player: player,
         child: const MiniPlayerBar(),
@@ -249,7 +190,7 @@ void main() {
         testAudio('second.flac', '/music/second.flac'),
       ], currentIndex: 1);
 
-      await tester.pumpWidget(_wrapMiniPlayer(
+      await tester.pumpWidget(wrapMiniPlayer(
         queue: queue,
         player: player,
         child: const MiniPlayerBar(),
@@ -329,7 +270,7 @@ void main() {
 
       final queue = _queue([testAudio('song.mp3', '/music/song.mp3')]);
 
-      await tester.pumpWidget(_wrapMiniPlayer(
+      await tester.pumpWidget(wrapMiniPlayer(
         queue: queue,
         player: player,
         child: const MiniPlayerBar(),
@@ -401,7 +342,7 @@ void main() {
         testAudio('track2.flac', '/music/track2.flac'),
       ], currentIndex: 0);
 
-      await tester.pumpWidget(_wrapMiniPlayer(
+      await tester.pumpWidget(wrapMiniPlayer(
         queue: queue,
         player: player,
         child: const MiniPlayerBar(),
@@ -429,7 +370,7 @@ void main() {
 
       final queue = _queue([testAudio('song.mp3', '/music/song.mp3')]);
 
-      await tester.pumpWidget(_wrapWithRouter(
+      await tester.pumpWidget(wrapWithRouter(
         queue: queue,
         player: player,
         child: const MiniPlayerBar(),
@@ -462,7 +403,7 @@ void main() {
 
       final queue = _queue([testAudio('test.mp3', '/music/test.mp3')]);
 
-      await tester.pumpWidget(_wrapMiniPlayer(
+      await tester.pumpWidget(wrapMiniPlayer(
         queue: queue,
         player: player,
         child: const MiniPlayerBar(),
@@ -550,7 +491,7 @@ void main() {
 
       final queue = _queue([testAudio('song.mp3', '/music/song.mp3')]);
 
-      await tester.pumpWidget(_wrapMiniPlayer(
+      await tester.pumpWidget(wrapMiniPlayer(
         queue: queue,
         player: player,
         child: const MiniPlayerBar(),

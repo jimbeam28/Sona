@@ -10,7 +10,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fake_async/fake_async.dart';
-import 'package:go_router/go_router.dart';
 import 'package:nas_audio_player/core/database/dao/playlist_dao.dart';
 import 'package:nas_audio_player/core/database/database_helper.dart';
 import 'package:nas_audio_player/features/playlist/playlist_detail_screen.dart';
@@ -23,6 +22,8 @@ import 'package:nas_audio_player/features/progress/progress_provider.dart';
 import 'package:nas_audio_player/shared/models/connection_config.dart';
 import 'package:nas_audio_player/shared/models/play_progress.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+import '../../helpers/widget_helpers.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -77,27 +78,7 @@ PlayProgress _tstProgress({
   );
 }
 
-Widget _buildTestApp(Widget child, {List<Override>? overrides}) {
-  final router = GoRouter(
-    initialLocation: '/',
-    routes: [
-      GoRoute(
-        path: '/',
-        builder: (_, __) => child,
-      ),
-      GoRoute(
-        path: '/player',
-        builder: (_, __) => const Scaffold(body: Center(child: Text('Player'))),
-      ),
-    ],
-  );
-  return ProviderScope(
-    overrides: overrides ?? [],
-    child: MaterialApp.router(
-      routerConfig: router,
-    ),
-  );
-}
+// buildTestAppWithPlayerRoute() is imported from widget_helpers.dart.
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Widget tests — PLY-T73~T85
@@ -115,7 +96,7 @@ void main() {
       final completer = Completer<List<PlaylistTrack>>();
       addTearDown(() => completer.complete(<PlaylistTrack>[]));
 
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithPlayerRoute(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1).overrideWith((ref) => completer.future),
@@ -133,7 +114,7 @@ void main() {
 
   group('PLY-T74 empty playlist', () {
     testWidgets('shows empty message', (WidgetTester tester) async {
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithPlayerRoute(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1)
@@ -153,7 +134,7 @@ void main() {
 
   group('PLY-T75 track list', () {
     testWidgets('shows track file names', (WidgetTester tester) async {
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithPlayerRoute(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1).overrideWith((ref) => Future.value([
@@ -175,7 +156,7 @@ void main() {
 
   group('PLY-T76 track tap', () {
     testWidgets('tapping track sets play queue', (WidgetTester tester) async {
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithPlayerRoute(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1).overrideWith((ref) => Future.value([
@@ -202,7 +183,7 @@ void main() {
   group('PLY-T77 long press selection', () {
     testWidgets('long pressing track enters selection mode',
         (WidgetTester tester) async {
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithPlayerRoute(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1).overrideWith((ref) => Future.value([
@@ -230,7 +211,7 @@ void main() {
   group('PLY-T78 selection mode AppBar', () {
     testWidgets('selection mode shows correct AppBar actions',
         (WidgetTester tester) async {
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithPlayerRoute(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1).overrideWith((ref) => Future.value([
@@ -257,7 +238,7 @@ void main() {
 
   group('PLY-T79 select all / deselect all', () {
     testWidgets('select all selects all tracks', (WidgetTester tester) async {
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithPlayerRoute(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1).overrideWith((ref) => Future.value([
@@ -283,7 +264,7 @@ void main() {
     });
 
     testWidgets('deselect all clears selection', (WidgetTester tester) async {
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithPlayerRoute(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1).overrideWith((ref) => Future.value([
@@ -314,7 +295,7 @@ void main() {
   group('PLY-T80 delete confirmation', () {
     testWidgets('delete button shows confirmation dialog',
         (WidgetTester tester) async {
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithPlayerRoute(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1).overrideWith((ref) => Future.value([
@@ -344,7 +325,7 @@ void main() {
   group('PLY-T81 normal AppBar', () {
     testWidgets('normal AppBar shows playlist name, add and sort buttons',
         (WidgetTester tester) async {
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithPlayerRoute(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1)
@@ -366,7 +347,7 @@ void main() {
   group('PLY-T82 exit selection mode', () {
     testWidgets('close button exits selection mode',
         (WidgetTester tester) async {
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithPlayerRoute(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1).overrideWith((ref) => Future.value([
@@ -401,7 +382,7 @@ void main() {
         (WidgetTester tester) async {
       final progress = _tstProgress(filePath: '/music/resume.mp3');
 
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithPlayerRoute(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1).overrideWith((ref) => Future.value([
@@ -461,7 +442,7 @@ void main() {
         (WidgetTester tester) async {
       final progress = _tstProgress(filePath: '/music/restart.mp3');
 
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithPlayerRoute(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1).overrideWith((ref) => Future.value([
@@ -520,7 +501,7 @@ void main() {
   group('TST-T22 no progress → direct play', () {
     testWidgets('no dialog, queue has no startPositionMs',
         (WidgetTester tester) async {
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithPlayerRoute(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1).overrideWith((ref) => Future.value([
@@ -568,7 +549,7 @@ void main() {
         positionMs: 3000,
       );
 
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithPlayerRoute(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1).overrideWith((ref) => Future.value([
@@ -643,7 +624,7 @@ void main() {
   group('TST-T25 multi-track → correct currentIndex', () {
     testWidgets('tapping 3rd track sets queue.currentIndex to 2',
         (WidgetTester tester) async {
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithPlayerRoute(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1).overrideWith((ref) => Future.value([
@@ -697,7 +678,7 @@ void main() {
         (WidgetTester tester) async {
       int? capturedPlaylistId, capturedOldIndex, capturedNewIndex;
 
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithPlayerRoute(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1).overrideWith((ref) => Future.value([
@@ -749,7 +730,7 @@ void main() {
         _testTrack(id: 3, fileName: 'C.mp3'),
       ];
 
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithPlayerRoute(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1).overrideWith((ref) => Future.value(tracks)),
@@ -897,7 +878,7 @@ void main() {
         _testTrack(id: 3, fileName: 'C.mp3'),
       ];
 
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithPlayerRoute(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1).overrideWith((ref) => Future.value(tracks)),
@@ -957,7 +938,7 @@ void main() {
   group('PLY-T84 no ReorderableListView during selection', () {
     testWidgets('uses ListView during selection, ReorderableListView otherwise',
         (WidgetTester tester) async {
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestAppWithPlayerRoute(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1).overrideWith((ref) => Future.value([

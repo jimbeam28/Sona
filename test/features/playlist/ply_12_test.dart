@@ -7,11 +7,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nas_audio_player/features/playlist/playlist_list_screen.dart';
 import 'package:nas_audio_player/features/playlist/playlist_provider.dart';
 import 'package:nas_audio_player/shared/models/playlist.dart';
+
+import '../../helpers/widget_helpers.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -26,12 +27,7 @@ Playlist _testPlaylist({int? id, String name = 'Test', int trackCount = 0}) {
   );
 }
 
-Widget _buildTestApp(Widget child, {List<Override>? overrides}) {
-  return ProviderScope(
-    overrides: overrides ?? [],
-    child: MaterialApp(home: Scaffold(body: child)),
-  );
-}
+// buildTestApp() is imported from widget_helpers.dart.
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Widget tests — PLY-T66~T72
@@ -43,7 +39,7 @@ void main() {
   group('PLY-T66 empty state', () {
     testWidgets('shows empty icon and help text when no playlists',
         (WidgetTester tester) async {
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestApp(
         const PlaylistListScreen(),
         overrides: [
           playlistListProvider
@@ -61,7 +57,7 @@ void main() {
 
   group('PLY-T67 FAB create dialog', () {
     testWidgets('tapping FAB shows create dialog', (WidgetTester tester) async {
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestApp(
         const PlaylistListScreen(),
         overrides: [
           playlistListProvider
@@ -85,7 +81,7 @@ void main() {
   group('PLY-T68 create validation', () {
     testWidgets('create with empty name does nothing',
         (WidgetTester tester) async {
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestApp(
         const PlaylistListScreen(),
         overrides: [
           playlistListProvider
@@ -111,7 +107,7 @@ void main() {
   group('PLY-T69 list item rendering', () {
     testWidgets('shows playlist name and track count',
         (WidgetTester tester) async {
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestApp(
         const PlaylistListScreen(),
         overrides: [
           playlistListProvider.overrideWith((ref) => Future.value([
@@ -126,7 +122,7 @@ void main() {
     });
 
     testWidgets('shows multiple playlists', (WidgetTester tester) async {
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestApp(
         const PlaylistListScreen(),
         overrides: [
           playlistListProvider.overrideWith((ref) => Future.value([
@@ -149,7 +145,7 @@ void main() {
   group('PLY-T70 swipe reveals delete button', () {
     testWidgets('swipe left reveals delete button on action pane',
         (WidgetTester tester) async {
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestApp(
         const PlaylistListScreen(),
         overrides: [
           playlistListProvider.overrideWith((ref) => Future.value([
@@ -173,7 +169,7 @@ void main() {
   group('PLY-T71 delete confirmation dialog', () {
     testWidgets('tapping delete button shows confirmation dialog',
         (WidgetTester tester) async {
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestApp(
         const PlaylistListScreen(),
         overrides: [
           playlistListProvider.overrideWith((ref) => Future.value([
@@ -212,7 +208,7 @@ void main() {
       final completer = Completer<List<Playlist>>();
       addTearDown(() => completer.complete(<Playlist>[]));
 
-      await tester.pumpWidget(_buildTestApp(
+      await tester.pumpWidget(buildTestApp(
         const PlaylistListScreen(),
         overrides: [
           playlistListProvider.overrideWith((ref) => completer.future),
