@@ -141,6 +141,59 @@ onPressed: () => _exitSelectionMode(),
 
 ---
 
+### BUG-05 SerializedRequestGate 卡死导致所有后续加载请求永久挂起
+
+**来源**：用户反馈"点击音乐文件后播放页面卡在加载" + 代码审查 | **优先级**：P0
+**涉及文件**：`lib/features/player/player_provider.dart`
+**依赖**：无
+**关联缺陷**：refactor-plan.md Bug 5
+
+**根因**：
+`SerializedRequestGate._start()` 的 `finally` 块在 `await task` 完成后才执行。但 `loadAndPlayProvider` 的 task 内部有多个 `await` 调用（`activeConnectionProvider.future`、`SecureStorage.read`、`player.setAudioSource`），任何一个挂起都会导致 `_running` 永远为 `true`，后续所有请求排队等待，永远无法执行。
+
+屏幕侧的 `request().timeout(15s)` 只让 UI 显示 error，但 gate 内部的 `_running` 不会被重置。
+
+**代码锚点**：
+- `lib/features/player/player_provider.dart:177-199` SerializedRequestGate._start()
+  ```dart
+  void _start<T>(_QueuedRequest<T> request) {
+    _running = true;
+    unawaited(() async {
+      try {
+        final result = await request.task(request.requestId);  // ← 挂起时 finally 不执行
+        // ...
+      } finally {
+        _running = false;  // ← 永远到不了这里
+        // ...
+      }
+    }());
+  }
+  ```
+- `lib/features/player/player_provider.dart:912` await activeConnectionProvider.future — 无超时
+- `lib/features/player/player_provider.dart:928` await storage.read() — 无超时
+- `lib/features/player/player_provider.dart:955` await player.setAudioSource() — 无超时
+
+**修复方案**：
+1. 在 `SerializedRequestGate._start()` 中给 task 加 20 秒超时保护
+2. 在 `loadAndPlayProvider` 中给 `SecureStorage.read` 加 5 秒超时
+3. 在 `loadAndPlayProvider` 中给 `activeConnectionProvider.future` 加 5 秒超时
+4. 添加 gate 强制重置机制（watchdog）
+
+**测试用例**：BUG-05-T01 ~ BUG-05-T05
+- BUG-05-T01: task 内部挂起 → 20 秒后 gate 超时 → _running 重置为 false
+- BUG-05-T02: gate 超时后 → 新请求可正常执行
+- BUG-05-T03: SecureStorage.read 挂起 → 5 秒后超时 → 返回 null → failed
+- BUG-05-T04: 正常加载 → gate 超时未触发 → 行为不变（回归）
+- BUG-05-T05: 连续 3 次加载失败 → gate 每次都正确重置 → 第 4 次可成功
+
+**验收标准**：
+- [ ] BUG-05-T01 ~ T05 全部通过
+- [ ] `flutter test test/features/player/` 全量回归通过
+- [ ] `flutter analyze` 0 issues
+- [ ] 手动验证：断网状态下点击文件 → 15 秒后显示 error → 恢复网络 → 重试成功
+
+---
+
 ## 待实现 — 重构 Phase 0：测试基础设施
 
 ### REF-01 创建 test/helpers/ 目录结构

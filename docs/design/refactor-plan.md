@@ -645,6 +645,87 @@ if (ref.read(trackSortProvider) != TrackSortOption.addedAsc) return;
 
 ---
 
+### Bug 5: SerializedRequestGate 卡死导致所有后续加载请求永久挂起 🔴
+
+**模块**：Player
+**文件**：`lib/features/player/player_provider.dart`
+**严重性**：高 — 这是"播放页面卡在加载"的核心根因
+
+**规格要求**：
+任何加载请求都应在有限时间内完成或超时失败，不能永久阻塞后续请求。
+
+**实际行为**：
+`SerializedRequestGate._start()` 的 `finally` 块在 `await task` 完成后才执行。但 `loadAndPlayProvider` 的 task 内部有多个 `await` 调用，任何一个挂起都会导致 `_running` 永远为 `true`：
+
+1. `await ref.read(activeConnectionProvider.future)` — DB 查询可能卡住
+2. `await storage.read(key: ...)` — SecureStorage 平台调用可能卡住
+3. `await player.setAudioSource(source)` — 网络请求 + 平台调用可能卡住
+4. `await player.play()` — 虽然是 unawaited，但后续 12 秒轮询中的 `Future.delayed` 不会取消
+
+屏幕侧的 `request().timeout(15s)` 只是让屏幕的 Future 完成（UI 显示 error），但 **gate 内部的 task Future 仍在挂起**，`_running` 不会被重置。
+
+**代码路径**：
+```
+用户点击文件 → _runSerializedLoad() → loadAndPlayProvider()
+  → SerializedRequestGate._start()
+    → _running = true
+    → await task()
+      → await setAudioSource() ← 挂起，永不返回
+    → finally 块永远不执行
+    → _running 永远为 true
+  → 屏幕 15 秒超时 → UI 显示 error
+  → 用户点重试 → 新请求进入 gate → _running == true → 排队
+  → 排队请求永远等不到执行
+  → 从此所有加载请求卡死
+```
+
+**触发条件**：
+1. 网络不稳定（WebDAV 服务器无响应）
+2. SecureStorage 平台调用挂起（Android 后台限制）
+3. just_audio 的 `setAudioSource` 内部平台调用卡住
+4. 播放中切换连接导致正在进行的请求挂起
+
+**影响**：
+- 用户看到加载页面卡住
+- 点重试无效（新请求排队但永远执行不了）
+- 只能退出播放页面重新进入才能恢复
+- 如果多次触发，可能需要重启 App
+
+**修复方案**：
+1. 在 `SerializedRequestGate._start()` 中给 task 加超时保护：
+   ```dart
+   void _start<T>(_QueuedRequest<T> request) {
+     _running = true;
+     unawaited(() async {
+       try {
+         final result = await request.task(request.requestId)
+             .timeout(const Duration(seconds: 20), onTimeout: () => throw TimeoutException('gate timeout'));
+         // ...
+       } catch (e) {
+         // ...
+       } finally {
+         _running = false;
+         // ...
+       }
+     }());
+   }
+   ```
+2. 在 `loadAndPlayProvider` 中给 `SecureStorage.read` 加超时：
+   ```dart
+   final password = await storage.read(key: '...')
+       .timeout(const Duration(seconds: 5), onTimeout: () => null);
+   ```
+3. 添加 gate 重置机制：如果 `_running == true` 且超过 25 秒无响应，强制重置
+
+**测试用例**：BUG-05-T01 ~ BUG-05-T05
+- BUG-05-T01: setAudioSource 挂起 → 20 秒后 gate 超时 → _running 重置为 false
+- BUG-05-T02: gate 超时后 → 新请求可正常执行
+- BUG-05-T03: SecureStorage.read 挂起 → 5 秒后超时 → 返回 null → failed
+- BUG-05-T04: 正常加载 → gate 超时未触发 → 行为不变（回归）
+- BUG-05-T05: 连续 3 次加载失败 → gate 每次都正确重置 → 第 4 次可成功
+
+---
+
 ### 规格不一致: 静态 shuffle 方法使用 Random ⚪
 
 **模块**：Player / PlayQueue
