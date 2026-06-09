@@ -596,3 +596,15 @@
 
 ### 测试结果
 - 通过: 1075 / 总计: 1075
+
+---
+
+## [2026-06-09] [REF-16] - 更新 player_screen.dart 使用新 provider
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/player/player_screen.dart` — 简化 import 和 _saveProgressWithContainer
+
+### 测试结果
+- 通过: 1075 / 总计: 1075

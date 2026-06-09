@@ -20,11 +20,9 @@ import '../../shared/models/play_queue.dart';
 import '../../core/services/storage_utils.dart';
 import '../browser/browser_provider.dart';
 import '../connection/connection_provider.dart';
-import '../progress/progress_provider.dart';
 import '../settings/settings_provider.dart';
 import '../timer/timer_provider.dart';
 import '../timer/widgets/timer_button.dart';
-import 'domain/play_mode.dart';
 import 'domain/seek_utils.dart';
 import 'player_provider.dart';
 import 'widgets/queue_sheet.dart';
@@ -310,16 +308,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   void _saveProgressWithContainer(ProviderContainer container) {
-    final queue = container.read(currentPlayQueueProvider);
-    final conn = container.read(activeConnectionProvider).valueOrNull;
-    if (queue == null || conn?.id == null) return;
-    final player = container.read(audioPlayerProvider);
-    container.read(upsertProgressProvider)(
-      connectionId: conn!.id!,
-      filePath: queue.current.path,
-      positionMs: player.position.inMilliseconds,
-      durationMs: player.duration?.inMilliseconds,
-    );
+    container.read(saveProgressProvider)();
   }
 
   // ── Build ────────────────────────────────────────────────────────────────────
