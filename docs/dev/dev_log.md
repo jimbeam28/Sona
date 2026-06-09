@@ -664,3 +664,17 @@
 
 ### 测试结果
 - 通过: 1095 / 总计: 1095
+
+---
+
+## [2026-06-09] [REF-21] - 创建 connection/domain/connection_validator.dart
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/connection/domain/connection_validator.dart` — 新建，validateUrl/validateRequired/validateBasePath/validateDdnsHostname
+- `lib/features/connection/widgets/connection_form.dart` — 使用新文件
+- `test/features/connection/ref_21_test.dart` — 新建，41 个测试用例
+
+### 测试结果
+- 通过: 1136 / 总计: 1136
