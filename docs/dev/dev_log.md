@@ -256,3 +256,17 @@
 
 ### 测试结果
 - 通过: 819 / 总计: 819
+
+---
+
+## [2026-06-09] [BUG-02] - 播放单取消全选不退出选择模式
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/playlist/playlist_detail_screen.dart` — 行 308: 取消全选调用 _exitSelectionMode()
+- `test/features/playlist/bug_02_test.dart` — 新建，3 个测试用例
+- `test/features/playlist/ply_13_test.dart` — 更新 PLY-T79 测试以匹配修正后行为
+
+### 测试结果
+- 通过: 822 / 总计: 822

@@ -302,7 +302,10 @@ void main() {
       await tester.tap(find.byIcon(Icons.deselect));
       await tester.pumpAndSettle();
 
-      expect(find.text('已选 0 首'), findsOneWidget);
+      // BUG-02 fix: deselect all exits selection mode → normal AppBar restored
+      expect(find.text('Test Playlist'), findsOneWidget);
+      expect(find.byIcon(Icons.select_all), findsNothing);
+      expect(find.byIcon(Icons.deselect), findsNothing);
     });
   });
 

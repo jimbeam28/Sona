@@ -305,7 +305,7 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
           icon: const Icon(Icons.deselect),
           tooltip: '取消全选',
           onPressed: () {
-            setState(() => _selectedIds.clear());
+            _exitSelectionMode();
           },
         ),
         IconButton(
