@@ -6,47 +6,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import '../../helpers/fake_secure_storage.dart';
-import 'package:nas_audio_player/core/network/webdav_client.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/features/connection/connection_provider.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 
+import '../../helpers/fake_webdav_client.dart';
 import '../../helpers/test_factories.dart';
-
-// ── Manual mocks ────────────────────────────────────────────────────────────────
-
-/// Tracks [listDirectory] invocations so tests can assert cache behaviour.
-class _MockWebDavClient implements WebDavClientInterface {
-  int listDirectoryCallCount = 0;
-  List<String> calledPaths = <String>[];
-  List<NasFile> _result = const [];
-
-  void returnResult(List<NasFile> result) {
-    _result = result;
-  }
-
-  @override
-  Future<List<NasFile>> listDirectory({
-    required String url,
-    required String username,
-    required String password,
-    required String path,
-  }) async {
-    listDirectoryCallCount++;
-    calledPaths.add(path);
-    return _result;
-  }
-
-  @override
-  Future<WebDavValidationResult> validate({
-    required String url,
-    required String username,
-    required String password,
-    String basePath = '/',
-  }) async {
-    throw UnimplementedError('validate not needed for BRW-05 tests');
-  }
-}
 
 // ── Test helpers ────────────────────────────────────────────────────────────────
 
@@ -72,7 +37,7 @@ void main() {
     // ── BRW-T29: First load makes one PROPFIND request ─────────────────────────
 
     test('BRW-T29: first load of /music makes one PROPFIND request', () async {
-      final mockClient = _MockWebDavClient();
+      final mockClient = SpyWebDavClient();
       mockClient.returnResult(_musicRawEntries());
 
       final fakeStorage = FakeSecureStorage();
@@ -114,7 +79,7 @@ void main() {
     // ── BRW-T30: Second load uses cache ────────────────────────────────────────
 
     test('BRW-T30: return to /music uses cache (no new request)', () async {
-      final mockClient = _MockWebDavClient();
+      final mockClient = SpyWebDavClient();
       mockClient.returnResult(_musicRawEntries());
 
       final fakeStorage = FakeSecureStorage();
@@ -150,8 +115,8 @@ void main() {
     // ── BRW-T31: Different connections, independent caches ─────────────────────
 
     test('BRW-T31: different connections have independent caches', () async {
-      final mockClientA = _MockWebDavClient();
-      final mockClientB = _MockWebDavClient();
+      final mockClientA = SpyWebDavClient();
+      final mockClientB = SpyWebDavClient();
 
       final fakeStorageA = FakeSecureStorage();
       fakeStorageA.setPassword(1, 'pw-a');
@@ -227,7 +192,7 @@ void main() {
 
     test('BRW-T32: pull-to-refresh clears cache then makes new request',
         () async {
-      final mockClient = _MockWebDavClient();
+      final mockClient = SpyWebDavClient();
       mockClient.returnResult(_musicRawEntries());
 
       final fakeStorage = FakeSecureStorage();
@@ -274,14 +239,14 @@ void main() {
       fakeStorage.setPassword(2, 'pw-2');
 
       // Connection 1: has files
-      final mockClient1 = _MockWebDavClient();
+      final mockClient1 = SpyWebDavClient();
       mockClient1.returnResult([
         testDir('music', '/music'),
         testAudio('conn1_song.mp3', '/music/conn1_song.mp3'),
       ]);
 
       // Connection 2: empty directory
-      final mockClient2 = _MockWebDavClient();
+      final mockClient2 = SpyWebDavClient();
       mockClient2.returnResult([
         testDir('music', '/music'), // self-ref only
       ]);
@@ -343,7 +308,7 @@ void main() {
     // ── TST-T64: Cache within 3min → cache hit, no new request ──────────────
 
     test('TST-T64: cache in 3min → reuse cache, no new request', () async {
-      final mockClient = _MockWebDavClient();
+      final mockClient = SpyWebDavClient();
       mockClient.returnResult(_musicRawEntries());
       final fakeStorage = FakeSecureStorage();
       fakeStorage.setPassword(1, 'test-password');
@@ -390,7 +355,7 @@ void main() {
 
     test('TST-T65: cache expired (6min > 5min TTL) → triggers new request',
         () async {
-      final mockClient = _MockWebDavClient();
+      final mockClient = SpyWebDavClient();
       mockClient.returnResult(_musicRawEntries());
       final fakeStorage = FakeSecureStorage();
       fakeStorage.setPassword(1, 'test-password');
@@ -431,7 +396,7 @@ void main() {
 
     test('TST-T66: at exactly 5min boundary → cache expired, refetches',
         () async {
-      final mockClient = _MockWebDavClient();
+      final mockClient = SpyWebDavClient();
       mockClient.returnResult(_musicRawEntries());
       final fakeStorage = FakeSecureStorage();
       fakeStorage.setPassword(1, 'test-password');
@@ -474,7 +439,7 @@ void main() {
 
     test('TST-T67: pull-to-refresh clears cache, refetches regardless of TTL',
         () async {
-      final mockClient = _MockWebDavClient();
+      final mockClient = SpyWebDavClient();
       mockClient.returnResult(_musicRawEntries());
       final fakeStorage = FakeSecureStorage();
       fakeStorage.setPassword(1, 'test-password');
@@ -541,7 +506,7 @@ void main() {
     // ── TST-T69: Capacity at 51 → oldest entry evicted ─────────────────────
 
     test('TST-T69: 51st entry triggers eviction of oldest', () async {
-      final mockClient = _MockWebDavClient();
+      final mockClient = SpyWebDavClient();
       mockClient.returnResult(_musicRawEntries());
       final fakeStorage = FakeSecureStorage();
       fakeStorage.setPassword(1, 'test-password');
@@ -588,7 +553,7 @@ void main() {
     // ── TST-T70: After overflow → new entry is readable ────────────────────
 
     test('TST-T70: after overflow, new entry is readable', () async {
-      final mockClient = _MockWebDavClient();
+      final mockClient = SpyWebDavClient();
       mockClient.returnResult(_musicRawEntries());
       final fakeStorage = FakeSecureStorage();
       fakeStorage.setPassword(1, 'test-password');
@@ -634,7 +599,7 @@ void main() {
     // ── TST-T71: Evicted entry re-accessed → triggers new request ──────────
 
     test('TST-T71: evicted entry re-accessed → new network request', () async {
-      final mockClient = _MockWebDavClient();
+      final mockClient = SpyWebDavClient();
       mockClient.returnResult(_musicRawEntries());
       final fakeStorage = FakeSecureStorage();
       fakeStorage.setPassword(1, 'test-password');

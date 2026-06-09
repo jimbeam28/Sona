@@ -15,69 +15,8 @@ import 'package:nas_audio_player/features/connection/connection_screen.dart';
 import 'package:nas_audio_player/features/connection/widgets/connection_form.dart';
 import 'package:nas_audio_player/shared/models/connection_config.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
-import 'package:nas_audio_player/shared/models/nas_file.dart';
 
-// ── Manual mock: no @GenerateMocks / build_runner ────────────────────────────
-
-class MockWebDavClient implements WebDavClientInterface {
-  WebDavValidationResult Function({
-    required String url,
-    required String username,
-    required String password,
-    String basePath,
-  })? _handler;
-
-  /// Completer used to keep the call suspended until the test releases it.
-  Completer<WebDavValidationResult>? _pendingCompleter;
-
-  void returnResult(WebDavValidationResult result) {
-    _handler = ({
-      required url,
-      required username,
-      required password,
-      basePath = '/',
-    }) =>
-        result;
-    _pendingCompleter = null;
-  }
-
-  /// When set, `validate()` will hang until [_pendingCompleter] is completed.
-  void hangUntilCompleted(Completer<WebDavValidationResult> completer) {
-    _pendingCompleter = completer;
-    _handler = null;
-  }
-
-  @override
-  Future<WebDavValidationResult> validate({
-    required String url,
-    required String username,
-    required String password,
-    String basePath = '/',
-  }) async {
-    if (_pendingCompleter != null) {
-      return _pendingCompleter!.future;
-    }
-    if (_handler != null) {
-      return _handler!(
-        url: url,
-        username: username,
-        password: password,
-        basePath: basePath,
-      );
-    }
-    return WebDavValidationResult.networkError();
-  }
-
-  @override
-  Future<List<NasFile>> listDirectory({
-    required String url,
-    required String username,
-    required String password,
-    required String path,
-  }) async {
-    throw UnimplementedError('listDirectory not needed for CON-01 tests');
-  }
-}
+import '../../helpers/fake_webdav_client.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

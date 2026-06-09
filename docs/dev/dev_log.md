@@ -439,3 +439,17 @@
 
 ### 测试结果
 - 通过: 864 / 总计: 864
+
+---
+
+## [2026-06-09] [REF-05] - 提取 MockWebDavClient 到共享模块
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `test/helpers/fake_webdav_client.dart` — 实现共享 MockWebDavClient + SpyWebDavClient
+- `test/features/connection/con_01_test.dart` — 使用共享版本
+- `test/features/browser/brw_05_test.dart` — 使用共享版本
+
+### 测试结果
+- 通过: 864 / 总计: 864

@@ -2,8 +2,8 @@
   "metadata": {
     "last_updated": "2026-06-09",
     "total": 54,
-    "pending": 40,
-    "done": 14
+    "pending": 39,
+    "done": 15
   },
   "order": [
     "BUG-01", "BUG-02", "BUG-03", "BUG-04", "BUG-05",
@@ -149,8 +149,8 @@
     "REF-05": {
       "name": "提取 MockWebDavClient 到共享模块",
       "plan_section": "dev-plan.md §REF-05",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": ["REF-01"],
       "retry_count": 0,
       "last_error": ""
