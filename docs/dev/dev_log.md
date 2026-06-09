@@ -743,3 +743,16 @@
 
 ### 测试结果
 - 通过: 1198 / 总计: 1198
+
+---
+
+## [2026-06-09] [REF-27] - 创建 settings/domain/settings_service.dart
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/settings/domain/settings_service.dart` — 新建，SettingsService (主题/速度/步长)
+- `test/features/settings/ref_27_test.dart` — 新建，21 个测试用例
+
+### 测试结果
+- 通过: 1219 / 总计: 1219

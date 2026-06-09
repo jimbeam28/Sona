@@ -2,8 +2,8 @@
   "metadata": {
     "last_updated": "2026-06-09",
     "total": 54,
-    "pending": 18,
-    "done": 36
+    "pending": 17,
+    "done": 37
   },
   "order": [
     "BUG-01", "BUG-02", "BUG-03", "BUG-04", "BUG-05",
@@ -347,8 +347,8 @@
     "REF-27": {
       "name": "创建 settings/domain/settings_service.dart",
       "plan_section": "dev-plan.md §REF-27",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": [],
       "retry_count": 0,
       "last_error": ""
