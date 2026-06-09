@@ -230,36 +230,8 @@ class _QueuedRequest<T> {
   }
 }
 
-// ── Seek utility functions ──────────────────────────────────────────────────────
-
-/// Clamps [target] to the range `[Duration.zero, total]`.
-///
-/// Used by seek, skip-forward, and skip-backward logic to ensure positions
-/// never go negative or exceed the track duration.
-///
-/// PLY-T10~T12: seek with clamping; PLY-T13~T16: skip forward/backward.
-Duration clampSeek(Duration target, Duration total) {
-  if (target < Duration.zero) return Duration.zero;
-  if (target > total) return total;
-  return target;
-}
-
-/// Returns the position after skipping forward by [seconds] (default 15).
-///
-/// The result is clamped to [total] so it never exceeds the track duration.
-/// PLY-T13~T14.
-Duration skipForward(Duration current, Duration total, {int seconds = 15}) {
-  return clampSeek(current + Duration(seconds: seconds), total);
-}
-
-/// Returns the position after skipping backward by [seconds] (default 15).
-///
-/// The result is clamped to [current] so it never goes below zero or
-/// forward of the current position.
-/// PLY-T15~T16.
-Duration skipBackward(Duration current, {int seconds = 15}) {
-  return clampSeek(current - Duration(seconds: seconds), current);
-}
+// Seek utility functions (clampSeek, skipForward, skipBackward) are now
+// in domain/seek_utils.dart — imported above (REF-08).
 
 // ── Seek step persistence (SET-04) ──────────────────────────────────────────
 

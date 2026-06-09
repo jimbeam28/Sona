@@ -480,3 +480,18 @@
 
 ### 测试结果
 - 通过: 864 / 总计: 864
+
+---
+
+## [2026-06-09] [REF-08] - 创建 player/domain/seek_utils.dart
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/player/domain/seek_utils.dart` — 新建，clampSeek/skipForward/skipBackward
+- `lib/features/player/player_provider.dart` — 移除函数定义
+- `lib/features/player/player_screen.dart` — 添加 import
+- `test/features/player/ref_08_test.dart` — 新建，20 个测试用例
+
+### 测试结果
+- 通过: 884 / 总计: 884
