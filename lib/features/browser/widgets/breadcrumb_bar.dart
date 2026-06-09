@@ -29,8 +29,10 @@ class BreadcrumbBar extends ConsumerWidget {
 
   static const double _chipHorizontalPadding = 4.0;
   static const double _chipVerticalPadding = 6.0;
-  static const double _separatorWidth = 16.0; // width of the "/" label between chips
-  static const double _overflowChipWidth = 36.0; // approximate width of "…" chip
+  static const double _separatorWidth =
+      16.0; // width of the "/" label between chips
+  static const double _overflowChipWidth =
+      36.0; // approximate width of "…" chip
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -43,8 +45,8 @@ class BreadcrumbBar extends ConsumerWidget {
 
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.symmetric(horizontal: 8, vertical: _chipVerticalPadding),
+      padding: const EdgeInsets.symmetric(
+          horizontal: 8, vertical: _chipVerticalPadding),
       color: theme.colorScheme.surfaceContainerHighest,
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -54,12 +56,14 @@ class BreadcrumbBar extends ConsumerWidget {
           final segments = _buildPathSegments(stack);
 
           // Measure each segment's chip width (text + padding).
-          final textPainter = TextPainter(textDirection: Directionality.of(context))
-            ..text = TextSpan(text: '…', style: textStyle)
-            ..layout();
+          final textPainter =
+              TextPainter(textDirection: Directionality.of(context))
+                ..text = TextSpan(text: '…', style: textStyle)
+                ..layout();
           final measuredWidths = <double>[];
           for (final seg in segments) {
-            textPainter.text = TextSpan(text: seg.displayName, style: textStyle);
+            textPainter.text =
+                TextSpan(text: seg.displayName, style: textStyle);
             textPainter.layout(maxWidth: availableWidth);
             measuredWidths.add(textPainter.width + _chipHorizontalPadding * 2);
           }
@@ -263,9 +267,8 @@ class _SegmentChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labelStyle = isLast
-        ? style.copyWith(fontWeight: FontWeight.bold)
-        : style;
+    final labelStyle =
+        isLast ? style.copyWith(fontWeight: FontWeight.bold) : style;
 
     return Material(
       color: Colors.transparent,

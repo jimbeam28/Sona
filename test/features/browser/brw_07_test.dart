@@ -29,7 +29,9 @@ NasFile _dir(String name, String path, {DateTime? modifiedAt}) {
 
 /// Builds an audio [NasFile] for test assertions.
 NasFile _audio(String name, String path,
-    {int? size, DateTime? modifiedAt, AudioFileType type = AudioFileType.music}) {
+    {int? size,
+    DateTime? modifiedAt,
+    AudioFileType type = AudioFileType.music}) {
   return NasFile(
     name: name,
     path: path,
@@ -41,7 +43,8 @@ NasFile _audio(String name, String path,
 }
 
 /// Creates a [SortOptionNotifier] backed by a mock [SharedPreferences].
-Future<SortOptionNotifier> _notifierWithPrefs(Map<String, Object> initialValues) async {
+Future<SortOptionNotifier> _notifierWithPrefs(
+    Map<String, Object> initialValues) async {
   SharedPreferences.setMockInitialValues(initialValues);
   final prefs = await SharedPreferences.getInstance();
   return SortOptionNotifier(prefs);
@@ -89,8 +92,7 @@ void main() {
     test('BRW-T38: modified time descending sorts newest first', () {
       final baseTime = DateTime(2024, 1, 1);
       final unsorted = [
-        _audio('old.mp3', '/old.mp3',
-            modifiedAt: baseTime),
+        _audio('old.mp3', '/old.mp3', modifiedAt: baseTime),
         _audio('new.mp3', '/new.mp3',
             modifiedAt: baseTime.add(const Duration(days: 30))),
         _audio('mid.mp3', '/mid.mp3',
@@ -105,8 +107,7 @@ void main() {
 
       // Directories first, newest within group
       expect(sorted[0].name, equals('new_dir'));
-      expect(sorted[0].isDirectory, isTrue,
-          reason: '目录应在文件之前');
+      expect(sorted[0].isDirectory, isTrue, reason: '目录应在文件之前');
       expect(sorted[1].name, equals('old_dir'));
       expect(sorted[1].isDirectory, isTrue);
 
@@ -220,8 +221,7 @@ void main() {
             modifiedAt: baseTime.add(const Duration(days: 1))),
         _dir('music', '/music',
             modifiedAt: baseTime.subtract(const Duration(days: 10))),
-        _audio('a_track.flac', '/a_track.flac',
-            modifiedAt: baseTime),
+        _audio('a_track.flac', '/a_track.flac', modifiedAt: baseTime),
         _dir('audiobooks', '/audiobooks',
             modifiedAt: baseTime.add(const Duration(days: 5))),
       ];
@@ -284,10 +284,9 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            directoryContentsProvider('/')
-                .overrideWith((ref) async => [
-                      _audio('song.mp3', '/song.mp3'),
-                    ]),
+            directoryContentsProvider('/').overrideWith((ref) async => [
+                  _audio('song.mp3', '/song.mp3'),
+                ]),
           ],
           child: const MaterialApp(home: Scaffold(body: BrowserScreen())),
         ),
@@ -295,8 +294,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // The audio file name should be visible
-      expect(find.text('song.mp3'), findsOneWidget,
-          reason: '音频文件名应显示在列表中');
+      expect(find.text('song.mp3'), findsOneWidget, reason: '音频文件名应显示在列表中');
 
       // No LinearProgressIndicator when progressPercentage is null
       expect(find.byType(LinearProgressIndicator), findsNothing,
@@ -315,10 +313,9 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            directoryContentsProvider('/')
-                .overrideWith((ref) async => [
-                      _audio('song.mp3', '/song.mp3'),
-                    ]),
+            directoryContentsProvider('/').overrideWith((ref) async => [
+                  _audio('song.mp3', '/song.mp3'),
+                ]),
           ],
           child: const MaterialApp(home: Scaffold(body: BrowserScreen())),
         ),
@@ -326,8 +323,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // The audio file should still be visible
-      expect(find.text('song.mp3'), findsOneWidget,
-          reason: '音频文件名应显示在列表中');
+      expect(find.text('song.mp3'), findsOneWidget, reason: '音频文件名应显示在列表中');
     });
   });
 
@@ -403,8 +399,7 @@ void main() {
         () async {
       // Query files that do not exist
       final result = await dao.find(1, '/music/nonexistent.mp3');
-      expect(result, isNull,
-          reason: 'TST-T130: 空目录/无进度文件应返回 null');
+      expect(result, isNull, reason: 'TST-T130: 空目录/无进度文件应返回 null');
     });
 
     // ── TST-T131: NasFile.fromProps with empty props uses defaults ──────

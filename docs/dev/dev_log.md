@@ -243,3 +243,16 @@
 ### 测试结果
 - 通过: 650 / 总计: 650
 
+
+---
+
+## [2026-06-09] [BUG-01] - _completingProvider 卡死导致自动切歌永久失效
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/player/player_provider.dart` — 行 665: 队列为 null 时重置 _completingProvider
+- `test/features/player/bug_01_test.dart` — 新建，3 个测试用例
+
+### 测试结果
+- 通过: 819 / 总计: 819

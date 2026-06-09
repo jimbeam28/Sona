@@ -26,12 +26,12 @@ class WebDavValidationResult {
       WebDavValidationStatus.authError, '用户名或密码错误');
 
   factory WebDavValidationResult.pathNotFound() =>
-      const WebDavValidationResult._(WebDavValidationStatus.pathNotFound,
-          '基础路径不存在，请检查路径设置');
+      const WebDavValidationResult._(
+          WebDavValidationStatus.pathNotFound, '基础路径不存在，请检查路径设置');
 
   factory WebDavValidationResult.networkError() =>
-      const WebDavValidationResult._(WebDavValidationStatus.networkError,
-          '无法连接到服务器，请检查地址和网络');
+      const WebDavValidationResult._(
+          WebDavValidationStatus.networkError, '无法连接到服务器，请检查地址和网络');
 
   bool get isSuccess => status == WebDavValidationStatus.success;
 }
@@ -101,8 +101,7 @@ class WebDavException implements Exception {
   const WebDavException(this.message, {this.statusCode});
 
   /// 401 / 403 — credentials are invalid.
-  bool get isAuthError =>
-      statusCode == 401 || statusCode == 403;
+  bool get isAuthError => statusCode == 401 || statusCode == 403;
 
   @override
   String toString() => message;
@@ -139,8 +138,9 @@ class WebDavClient implements WebDavClientInterface {
     Uri targetUri;
     try {
       final base = Uri.parse(normalisedUrl);
-      final effectivePath =
-          basePath.isEmpty ? '/' : (basePath.startsWith('/') ? basePath : '/$basePath');
+      final effectivePath = basePath.isEmpty
+          ? '/'
+          : (basePath.startsWith('/') ? basePath : '/$basePath');
       targetUri = base.replace(path: effectivePath);
     } catch (_) {
       return WebDavValidationResult.networkError();
@@ -158,9 +158,8 @@ class WebDavClient implements WebDavClientInterface {
         ..headers['Depth'] = '0'
         ..headers['Content-Type'] = 'application/xml';
 
-      final streamedResponse = await _httpClient
-          .send(request)
-          .timeout(_timeout);
+      final streamedResponse =
+          await _httpClient.send(request).timeout(_timeout);
 
       final result = () {
         switch (streamedResponse.statusCode) {
@@ -212,8 +211,7 @@ class WebDavClient implements WebDavClientInterface {
       final basePath = base.path.endsWith('/')
           ? base.path.substring(0, base.path.length - 1)
           : base.path;
-      final dirPath =
-          path.startsWith('/') ? path : '/$path';
+      final dirPath = path.startsWith('/') ? path : '/$path';
       final combinedPath = '$basePath$dirPath';
       targetUri = base.replace(path: combinedPath);
     } catch (e) {
@@ -232,15 +230,15 @@ class WebDavClient implements WebDavClientInterface {
         ..headers['Depth'] = '1'
         ..headers['Content-Type'] = 'application/xml';
 
-      final streamedResponse = await _httpClient
-          .send(request)
-          .timeout(_timeout);
+      final streamedResponse =
+          await _httpClient.send(request).timeout(_timeout);
 
       final body = await streamedResponse.stream.bytesToString();
 
       if (streamedResponse.statusCode == 401 ||
           streamedResponse.statusCode == 403) {
-        debugPrint('[WebDAV] listDirectory: auth error (HTTP ${streamedResponse.statusCode})');
+        debugPrint(
+            '[WebDAV] listDirectory: auth error (HTTP ${streamedResponse.statusCode})');
         throw WebDavException(
           '用户名或密码错误',
           statusCode: streamedResponse.statusCode,
@@ -248,7 +246,8 @@ class WebDavClient implements WebDavClientInterface {
       }
 
       if (streamedResponse.statusCode != 207) {
-        debugPrint('[WebDAV] listDirectory: bad status ${streamedResponse.statusCode}');
+        debugPrint(
+            '[WebDAV] listDirectory: bad status ${streamedResponse.statusCode}');
         throw WebDavException(
           '服务器返回异常状态码 ${streamedResponse.statusCode}',
           statusCode: streamedResponse.statusCode,

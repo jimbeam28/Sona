@@ -74,8 +74,10 @@ Widget _buildTestApp({
 Future<void> _pumpReadyScreen(WidgetTester tester, Widget app) async {
   await tester.pumpWidget(app);
   await tester.pump(); // Post-frame callback fires
-  await tester.pump(const Duration(milliseconds: 100)); // Async continuation + rebuild
-  await tester.pump(const Duration(milliseconds: 100)); // Stream data delivery + rebuild
+  await tester
+      .pump(const Duration(milliseconds: 100)); // Async continuation + rebuild
+  await tester.pump(
+      const Duration(milliseconds: 100)); // Stream data delivery + rebuild
   await tester.pump(const Duration(milliseconds: 100)); // Extra settling
 }
 
@@ -152,8 +154,7 @@ void main() {
   // ── TST-T43: 播放器页面渲染 ─────────────────────────────────────────────
 
   group('TST-T43 播放器页面渲染', () {
-    testWidgets('AppBar + 封面 + 进度条 + 控制按钮全部可见',
-        (WidgetTester tester) async {
+    testWidgets('AppBar + 封面 + 进度条 + 控制按钮全部可见', (WidgetTester tester) async {
       await _pumpReadyScreen(
         tester,
         _buildTestApp(player: player, queue: defaultQueue),
@@ -300,10 +301,8 @@ void main() {
           matching: find.byType(IconButton),
         ),
       );
-      expect(prevButton.onPressed, isNotNull,
-          reason: '上一首按钮应可用');
-      expect(nextButton.onPressed, isNotNull,
-          reason: '下一首按钮应可用');
+      expect(prevButton.onPressed, isNotNull, reason: '上一首按钮应可用');
+      expect(nextButton.onPressed, isNotNull, reason: '下一首按钮应可用');
     });
 
     testWidgets('队列开头时上一首按钮禁用', (WidgetTester tester) async {
@@ -322,8 +321,7 @@ void main() {
           matching: find.byType(IconButton),
         ),
       );
-      expect(prevButton.onPressed, isNull,
-          reason: '队列开头时上一首按钮应禁用');
+      expect(prevButton.onPressed, isNull, reason: '队列开头时上一首按钮应禁用');
 
       // Next button should be enabled
       final nextButton = tester.widget<IconButton>(
@@ -332,8 +330,7 @@ void main() {
           matching: find.byType(IconButton),
         ),
       );
-      expect(nextButton.onPressed, isNotNull,
-          reason: '下一首按钮应可用');
+      expect(nextButton.onPressed, isNotNull, reason: '下一首按钮应可用');
     });
   });
 
@@ -384,9 +381,8 @@ void main() {
       final slider = tester.widget<Slider>(sliderFinder);
 
       // Position = 1:30 = 90000 ms, Duration = 4:00 = 240000 ms
-      final expectedValueMs = const Duration(minutes: 1, seconds: 30)
-          .inMilliseconds
-          .toDouble();
+      final expectedValueMs =
+          const Duration(minutes: 1, seconds: 30).inMilliseconds.toDouble();
       final expectedMaxMs =
           const Duration(minutes: 4).inMilliseconds.toDouble();
 
@@ -399,8 +395,7 @@ void main() {
   // ── TST-T49: Slider onChangeEnd → player.seek() ─────────────────────────
 
   group('TST-T49 Slider onChangeEnd 触发 seek', () {
-    testWidgets('拖动滑块松开后调用 player.seek 到正确位置',
-        (WidgetTester tester) async {
+    testWidgets('拖动滑块松开后调用 player.seek 到正确位置', (WidgetTester tester) async {
       await _pumpReadyScreen(
         tester,
         _buildTestApp(player: player, queue: defaultQueue),
@@ -488,8 +483,7 @@ void main() {
   // ── TST-T51: 选中速度后弹窗关闭标签更新 ─────────────────────────────────
 
   group('TST-T51 选中速度更新', () {
-    testWidgets('选中 1.5x 后弹窗关闭，按钮标签更新',
-        (WidgetTester tester) async {
+    testWidgets('选中 1.5x 后弹窗关闭，按钮标签更新', (WidgetTester tester) async {
       tester.view.physicalSize = const Size(2400, 3600);
       tester.view.devicePixelRatio = 3.0;
       addTearDown(() => tester.view.resetPhysicalSize());
@@ -592,8 +586,7 @@ void main() {
   // ── TST-T53: 定时器按钮渲染 ─────────────────────────────────────────────
 
   group('TST-T53 定时器按钮渲染', () {
-    testWidgets('定时器按钮显示 timer 图标和 tooltip',
-        (WidgetTester tester) async {
+    testWidgets('定时器按钮显示 timer 图标和 tooltip', (WidgetTester tester) async {
       await _pumpReadyScreen(
         tester,
         _buildTestApp(player: player, queue: defaultQueue),

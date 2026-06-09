@@ -45,9 +45,7 @@ class QueueSheet extends StatelessWidget {
                   final isCurrent = index == queue.currentIndex;
                   return ListTile(
                     leading: Icon(
-                      isCurrent
-                          ? Icons.play_arrow
-                          : Icons.music_note_outlined,
+                      isCurrent ? Icons.play_arrow : Icons.music_note_outlined,
                       color: isCurrent
                           ? Theme.of(context).colorScheme.primary
                           : Colors.grey,

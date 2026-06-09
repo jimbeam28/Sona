@@ -197,8 +197,7 @@ void main() {
           );
 
       final state = container.read(connectionValidatorProvider);
-      expect(state, isA<ValidationSuccess>(),
-          reason: '有效地址+正确凭据应返回成功状态');
+      expect(state, isA<ValidationSuccess>(), reason: '有效地址+正确凭据应返回成功状态');
     });
 
     // ── CON-T11: correct address + wrong credentials → 401 error ──────────────
@@ -218,8 +217,7 @@ void main() {
           );
 
       final state = container.read(connectionValidatorProvider);
-      expect(state, isA<ValidationError>(),
-          reason: '用户名或密码错误时应返回错误状态');
+      expect(state, isA<ValidationError>(), reason: '用户名或密码错误时应返回错误状态');
       expect(
         (state as ValidationError).message,
         equals('用户名或密码错误'),
@@ -245,8 +243,7 @@ void main() {
           );
 
       final state = container.read(connectionValidatorProvider);
-      expect(state, isA<ValidationError>(),
-          reason: '基础路径不存在时应返回错误状态');
+      expect(state, isA<ValidationError>(), reason: '基础路径不存在时应返回错误状态');
       expect(
         (state as ValidationError).message,
         equals('基础路径不存在，请检查路径设置'),
@@ -270,8 +267,7 @@ void main() {
           );
 
       final state = container.read(connectionValidatorProvider);
-      expect(state, isA<ValidationError>(),
-          reason: '无法连接时应返回错误状态');
+      expect(state, isA<ValidationError>(), reason: '无法连接时应返回错误状态');
       expect(
         (state as ValidationError).message,
         equals('无法连接到服务器，请检查地址和网络'),
@@ -302,8 +298,7 @@ void main() {
           );
 
       final state = container.read(connectionValidatorProvider);
-      expect(state, isA<ValidationError>(),
-          reason: '格式非法时应返回错误状态');
+      expect(state, isA<ValidationError>(), reason: '格式非法时应返回错误状态');
       expect(
         (state as ValidationError).message,
         equals('无法连接到服务器，请检查地址和网络'),
@@ -338,8 +333,7 @@ void main() {
       final result = await container.read(startupValidationProvider.future);
 
       expect(result, isNotNull, reason: '存在活跃连接时应返回验证结果');
-      expect(result!.isSuccess, isTrue,
-          reason: '有效连接启动验证应返回成功');
+      expect(result!.isSuccess, isTrue, reason: '有效连接启动验证应返回成功');
       expect(result.status, equals(WebDavValidationStatus.success),
           reason: '验证状态应为success');
     });
@@ -367,12 +361,10 @@ void main() {
       final result = await container.read(startupValidationProvider.future);
 
       expect(result, isNotNull, reason: '存在活跃连接时应返回验证结果');
-      expect(result!.isSuccess, isFalse,
-          reason: '认证失败时验证结果应为非成功');
+      expect(result!.isSuccess, isFalse, reason: '认证失败时验证结果应为非成功');
       expect(result.status, equals(WebDavValidationStatus.authError),
           reason: '验证状态应为authError');
-      expect(result.message, equals('用户名或密码错误'),
-          reason: '错误信息应为用户名或密码错误');
+      expect(result.message, equals('用户名或密码错误'), reason: '错误信息应为用户名或密码错误');
     });
   });
 
@@ -414,8 +406,7 @@ void main() {
       await firstFuture;
 
       // Verify the client was called exactly once
-      expect(mock.callCount, equals(1),
-          reason: 'loading状态下再次点击应忽略，客户端只被调用一次');
+      expect(mock.callCount, equals(1), reason: 'loading状态下再次点击应忽略，客户端只被调用一次');
 
       // Verify final state is success
       expect(

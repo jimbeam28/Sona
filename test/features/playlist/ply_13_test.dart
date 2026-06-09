@@ -87,8 +87,7 @@ Widget _buildTestApp(Widget child, {List<Override>? overrides}) {
       ),
       GoRoute(
         path: '/player',
-        builder: (_, __) =>
-            const Scaffold(body: Center(child: Text('Player'))),
+        builder: (_, __) => const Scaffold(body: Center(child: Text('Player'))),
       ),
     ],
   );
@@ -119,8 +118,7 @@ void main() {
       await tester.pumpWidget(_buildTestApp(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
-          playlistTracksProvider(1)
-              .overrideWith((ref) => completer.future),
+          playlistTracksProvider(1).overrideWith((ref) => completer.future),
           playlistListProvider
               .overrideWith((ref) => Future.value(_testPlaylists)),
         ],
@@ -181,14 +179,8 @@ void main() {
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
           playlistTracksProvider(1).overrideWith((ref) => Future.value([
-                _testTrack(
-                    id: 1,
-                    filePath: '/music/a.mp3',
-                    fileName: 'a.mp3'),
-                _testTrack(
-                    id: 2,
-                    filePath: '/music/b.mp3',
-                    fileName: 'b.mp3'),
+                _testTrack(id: 1, filePath: '/music/a.mp3', fileName: 'a.mp3'),
+                _testTrack(id: 2, filePath: '/music/b.mp3', fileName: 'b.mp3'),
               ])),
           playlistListProvider
               .overrideWith((ref) => Future.value(_testPlaylists)),
@@ -419,7 +411,8 @@ void main() {
               .overrideWith((ref) => Future.value(_testPlaylists)),
           activeConnectionProvider
               .overrideWith((ref) => Future.value(_tstConn)),
-          progressForFileProvider((connectionId: 1, filePath: '/music/resume.mp3'))
+          progressForFileProvider(
+                  (connectionId: 1, filePath: '/music/resume.mp3'))
               .overrideWith((ref) => Future.value(progress)),
         ],
       ));
@@ -478,7 +471,8 @@ void main() {
               .overrideWith((ref) => Future.value(_testPlaylists)),
           activeConnectionProvider
               .overrideWith((ref) => Future.value(_tstConn)),
-          progressForFileProvider((connectionId: 1, filePath: '/music/restart.mp3'))
+          progressForFileProvider(
+                  (connectionId: 1, filePath: '/music/restart.mp3'))
               .overrideWith((ref) => Future.value(progress)),
         ],
       ));
@@ -503,7 +497,8 @@ void main() {
       // Tap "从头播放" button
       await tester.tap(find.text('从头播放'));
       await tester.pump(); // Process Navigator.pop(false) → then callback
-      await tester.pump(); // Process await → startPositionMs=null → push /player
+      await tester
+          .pump(); // Process await → startPositionMs=null → push /player
       await tester.pump(); // Build player route
 
       // Verify navigation to /player
@@ -544,7 +539,8 @@ void main() {
       // Tap track
       await tester.tap(find.text('noprogress.mp3'));
       await tester.pump(); // Process tap
-      await tester.pump(); // Process await → progress null → skip → push /player
+      await tester
+          .pump(); // Process await → progress null → skip → push /player
       await tester.pump(); // Build player route
 
       // Should navigate directly without dialog
@@ -574,9 +570,7 @@ void main() {
         overrides: [
           playlistTracksProvider(1).overrideWith((ref) => Future.value([
                 _testTrack(
-                    id: 1,
-                    filePath: '/music/short.mp3',
-                    fileName: 'short.mp3'),
+                    id: 1, filePath: '/music/short.mp3', fileName: 'short.mp3'),
               ])),
           playlistListProvider
               .overrideWith((ref) => Future.value(_testPlaylists)),
@@ -595,7 +589,8 @@ void main() {
       // Tap track
       await tester.tap(find.text('short.mp3'));
       await tester.pump(); // Process tap
-      await tester.pump(); // Process await → positionMs=3000 < 5000 → skip → push /player
+      await tester
+          .pump(); // Process await → positionMs=3000 < 5000 → skip → push /player
       await tester.pump(); // Build player route
 
       // Should NOT show dialog (positionMs < 5000 threshold)
@@ -709,8 +704,8 @@ void main() {
               ])),
           playlistListProvider
               .overrideWith((ref) => Future.value(_testPlaylists)),
-          reorderPlaylistTrackProvider.overrideWith(
-              (ref) => (playlistId, oldIndex, newIndex) {
+          reorderPlaylistTrackProvider
+              .overrideWith((ref) => (playlistId, oldIndex, newIndex) {
                     capturedPlaylistId = playlistId;
                     capturedOldIndex = oldIndex;
                     capturedNewIndex = newIndex;
@@ -754,12 +749,11 @@ void main() {
       await tester.pumpWidget(_buildTestApp(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
-          playlistTracksProvider(1)
-              .overrideWith((ref) => Future.value(tracks)),
+          playlistTracksProvider(1).overrideWith((ref) => Future.value(tracks)),
           playlistListProvider
               .overrideWith((ref) => Future.value(_testPlaylists)),
-          reorderPlaylistTrackProvider.overrideWith(
-              (ref) => (playlistId, oldIndex, newIndex) {
+          reorderPlaylistTrackProvider
+              .overrideWith((ref) => (playlistId, oldIndex, newIndex) {
                     final item = tracks.removeAt(oldIndex);
                     tracks.insert(newIndex, item);
                     ref.invalidate(playlistTracksProvider(playlistId));
@@ -771,8 +765,7 @@ void main() {
 
       // Verify initial order: A, B, C
       var items = tester
-          .widgetList<PlaylistTrackItem>(
-              find.byType(PlaylistTrackItem))
+          .widgetList<PlaylistTrackItem>(find.byType(PlaylistTrackItem))
           .toList();
       expect(items.length, 3);
       expect(items[0].track.fileName, 'A.mp3');
@@ -787,8 +780,7 @@ void main() {
 
       // Verify new order: C, A, B
       items = tester
-          .widgetList<PlaylistTrackItem>(
-              find.byType(PlaylistTrackItem))
+          .widgetList<PlaylistTrackItem>(find.byType(PlaylistTrackItem))
           .toList();
       expect(items.length, 3);
       expect(items[0].track.fileName, 'C.mp3');
@@ -871,8 +863,8 @@ void main() {
       // Read initial order — sorted by added_at ASC
       var result =
           await container.read(playlistTracksProvider(playlistId).future);
-      expect(result.map((t) => t.fileName).toList(),
-          ['A.mp3', 'B.mp3', 'C.mp3']);
+      expect(
+          result.map((t) => t.fileName).toList(), ['A.mp3', 'B.mp3', 'C.mp3']);
 
       // Reorder: move index 2 (C.mp3) to index 0
       await container.read(reorderPlaylistTrackProvider)(playlistId, 2, 0);
@@ -881,10 +873,9 @@ void main() {
       container.invalidate(playlistTracksProvider(playlistId));
 
       // Read again — should reflect persisted new order
-      result =
-          await container.read(playlistTracksProvider(playlistId).future);
-      expect(result.map((t) => t.fileName).toList(),
-          ['C.mp3', 'A.mp3', 'B.mp3']);
+      result = await container.read(playlistTracksProvider(playlistId).future);
+      expect(
+          result.map((t) => t.fileName).toList(), ['C.mp3', 'A.mp3', 'B.mp3']);
     });
   });
 
@@ -906,8 +897,7 @@ void main() {
       await tester.pumpWidget(_buildTestApp(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
-          playlistTracksProvider(1)
-              .overrideWith((ref) => Future.value(tracks)),
+          playlistTracksProvider(1).overrideWith((ref) => Future.value(tracks)),
           playlistListProvider
               .overrideWith((ref) => Future.value(_testPlaylists)),
           removeTracksFromPlaylistProvider.overrideWith((ref) {
@@ -1007,28 +997,23 @@ void main() {
       // Empty name → invalid
       String? name = '';
       final isEmptyValid = name.trim().isNotEmpty;
-      expect(isEmptyValid, isFalse,
-          reason: 'TST-T139: 空名称验证失败');
+      expect(isEmptyValid, isFalse, reason: 'TST-T139: 空名称验证失败');
 
       // Name with only whitespace → invalid
       name = '   \t  ';
       final isWhitespaceValid = name.trim().isNotEmpty;
-      expect(isWhitespaceValid, isFalse,
-          reason: 'TST-T139: 仅空白字符名称验证失败');
+      expect(isWhitespaceValid, isFalse, reason: 'TST-T139: 仅空白字符名称验证失败');
 
       // Valid name → valid
       name = '新名称';
       final isValid = name.trim().isNotEmpty;
-      expect(isValid, isTrue,
-          reason: 'TST-T139: 非空名称验证通过');
+      expect(isValid, isTrue, reason: 'TST-T139: 非空名称验证通过');
 
       // Name with leading/trailing whitespace trimmed → valid
       name = '  有效名称  ';
       final isTrimmedValid = name.trim().isNotEmpty;
-      expect(isTrimmedValid, isTrue,
-          reason: 'TST-T139: trim后非空名称验证通过');
-      expect(name.trim(), equals('有效名称'),
-          reason: 'TST-T139: trim去除前后空白');
+      expect(isTrimmedValid, isTrue, reason: 'TST-T139: trim后非空名称验证通过');
+      expect(name.trim(), equals('有效名称'), reason: 'TST-T139: trim去除前后空白');
     });
 
     test('TST-T140: empty name disables confirm button', () {
@@ -1038,26 +1023,22 @@ void main() {
       // Empty → disabled
       const emptyName = '';
       final isDisabled1 = (emptyName.trim().isNotEmpty != true);
-      expect(isDisabled1, isTrue,
-          reason: 'TST-T140: 空名称时确认按钮应禁用');
+      expect(isDisabled1, isTrue, reason: 'TST-T140: 空名称时确认按钮应禁用');
 
       // Whitespace only → disabled
       const whitespaceName = '   ';
       final isDisabled2 = (whitespaceName.trim().isNotEmpty != true);
-      expect(isDisabled2, isTrue,
-          reason: 'TST-T140: 仅空白字符时确认按钮应禁用');
+      expect(isDisabled2, isTrue, reason: 'TST-T140: 仅空白字符时确认按钮应禁用');
 
       // Non-empty → enabled
       const validName = '有效名称';
       final isDisabled3 = (validName.trim().isNotEmpty != true);
-      expect(isDisabled3, isFalse,
-          reason: 'TST-T140: 有效名称时确认按钮应启用');
+      expect(isDisabled3, isFalse, reason: 'TST-T140: 有效名称时确认按钮应启用');
 
       // Non-null non-empty with null safety
       const nonEmptyName = 'test';
       final enabled = nonEmptyName.trim().isNotEmpty;
-      expect(enabled, isTrue,
-          reason: 'TST-T140: 非空非null名称启用确认按钮');
+      expect(enabled, isTrue, reason: 'TST-T140: 非空非null名称启用确认按钮');
     });
   });
 }

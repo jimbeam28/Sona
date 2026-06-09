@@ -15,8 +15,7 @@ void main() {
       final normalised = normaliseWebDavUrl(url);
       expect(normalised, equals('http://nas.example.com:5005'),
           reason: '域名无端口应默认补充 5005');
-      expect(isValidWebDavUrl(normalised), isTrue,
-          reason: 'DDNS 域名应通过 URL 校验');
+      expect(isValidWebDavUrl(normalised), isTrue, reason: 'DDNS 域名应通过 URL 校验');
     });
 
     // ── CON-T36: DDNS domain with port ────────────────────────────────────
@@ -37,8 +36,7 @@ void main() {
       final normalised = normaliseWebDavUrl(url);
       expect(normalised, equals('http://nas.example.com:5005'),
           reason: '裸域名应自动补全 http:// 和默认端口 5005');
-      expect(isValidWebDavUrl(normalised), isTrue,
-          reason: '补全后的域名应通过 URL 校验');
+      expect(isValidWebDavUrl(normalised), isTrue, reason: '补全后的域名应通过 URL 校验');
     });
 
     // Extra: bare domain with port
@@ -47,8 +45,7 @@ void main() {
       final normalised = normaliseWebDavUrl(url);
       expect(normalised, equals('http://nas.example.com:5005'),
           reason: '带端口的裸域名应自动补全 http://');
-      expect(isValidWebDavUrl(normalised), isTrue,
-          reason: '补全后的域名应通过校验');
+      expect(isValidWebDavUrl(normalised), isTrue, reason: '补全后的域名应通过校验');
     });
   });
 }

@@ -78,21 +78,18 @@ class _ConnectionEditScreenState extends ConsumerState<ConnectionEditScreen> {
           ),
         ),
         data: (connections) {
-          final connection = connections
-              .where((c) => c.id == widget.connectionId)
-              .firstOrNull;
+          final connection =
+              connections.where((c) => c.id == widget.connectionId).firstOrNull;
           if (connection == null) {
             return Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.error_outline,
-                      size: 48, color: Colors.grey),
+                  const Icon(Icons.error_outline, size: 48, color: Colors.grey),
                   const SizedBox(height: 16),
                   Text(
                     '连接不存在',
-                    style: TextStyle(
-                        fontSize: 16, color: Colors.grey.shade600),
+                    style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
                   ),
                   const SizedBox(height: 16),
                   FilledButton(
@@ -264,8 +261,9 @@ class _ConnectionEditScreenState extends ConsumerState<ConnectionEditScreen> {
 
       await updater.update(
         config: config,
-        password:
-            _formController.password.isNotEmpty ? _formController.password : null,
+        password: _formController.password.isNotEmpty
+            ? _formController.password
+            : null,
       );
 
       // Invalidate dependent providers so they reload

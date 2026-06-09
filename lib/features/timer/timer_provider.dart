@@ -99,8 +99,7 @@ class TimerStateNotifier extends Notifier<TimerState?> {
 
 /// TMR-01: uses [TimerStateNotifier] so state updates auto-notify listeners.
 final timerStateProvider =
-    NotifierProvider<TimerStateNotifier, TimerState?>(
-        TimerStateNotifier.new);
+    NotifierProvider<TimerStateNotifier, TimerState?>(TimerStateNotifier.new);
 
 // ── Timer active ──────────────────────────────────────────────────────────────
 
@@ -137,7 +136,9 @@ final lastCustomTimerMinutesProvider = Provider<int?>((ref) {
 final setLastCustomTimerMinutesProvider = Provider<void Function(int)>((ref) {
   return (int minutes) {
     if (minutes <= 0) return;
-    ref.read(sharedPreferencesProvider)?.setInt(lastCustomTimerMinutesKey, minutes);
+    ref
+        .read(sharedPreferencesProvider)
+        ?.setInt(lastCustomTimerMinutesKey, minutes);
     ref.invalidate(lastCustomTimerMinutesProvider);
   };
 });

@@ -31,7 +31,8 @@ void main() {
   // a lifecycle transition to background.
 
   group('PLY-T20: Audio continues in background (lifecycle transition)', () {
-    test('playing audio continues when app goes to background '
+    test(
+        'playing audio continues when app goes to background '
         '(backgroundEnabled=true)', () {
       final beforeState = BackgroundPlaybackConfig.playing(
         backgroundEnabled: true,
@@ -53,7 +54,8 @@ void main() {
       expect(afterState.backgroundEnabled, isTrue);
     });
 
-    test('playing audio continues when app is hidden '
+    test(
+        'playing audio continues when app is hidden '
         '(AppLifecycleState.hidden)', () {
       final afterState = computePlaybackStateAfterLifecycle(
         newState: AppLifecycleState.hidden,
@@ -66,7 +68,8 @@ void main() {
       expect(afterState.isInForeground, isFalse);
     });
 
-    test('playing audio continues when app is inactive '
+    test(
+        'playing audio continues when app is inactive '
         '(AppLifecycleState.inactive)', () {
       final afterState = computePlaybackStateAfterLifecycle(
         newState: AppLifecycleState.inactive,
@@ -122,7 +125,8 @@ void main() {
       expect(afterState.isInForeground, isFalse);
     });
 
-    test('app returns to foreground (AppLifecycleState.resumed) preserves '
+    test(
+        'app returns to foreground (AppLifecycleState.resumed) preserves '
         'playback state', () {
       final afterState = computePlaybackStateAfterLifecycle(
         newState: AppLifecycleState.resumed,
@@ -224,8 +228,7 @@ void main() {
 
       expect(after.playbackState, equals(BackgroundPlaybackState.paused),
           reason: '从通知栏点击暂停后，playbackState 应为 paused (PLY-T21)');
-      expect(after.isInForeground, isFalse,
-          reason: '应保持在后台状态');
+      expect(after.isInForeground, isFalse, reason: '应保持在后台状态');
       expect(after.backgroundEnabled, isTrue);
     });
 
@@ -247,8 +250,7 @@ void main() {
         isInForeground: false,
       );
 
-      expect(state.isAudioActive, isTrue,
-          reason: '播放中 isAudioActive 应为 true');
+      expect(state.isAudioActive, isTrue, reason: '播放中 isAudioActive 应为 true');
 
       final after = state.handleMediaControl(MediaControlAction.pause);
 
@@ -262,17 +264,13 @@ void main() {
         isInForeground: false,
       );
 
-      expect(state.showPauseAction, isTrue,
-          reason: '播放中应显示暂停按钮');
-      expect(state.showPlayAction, isFalse,
-          reason: '播放中不应显示播放按钮');
+      expect(state.showPauseAction, isTrue, reason: '播放中应显示暂停按钮');
+      expect(state.showPlayAction, isFalse, reason: '播放中不应显示播放按钮');
 
       final after = state.handleMediaControl(MediaControlAction.pause);
 
-      expect(after.showPauseAction, isFalse,
-          reason: '暂停后不应显示暂停按钮');
-      expect(after.showPlayAction, isTrue,
-          reason: '暂停后应显示播放按钮');
+      expect(after.showPauseAction, isFalse, reason: '暂停后不应显示暂停按钮');
+      expect(after.showPlayAction, isTrue, reason: '暂停后应显示播放按钮');
     });
   });
 
@@ -292,8 +290,7 @@ void main() {
 
       expect(after.playbackState, equals(BackgroundPlaybackState.playing),
           reason: '从通知栏点击播放后，playbackState 应为 playing (PLY-T22)');
-      expect(after.isInForeground, isFalse,
-          reason: '应保持在后台状态');
+      expect(after.isInForeground, isFalse, reason: '应保持在后台状态');
     });
 
     test('playing state does not change on play action (idempotent)', () {
@@ -329,15 +326,12 @@ void main() {
         isInForeground: false,
       );
 
-      expect(state.showPlayAction, isTrue,
-          reason: '暂停中应显示播放按钮');
+      expect(state.showPlayAction, isTrue, reason: '暂停中应显示播放按钮');
 
       final after = state.handleMediaControl(MediaControlAction.play);
 
-      expect(after.showPauseAction, isTrue,
-          reason: '播放中应显示暂停按钮');
-      expect(after.showPlayAction, isFalse,
-          reason: '播放中不应显示播放按钮');
+      expect(after.showPauseAction, isTrue, reason: '播放中应显示暂停按钮');
+      expect(after.showPlayAction, isFalse, reason: '播放中不应显示播放按钮');
     });
 
     test('stop notification action sets state to stopped', () {
@@ -362,7 +356,8 @@ void main() {
         isInForeground: false,
       );
 
-      final after = state.handleMediaControl(MediaControlAction.togglePlayPause);
+      final after =
+          state.handleMediaControl(MediaControlAction.togglePlayPause);
 
       expect(after.playbackState, equals(BackgroundPlaybackState.paused),
           reason: '播放中切换应变为暂停');
@@ -374,7 +369,8 @@ void main() {
         isInForeground: false,
       );
 
-      final after = state.handleMediaControl(MediaControlAction.togglePlayPause);
+      final after =
+          state.handleMediaControl(MediaControlAction.togglePlayPause);
 
       expect(after.playbackState, equals(BackgroundPlaybackState.playing),
           reason: '暂停中切换应变为播放');
@@ -383,7 +379,8 @@ void main() {
     test('togglePlayPause when stopped -> playing', () {
       const state = BackgroundPlaybackConfig.initial;
 
-      final after = state.handleMediaControl(MediaControlAction.togglePlayPause);
+      final after =
+          state.handleMediaControl(MediaControlAction.togglePlayPause);
 
       expect(after.playbackState, equals(BackgroundPlaybackState.playing),
           reason: '停止状态切换应开始播放');
@@ -414,10 +411,8 @@ void main() {
       // The state remains identical.
       expect(state.playbackState, equals(BackgroundPlaybackState.playing),
           reason: '锁屏时播放状态应为 playing（音频不中断）(PLY-T23)');
-      expect(state.isAudioActive, isTrue,
-          reason: '锁屏时音频应保持活跃');
-      expect(state.showPauseAction, isTrue,
-          reason: '锁屏应显示暂停按钮');
+      expect(state.isAudioActive, isTrue, reason: '锁屏时音频应保持活跃');
+      expect(state.showPauseAction, isTrue, reason: '锁屏应显示暂停按钮');
       expect(state.backgroundEnabled, isTrue);
     });
 
@@ -430,17 +425,13 @@ void main() {
         isInForeground: false,
       );
 
-      expect(playing.showPauseAction, isTrue,
-          reason: '锁屏播放中应显示暂停按钮');
-      expect(playing.showPlayAction, isFalse,
-          reason: '锁屏播放中不应显示播放按钮');
+      expect(playing.showPauseAction, isTrue, reason: '锁屏播放中应显示暂停按钮');
+      expect(playing.showPlayAction, isFalse, reason: '锁屏播放中不应显示播放按钮');
 
       final paused = playing.handleMediaControl(MediaControlAction.pause);
 
-      expect(paused.showPauseAction, isFalse,
-          reason: '锁屏暂停后不应显示暂停按钮');
-      expect(paused.showPlayAction, isTrue,
-          reason: '锁屏暂停后应显示播放按钮');
+      expect(paused.showPauseAction, isFalse, reason: '锁屏暂停后不应显示暂停按钮');
+      expect(paused.showPlayAction, isTrue, reason: '锁屏暂停后应显示播放按钮');
     });
 
     test('lock screen state does not change playback state machine', () {
@@ -468,7 +459,8 @@ void main() {
           reason: '锁屏不改变前台/后台状态');
     });
 
-    test('background audio continues after lock+unlock cycle (state model)', () {
+    test('background audio continues after lock+unlock cycle (state model)',
+        () {
       // The lock/unlock cycle does not change the playback or lifecycle
       // state in the model.  Audio continues uninterrupted.
       final state = BackgroundPlaybackConfig.playing(
@@ -497,8 +489,7 @@ void main() {
       expect(after.playbackState, equals(BackgroundPlaybackState.paused),
           reason: '永久失去音频焦点时应暂停播放');
       expect(after.audioFocus, equals(AudioFocusState.lost));
-      expect(after.isAudioActive, isFalse,
-          reason: '失去焦点后不应再有活跃音频');
+      expect(after.isAudioActive, isFalse, reason: '失去焦点后不应再有活跃音频');
     });
 
     test('gaining audio focus back after loss allows resume', () {
@@ -529,8 +520,7 @@ void main() {
       expect(after.playbackState, equals(BackgroundPlaybackState.playing),
           reason: '短暂焦点丢失不应改变播放状态');
       expect(after.audioFocus, equals(AudioFocusState.transient));
-      expect(after.isAudioActive, isTrue,
-          reason: '短暂焦点丢失时音频仍应为活跃状态');
+      expect(after.isAudioActive, isTrue, reason: '短暂焦点丢失时音频仍应为活跃状态');
     });
   });
 
@@ -543,10 +533,8 @@ void main() {
 
       final state = container.read(backgroundPlaybackProvider);
 
-      expect(state.backgroundEnabled, isTrue,
-          reason: '默认应启用后台播放');
-      expect(state.isInForeground, isTrue,
-          reason: '初始状态应在前台');
+      expect(state.backgroundEnabled, isTrue, reason: '默认应启用后台播放');
+      expect(state.isInForeground, isTrue, reason: '初始状态应在前台');
       expect(state.playbackState, equals(BackgroundPlaybackState.stopped),
           reason: '初始状态应为停止');
       expect(state.audioFocus, equals(AudioFocusState.gained));
@@ -624,8 +612,8 @@ void main() {
 
       final notifier = container.read(backgroundPlaybackProvider.notifier);
 
-      expect(container.read(backgroundPlaybackProvider).backgroundEnabled,
-          isTrue);
+      expect(
+          container.read(backgroundPlaybackProvider).backgroundEnabled, isTrue);
 
       notifier.setBackgroundEnabled(false);
 
@@ -634,8 +622,8 @@ void main() {
 
       notifier.setBackgroundEnabled(true);
 
-      expect(container.read(backgroundPlaybackProvider).backgroundEnabled,
-          isTrue);
+      expect(
+          container.read(backgroundPlaybackProvider).backgroundEnabled, isTrue);
     });
 
     test('pausePlayback and stopPlayback transitions', () {
@@ -706,8 +694,7 @@ void main() {
         isInForeground: false,
       );
 
-      expect(a, equals(b),
-          reason: '相同属性值的对象应相等');
+      expect(a, equals(b), reason: '相同属性值的对象应相等');
     });
 
     test('different properties are not equal', () {
@@ -735,8 +722,7 @@ void main() {
       expect(updated.isInForeground, isFalse);
       expect(updated.playbackState, equals(BackgroundPlaybackState.playing));
       expect(updated.backgroundEnabled, isTrue);
-      expect(original.isInForeground, isTrue,
-          reason: '原对象不应改变（不可变）');
+      expect(original.isInForeground, isTrue, reason: '原对象不应改变（不可变）');
     });
 
     test('hashCode is consistent with equality', () {
@@ -749,8 +735,7 @@ void main() {
         isInForeground: false,
       );
 
-      expect(a.hashCode, equals(b.hashCode),
-          reason: '相等对象的 hashCode 应相同');
+      expect(a.hashCode, equals(b.hashCode), reason: '相等对象的 hashCode 应相同');
     });
   });
 
@@ -830,8 +815,7 @@ void main() {
       expect(state.playbackState, equals(BackgroundPlaybackState.playing),
           reason: '锁屏时音频继续播放 (PLY-T23)');
       expect(state.isAudioActive, isTrue);
-      expect(state.showPauseAction, isTrue,
-          reason: '锁屏显示暂停控件');
+      expect(state.showPauseAction, isTrue, reason: '锁屏显示暂停控件');
     });
 
     test('detached state is terminal for playback', () {
@@ -891,7 +875,8 @@ void main() {
     // ── TST-T99: 播放中 → paused → progress 保存调用 ───────────────────────
 
     group('TST-T99: playing → paused lifecycle', () {
-      test('ProviderContainer: paused sets isInForeground=false, '
+      test(
+          'ProviderContainer: paused sets isInForeground=false, '
           'playbackState stays playing', () {
         final container = ProviderContainer();
         addTearDown(container.dispose);
@@ -934,7 +919,8 @@ void main() {
 
     // ── TST-T100: backgroundEnabled=true → playbackState 保持 playing ──────
 
-    group('TST-T100: backgroundEnabled keeps playing in background '
+    group(
+        'TST-T100: backgroundEnabled keeps playing in background '
         '(confirm PLY-T20)', () {
       test('ProviderContainer confirms full integration link', () {
         final container = ProviderContainer();
@@ -988,7 +974,8 @@ void main() {
     // ── TST-T102: 后台期间 timer 到期 → checkExpired=true ──────────────────
 
     group('TST-T102: timer expiry during background triggers pause', () {
-      test('TimerService: startDuration(0) → checkExpired returns true, '
+      test(
+          'TimerService: startDuration(0) → checkExpired returns true, '
           'state cleared', () {
         final service = TimerService();
 
@@ -1009,7 +996,8 @@ void main() {
         expect(service.isActive, isFalse);
       });
 
-      test('TimerService: checkExpired is idempotent — '
+      test(
+          'TimerService: checkExpired is idempotent — '
           'second call returns false', () {
         final service = TimerService();
 
@@ -1017,8 +1005,7 @@ void main() {
 
         // First call: expires
         final first = service.checkExpired();
-        expect(first, isTrue,
-            reason: 'TST-T102: 首次 checkExpired 返回 true');
+        expect(first, isTrue, reason: 'TST-T102: 首次 checkExpired 返回 true');
 
         // Second call: already cleared, returns false
         final second = service.checkExpired();
@@ -1027,7 +1014,8 @@ void main() {
         expect(service.state, isNull);
       });
 
-      test('TimerService: checkExpired returns false when timer still active', () {
+      test('TimerService: checkExpired returns false when timer still active',
+          () {
         final service = TimerService();
 
         // Start a timer far in the future
@@ -1037,11 +1025,11 @@ void main() {
         final expired = service.checkExpired();
         expect(expired, isFalse,
             reason: 'TST-T102: 未到期的 timer checkExpired 返回 false');
-        expect(service.isActive, isTrue,
-            reason: 'TST-T102: 未到期时 state 不被清除');
+        expect(service.isActive, isTrue, reason: 'TST-T102: 未到期时 state 不被清除');
       });
 
-      test('TimerService: afterCurrent mode checkExpired always returns false', () {
+      test('TimerService: afterCurrent mode checkExpired always returns false',
+          () {
         final service = TimerService();
 
         service.startAfterCurrent();
@@ -1055,7 +1043,8 @@ void main() {
             reason: 'TST-T102: afterCurrent 模式 state 不被 checkExpired 清除');
       });
 
-      test('ProviderContainer + TimerStateNotifier: startDuration(0) '
+      test(
+          'ProviderContainer + TimerStateNotifier: startDuration(0) '
           '→ checkExpired returns true', () {
         final container = ProviderContainer();
         addTearDown(container.dispose);
@@ -1082,7 +1071,8 @@ void main() {
     // ── TST-T103: transient 音频焦点丢失 → 播放状态不变 ────────────────────
 
     group('TST-T103: transient focus preserves playback (confirm)', () {
-      test('ProviderContainer: onAudioFocusChange(transient) keeps playing', () {
+      test('ProviderContainer: onAudioFocusChange(transient) keeps playing',
+          () {
         final container = ProviderContainer();
         addTearDown(container.dispose);
 
@@ -1187,7 +1177,8 @@ void main() {
     // ── TST-T106: 完整生命周期序列 ────────────────────────────────────────
 
     group('TST-T106: hidden → inactive → paused → resumed full sequence', () {
-      test('computePlaybackStateAfterLifecycle: full lifecycle sequence '
+      test(
+          'computePlaybackStateAfterLifecycle: full lifecycle sequence '
           'while playing', () {
         // Step 1: hidden
         final hidden = computePlaybackStateAfterLifecycle(
@@ -1234,7 +1225,8 @@ void main() {
             reason: 'TST-T106: resumed → playbackState 保持 playing');
       });
 
-      test('BackgroundPlaybackNotifier: full lifecycle sequence via notifier', () {
+      test('BackgroundPlaybackNotifier: full lifecycle sequence via notifier',
+          () {
         final container = ProviderContainer();
         addTearDown(container.dispose);
 

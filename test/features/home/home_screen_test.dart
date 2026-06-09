@@ -34,8 +34,7 @@ void main() {
       // Scenario 1: User presses back on home screen
       // Navigator reports didPop=false because canPop is false
       onPopInvokedWithResult(false, null);
-      expect(backIntercepted, isTrue,
-          reason: 'TST-T144: canPop=false 时返回键被拦截');
+      expect(backIntercepted, isTrue, reason: 'TST-T144: canPop=false 时返回键被拦截');
       expect(moveTaskToBackCalled, isTrue,
           reason: 'TST-T144: 拦截后调用 moveTaskToBack 退到后台');
 

@@ -38,7 +38,8 @@ class PlaylistDao {
     final db = await _db;
     final map = playlist.toMap();
     map['updated_at'] = DateTime.now().millisecondsSinceEpoch;
-    await db.update('playlists', map, where: 'id = ?', whereArgs: [playlist.id]);
+    await db
+        .update('playlists', map, where: 'id = ?', whereArgs: [playlist.id]);
   }
 
   Future<void> deletePlaylist(int id) async {

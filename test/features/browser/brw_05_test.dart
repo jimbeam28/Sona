@@ -140,8 +140,7 @@ void main() {
           await container.read(directoryContentsProvider('/music').future);
 
       // Provider filters out the self-ref dir, keeps 2 audio files.
-      expect(result.length, equals(2),
-          reason: '应返回除自引用外的 2 个音频文件');
+      expect(result.length, equals(2), reason: '应返回除自引用外的 2 个音频文件');
       expect(result[0].name, equals('song.mp3'));
       expect(result[1].name, equals('track.flac'));
 
@@ -188,8 +187,7 @@ void main() {
       final result2 =
           await container.read(directoryContentsProvider('/music').future);
 
-      expect(result2.length, equals(2),
-          reason: '缓存返回结果应与首次加载一致');
+      expect(result2.length, equals(2), reason: '缓存返回结果应与首次加载一致');
       expect(result2[0].name, equals('song.mp3'));
       expect(result2[1].name, equals('track.flac'));
       expect(mockClient.listDirectoryCallCount, equals(1),
@@ -244,18 +242,14 @@ void main() {
       // Load /music with connection A
       final resultA =
           await containerA.read(directoryContentsProvider('/music').future);
-      expect(resultA.length, equals(1),
-          reason: '连接 A 应返回 1 个音频文件（滤除自引用后）');
-      expect(resultA[0].name, equals('song_a.mp3'),
-          reason: '连接 A 应返回 A 的结果');
+      expect(resultA.length, equals(1), reason: '连接 A 应返回 1 个音频文件（滤除自引用后）');
+      expect(resultA[0].name, equals('song_a.mp3'), reason: '连接 A 应返回 A 的结果');
 
       // Load /music with connection B
       final resultB =
           await containerB.read(directoryContentsProvider('/music').future);
-      expect(resultB.length, equals(1),
-          reason: '连接 B 应返回 1 个音频文件');
-      expect(resultB[0].name, equals('song_b.flac'),
-          reason: '连接 B 应返回 B 的结果');
+      expect(resultB.length, equals(1), reason: '连接 B 应返回 1 个音频文件');
+      expect(resultB[0].name, equals('song_b.flac'), reason: '连接 B 应返回 B 的结果');
 
       // Both clients were called once each
       expect(mockClientA.listDirectoryCallCount, equals(1),
@@ -302,8 +296,7 @@ void main() {
 
       // Verify cache has the entry before clearing
       final cacheBefore = container.read(directoryCacheProvider);
-      expect(cacheBefore.containsKey('1:/music'), isTrue,
-          reason: '加载后缓存应包含条目');
+      expect(cacheBefore.containsKey('1:/music'), isTrue, reason: '加载后缓存应包含条目');
 
       // Simulate pull-to-refresh: clear the cache for /music
       final clearCache = container.read(clearDirectoryCacheProvider);
@@ -353,8 +346,7 @@ void main() {
 
       final result1 =
           await container1.read(directoryContentsProvider('/music').future);
-      expect(result1.length, equals(1),
-          reason: '连接 1 应返回 1 个文件');
+      expect(result1.length, equals(1), reason: '连接 1 应返回 1 个文件');
       expect(result1[0].name, equals('conn1_song.mp3'));
 
       // Now switch to connection 2 — separate container simulates switch
@@ -371,13 +363,11 @@ void main() {
       // Connection 2 loads /music — should make a fresh call and get empty result
       final result2 =
           await container2.read(directoryContentsProvider('/music').future);
-      expect(result2.length, equals(0),
-          reason: '连接 2 的空目录应返回 0 个条目（自引用已滤除）');
+      expect(result2.length, equals(0), reason: '连接 2 的空目录应返回 0 个条目（自引用已滤除）');
 
       // Connection 2's cache should NOT contain connection 1's data
       final cache2 = container2.read(directoryCacheProvider);
-      expect(cache2.containsKey('2:/music'), isTrue,
-          reason: '连接 2 应有自己的缓存条目');
+      expect(cache2.containsKey('2:/music'), isTrue, reason: '连接 2 应有自己的缓存条目');
       expect(cache2.containsKey('1:/music'), isFalse,
           reason: '连接 1 的缓存不应出现在容器 2 中');
 
@@ -440,8 +430,7 @@ void main() {
 
       // Verify the cache entry is still present
       final cache = container.read(directoryCacheProvider);
-      expect(cache.containsKey('1:/music'), isTrue,
-          reason: '3min 内缓存条目应仍然存在');
+      expect(cache.containsKey('1:/music'), isTrue, reason: '3min 内缓存条目应仍然存在');
     });
 
     // ── TST-T65: Cache older than 5min → auto-refetch ─────────────────────
@@ -525,8 +514,7 @@ void main() {
       // Implementation uses `age < _cacheTtl` (strict less-than, not <=).
       // At exactly 5 min, age == TTL, so the condition is false → cache expired.
       expect(mockClient.listDirectoryCallCount, equals(2),
-          reason:
-              '恰好 5min 时 age < TTL 为 false，cache expired → 触发重取');
+          reason: '恰好 5min 时 age < TTL 为 false，cache expired → 触发重取');
     });
 
     // ── TST-T67: Pull-to-refresh → clear → refetch regardless of TTL ──────
@@ -554,8 +542,7 @@ void main() {
 
       // Cache is populated
       final cacheBefore = container.read(directoryCacheProvider);
-      expect(cacheBefore.containsKey('1:/music'), isTrue,
-          reason: '加载后缓存应包含条目');
+      expect(cacheBefore.containsKey('1:/music'), isTrue, reason: '加载后缓存应包含条目');
 
       // Pull-to-refresh: clear the cache for /music
       final clearCache = container.read(clearDirectoryCacheProvider);
@@ -591,8 +578,7 @@ void main() {
       });
 
       final cache = container.read(directoryCacheProvider);
-      expect(cache.length, equals(50),
-          reason: '恰好 50 条时所有条目应保留');
+      expect(cache.length, equals(50), reason: '恰好 50 条时所有条目应保留');
       for (int i = 1; i <= 50; i++) {
         expect(cache.containsKey('1:/music$i'), isTrue,
             reason: '1:/music$i 应存在于缓存中');
@@ -623,8 +609,7 @@ void main() {
         for (int i = 1; i <= 50; i++) {
           updated['1:/music$i'] = CacheEntry(
             files: [_audio('song$i.mp3', '/music$i/song$i.mp3')],
-            createdAt:
-                DateTime.now().subtract(Duration(minutes: 51 - i)),
+            createdAt: DateTime.now().subtract(Duration(minutes: 51 - i)),
           );
         }
         return updated;
@@ -671,8 +656,7 @@ void main() {
         for (int i = 1; i <= 50; i++) {
           updated['1:/music$i'] = CacheEntry(
             files: [_audio('song$i.mp3', '/music$i/song$i.mp3')],
-            createdAt:
-                DateTime.now().subtract(Duration(minutes: 51 - i)),
+            createdAt: DateTime.now().subtract(Duration(minutes: 51 - i)),
           );
         }
         return updated;
@@ -683,8 +667,7 @@ void main() {
 
       // The new entry is in the cache
       final cache = container.read(directoryCacheProvider);
-      expect(cache.containsKey('1:/music51'), isTrue,
-          reason: 'music51 应已写入缓存');
+      expect(cache.containsKey('1:/music51'), isTrue, reason: 'music51 应已写入缓存');
       expect(cache['1:/music51']!.files, isNotEmpty,
           reason: 'music51 的缓存数据应非空');
 
@@ -719,8 +702,7 @@ void main() {
         for (int i = 1; i <= 50; i++) {
           updated['1:/music$i'] = CacheEntry(
             files: [_audio('song$i.mp3', '/music$i/song$i.mp3')],
-            createdAt:
-                DateTime.now().subtract(Duration(minutes: 51 - i)),
+            createdAt: DateTime.now().subtract(Duration(minutes: 51 - i)),
           );
         }
         return updated;

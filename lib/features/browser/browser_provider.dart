@@ -112,7 +112,8 @@ class CacheEntry {
 /// are removed AND [directoryContentsProvider(path)] is invalidated (used by
 /// pull-to-refresh).  When [path] is null the entire cache is wiped but no
 /// providers are invalidated.
-final clearDirectoryCacheProvider = Provider<void Function(String? path)>((ref) {
+final clearDirectoryCacheProvider =
+    Provider<void Function(String? path)>((ref) {
   return (String? path) {
     if (path == null) {
       // Clear all cache entries
@@ -175,10 +176,12 @@ final directoryContentsProvider =
   if (cachedEntry != null) {
     final age = DateTime.now().difference(cachedEntry.createdAt);
     if (age < _cacheTtl) {
-      debugPrint('[Browser] dirContents: cache hit path=$path (age=${age.inSeconds}s)');
+      debugPrint(
+          '[Browser] dirContents: cache hit path=$path (age=${age.inSeconds}s)');
       return sortFiles(cachedEntry.files, sortOption);
     }
-    debugPrint('[Browser] dirContents: cache expired path=$path (age=${age.inSeconds}s)');
+    debugPrint(
+        '[Browser] dirContents: cache expired path=$path (age=${age.inSeconds}s)');
   }
   debugPrint('[Browser] dirContents: cache miss path=$path, fetching');
 
@@ -204,7 +207,8 @@ final directoryContentsProvider =
   final filtered = allEntries.where((entry) {
     // Skip the directory's own self-reference entry
     final entryPath = entry.path;
-    if (entryPath == path || entryPath == requestPath ||
+    if (entryPath == path ||
+        entryPath == requestPath ||
         '$entryPath/' == requestPath) {
       return false;
     }
@@ -213,7 +217,8 @@ final directoryContentsProvider =
     return entry.audioType != null;
   }).toList();
 
-  debugPrint('[Browser] dirContents: path=$path total=${allEntries.length} filtered=${filtered.length}');
+  debugPrint(
+      '[Browser] dirContents: path=$path total=${allEntries.length} filtered=${filtered.length}');
 
   // 6. Sort with current sort option
   final sorted = sortFiles(filtered, sortOption);
@@ -359,7 +364,8 @@ final persistQueueOnChangeProvider = Provider<void>((ref) {
       if (connId != null) {
         prefs.setInt(_queueConnIdPrefsKey, connId);
       }
-      debugPrint('[Browser] persistQueue: saved ${next.length} tracks idx=${next.currentIndex}');
+      debugPrint(
+          '[Browser] persistQueue: saved ${next.length} tracks idx=${next.currentIndex}');
     }
   });
 });
@@ -367,8 +373,7 @@ final persistQueueOnChangeProvider = Provider<void>((ref) {
 /// Reads the persisted queue from SharedPreferences and sets it on
 /// [currentPlayQueueProvider].  NasFile objects are reconstructed with
 /// minimal metadata (path + name) — enough for playback to work.
-final restoreQueueFromPrefsProvider =
-    FutureProvider<void>((ref) async {
+final restoreQueueFromPrefsProvider = FutureProvider<void>((ref) async {
   final prefs = ref.read(sharedPreferencesProvider);
   if (prefs == null) return;
   final raw = prefs.getString(_queuePrefsKey);
@@ -396,7 +401,8 @@ final restoreQueueFromPrefsProvider =
       playMode: mode,
     );
     final trackCount = files.length;
-    debugPrint('[Browser] restoreQueue: $trackCount tracks idx=$currentIndex mode=$mode');
+    debugPrint(
+        '[Browser] restoreQueue: $trackCount tracks idx=$currentIndex mode=$mode');
     ref.read(currentPlayQueueProvider.notifier).state = queue;
 
     // F-2: check whether the connection has changed since the queue was saved.
@@ -413,10 +419,10 @@ final restoreQueueFromPrefsProvider =
     // immediately after app start (BUG-6).
     if (conn != null) {
       final storage = ref.read(secureStorageProvider);
-      final pw =
-          await storage.read(key: 'connection_password_${conn.id}');
+      final pw = await storage.read(key: 'connection_password_${conn.id}');
       if (pw != null && pw.isNotEmpty) {
-        debugPrint('[Browser] restoreQueue: pre-loading ${files[currentIndex].path}');
+        debugPrint(
+            '[Browser] restoreQueue: pre-loading ${files[currentIndex].path}');
         final source = AudioSourceBuilder.buildWithBasePath(
           baseUrl: conn.url,
           filePath: files[currentIndex].path,
@@ -469,8 +475,7 @@ final loadProgressForDirectoryProvider =
   for (final file in contents) {
     if (file.isDirectory) continue;
     try {
-      registry[file.path] =
-          await dao.find(activeConn.id!, file.path);
+      registry[file.path] = await dao.find(activeConn.id!, file.path);
     } catch (_) {
       registry[file.path] = null;
     }

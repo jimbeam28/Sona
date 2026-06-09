@@ -130,7 +130,8 @@ void main() {
       final addTracks = container.read(addTracksToPlaylistProvider);
       await addTracks(id, [
         const NasFile(name: 'a.mp3', path: '/music/a.mp3', isDirectory: false),
-        const NasFile(name: 'b.flac', path: '/music/b.flac', isDirectory: false),
+        const NasFile(
+            name: 'b.flac', path: '/music/b.flac', isDirectory: false),
       ]);
 
       final tracks = await container.read(playlistTracksProvider(id).future);
@@ -200,7 +201,8 @@ void main() {
     test('playlistSortProvider defaults to createdAsc', () {
       final container = _makeContainer();
       addTearDown(container.dispose);
-      expect(container.read(playlistSortProvider), PlaylistSortOption.createdAsc);
+      expect(
+          container.read(playlistSortProvider), PlaylistSortOption.createdAsc);
     });
 
     test('trackSortProvider defaults to addedAsc', () {
@@ -261,7 +263,8 @@ void main() {
         const NasFile(name: 'm.mp3', path: '/m.mp3', isDirectory: false),
       ]);
 
-      container.read(trackSortProvider.notifier).state = TrackSortOption.nameAsc;
+      container.read(trackSortProvider.notifier).state =
+          TrackSortOption.nameAsc;
 
       final tracks = await container.read(playlistTracksProvider(id).future);
       expect(tracks[0].fileName, 'a.mp3');

@@ -78,8 +78,7 @@ class _AddTracksBrowserSheetState
                           allPaths.isNotEmpty) {
                         setState(() => _selectedPaths.clear());
                       } else {
-                        setState(() =>
-                            _selectedPaths.addAll(allPaths));
+                        setState(() => _selectedPaths.addAll(allPaths));
                       }
                     },
                     child: Text(_selectAllLabel(contentsAsync)),
@@ -96,8 +95,8 @@ class _AddTracksBrowserSheetState
                                     ))
                                 .toList();
                             ref
-                                .read(addTracksToPlaylistProvider)(
-                                    widget.playlistId, files)
+                                .read(addTracksToPlaylistProvider)
+                                (widget.playlistId, files)
                                 .then((_) {
                               if (mounted) Navigator.of(context).pop();
                             });
@@ -114,8 +113,7 @@ class _AddTracksBrowserSheetState
             // Directory contents
             Expanded(
               child: contentsAsync.when(
-                loading: () => const Center(
-                    child: CircularProgressIndicator()),
+                loading: () => const Center(child: CircularProgressIndicator()),
                 error: (error, _) => Center(
                   child: Padding(
                     padding: const EdgeInsets.all(32),
@@ -124,8 +122,7 @@ class _AddTracksBrowserSheetState
                       children: [
                         Icon(Icons.error_outline,
                             size: 48,
-                            color:
-                                Theme.of(context).colorScheme.error),
+                            color: Theme.of(context).colorScheme.error),
                         const SizedBox(height: 16),
                         Text(
                           error is WebDavException
@@ -133,8 +130,7 @@ class _AddTracksBrowserSheetState
                               : '加载失败：$error',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                              color:
-                                  Theme.of(context).colorScheme.error),
+                              color: Theme.of(context).colorScheme.error),
                         ),
                         const SizedBox(height: 24),
                         OutlinedButton.icon(
@@ -150,8 +146,8 @@ class _AddTracksBrowserSheetState
                 data: (files) {
                   if (files.isEmpty) {
                     return const Center(
-                      child: Text('此目录为空',
-                          style: TextStyle(color: Colors.grey)),
+                      child:
+                          Text('此目录为空', style: TextStyle(color: Colors.grey)),
                     );
                   }
                   return ListView.separated(
@@ -164,16 +160,15 @@ class _AddTracksBrowserSheetState
                       final file = files[index];
                       if (file.isDirectory) {
                         return ListTile(
-                          leading: const Icon(Icons.folder,
-                              color: Colors.amber),
+                          leading:
+                              const Icon(Icons.folder, color: Colors.amber),
                           title: Text(file.name),
                           onTap: () => ref
                               .read(navigationStackProvider.notifier)
                               .push(file.path),
                         );
                       }
-                      final selected =
-                          _selectedPaths.contains(file.path);
+                      final selected = _selectedPaths.contains(file.path);
                       return ListTile(
                         leading: Checkbox(
                           value: selected,
@@ -188,8 +183,7 @@ class _AddTracksBrowserSheetState
                           },
                         ),
                         title: Text(file.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis),
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
                         onTap: () {
                           setState(() {
                             if (selected) {
@@ -222,9 +216,6 @@ class _AddTracksBrowserSheetState
   Set<String> _allAudioPaths(AsyncValue<List<NasFile>> contentsAsync) {
     final files = contentsAsync.valueOrNull;
     if (files == null) return {};
-    return files
-        .where((f) => !f.isDirectory)
-        .map((f) => f.path)
-        .toSet();
+    return files.where((f) => !f.isDirectory).map((f) => f.path).toSet();
   }
 }

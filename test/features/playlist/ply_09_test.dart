@@ -47,8 +47,7 @@ void main() {
   group('PLY-T60 tabs', () {
     testWidgets('shows two tabs', (WidgetTester tester) async {
       await tester.pumpWidget(_buildTestApp(overrides: [
-        playlistListProvider
-            .overrideWith((ref) => Future.value(<Playlist>[])),
+        playlistListProvider.overrideWith((ref) => Future.value(<Playlist>[])),
         directoryContentsProvider('/')
             .overrideWith((ref) => Future.value(<NasFile>[])),
       ]));
@@ -65,8 +64,7 @@ void main() {
     testWidgets('shows Sona title and settings icon',
         (WidgetTester tester) async {
       await tester.pumpWidget(_buildTestApp(overrides: [
-        playlistListProvider
-            .overrideWith((ref) => Future.value(<Playlist>[])),
+        playlistListProvider.overrideWith((ref) => Future.value(<Playlist>[])),
         directoryContentsProvider('/')
             .overrideWith((ref) => Future.value(<NasFile>[])),
       ]));
@@ -82,8 +80,7 @@ void main() {
   group('PLY-T62 MiniPlayerBar', () {
     testWidgets('shows MiniPlayerBar at bottom', (WidgetTester tester) async {
       await tester.pumpWidget(_buildTestApp(overrides: [
-        playlistListProvider
-            .overrideWith((ref) => Future.value(<Playlist>[])),
+        playlistListProvider.overrideWith((ref) => Future.value(<Playlist>[])),
         directoryContentsProvider('/')
             .overrideWith((ref) => Future.value(<NasFile>[])),
       ]));
@@ -101,8 +98,7 @@ void main() {
     testWidgets('shows empty playlist message on tab 0',
         (WidgetTester tester) async {
       await tester.pumpWidget(_buildTestApp(overrides: [
-        playlistListProvider
-            .overrideWith((ref) => Future.value(<Playlist>[])),
+        playlistListProvider.overrideWith((ref) => Future.value(<Playlist>[])),
         directoryContentsProvider('/')
             .overrideWith((ref) => Future.value(<NasFile>[])),
       ]));
@@ -115,8 +111,7 @@ void main() {
     testWidgets('switching to tab 1 shows browser content',
         (WidgetTester tester) async {
       await tester.pumpWidget(_buildTestApp(overrides: [
-        playlistListProvider
-            .overrideWith((ref) => Future.value(<Playlist>[])),
+        playlistListProvider.overrideWith((ref) => Future.value(<Playlist>[])),
         directoryContentsProvider('/')
             .overrideWith((ref) => Future.value(<NasFile>[])),
       ]));
@@ -136,8 +131,7 @@ void main() {
   group('PLY-T64 browser tab', () {
     testWidgets('shows browser content on tab 1', (WidgetTester tester) async {
       await tester.pumpWidget(_buildTestApp(overrides: [
-        playlistListProvider
-            .overrideWith((ref) => Future.value(<Playlist>[])),
+        playlistListProvider.overrideWith((ref) => Future.value(<Playlist>[])),
         directoryContentsProvider('/')
             .overrideWith((ref) => Future.value(<NasFile>[])),
       ]));
@@ -156,8 +150,7 @@ void main() {
   group('PLY-T65 sort menu', () {
     testWidgets('shows sort icon in AppBar', (WidgetTester tester) async {
       await tester.pumpWidget(_buildTestApp(overrides: [
-        playlistListProvider
-            .overrideWith((ref) => Future.value(<Playlist>[])),
+        playlistListProvider.overrideWith((ref) => Future.value(<Playlist>[])),
         directoryContentsProvider('/')
             .overrideWith((ref) => Future.value(<NasFile>[])),
       ]));

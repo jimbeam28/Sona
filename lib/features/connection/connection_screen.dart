@@ -83,9 +83,7 @@ class _ConnectionScreenState extends ConsumerState<ConnectionScreen> {
 
               // "测试连接" button
               ElevatedButton.icon(
-                onPressed: isValidating || _isSaving
-                    ? null
-                    : _onTestConnection,
+                onPressed: isValidating || _isSaving ? null : _onTestConnection,
                 icon: isValidating
                     ? const SizedBox(
                         width: 18,
@@ -102,8 +100,7 @@ class _ConnectionScreenState extends ConsumerState<ConnectionScreen> {
 
               // "保存" button — only enabled after successful validation
               FilledButton.icon(
-                onPressed:
-                    (isValidated && !_isSaving) ? _onSave : null,
+                onPressed: (isValidated && !_isSaving) ? _onSave : null,
                 icon: _isSaving
                     ? const SizedBox(
                         width: 18,

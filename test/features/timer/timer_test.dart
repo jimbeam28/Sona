@@ -795,7 +795,9 @@ void main() {
   group('TST-03: 定时器到期触发停止（集成测试）', () {
     // ── TST-T14: 5min duration timer expires ─────────────────────────
 
-    test('TST-T14: 5min duration timer expired -> checkExpired=true -> pause() called', () {
+    test(
+        'TST-T14: 5min duration timer expired -> checkExpired=true -> pause() called',
+        () {
       final service = TimerService();
       final player = MockAudioPlayer();
 
@@ -819,7 +821,9 @@ void main() {
 
     // ── TST-T15: duration timer not yet expired ────────────────────
 
-    test('TST-T15: duration timer not expired -> checkExpired=false -> pause() not called', () {
+    test(
+        'TST-T15: duration timer not expired -> checkExpired=false -> pause() not called',
+        () {
       final service = TimerService();
       final player = MockAudioPlayer();
 
@@ -837,7 +841,9 @@ void main() {
 
     // ── TST-T16: afterCurrent + processingState=completed ──────────
 
-    test('TST-T16: afterCurrent + processingState=completed -> onTrackCompleted=true -> pause()', () async {
+    test(
+        'TST-T16: afterCurrent + processingState=completed -> onTrackCompleted=true -> pause()',
+        () async {
       final player = MockAudioPlayer();
       final service = TimerService();
       final processingStateController =
@@ -872,7 +878,8 @@ void main() {
 
       // Verify pause() was called
       expect(pauseCalled, isTrue,
-          reason: 'player.pause() should be called when afterCurrent timer triggers');
+          reason:
+              'player.pause() should be called when afterCurrent timer triggers');
       verify(player.pause()).called(1);
       // Verify timer state cleared
       expect(service.state, isNull,
@@ -882,7 +889,9 @@ void main() {
 
     // ── TST-T17: afterCurrent + manual skip does NOT trigger ───────
 
-    test('TST-T17: afterCurrent + manual skipToNext -> onTrackCompleted not called -> timer stays active', () async {
+    test(
+        'TST-T17: afterCurrent + manual skipToNext -> onTrackCompleted not called -> timer stays active',
+        () async {
       final player = MockAudioPlayer();
       final processingStateController =
           StreamController<ProcessingState>.broadcast();
@@ -932,7 +941,9 @@ void main() {
 
     // ── TST-T18: checkExpired idempotent ───────────────────────────
 
-    test('TST-T18: checkExpired called twice -> first true, second false (idempotent)', () {
+    test(
+        'TST-T18: checkExpired called twice -> first true, second false (idempotent)',
+        () {
       final service = TimerService();
       service.startDuration(0); // already expired
 
@@ -942,13 +953,14 @@ void main() {
 
       final second = service.checkExpired();
       expect(second, isFalse,
-          reason:
-              'state already cleared, checkExpired should be idempotent');
+          reason: 'state already cleared, checkExpired should be idempotent');
     });
 
     // ── TST-T19: onTrackCompleted idempotent ───────────────────────
 
-    test('TST-T19: onTrackCompleted called twice -> first true, second false (idempotent)', () {
+    test(
+        'TST-T19: onTrackCompleted called twice -> first true, second false (idempotent)',
+        () {
       final service = TimerService();
       service.startAfterCurrent();
 
@@ -970,7 +982,8 @@ void main() {
   group('TST-05: 暂停/恢复状态转移', () {
     // ── TST-T26: duration timer → pause → state.mode==paused ─────────────
 
-    test('TST-T26: duration timer → pause → state.mode==paused, remainingMs 不变', () {
+    test('TST-T26: duration timer → pause → state.mode==paused, remainingMs 不变',
+        () {
       final service = TimerService();
       service.startDuration(5);
       expect(service.state!.mode, equals(TimerMode.duration));
@@ -1000,8 +1013,7 @@ void main() {
       // endTime should be approximately now + remaining minutes (ceiled)
       final now = DateTime.now();
       final diff = service.state!.endTime!.difference(now);
-      expect(diff.inSeconds, greaterThan(4 * 60),
-          reason: '恢复后剩余时间应至少 4 分钟');
+      expect(diff.inSeconds, greaterThan(4 * 60), reason: '恢复后剩余时间应至少 4 分钟');
       expect(diff.inSeconds, lessThanOrEqualTo(5 * 60 + 1),
           reason: '恢复后剩余时间不应超过 5 分钟');
     });
@@ -1077,8 +1089,7 @@ void main() {
       expect(service.state!.mode, equals(TimerMode.paused));
 
       final expired = service.checkExpired();
-      expect(expired, isFalse,
-          reason: 'paused 模式不倒计时，checkExpired 应返回 false');
+      expect(expired, isFalse, reason: 'paused 模式不倒计时，checkExpired 应返回 false');
       expect(service.state, isNotNull,
           reason: 'paused 状态下 state 不应被 checkExpired 清除');
       expect(service.state!.mode, equals(TimerMode.paused));
@@ -1093,8 +1104,7 @@ void main() {
 
       // displayString should be non-null for paused mode (not afterCurrent)
       final display = service.displayString;
-      expect(display, isNotNull,
-          reason: 'paused 模式下 displayString 不应为 null');
+      expect(display, isNotNull, reason: 'paused 模式下 displayString 不应为 null');
 
       // Verify MM:SS format
       expect(display!.length, equals(5));

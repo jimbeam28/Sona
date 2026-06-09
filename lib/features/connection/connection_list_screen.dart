@@ -47,13 +47,15 @@ class ConnectionListScreen extends ConsumerWidget {
               connections: connections,
               activeId: null,
               onSwitch: (id) => _switchConnection(context, ref, id),
-              onDelete: (id) => _deleteConnection(context, ref, id, connections.length),
+              onDelete: (id) =>
+                  _deleteConnection(context, ref, id, connections.length),
             ),
             data: (activeConfig) => _ConnectionListView(
               connections: connections,
               activeId: activeConfig?.id,
               onSwitch: (id) => _switchConnection(context, ref, id),
-              onDelete: (id) => _deleteConnection(context, ref, id, connections.length),
+              onDelete: (id) =>
+                  _deleteConnection(context, ref, id, connections.length),
             ),
           );
         },
@@ -295,8 +297,7 @@ class _ConnectionListView extends StatelessWidget {
             motion: const DrawerMotion(),
             children: [
               SlidableAction(
-                onPressed: (_) =>
-                    context.push('/connections/edit/${conn.id}'),
+                onPressed: (_) => context.push('/connections/edit/${conn.id}'),
                 backgroundColor: Colors.blue,
                 foregroundColor: Colors.white,
                 icon: Icons.edit_outlined,

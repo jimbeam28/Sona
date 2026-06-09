@@ -179,7 +179,8 @@ void main() {
       const testFile = NasFile(
           name: 'song.mp3', path: '/music/song.mp3', isDirectory: false);
       container.read(directoryCacheProvider.notifier).state = {
-        '$conn1Id:/music': CacheEntry(files: [testFile], createdAt: DateTime.now()),
+        '$conn1Id:/music':
+            CacheEntry(files: [testFile], createdAt: DateTime.now()),
         '$conn1Id:/books': CacheEntry(files: [], createdAt: DateTime.now()),
       };
 
@@ -306,8 +307,10 @@ void main() {
       const conn2File = NasFile(
           name: 'book.m4b', path: '/books/book.m4b', isDirectory: false);
       container.read(directoryCacheProvider.notifier).state = {
-        '$conn1Id:/music': CacheEntry(files: [testFile], createdAt: DateTime.now()),
-        '$conn2Id:/books': CacheEntry(files: [conn2File], createdAt: DateTime.now()),
+        '$conn1Id:/music':
+            CacheEntry(files: [testFile], createdAt: DateTime.now()),
+        '$conn2Id:/books':
+            CacheEntry(files: [conn2File], createdAt: DateTime.now()),
       };
 
       // Switch to connection 2
@@ -345,8 +348,8 @@ void main() {
       // Pre-populate with one connection so the rollback delete in
       // ConnectionSaver.save does not trigger LastConnectionException.
       // (ConnectionDao.delete requires count > 1 to allow deletion.)
-      final preExisting = _testConfig(
-          name: 'Pre-existing', url: 'http://pre.local:5005');
+      final preExisting =
+          _testConfig(name: 'Pre-existing', url: 'http://pre.local:5005');
       await dao.insert(preExisting, passwordKey: 'key_pre');
     });
 
@@ -376,12 +379,10 @@ void main() {
       final newConn = all.where((c) => c.name == 'New NAS');
       expect(newConn, isEmpty,
           reason: 'TST-T94: SecureStorage 写入失败后 DB 行应被回滚，连接不应存在');
-      expect(all.length, equals(1),
-          reason: '只有预填充的那条连接应保留');
+      expect(all.length, equals(1), reason: '只有预填充的那条连接应保留');
 
       // Verify: the pre-existing connection is untouched
-      expect(all.first.name, equals('Pre-existing'),
-          reason: '预填充的连接应不受影响');
+      expect(all.first.name, equals('Pre-existing'), reason: '预填充的连接应不受影响');
     });
   });
 
@@ -413,16 +414,13 @@ void main() {
       final saved = await saver.save(config: config, password: 'my-secret');
 
       // Verify: connection was assigned an id and returned
-      expect(saved.id, isNotNull,
-          reason: 'TST-T95: 保存后连接应有分配的 id');
+      expect(saved.id, isNotNull, reason: 'TST-T95: 保存后连接应有分配的 id');
       expect(saved.name, equals('My NAS'));
-      expect(saved.isActive, isTrue,
-          reason: '新保存的连接应被设为活跃');
+      expect(saved.isActive, isTrue, reason: '新保存的连接应被设为活跃');
 
       // Verify: connection exists in DB with correct fields
       final fromDb = await dao.findById(saved.id!);
-      expect(fromDb, isNotNull,
-          reason: 'TST-T95: 连接应存在于数据库中');
+      expect(fromDb, isNotNull, reason: 'TST-T95: 连接应存在于数据库中');
       expect(fromDb!.name, equals('My NAS'));
       expect(fromDb.url, equals('http://my-nas.local:5005'));
       expect(fromDb.username, equals('admin'));
@@ -430,13 +428,11 @@ void main() {
 
       // Verify: password was written to secure storage under the permanent key
       final pw = await storage.read(key: 'connection_password_${saved.id}');
-      expect(pw, equals('my-secret'),
-          reason: 'TST-T95: 密码应正确写入 SecureStorage');
+      expect(pw, equals('my-secret'), reason: 'TST-T95: 密码应正确写入 SecureStorage');
 
       // Verify: this is the only active connection
       final active = await dao.findActive();
-      expect(active!.id, equals(saved.id),
-          reason: '新保存的连接应是唯一的活跃连接');
+      expect(active!.id, equals(saved.id), reason: '新保存的连接应是唯一的活跃连接');
     });
   });
 
@@ -532,12 +528,10 @@ void main() {
 
       // Read activeConnectionProvider — must return conn2
       final active = await container.read(activeConnectionProvider.future);
-      expect(active, isNotNull,
-          reason: '切换后应有活跃连接');
+      expect(active, isNotNull, reason: '切换后应有活跃连接');
       expect(active!.id, equals(conn2Id),
           reason: 'TST-T97: 切换后 activeConnectionProvider 应返回新连接 (id=$conn2Id)');
-      expect(active.name, equals('New'),
-          reason: 'TST-T97: 切换后活跃连接名称应为 "New"');
+      expect(active.name, equals('New'), reason: 'TST-T97: 切换后活跃连接名称应为 "New"');
     });
   });
 
@@ -578,10 +572,8 @@ void main() {
       final beforeList = await container.read(connectionListProvider.future);
       final beforeConn1 = beforeList.firstWhere((c) => c.id == conn1Id);
       final beforeConn2 = beforeList.firstWhere((c) => c.id == conn2Id);
-      expect(beforeConn1.isActive, isTrue,
-          reason: '切换前连接 1 应为活跃');
-      expect(beforeConn2.isActive, isFalse,
-          reason: '切换前连接 2 应为非活跃');
+      expect(beforeConn1.isActive, isTrue, reason: '切换前连接 1 应为活跃');
+      expect(beforeConn2.isActive, isFalse, reason: '切换前连接 2 应为非活跃');
 
       // Switch to conn2
       await container.read(switchActiveConnectionProvider(conn2Id).future);
@@ -595,8 +587,7 @@ void main() {
           reason: 'TST-T98: 切换后连接 1 isActive 应为 false');
       expect(afterConn2.isActive, isTrue,
           reason: 'TST-T98: 切换后连接 2 isActive 应为 true');
-      expect(afterList.length, equals(2),
-          reason: '连接总数应仍为 2');
+      expect(afterList.length, equals(2), reason: '连接总数应仍为 2');
     });
   });
 }

@@ -167,7 +167,6 @@ class TimerBottomSheet extends ConsumerWidget {
       ),
     );
   }
-
 }
 
 class _CustomTimerPickerSheet extends ConsumerStatefulWidget {

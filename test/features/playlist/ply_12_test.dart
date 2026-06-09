@@ -83,7 +83,8 @@ void main() {
   // ── PLY-T68: create dialog validates non-empty name ────────────────────
 
   group('PLY-T68 create validation', () {
-    testWidgets('create with empty name does nothing', (WidgetTester tester) async {
+    testWidgets('create with empty name does nothing',
+        (WidgetTester tester) async {
       await tester.pumpWidget(_buildTestApp(
         const PlaylistListScreen(),
         overrides: [
@@ -108,7 +109,8 @@ void main() {
   // ── PLY-T69: PlaylistListItem shows name and track count ───────────────
 
   group('PLY-T69 list item rendering', () {
-    testWidgets('shows playlist name and track count', (WidgetTester tester) async {
+    testWidgets('shows playlist name and track count',
+        (WidgetTester tester) async {
       await tester.pumpWidget(_buildTestApp(
         const PlaylistListScreen(),
         overrides: [
@@ -191,9 +193,7 @@ void main() {
 
       // Confirm dialog should appear
       expect(find.text('确认删除'), findsOneWidget);
-      expect(
-          find.textContaining('确认删除播放单「Keep Me」？此操作不可撤销。'),
-          findsOneWidget);
+      expect(find.textContaining('确认删除播放单「Keep Me」？此操作不可撤销。'), findsOneWidget);
 
       // Tap cancel
       await tester.tap(find.text('取消'));

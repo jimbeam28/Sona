@@ -43,22 +43,19 @@ void main() {
         LogBuffer.instance.add('hello world');
 
         final entries = LogBuffer.instance.entries;
-        expect(entries.length, equals(1),
-            reason: '写入 1 条后 entries 长度应为 1');
+        expect(entries.length, equals(1), reason: '写入 1 条后 entries 长度应为 1');
         expect(entries[0].message, equals('hello world'),
             reason: '应能读取到写入的消息内容');
       });
 
-      test('TST-T108: LogBuffer 写入 1001 条 → 最旧 1 条被移除 → size=1000',
-          () {
+      test('TST-T108: LogBuffer 写入 1001 条 → 最旧 1 条被移除 → size=1000', () {
         // Add 1001 messages (indices 0..1000)
         for (int i = 0; i < 1001; i++) {
           LogBuffer.instance.add('message $i');
         }
 
         final entries = LogBuffer.instance.entries;
-        expect(entries.length, equals(1000),
-            reason: '超过上限 1000 后应保持在 1000 条');
+        expect(entries.length, equals(1000), reason: '超过上限 1000 后应保持在 1000 条');
 
         // The oldest entry (message 0) should have been evicted
         expect(entries.first.message, equals('message 1'),
@@ -88,8 +85,7 @@ void main() {
         await tester.pump();
 
         // AppBar title should read "运行日志"
-        expect(find.text('运行日志'), findsOneWidget,
-            reason: 'AppBar 标题应为"运行日志"');
+        expect(find.text('运行日志'), findsOneWidget, reason: 'AppBar 标题应为"运行日志"');
 
         // Two log entries rendered as SelectableText widgets in the ListView
         expect(find.byType(SelectableText), findsNWidgets(2),
@@ -100,14 +96,12 @@ void main() {
             reason: '应显示 "共 2 条 / 缓存上限 1000"');
       });
 
-      testWidgets('TST-T110: 空日志 → 显示 "暂无日志" 空状态',
-          (tester) async {
+      testWidgets('TST-T110: 空日志 → 显示 "暂无日志" 空状态', (tester) async {
         await tester.pumpWidget(wrapLogViewer());
         await tester.pump();
 
         // Empty state text
-        expect(find.text('暂无日志'), findsOneWidget,
-            reason: '无日志时应显示"暂无日志"');
+        expect(find.text('暂无日志'), findsOneWidget, reason: '无日志时应显示"暂无日志"');
         expect(find.text('共 0 条 / 缓存上限 1000'), findsOneWidget,
             reason: '无日志时应显示 "共 0 条 / 缓存上限 1000"');
 
@@ -162,8 +156,7 @@ void main() {
 
         // Verify the formatted text contains the message
         final text = selectableText.data ?? '';
-        expect(text, contains('test log content'),
-            reason: '渲染的文本应包含日志消息内容');
+        expect(text, contains('test log content'), reason: '渲染的文本应包含日志消息内容');
 
         // Verify timestamp format: HH:mm:ss.mmm
         // The formatted string is "HH:mm:ss.mmm  message" (two spaces)
@@ -174,12 +167,10 @@ void main() {
         final timePart = parts[0];
         final timeRegex = RegExp(r'^\d{2}:\d{2}:\d{2}\.\d{3}$');
         expect(timeRegex.hasMatch(timePart), isTrue,
-            reason:
-                '时间戳应为 HH:mm:ss.mmm 格式，实际为: $timePart');
+            reason: '时间戳应为 HH:mm:ss.mmm 格式，实际为: $timePart');
       });
 
-      testWidgets('TST-T112b: LogViewerScreen 包含过滤输入框和操作按钮',
-          (tester) async {
+      testWidgets('TST-T112b: LogViewerScreen 包含过滤输入框和操作按钮', (tester) async {
         LogBuffer.instance.add('some log');
 
         await tester.pumpWidget(wrapLogViewer());
@@ -187,24 +178,20 @@ void main() {
 
         // Filter TextField with hint text
         final textFieldFinder = find.byType(TextField);
-        expect(textFieldFinder, findsOneWidget,
-            reason: '应有一个过滤输入框');
+        expect(textFieldFinder, findsOneWidget, reason: '应有一个过滤输入框');
         final textField = tester.widget<TextField>(textFieldFinder);
         expect(textField.decoration?.hintText,
             equals('过滤关键字（如 [Player] 或 setAudioSource）'),
             reason: '过滤输入框应有 hintText');
 
         // Auto-scroll toggle button (initially on)
-        expect(find.byTooltip('关闭自动滚动'), findsOneWidget,
-            reason: '应有自动滚动切换按钮');
+        expect(find.byTooltip('关闭自动滚动'), findsOneWidget, reason: '应有自动滚动切换按钮');
 
         // Copy-all button
-        expect(find.byTooltip('复制全部'), findsOneWidget,
-            reason: '应有复制全部按钮');
+        expect(find.byTooltip('复制全部'), findsOneWidget, reason: '应有复制全部按钮');
 
         // Clear button
-        expect(find.byTooltip('清空'), findsOneWidget,
-            reason: '应有清空按钮');
+        expect(find.byTooltip('清空'), findsOneWidget, reason: '应有清空按钮');
       });
     });
 
@@ -227,9 +214,7 @@ void main() {
             reason: 'clear() 后 entries 应为空');
       });
 
-      testWidgets(
-          'TST-T113b: clear() 后 LogViewerScreen 显示空状态',
-          (tester) async {
+      testWidgets('TST-T113b: clear() 后 LogViewerScreen 显示空状态', (tester) async {
         LogBuffer.instance.add('some log entry');
         LogBuffer.instance.clear();
 

@@ -88,16 +88,14 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('根目录'), findsOneWidget,
-          reason: '根目录面包屑应显示"根目录"');
+      expect(find.text('根目录'), findsOneWidget, reason: '根目录面包屑应显示"根目录"');
     });
 
     // ── TST-T56: /music/artist/album → shows full breadcrumb path ─────────────
 
     testWidgets(
         'TST-T56: /music/artist/album shows full breadcrumb path '
-        '(根目录 > music > artist > album)',
-        (WidgetTester tester) async {
+        '(根目录 > music > artist > album)', (WidgetTester tester) async {
       final notifier = _notifierWithPaths([_root, _l1, _l2, _l3]);
 
       await tester.pumpWidget(
@@ -108,22 +106,17 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('根目录'), findsOneWidget,
-          reason: '面包屑应包含根目录');
-      expect(find.text('music'), findsOneWidget,
-          reason: '面包屑应包含 music 段');
-      expect(find.text('artist'), findsOneWidget,
-          reason: '面包屑应包含 artist 段');
-      expect(find.text('album'), findsOneWidget,
-          reason: '面包屑应包含 album 段');
+      expect(find.text('根目录'), findsOneWidget, reason: '面包屑应包含根目录');
+      expect(find.text('music'), findsOneWidget, reason: '面包屑应包含 music 段');
+      expect(find.text('artist'), findsOneWidget, reason: '面包屑应包含 artist 段');
+      expect(find.text('album'), findsOneWidget, reason: '面包屑应包含 album 段');
     });
 
     // ── TST-T57: Click "music" → popTo(/music) → dir switches to /music ─────
 
     testWidgets(
         'TST-T57: click music breadcrumb → popTo(/music) '
-        '→ directory switches to /music',
-        (WidgetTester tester) async {
+        '→ directory switches to /music', (WidgetTester tester) async {
       final notifier = _notifierWithPaths([_root, _l1, _l2, _l3]);
 
       await tester.pumpWidget(
@@ -141,16 +134,14 @@ void main() {
       // Navigation stack should be truncated to /music
       expect(notifier.state.length, equals(2),
           reason: 'popTo(/music) 后 stack 长度应为 2');
-      expect(notifier.state.last, equals(_l1),
-          reason: '当前路径应为 /music');
+      expect(notifier.state.last, equals(_l1), reason: '当前路径应为 /music');
     });
 
     // ── TST-T58: Click "根目录" → popTo(/) → back to root ─────────────────────
 
     testWidgets(
         'TST-T58: click 根目录 breadcrumb → popTo(/) '
-        '→ back to root',
-        (WidgetTester tester) async {
+        '→ back to root', (WidgetTester tester) async {
       final notifier = _notifierWithPaths([_root, _l1, _l2, _l3]);
 
       await tester.pumpWidget(
@@ -168,8 +159,7 @@ void main() {
       // Navigation stack should be back to root only
       expect(notifier.state.length, equals(1),
           reason: 'popTo(/) 后 stack 长度应为 1');
-      expect(notifier.state.last, equals(_root),
-          reason: '当前路径应为根目录 /');
+      expect(notifier.state.last, equals(_root), reason: '当前路径应为根目录 /');
     });
   });
 
@@ -186,10 +176,8 @@ void main() {
         measuredWidths: [50, 50, 50],
         availableWidth: 300,
       );
-      expect(layout.visible, equals([0, 1, 2]),
-          reason: '所有段都应可见');
-      expect(layout.collapsed, isEmpty,
-          reason: '无溢出时不应有折叠段');
+      expect(layout.visible, equals([0, 1, 2]), reason: '所有段都应可见');
+      expect(layout.collapsed, isEmpty, reason: '无溢出时不应有折叠段');
     });
 
     // ── TST-T59b: Overflow — middle segments collapsed, root and last visible ──
@@ -210,19 +198,16 @@ void main() {
         measuredWidths: [60, 80, 70, 60],
         availableWidth: 260,
       );
-      expect(layout.visible, contains(0),
-          reason: '根目录(索引 0)应始终可见');
-      expect(layout.visible, contains(3),
-          reason: '最深目录(索引 3)应始终可见');
-      expect(layout.collapsed, isNotEmpty,
-          reason: '窄宽度下中间段应折叠');
-      expect(layout.collapsed, contains(1),
-          reason: '索引 1 应被折叠到 "…" 中');
+      expect(layout.visible, contains(0), reason: '根目录(索引 0)应始终可见');
+      expect(layout.visible, contains(3), reason: '最深目录(索引 3)应始终可见');
+      expect(layout.collapsed, isNotEmpty, reason: '窄宽度下中间段应折叠');
+      expect(layout.collapsed, contains(1), reason: '索引 1 应被折叠到 "…" 中');
     });
 
     // ── TST-T59c: Only root visible when right segments are all too wide ─────
 
-    test('TST-T59c: only root visible when right segments are all too wide', () {
+    test('TST-T59c: only root visible when right segments are all too wide',
+        () {
       // 3 segments: widths [40, 200, 200], availableWidth=250
       // Total: 40+16+200+16+200 = 472 > 250
       // Reserved left: 40 + 36 + 16 = 92
@@ -233,10 +218,8 @@ void main() {
         measuredWidths: [40, 200, 200],
         availableWidth: 250,
       );
-      expect(layout.visible, equals([0]),
-          reason: '仅根目录可见');
-      expect(layout.collapsed, equals([1, 2]),
-          reason: '所有非根段应折叠');
+      expect(layout.visible, equals([0]), reason: '仅根目录可见');
+      expect(layout.collapsed, equals([1, 2]), reason: '所有非根段应折叠');
     });
 
     // ── TST-T59d: 5-level path — root and last level always visible ───────────
@@ -249,11 +232,9 @@ void main() {
         availableWidth: 300,
       );
       // Invariant: root (index 0) must always be visible
-      expect(layout.visible, contains(0),
-          reason: '根目录(索引 0)应始终可见');
+      expect(layout.visible, contains(0), reason: '根目录(索引 0)应始终可见');
       // Invariant: deepest level (index 4) should be visible when possible
-      expect(layout.visible, contains(4),
-          reason: '最深层级(索引 4)应始终可见');
+      expect(layout.visible, contains(4), reason: '最深层级(索引 4)应始终可见');
       // Middle segments may be collapsed
       expect(layout.collapsed.isNotEmpty || layout.visible.length < 5, isTrue,
           reason: '窄宽度下应有折叠或隐藏段');
@@ -267,10 +248,8 @@ void main() {
         measuredWidths: [40],
         availableWidth: 30,
       );
-      expect(layout.visible, equals([0]),
-          reason: '单段时应可见');
-      expect(layout.collapsed, isEmpty,
-          reason: '单段时不应有折叠，即使宽度不足');
+      expect(layout.visible, equals([0]), reason: '单段时应可见');
+      expect(layout.collapsed, isEmpty, reason: '单段时不应有折叠，即使宽度不足');
     });
   });
 
@@ -285,16 +264,14 @@ void main() {
       final notifier = NavigationStackNotifier();
       notifier.push('/music');
       notifier.push('/music/artist');
-      expect(notifier.state.length, equals(3),
-          reason: 'push 两次后应有 3 层');
+      expect(notifier.state.length, equals(3), reason: 'push 两次后应有 3 层');
       expect(notifier.state.last, equals('/music/artist'),
           reason: '当前应在 artist 子目录');
 
       // Simulate PopScope onPopInvokedWithResult callback: pop() the nav stack
       notifier.pop();
 
-      expect(notifier.state.length, equals(2),
-          reason: 'pop() 后 stack 长度应为 2');
+      expect(notifier.state.length, equals(2), reason: 'pop() 后 stack 长度应为 2');
       expect(notifier.state.last, equals('/music'),
           reason: 'pop() 后应回到上级目录 /music');
     });
@@ -303,20 +280,16 @@ void main() {
 
     test('TST-T61: pop() at root does nothing — root is preserved', () {
       final notifier = NavigationStackNotifier();
-      expect(notifier.state.length, equals(1),
-          reason: '初始 stack 只有根目录');
-      expect(notifier.state.last, equals('/'),
-          reason: '当前路径为根目录');
+      expect(notifier.state.length, equals(1), reason: '初始 stack 只有根目录');
+      expect(notifier.state.last, equals('/'), reason: '当前路径为根目录');
 
       // PopScope.canPop = (navStack.length <= 1) is true, so the system back
       // would bypass the onPopInvokedWithResult handler.  But if the handler
       // were called, notifier.pop() should be a no-op:
       notifier.pop();
 
-      expect(notifier.state.length, equals(1),
-          reason: '根目录不应被移除，pop() 是空操作');
-      expect(notifier.state.last, equals('/'),
-          reason: '根目录 pop 后仍为根目录');
+      expect(notifier.state.length, equals(1), reason: '根目录不应被移除，pop() 是空操作');
+      expect(notifier.state.last, equals('/'), reason: '根目录 pop 后仍为根目录');
     });
   });
 
@@ -366,24 +339,19 @@ void main() {
       notifier.pop();
       await tester.pumpAndSettle();
 
-      expect(notifier.state.length, equals(2),
-          reason: 'pop 后 stack 长度应为 2');
-      expect(find.text('根目录'), findsOneWidget,
-          reason: '根目录应始终可见');
-      expect(find.text('a'), findsOneWidget,
-          reason: '/a 段应可见');
+      expect(notifier.state.length, equals(2), reason: 'pop 后 stack 长度应为 2');
+      expect(find.text('根目录'), findsOneWidget, reason: '根目录应始终可见');
+      expect(find.text('a'), findsOneWidget, reason: '/a 段应可见');
       // 'b' segment should be gone from breadcrumb.  File-list items use
       // "FolderB" so find.text('b') does not match them.
-      expect(find.text('b'), findsNothing,
-          reason: 'pop 后 b 段应消失');
+      expect(find.text('b'), findsNothing, reason: 'pop 后 b 段应消失');
     });
 
     // ── TST-T63: Rapid consecutive clicks on different breadcrumbs ──────────
 
     testWidgets(
         'TST-T63: rapid consecutive clicks on different breadcrumbs '
-        '— each popTo is correct',
-        (WidgetTester tester) async {
+        '— each popTo is correct', (WidgetTester tester) async {
       final notifier = _notifierWithPaths([_root, _l1, _l2, _l3]);
 
       await tester.pumpWidget(
@@ -403,24 +371,20 @@ void main() {
       await tester.pumpAndSettle();
       expect(notifier.state.length, equals(3),
           reason: '点击 artist 后 stack 长度应为 3');
-      expect(notifier.state.last, equals(_l2),
-          reason: '当前路径应为 /music/artist');
+      expect(notifier.state.last, equals(_l2), reason: '当前路径应为 /music/artist');
 
       // Click "music" → popTo to /music (2 levels)
       await tester.tap(find.text('music'));
       await tester.pumpAndSettle();
       expect(notifier.state.length, equals(2),
           reason: '点击 music 后 stack 长度应为 2');
-      expect(notifier.state.last, equals(_l1),
-          reason: '当前路径应为 /music');
+      expect(notifier.state.last, equals(_l1), reason: '当前路径应为 /music');
 
       // Click "根目录" → popTo to / (1 level)
       await tester.tap(find.text('根目录'));
       await tester.pumpAndSettle();
-      expect(notifier.state.length, equals(1),
-          reason: '点击根目录后 stack 长度应为 1');
-      expect(notifier.state.last, equals(_root),
-          reason: '当前路径应为根目录 /');
+      expect(notifier.state.length, equals(1), reason: '点击根目录后 stack 长度应为 1');
+      expect(notifier.state.last, equals(_root), reason: '当前路径应为根目录 /');
     });
   });
 }

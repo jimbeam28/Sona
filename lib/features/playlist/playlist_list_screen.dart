@@ -39,8 +39,7 @@ class PlaylistListScreen extends ConsumerWidget {
             return ListView.separated(
               padding: const EdgeInsets.symmetric(vertical: 8),
               itemCount: playlists.length,
-              separatorBuilder: (_, __) =>
-                  const Divider(height: 1, indent: 72),
+              separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
               itemBuilder: (context, index) {
                 final playlist = playlists[index];
                 return Slidable(
@@ -54,17 +53,15 @@ class PlaylistListScreen extends ConsumerWidget {
                             context: context,
                             builder: (ctx) => AlertDialog(
                               title: const Text('确认删除'),
-                              content: Text(
-                                  '确认删除播放单「${playlist.name}」？此操作不可撤销。'),
+                              content:
+                                  Text('确认删除播放单「${playlist.name}」？此操作不可撤销。'),
                               actions: [
                                 TextButton(
-                                  onPressed: () =>
-                                      Navigator.of(ctx).pop(false),
+                                  onPressed: () => Navigator.of(ctx).pop(false),
                                   child: const Text('取消'),
                                 ),
                                 TextButton(
-                                  onPressed: () =>
-                                      Navigator.of(ctx).pop(true),
+                                  onPressed: () => Navigator.of(ctx).pop(true),
                                   child: const Text('删除',
                                       style: TextStyle(color: Colors.red)),
                                 ),

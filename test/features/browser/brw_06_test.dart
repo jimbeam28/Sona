@@ -155,8 +155,7 @@ void main() {
       // First load populates the cache
       final firstResult =
           await container.read(directoryContentsProvider('/music').future);
-      expect(firstResult.length, equals(2),
-          reason: '首次加载应返回 2 个过滤后的音频文件');
+      expect(firstResult.length, equals(2), reason: '首次加载应返回 2 个过滤后的音频文件');
       expect(mockClient.listDirectoryCallCount, equals(1),
           reason: '首次加载应触发一次 listDirectory');
 
@@ -240,8 +239,7 @@ void main() {
         caughtError = e;
       }
 
-      expect(caughtError, isNotNull,
-          reason: '网络错误时刷新应抛出异常');
+      expect(caughtError, isNotNull, reason: '网络错误时刷新应抛出异常');
       expect(caughtError, isA<WebDavException>(),
           reason: '异常应为 WebDavException 类型');
       expect((caughtError as WebDavException).message, equals('连接超时'),
@@ -311,8 +309,7 @@ void main() {
 
       // song.mp3 should no longer be present
       final songMp3 = refreshedResult.where((f) => f.name == 'song.mp3');
-      expect(songMp3.isEmpty, isTrue,
-          reason: 'song.mp3 已从服务器删除，不应出现在刷新后的列表中');
+      expect(songMp3.isEmpty, isTrue, reason: 'song.mp3 已从服务器删除，不应出现在刷新后的列表中');
 
       // Verify the cache reflects the new data
       final cacheAfterRefresh = container.read(directoryCacheProvider);

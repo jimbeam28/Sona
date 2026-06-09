@@ -39,8 +39,7 @@ typedef ConfigChangeCallback = void Function(BackgroundPlaybackConfig config);
 /// system media commands into calls on that player.  Player-state changes
 /// are reflected in the notification via [playbackState] and [mediaItem]
 /// streams.
-class NasAudioHandler extends BaseAudioHandler
-    with QueueHandler, SeekHandler {
+class NasAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   final AudioPlayer _player;
 
   /// Callbacks for queue navigation — set by the app after initialisation.
@@ -123,12 +122,12 @@ class NasAudioHandler extends BaseAudioHandler
   /// playing state from [AudioPlayer].
   void _syncConfigFromPlayerState(bool playing) {
     if (playing && _config.playbackState != BackgroundPlaybackState.playing) {
-      _updateConfig(_config.copyWith(
-          playbackState: BackgroundPlaybackState.playing));
+      _updateConfig(
+          _config.copyWith(playbackState: BackgroundPlaybackState.playing));
     } else if (!playing &&
         _config.playbackState == BackgroundPlaybackState.playing) {
-      _updateConfig(_config.copyWith(
-          playbackState: BackgroundPlaybackState.paused));
+      _updateConfig(
+          _config.copyWith(playbackState: BackgroundPlaybackState.paused));
     }
   }
 

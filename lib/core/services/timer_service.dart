@@ -36,6 +36,7 @@ class TimerState {
   final TimerMode mode;
   final DateTime? endTime;
   final DateTime startedAt;
+
   /// Saved remaining milliseconds when pausing. Used to resume from the
   /// same position (TMR-03).
   final int? remainingMs;
@@ -123,7 +124,8 @@ class TimerService {
   /// Returns the new [TimerState] (never null).
   TimerState startDuration(int minutes) {
     // G-4: guard against negative input which would set endTime in the past.
-    if (minutes < 0) throw ArgumentError.value(minutes, 'minutes', 'must not be negative');
+    if (minutes < 0)
+      throw ArgumentError.value(minutes, 'minutes', 'must not be negative');
     final now = DateTime.now();
     _state = TimerState(
       mode: TimerMode.duration,

@@ -126,11 +126,9 @@ void main() {
       }
 
       // Empty input must produce the required-field error.
-      expect(validateUrl(''), equals('请输入服务器地址'),
-          reason: '空服务器地址应显示必填错误');
+      expect(validateUrl(''), equals('请输入服务器地址'), reason: '空服务器地址应显示必填错误');
       // Non-empty input must pass validation (null = no error).
-      expect(validateUrl('http://192.168.1.1'), isNull,
-          reason: '有效地址不应触发错误');
+      expect(validateUrl('http://192.168.1.1'), isNull, reason: '有效地址不应触发错误');
     });
 
     // ── CON-T02: empty username → "必填" error ───────────────────────────────
@@ -142,8 +140,7 @@ void main() {
       }
 
       final result = validateRequired('', '用户名');
-      expect(result, equals('请输入用户名'),
-          reason: '空用户名应显示必填错误');
+      expect(result, equals('请输入用户名'), reason: '空用户名应显示必填错误');
     });
 
     // ── CON-T03: empty password → "必填" error ───────────────────────────────
@@ -155,8 +152,7 @@ void main() {
       }
 
       final result = validateRequired('', '密码');
-      expect(result, equals('请输入密码'),
-          reason: '空密码应显示必填错误');
+      expect(result, equals('请输入密码'), reason: '空密码应显示必填错误');
     });
 
     // ── CON-T04: bare IP → http:// prepended ────────────────────────────────
@@ -194,12 +190,9 @@ void main() {
         return v.isEmpty ? '/' : v;
       }
 
-      expect(resolveBasePath(''), equals('/'),
-          reason: '基础路径为空时应默认使用 /');
-      expect(resolveBasePath('   '), equals('/'),
-          reason: '仅含空格的基础路径也应默认使用 /');
-      expect(resolveBasePath('/dav'), equals('/dav'),
-          reason: '非空路径应原样保留');
+      expect(resolveBasePath(''), equals('/'), reason: '基础路径为空时应默认使用 /');
+      expect(resolveBasePath('   '), equals('/'), reason: '仅含空格的基础路径也应默认使用 /');
+      expect(resolveBasePath('/dav'), equals('/dav'), reason: '非空路径应原样保留');
     });
 
     // ── CON-T08: save button disabled before passing test ───────────────────
@@ -214,8 +207,7 @@ void main() {
       final state = container.read(connectionValidatorProvider);
       final isValidated = state is ValidationSuccess;
 
-      expect(isValidated, isFalse,
-          reason: '未通过连接测试时保存按钮应处于禁用状态');
+      expect(isValidated, isFalse, reason: '未通过连接测试时保存按钮应处于禁用状态');
     });
 
     // ── CON-T09: after successful test → save button enabled ────────────────
@@ -234,13 +226,13 @@ void main() {
           );
 
       final state = container.read(connectionValidatorProvider);
-      expect(state, isA<ValidationSuccess>(),
-          reason: '连接测试成功后保存按钮应激活');
+      expect(state, isA<ValidationSuccess>(), reason: '连接测试成功后保存按钮应激活');
     });
 
     // ── CON-FIX-T01: 验证成功后修改 URL → 保存按钮禁用 ───────────────────
 
-    test('CON-FIX-T01: after validation, changing URL resets validator', () async {
+    test('CON-FIX-T01: after validation, changing URL resets validator',
+        () async {
       final mock = MockWebDavClient();
       mock.returnResult(WebDavValidationResult.success());
 
@@ -254,7 +246,8 @@ void main() {
             password: 'secret',
           );
 
-      expect(container.read(connectionValidatorProvider), isA<ValidationSuccess>(),
+      expect(
+          container.read(connectionValidatorProvider), isA<ValidationSuccess>(),
           reason: '验证成功');
 
       // 2. Simulate onFieldChanged (credential field changed → reset)
@@ -266,7 +259,8 @@ void main() {
 
     // ── CON-FIX-T02: 验证成功后修改密码 → 保存按钮禁用 ───────────────────
 
-    test('CON-FIX-T02: after validation, changing password resets validator', () async {
+    test('CON-FIX-T02: after validation, changing password resets validator',
+        () async {
       final mock = MockWebDavClient();
       mock.returnResult(WebDavValidationResult.success());
 
@@ -279,7 +273,8 @@ void main() {
             password: 'secret',
           );
 
-      expect(container.read(connectionValidatorProvider), isA<ValidationSuccess>());
+      expect(container.read(connectionValidatorProvider),
+          isA<ValidationSuccess>());
 
       // onFieldChanged resets regardless of which credential field changed
       container.read(connectionValidatorProvider.notifier).reset();
@@ -290,7 +285,8 @@ void main() {
 
     // ── CON-FIX-T03: 验证成功后仅修改显示名称 → 保存按钮保持启用 ────────
 
-    test('CON-FIX-T03: changing display name does NOT reset validator', () async {
+    test('CON-FIX-T03: changing display name does NOT reset validator',
+        () async {
       final mock = MockWebDavClient();
       mock.returnResult(WebDavValidationResult.success());
 
@@ -303,12 +299,14 @@ void main() {
             password: 'secret',
           );
 
-      expect(container.read(connectionValidatorProvider), isA<ValidationSuccess>());
+      expect(container.read(connectionValidatorProvider),
+          isA<ValidationSuccess>());
 
       // Display name changes do NOT trigger onFieldChanged
       // (ConnectionForm only listens to url/username/password/basePath).
       // So the validator stays at ValidationSuccess — save remains enabled.
-      expect(container.read(connectionValidatorProvider), isA<ValidationSuccess>(),
+      expect(
+          container.read(connectionValidatorProvider), isA<ValidationSuccess>(),
           reason: '仅修改显示名称时验证器应保持成功状态，保存按钮保持启用');
     });
   });
@@ -334,18 +332,14 @@ void main() {
       await tester.tap(testBtn);
       await tester.pumpAndSettle();
 
-      expect(find.text('请输入服务器地址'), findsOneWidget,
-          reason: '应显示服务器地址必填错误');
-      expect(find.text('请输入用户名'), findsOneWidget,
-          reason: '应显示用户名必填错误');
-      expect(find.text('请输入密码'), findsOneWidget,
-          reason: '应显示密码必填错误');
+      expect(find.text('请输入服务器地址'), findsOneWidget, reason: '应显示服务器地址必填错误');
+      expect(find.text('请输入用户名'), findsOneWidget, reason: '应显示用户名必填错误');
+      expect(find.text('请输入密码'), findsOneWidget, reason: '应显示密码必填错误');
     });
 
     // ── CON-T36: filled form + "测试连接" → loading spinner shown ────────────
 
-    testWidgets(
-        'test_CON_T36_filledForm_testButton_showsLoadingIndicator',
+    testWidgets('test_CON_T36_filledForm_testButton_showsLoadingIndicator',
         (WidgetTester tester) async {
       final mock = MockWebDavClient();
 
@@ -357,8 +351,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Fill in all required fields
-      await tester.enterText(
-          find.widgetWithText(TextFormField, '服务器地址 *'),
+      await tester.enterText(find.widgetWithText(TextFormField, '服务器地址 *'),
           'http://192.168.1.100:5005');
       await tester.enterText(
           find.widgetWithText(TextFormField, '用户名 *'), 'admin');
@@ -372,8 +365,7 @@ void main() {
 
       expect(find.byType(CircularProgressIndicator), findsWidgets,
           reason: '点击测试连接后按钮内应显示 CircularProgressIndicator');
-      expect(find.text('连接中…'), findsOneWidget,
-          reason: '按钮文字应变为"连接中…"');
+      expect(find.text('连接中…'), findsOneWidget, reason: '按钮文字应变为"连接中…"');
 
       // Release the completer to prevent hanging futures after the test
       completer.complete(WebDavValidationResult.networkError());
@@ -382,8 +374,7 @@ void main() {
 
     // ── CON-T37: successful test → green banner, save enabled ───────────────
 
-    testWidgets(
-        'test_CON_T37_successfulTest_showsSuccessBanner_saveEnabled',
+    testWidgets('test_CON_T37_successfulTest_showsSuccessBanner_saveEnabled',
         (WidgetTester tester) async {
       final mock = MockWebDavClient();
       mock.returnResult(WebDavValidationResult.success());
@@ -391,8 +382,7 @@ void main() {
       await tester.pumpWidget(buildTestApp(const ConnectionScreen(), mock));
       await tester.pumpAndSettle();
 
-      await tester.enterText(
-          find.widgetWithText(TextFormField, '服务器地址 *'),
+      await tester.enterText(find.widgetWithText(TextFormField, '服务器地址 *'),
           'http://192.168.1.100:5005');
       await tester.enterText(
           find.widgetWithText(TextFormField, '用户名 *'), 'admin');
@@ -403,22 +393,19 @@ void main() {
       await tester.pumpAndSettle();
 
       // Green success banner
-      expect(find.text('连接成功！'), findsOneWidget,
-          reason: '连接测试成功后应显示绿色成功提示');
+      expect(find.text('连接成功！'), findsOneWidget, reason: '连接测试成功后应显示绿色成功提示');
 
       // "保存" is the only FilledButton on screen; after success it must be enabled.
       final saveButtons =
           tester.widgetList<FilledButton>(find.byType(FilledButton)).toList();
-      expect(saveButtons.length, 1,
-          reason: '屏幕上应只有一个 FilledButton（保存按钮）');
+      expect(saveButtons.length, 1, reason: '屏幕上应只有一个 FilledButton（保存按钮）');
       expect(saveButtons.first.onPressed, isNotNull,
           reason: '连接测试成功后保存按钮应从禁用变为可用');
     });
 
     // ── CON-T38: failed test → red error banner, save remains disabled ───────
 
-    testWidgets(
-        'test_CON_T38_failedTest_showsErrorBanner_saveStaysDisabled',
+    testWidgets('test_CON_T38_failedTest_showsErrorBanner_saveStaysDisabled',
         (WidgetTester tester) async {
       final mock = MockWebDavClient();
       mock.returnResult(WebDavValidationResult.networkError());
@@ -426,8 +413,7 @@ void main() {
       await tester.pumpWidget(buildTestApp(const ConnectionScreen(), mock));
       await tester.pumpAndSettle();
 
-      await tester.enterText(
-          find.widgetWithText(TextFormField, '服务器地址 *'),
+      await tester.enterText(find.widgetWithText(TextFormField, '服务器地址 *'),
           'http://192.168.1.100:5005');
       await tester.enterText(
           find.widgetWithText(TextFormField, '用户名 *'), 'admin');
@@ -447,8 +433,7 @@ void main() {
       // The save button is the second button (after test button is ElevatedButton)
       expect(allFilledButtons.isNotEmpty, isTrue);
       final saveBtn = allFilledButtons.first; // only one FilledButton
-      expect(saveBtn.onPressed, isNull,
-          reason: '连接测试失败后保存按钮应保持禁用');
+      expect(saveBtn.onPressed, isNull, reason: '连接测试失败后保存按钮应保持禁用');
     });
 
     // ── CON-T39: password field starts obscured ──────────────────────────────
@@ -466,8 +451,7 @@ void main() {
           .where((et) => et.obscureText)
           .toList();
 
-      expect(passwordFields.isNotEmpty, isTrue,
-          reason: '密码字段默认应以掩码（圆点）显示');
+      expect(passwordFields.isNotEmpty, isTrue, reason: '密码字段默认应以掩码（圆点）显示');
     });
 
     // ── CON-T40: toggle password visibility ──────────────────────────────────
@@ -480,10 +464,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // Find visibility icon and tap it to reveal password
-      final visibilityIcon =
-          find.byIcon(Icons.visibility_outlined);
-      expect(visibilityIcon, findsOneWidget,
-          reason: '密码字段应有显示/隐藏图标按钮');
+      final visibilityIcon = find.byIcon(Icons.visibility_outlined);
+      expect(visibilityIcon, findsOneWidget, reason: '密码字段应有显示/隐藏图标按钮');
       await tester.tap(visibilityIcon);
       await tester.pumpAndSettle();
 
@@ -550,8 +532,7 @@ void main() {
 
       expect(find.text('添加第一个 NAS 连接'), findsOneWidget,
           reason: '连接列表为空时应显示引导页标题');
-      expect(find.text('添加连接'), findsOneWidget,
-          reason: '引导页应有"添加连接"按钮');
+      expect(find.text('添加连接'), findsOneWidget, reason: '引导页应有"添加连接"按钮');
     });
 
     // ── CON-FIX-T05: 从 onboarding 正常添加 → 标题"添加 WebDAV 连接" ─
@@ -566,8 +547,7 @@ void main() {
           mock,
           // Override startupValidationProvider to return null (no error)
           overrides: [
-            startupValidationProvider
-                .overrideWith((ref) async => null),
+            startupValidationProvider.overrideWith((ref) async => null),
           ],
         ),
       );
@@ -725,8 +705,7 @@ void main() {
       );
       expect(editAction.icon, equals(Icons.edit_outlined),
           reason: 'TST-T124: 编辑按钮图标应为 edit_outlined');
-      expect(editAction.label, equals('编辑'),
-          reason: 'TST-T124: 编辑按钮标签应为"编辑"');
+      expect(editAction.label, equals('编辑'), reason: 'TST-T124: 编辑按钮标签应为"编辑"');
       expect(editAction.backgroundColor, equals(Colors.blue),
           reason: 'TST-T124: 编辑按钮背景色应为蓝色');
     });
@@ -777,10 +756,8 @@ void main() {
           updatedAt: DateTime.now(),
         ),
       ];
-      expect(connections.isNotEmpty, isTrue,
-          reason: 'TST-T145: 有连接时连接列表应非空');
-      expect(connections.length, equals(2),
-          reason: 'TST-T145: 连接列表包含所有连接配置');
+      expect(connections.isNotEmpty, isTrue, reason: 'TST-T145: 有连接时连接列表应非空');
+      expect(connections.length, equals(2), reason: 'TST-T145: 连接列表包含所有连接配置');
       expect(connections[0].name, equals('Home NAS'));
       expect(connections[1].name, equals('Office NAS'));
     });
@@ -798,12 +775,10 @@ void main() {
       const formName = originalName;
       const formBasePath = originalBasePath;
 
-      expect(formUrl, equals(originalUrl),
-          reason: 'TST-T146: URL 字段应预填原始值');
+      expect(formUrl, equals(originalUrl), reason: 'TST-T146: URL 字段应预填原始值');
       expect(formUsername, equals(originalUsername),
           reason: 'TST-T146: 用户名字段应预填原始值');
-      expect(formName, equals(originalName),
-          reason: 'TST-T146: 名称字段应预填原始值');
+      expect(formName, equals(originalName), reason: 'TST-T146: 名称字段应预填原始值');
       expect(formBasePath, equals(originalBasePath),
           reason: 'TST-T146: BasePath 字段应预填原始值');
     });

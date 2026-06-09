@@ -165,15 +165,15 @@ class _ConnectionFormState extends State<ConnectionForm> {
             controller: _urlController,
             decoration: const InputDecoration(
               labelText: '服务器地址 *',
-                hintText: 'http://192.168.1.100:5005 或 http://nas.example.com',
-                prefixIcon: Icon(Icons.dns_outlined),
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.url,
-              textInputAction: TextInputAction.next,
-              autocorrect: false,
-              validator: _validateUrl,
+              hintText: 'http://192.168.1.100:5005 或 http://nas.example.com',
+              prefixIcon: Icon(Icons.dns_outlined),
+              border: OutlineInputBorder(),
             ),
+            keyboardType: TextInputType.url,
+            textInputAction: TextInputAction.next,
+            autocorrect: false,
+            validator: _validateUrl,
+          ),
           const SizedBox(height: 16),
 
           // ── Username ──────────────────────────────────────────────────────
@@ -212,8 +212,7 @@ class _ConnectionFormState extends State<ConnectionForm> {
             textInputAction: TextInputAction.next,
             autocorrect: false,
             validator: (v) {
-              if (!widget.passwordRequired &&
-                  (v == null || v.trim().isEmpty)) {
+              if (!widget.passwordRequired && (v == null || v.trim().isEmpty)) {
                 return null;
               }
               return _validateRequired(v, '密码');

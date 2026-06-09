@@ -195,25 +195,21 @@ void main() {
 
       // Assert: connection 1 is gone from connections table
       final conn1 = await dao.findById(id1);
-      expect(conn1, isNull,
-          reason: 'CON-T31: 连接 1 应从 connections 表中删除');
+      expect(conn1, isNull, reason: 'CON-T31: 连接 1 应从 connections 表中删除');
 
       // Assert: connection 2 still exists
       final conn2 = await dao.findById(id2);
-      expect(conn2, isNotNull,
-          reason: '连接 2 应仍然存在');
+      expect(conn2, isNotNull, reason: '连接 2 应仍然存在');
 
       // Assert: play_progress records for connection 1 are removed
-      final rows1 = await db.query('play_progress',
-          where: 'connection_id = ?', whereArgs: [id1]);
-      expect(rows1, isEmpty,
-          reason: 'CON-T31: 连接 1 的 play_progress 记录应全部级联删除');
+      final rows1 = await db
+          .query('play_progress', where: 'connection_id = ?', whereArgs: [id1]);
+      expect(rows1, isEmpty, reason: 'CON-T31: 连接 1 的 play_progress 记录应全部级联删除');
 
       // Assert: play_progress records for connection 2 remain
-      final rows2 = await db.query('play_progress',
-          where: 'connection_id = ?', whereArgs: [id2]);
-      expect(rows2.length, equals(1),
-          reason: '连接 2 的 play_progress 记录应不受影响');
+      final rows2 = await db
+          .query('play_progress', where: 'connection_id = ?', whereArgs: [id2]);
+      expect(rows2.length, equals(1), reason: '连接 2 的 play_progress 记录应不受影响');
     });
   });
 
@@ -246,8 +242,7 @@ void main() {
 
       // Assert: the connection still exists
       final conn = await dao.findById(id);
-      expect(conn, isNotNull,
-          reason: 'CON-T32: 连接应仍然存在（未被删除）');
+      expect(conn, isNotNull, reason: 'CON-T32: 连接应仍然存在（未被删除）');
       expect(conn!.name, equals('Only NAS'));
     });
   });
@@ -281,20 +276,16 @@ void main() {
       final wasActive = await dao.delete(id2);
 
       // Assert: the deleted connection was NOT active
-      expect(wasActive, isFalse,
-          reason: 'CON-T33: 删除非活跃连接时返回值应为 false');
+      expect(wasActive, isFalse, reason: 'CON-T33: 删除非活跃连接时返回值应为 false');
 
       // Assert: connection 2 is gone
       final conn2 = await dao.findById(id2);
-      expect(conn2, isNull,
-          reason: '连接 2 应已被删除');
+      expect(conn2, isNull, reason: '连接 2 应已被删除');
 
       // Assert: connection 1 is still the active connection
       final active = await dao.findActive();
-      expect(active, isNotNull,
-          reason: '活跃连接应仍然存在');
-      expect(active!.id, equals(id1),
-          reason: 'CON-T33: 活跃连接应不受影响');
+      expect(active, isNotNull, reason: '活跃连接应仍然存在');
+      expect(active!.id, equals(id1), reason: 'CON-T33: 活跃连接应不受影响');
       expect(active.name, equals('NAS-Active'));
     });
   });
@@ -326,27 +317,22 @@ void main() {
 
       // Verify active before delete
       final activeBefore = await dao.findActive();
-      expect(activeBefore!.id, equals(id1),
-          reason: '删除前连接 1 应为活跃');
+      expect(activeBefore!.id, equals(id1), reason: '删除前连接 1 应为活跃');
 
       // Delete the active connection (id1)
       final wasActive = await dao.delete(id1);
 
       // Assert: the deleted connection WAS active
-      expect(wasActive, isTrue,
-          reason: 'CON-T34: 删除活跃连接时返回值应为 true');
+      expect(wasActive, isTrue, reason: 'CON-T34: 删除活跃连接时返回值应为 true');
 
       // Assert: connection 1 is gone
       final conn1 = await dao.findById(id1);
-      expect(conn1, isNull,
-          reason: '连接 1 应已被删除');
+      expect(conn1, isNull, reason: '连接 1 应已被删除');
 
       // Assert: connection 2 is now the active connection
       final activeAfter = await dao.findActive();
-      expect(activeAfter, isNotNull,
-          reason: 'CON-T34: 删除活跃连接后应有其他连接被自动激活');
-      expect(activeAfter!.id, equals(id2),
-          reason: 'CON-T34: 应自动将连接 2 设为活跃连接');
+      expect(activeAfter, isNotNull, reason: 'CON-T34: 删除活跃连接后应有其他连接被自动激活');
+      expect(activeAfter!.id, equals(id2), reason: 'CON-T34: 应自动将连接 2 设为活跃连接');
       expect(activeAfter.name, equals('NAS-2'));
     });
   });
@@ -387,26 +373,22 @@ void main() {
 
       // Verify password exists before delete
       final pwBefore = await storage.read(key: 'connection_password_$id1');
-      expect(pwBefore, equals('secret1'),
-          reason: '删除前密码应存在于 secure storage');
+      expect(pwBefore, equals('secret1'), reason: '删除前密码应存在于 secure storage');
 
       // Execute delete via provider
       await container.read(deleteConnectionProvider(id1).future);
 
       // Assert: connection is gone from DB
       final conn = await dao.findById(id1);
-      expect(conn, isNull,
-          reason: '删除后连接应从数据库消失');
+      expect(conn, isNull, reason: '删除后连接应从数据库消失');
 
       // Assert: password is removed from secure storage
       final pwAfter = await storage.read(key: 'connection_password_$id1');
-      expect(pwAfter, isNull,
-          reason: '删除连接后密码应从 secure storage 中清除');
+      expect(pwAfter, isNull, reason: '删除连接后密码应从 secure storage 中清除');
 
       // Assert: connection 2 still has its password
       final pw2 = await storage.read(key: 'connection_password_$id2');
-      expect(pw2, equals('secret2'),
-          reason: '其他连接的密码不应受影响');
+      expect(pw2, equals('secret2'), reason: '其他连接的密码不应受影响');
 
       // Assert: connection list is updated (invalidate worked)
       final list = await container.read(connectionListProvider.future);
@@ -461,8 +443,7 @@ void main() {
       expect(await dao.findById(id1), isNotNull);
       // Verify: provider didn't throw
       final state = container.read(deleteConnectionProvider(id2));
-      expect(state.hasError, isFalse,
-          reason: '删除非最后一个连接不应触发错误');
+      expect(state.hasError, isFalse, reason: '删除非最后一个连接不应触发错误');
     });
 
     // ── CON-FIX-T08: 只有一个连接时删除 → provider catch 异常 → 不 crash ──
@@ -491,8 +472,7 @@ void main() {
       }
 
       // Connection still exists (not deleted)
-      expect(await dao.findById(id), isNotNull,
-          reason: '最后一个连接应仍然存在');
+      expect(await dao.findById(id), isNotNull, reason: '最后一个连接应仍然存在');
     });
   });
 }

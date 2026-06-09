@@ -662,7 +662,10 @@ final startProcessingListenerProvider = Provider<void Function()>((ref) {
           debugPrint('[Player] advancing to next track');
           final q = ref.read(currentPlayQueueProvider);
           final m = ref.read(playModeProvider);
-          if (q == null) return;
+          if (q == null) {
+            ref.read(_completingProvider.notifier).state = false;
+            return;
+          }
           // PLY-01: use deterministic shuffle order for shuffle mode
           PlayQueue? nq;
           if (m == PlayMode.shuffle) {
@@ -793,14 +796,16 @@ final Provider<Future<TrackLoadResult> Function()> skipToNextProvider =
     final nextQueue = mode == PlayMode.shuffle
         ? queue.advanceShuffle()
         : () {
-            final ni = PlayQueue.nextIndex(queue.currentIndex, queue.length, mode);
+            final ni =
+                PlayQueue.nextIndex(queue.currentIndex, queue.length, mode);
             return ni != null ? queue.withIndex(ni) : null;
           }();
     if (nextQueue == null) {
       debugPrint('[Player] skipNext: no next track (mode=$mode)');
       return const TrackLoadResult.failed();
     }
-    debugPrint('[Player] skipNext: idx=${nextQueue.currentIndex} file=${nextQueue.current.path}');
+    debugPrint(
+        '[Player] skipNext: idx=${nextQueue.currentIndex} file=${nextQueue.current.path}');
     ref.read(saveProgressProvider)();
     ref.read(currentPlayQueueProvider.notifier).state = nextQueue;
     return ref.read(loadAndPlayProvider)();
@@ -819,14 +824,16 @@ final skipToPreviousProvider =
     final prevQueue = mode == PlayMode.shuffle
         ? queue.retreatShuffle()
         : () {
-            final pi = PlayQueue.previousIndex(queue.currentIndex, queue.length, mode);
+            final pi =
+                PlayQueue.previousIndex(queue.currentIndex, queue.length, mode);
             return pi != null ? queue.withIndex(pi) : null;
           }();
     if (prevQueue == null) {
       debugPrint('[Player] skipPrev: no previous track (mode=$mode)');
       return const TrackLoadResult.failed();
     }
-    debugPrint('[Player] skipPrev: idx=${prevQueue.currentIndex} file=${prevQueue.current.path}');
+    debugPrint(
+        '[Player] skipPrev: idx=${prevQueue.currentIndex} file=${prevQueue.current.path}');
     ref.read(saveProgressProvider)();
     ref.read(currentPlayQueueProvider.notifier).state = prevQueue;
     return ref.read(loadAndPlayProvider)();
@@ -846,7 +853,8 @@ final selectQueueIndexProvider =
       debugPrint('[Player] selectIndex: already at idx=$index');
       return const TrackLoadResult.failed();
     }
-    debugPrint('[Player] selectIndex: idx=$index file=${queue.files[index].path}');
+    debugPrint(
+        '[Player] selectIndex: idx=$index file=${queue.files[index].path}');
     ref.read(saveProgressProvider)();
     ref.read(currentPlayQueueProvider.notifier).state = queue.withIndex(index);
     return ref.read(loadAndPlayProvider)();
@@ -905,7 +913,8 @@ final Provider<Future<TrackLoadResult> Function()> loadAndPlayProvider =
         }
 
         try {
-          debugPrint('[Provider] loadAndPlay: start file=${queue.current.path}');
+          debugPrint(
+              '[Provider] loadAndPlay: start file=${queue.current.path}');
           // E-2: if the connection has changed since the queue was created,
           // refuse to load — file paths may not exist on the new connection.
           final savedConnId = ref.read(lastQueueConnectionIdProvider);

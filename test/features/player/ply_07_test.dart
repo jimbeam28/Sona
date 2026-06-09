@@ -25,8 +25,7 @@ void main() {
 
   group('PLY-T43: Select 0.5x speed', () {
     test('0.5x is a valid speed', () {
-      expect(isValidSpeed(0.5), isTrue,
-          reason: '0.5x 应在 speedOptions 中');
+      expect(isValidSpeed(0.5), isTrue, reason: '0.5x 应在 speedOptions 中');
       expect(speedOptions, contains(0.5));
     });
 
@@ -49,8 +48,7 @@ void main() {
     test('speed button label for 0.5x', () {
       // The _SpeedControl widget renders Text('${currentSpeed}x').
       const label = '${0.5}x';
-      expect(label, equals('0.5x'),
-          reason: '速度按钮应显示 "0.5x"');
+      expect(label, equals('0.5x'), reason: '速度按钮应显示 "0.5x"');
     });
   });
 
@@ -58,8 +56,7 @@ void main() {
 
   group('PLY-T44: Select 2.0x speed', () {
     test('2.0x is a valid speed', () {
-      expect(isValidSpeed(2.0), isTrue,
-          reason: '2.0x 应在 speedOptions 中');
+      expect(isValidSpeed(2.0), isTrue, reason: '2.0x 应在 speedOptions 中');
       expect(speedOptions, contains(2.0));
     });
 
@@ -85,8 +82,7 @@ void main() {
 
     test('speed button label for 2.0x', () {
       const label = '${2.0}x';
-      expect(label, equals('2.0x'),
-          reason: '速度按钮应显示 "2.0x"');
+      expect(label, equals('2.0x'), reason: '速度按钮应显示 "2.0x"');
     });
   });
 
@@ -107,8 +103,7 @@ void main() {
 
       // Write a new default speed
       prefs.setDouble('default_playback_speed', 0.75);
-      expect(getDefaultSpeed(prefs), equals(0.75),
-          reason: '写入 0.75x 后应能读取回来');
+      expect(getDefaultSpeed(prefs), equals(0.75), reason: '写入 0.75x 后应能读取回来');
     });
 
     test('getDefaultSpeed returns 1.0 when prefs is null', () {
@@ -265,8 +260,7 @@ void main() {
           reason: '新文件应将播放速度初始化为 Settings 中的默认速度');
     });
 
-    test('currentSpeed initializes to 1.0 when no preference stored',
-        () async {
+    test('currentSpeed initializes to 1.0 when no preference stored', () async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
 
@@ -375,33 +369,27 @@ void main() {
     });
 
     test('button text for default 1.0x', () {
-      expect('${1.0}x', equals('1.0x'),
-          reason: '默认速度 1.0x 按钮应显示 "1.0x"');
+      expect('${1.0}x', equals('1.0x'), reason: '默认速度 1.0x 按钮应显示 "1.0x"');
     });
 
     test('button text for 1.5x', () {
-      expect('${1.5}x', equals('1.5x'),
-          reason: '1.5x 速度按钮应显示 "1.5x"');
+      expect('${1.5}x', equals('1.5x'), reason: '1.5x 速度按钮应显示 "1.5x"');
     });
 
     test('button text for 0.5x', () {
-      expect('${0.5}x', equals('0.5x'),
-          reason: '0.5x 速度按钮应显示 "0.5x"');
+      expect('${0.5}x', equals('0.5x'), reason: '0.5x 速度按钮应显示 "0.5x"');
     });
 
     test('button text for 0.75x', () {
-      expect('${0.75}x', equals('0.75x'),
-          reason: '0.75x 速度按钮应显示 "0.75x"');
+      expect('${0.75}x', equals('0.75x'), reason: '0.75x 速度按钮应显示 "0.75x"');
     });
 
     test('button text for 1.25x', () {
-      expect('${1.25}x', equals('1.25x'),
-          reason: '1.25x 速度按钮应显示 "1.25x"');
+      expect('${1.25}x', equals('1.25x'), reason: '1.25x 速度按钮应显示 "1.25x"');
     });
 
     test('button text for 2.0x', () {
-      expect('${2.0}x', equals('2.0x'),
-          reason: '2.0x 速度按钮应显示 "2.0x"');
+      expect('${2.0}x', equals('2.0x'), reason: '2.0x 速度按钮应显示 "2.0x"');
     });
   });
 
@@ -409,13 +397,11 @@ void main() {
 
   group('PLY-T60: Speed menu has all 6 options', () {
     test('speedOptions contains exactly 6 values', () {
-      expect(speedOptions.length, equals(6),
-          reason: '速度菜单应包含恰好 6 个选项');
+      expect(speedOptions.length, equals(6), reason: '速度菜单应包含恰好 6 个选项');
     });
 
     test('speedOptions unordered equality check', () {
-      expect(speedOptions,
-          unorderedEquals([0.5, 0.75, 1.0, 1.25, 1.5, 2.0]),
+      expect(speedOptions, unorderedEquals([0.5, 0.75, 1.0, 1.25, 1.5, 2.0]),
           reason: '速度菜单应包含全部 6 个预设速度值');
     });
 
@@ -432,10 +418,8 @@ void main() {
     });
 
     test('speed options cover the full range from 0.5 to 2.0', () {
-      expect(speedOptions.first, equals(0.5),
-          reason: '第一个选项应为最慢速度 0.5x');
-      expect(speedOptions.last, equals(2.0),
-          reason: '最后一个选项应为最快速度 2.0x');
+      expect(speedOptions.first, equals(0.5), reason: '第一个选项应为最慢速度 0.5x');
+      expect(speedOptions.last, equals(2.0), reason: '最后一个选项应为最快速度 2.0x');
     });
 
     test('speed options are monotonically increasing', () {
@@ -576,8 +560,7 @@ void main() {
 
     // ── TST-T76: 关闭时切歌 → 新曲目使用 Settings 中的 defaultSpeed ─────
 
-    test('TST-T76: 关闭 rememberSpeed 切歌, 新曲目使用 Settings defaultSpeed',
-        () async {
+    test('TST-T76: 关闭 rememberSpeed 切歌, 新曲目使用 Settings defaultSpeed', () async {
       SharedPreferences.setMockInitialValues({
         'default_playback_speed': 1.0,
         'remember_playback_speed': false,
@@ -611,15 +594,13 @@ void main() {
         addTearDown(container2.dispose);
 
         expect(container2.read(currentSpeedProvider), equals(1.0),
-            reason:
-                '关闭记住速度时切歌, 新曲目应使用 Settings 中的 defaultSpeed 1.0x');
+            reason: '关闭记住速度时切歌, 新曲目应使用 Settings 中的 defaultSpeed 1.0x');
       }
     });
 
     // ── TST-T77: 开启时切歌 → 新曲目使用上次播放器中的速度 ──────────────
 
-    test('TST-T77: 开启 rememberSpeed 切歌, 新曲目使用上次调速后的速度',
-        () async {
+    test('TST-T77: 开启 rememberSpeed 切歌, 新曲目使用上次调速后的速度', () async {
       SharedPreferences.setMockInitialValues({
         'default_playback_speed': 1.0,
         'remember_playback_speed': true,
@@ -654,11 +635,9 @@ void main() {
         addTearDown(container2.dispose);
 
         expect(container2.read(defaultSpeedProvider), equals(2.0),
-            reason:
-                '开启记住速度时, SharedPreferences 中的 defaultSpeed 应为 2.0');
+            reason: '开启记住速度时, SharedPreferences 中的 defaultSpeed 应为 2.0');
         expect(container2.read(currentSpeedProvider), equals(2.0),
-            reason:
-                '开启记住速度时切歌, 新曲目应使用上次调速后的速度 2.0x');
+            reason: '开启记住速度时切歌, 新曲目应使用上次调速后的速度 2.0x');
       }
     });
 
@@ -720,14 +699,10 @@ void main() {
 
   group('isValidSpeed — supplementary boundary checks', () {
     test('values outside speedOptions range are invalid', () {
-      expect(isValidSpeed(0.25), isFalse,
-          reason: '0.25x 不在速度选项中');
-      expect(isValidSpeed(3.0), isFalse,
-          reason: '3.0x 不在速度选项中');
-      expect(isValidSpeed(0.0), isFalse,
-          reason: '0.0x 不在速度选项中');
-      expect(isValidSpeed(-1.0), isFalse,
-          reason: '负数速度无效');
+      expect(isValidSpeed(0.25), isFalse, reason: '0.25x 不在速度选项中');
+      expect(isValidSpeed(3.0), isFalse, reason: '3.0x 不在速度选项中');
+      expect(isValidSpeed(0.0), isFalse, reason: '0.0x 不在速度选项中');
+      expect(isValidSpeed(-1.0), isFalse, reason: '负数速度无效');
     });
 
     test('values between options are invalid', () {
@@ -741,8 +716,7 @@ void main() {
 
     test('isValidSpeed with exact options passes', () {
       for (final speed in speedOptions) {
-        expect(isValidSpeed(speed), isTrue,
-            reason: '$speed 是有效速度选项');
+        expect(isValidSpeed(speed), isTrue, reason: '$speed 是有效速度选项');
       }
     });
 

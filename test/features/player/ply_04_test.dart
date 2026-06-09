@@ -150,7 +150,8 @@ void main() {
       );
     });
 
-    test('singleClick maps to togglePlayPause — verification from all angles', () {
+    test('singleClick maps to togglePlayPause — verification from all angles',
+        () {
       // Verify that single click does NOT map to skip actions
       final result = mapHeadphoneAction(HeadphoneAction.singleClick);
       expect(result, isNot(equals(MediaAction.skipToNext)),
@@ -193,7 +194,8 @@ void main() {
       );
     });
 
-    test('tripleClick maps to skipToPrevious — verification from all angles', () {
+    test('tripleClick maps to skipToPrevious — verification from all angles',
+        () {
       final result = mapHeadphoneAction(HeadphoneAction.tripleClick);
       expect(result, isNot(equals(MediaAction.togglePlayPause)),
           reason: '三击不应映射为播放/暂停切换');
@@ -235,11 +237,11 @@ void main() {
 
       expect(metadata.showCover, isTrue,
           reason: '有 ID3 封面时通知栏应显示封面图 (PLY-T28)');
-      expect(metadata.showDefaultIcon, isFalse,
-          reason: '有封面时不应显示默认图标');
+      expect(metadata.showDefaultIcon, isFalse, reason: '有封面时不应显示默认图标');
     });
 
-    test('showCover and showDefaultIcon are mutually exclusive — cover case', () {
+    test('showCover and showDefaultIcon are mutually exclusive — cover case',
+        () {
       const metadata = TrackMetadata(
         filePath: '/music/song.mp3',
         hasId3Cover: true,
@@ -273,11 +275,11 @@ void main() {
 
       expect(metadata.showDefaultIcon, isTrue,
           reason: '无 ID3 封面时通知栏应显示默认应用图标 (PLY-T29)');
-      expect(metadata.showCover, isFalse,
-          reason: '无封面时不应显示封面图');
+      expect(metadata.showCover, isFalse, reason: '无封面时不应显示封面图');
     });
 
-    test('showCover and showDefaultIcon are mutually exclusive — no-cover case', () {
+    test('showCover and showDefaultIcon are mutually exclusive — no-cover case',
+        () {
       const metadata = TrackMetadata(
         filePath: '/music/song.mp3',
         hasId3Cover: false,
@@ -304,10 +306,8 @@ void main() {
         hasId3Cover: false,
       );
 
-      expect(metadata.title, equals('第三章'),
-          reason: '中文文件名无封面时 title 应正确提取');
-      expect(metadata.showDefaultIcon, isTrue,
-          reason: '无封面时应显示默认图标');
+      expect(metadata.title, equals('第三章'), reason: '中文文件名无封面时 title 应正确提取');
+      expect(metadata.showDefaultIcon, isTrue, reason: '无封面时应显示默认图标');
     });
   });
 
@@ -324,32 +324,28 @@ void main() {
         hasId3Cover: true,
       );
 
-      expect(a, equals(b),
-          reason: '相同属性值的 TrackMetadata 应相等');
+      expect(a, equals(b), reason: '相同属性值的 TrackMetadata 应相等');
     });
 
     test('different filePath are not equal', () {
       const a = TrackMetadata(filePath: '/a.mp3', hasId3Cover: true);
       const b = TrackMetadata(filePath: '/b.mp3', hasId3Cover: true);
 
-      expect(a, isNot(equals(b)),
-          reason: '不同 filePath 的对象不应相等');
+      expect(a, isNot(equals(b)), reason: '不同 filePath 的对象不应相等');
     });
 
     test('different hasId3Cover are not equal', () {
       const a = TrackMetadata(filePath: '/a.mp3', hasId3Cover: true);
       const b = TrackMetadata(filePath: '/a.mp3', hasId3Cover: false);
 
-      expect(a, isNot(equals(b)),
-          reason: '不同 hasId3Cover 的对象不应相等');
+      expect(a, isNot(equals(b)), reason: '不同 hasId3Cover 的对象不应相等');
     });
 
     test('hashCode is consistent with equality', () {
       const a = TrackMetadata(filePath: '/x.mp3', hasId3Cover: false);
       const b = TrackMetadata(filePath: '/x.mp3', hasId3Cover: false);
 
-      expect(a.hashCode, equals(b.hashCode),
-          reason: '相等对象的 hashCode 应相同');
+      expect(a.hashCode, equals(b.hashCode), reason: '相等对象的 hashCode 应相同');
     });
 
     test('copyWith returns new instance with updated field', () {
@@ -363,8 +359,7 @@ void main() {
       expect(updated.hasId3Cover, isTrue);
       expect(updated.showCover, isTrue);
       expect(updated.filePath, equals('/music/song.mp3'));
-      expect(original.hasId3Cover, isFalse,
-          reason: '原对象不应改变（不可变）');
+      expect(original.hasId3Cover, isFalse, reason: '原对象不应改变（不可变）');
     });
 
     test('copyWith preserves unchanged fields', () {

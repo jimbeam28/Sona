@@ -126,7 +126,8 @@ void main() {
 
     // ── PLY-T41b: findAllPlaylists returns 0 trackCount for empty playlist ─
 
-    test('test_PLY_T41b_findAllPlaylists_emptyPlaylist_trackCountZero', () async {
+    test('test_PLY_T41b_findAllPlaylists_emptyPlaylist_trackCountZero',
+        () async {
       await dao.insertPlaylist(_testPlaylist(name: 'Empty'));
       final playlists = await dao.findAllPlaylists();
       expect(playlists.first.trackCount, 0);
@@ -166,8 +167,16 @@ void main() {
       final id = await dao.insertPlaylist(_testPlaylist(name: 'Batch'));
       final now = DateTime.now();
       await dao.addTracks([
-        _testTrack(playlistId: id, filePath: '/a.mp3', fileName: 'a.mp3', addedAt: now),
-        _testTrack(playlistId: id, filePath: '/b.mp3', fileName: 'b.mp3', addedAt: now),
+        _testTrack(
+            playlistId: id,
+            filePath: '/a.mp3',
+            fileName: 'a.mp3',
+            addedAt: now),
+        _testTrack(
+            playlistId: id,
+            filePath: '/b.mp3',
+            fileName: 'b.mp3',
+            addedAt: now),
       ]);
 
       final tracks = await dao.findTracksForPlaylist(id);
@@ -180,9 +189,15 @@ void main() {
       final id = await dao.insertPlaylist(_testPlaylist(name: 'Ordered'));
       final base = DateTime.now();
       await dao.addTracks([
-        _testTrack(playlistId: id, filePath: '/b.mp3', fileName: 'b.mp3',
+        _testTrack(
+            playlistId: id,
+            filePath: '/b.mp3',
+            fileName: 'b.mp3',
             addedAt: base.add(const Duration(seconds: 2))),
-        _testTrack(playlistId: id, filePath: '/a.mp3', fileName: 'a.mp3',
+        _testTrack(
+            playlistId: id,
+            filePath: '/a.mp3',
+            fileName: 'a.mp3',
             addedAt: base),
       ]);
 
@@ -214,7 +229,10 @@ void main() {
     test('test_PLY_T47_trackExists_returnsTrue', () async {
       final id = await dao.insertPlaylist(_testPlaylist(name: 'Dup'));
       await dao.addTracks([
-        _testTrack(playlistId: id, filePath: '/music/exists.mp3', fileName: 'exists.mp3'),
+        _testTrack(
+            playlistId: id,
+            filePath: '/music/exists.mp3',
+            fileName: 'exists.mp3'),
       ]);
 
       final exists = await dao.trackExists(id, '/music/exists.mp3');
@@ -226,7 +244,10 @@ void main() {
     test('test_PLY_T48_trackExists_returnsFalse', () async {
       final id = await dao.insertPlaylist(_testPlaylist(name: 'Dup'));
       await dao.addTracks([
-        _testTrack(playlistId: id, filePath: '/music/exists.mp3', fileName: 'exists.mp3'),
+        _testTrack(
+            playlistId: id,
+            filePath: '/music/exists.mp3',
+            fileName: 'exists.mp3'),
       ]);
 
       final exists = await dao.trackExists(id, '/music/not_here.mp3');
@@ -260,7 +281,8 @@ void main() {
 
     test('test_PLY_T50_playlistToMap', () {
       final now = DateTime.now();
-      final playlist = Playlist(id: 1, name: 'Test', createdAt: now, updatedAt: now);
+      final playlist =
+          Playlist(id: 1, name: 'Test', createdAt: now, updatedAt: now);
       final map = playlist.toMap();
       expect(map['id'], 1);
       expect(map['name'], 'Test');
@@ -290,7 +312,8 @@ void main() {
     // ── PLY-T52: PlaylistTrack.toNasFile returns NasFile with isDirectory=false
 
     test('test_PLY_T52_toNasFile_isDirectoryFalse', () {
-      final track = _testTrack(filePath: '/music/song.mp3', fileName: 'song.mp3');
+      final track =
+          _testTrack(filePath: '/music/song.mp3', fileName: 'song.mp3');
       final nasFile = track.toNasFile();
       expect(nasFile.isDirectory, isFalse);
       expect(nasFile.name, 'song.mp3');
@@ -300,7 +323,8 @@ void main() {
     // ── PLY-T53: toNasFile classifies .m4b as audiobook ────────────────────
 
     test('test_PLY_T53_toNasFile_m4b_asAudiobook', () {
-      final track = _testTrack(filePath: '/books/book.m4b', fileName: 'book.m4b');
+      final track =
+          _testTrack(filePath: '/books/book.m4b', fileName: 'book.m4b');
       final nasFile = track.toNasFile();
       expect(nasFile.audioType, AudioFileType.audiobook);
     });
@@ -308,7 +332,8 @@ void main() {
     // ── PLY-T54: toNasFile classifies .mp3 as music ────────────────────────
 
     test('test_PLY_T54_toNasFile_mp3_asMusic', () {
-      final track = _testTrack(filePath: '/music/song.mp3', fileName: 'song.mp3');
+      final track =
+          _testTrack(filePath: '/music/song.mp3', fileName: 'song.mp3');
       final nasFile = track.toNasFile();
       expect(nasFile.audioType, AudioFileType.music);
     });
@@ -431,8 +456,7 @@ void main() {
       final container = makeContainer();
       addTearDown(container.dispose);
 
-      final jsonStr =
-          await container.read(exportPlaylistProvider(id).future);
+      final jsonStr = await container.read(exportPlaylistProvider(id).future);
       final data = jsonDecode(jsonStr) as Map<String, dynamic>;
 
       expect(data['name'], 'Export Test');
@@ -459,8 +483,7 @@ void main() {
       final playlists = await container.read(playlistListProvider.future);
       final id = playlists.first.id!;
 
-      final jsonStr =
-          await container.read(exportPlaylistProvider(id).future);
+      final jsonStr = await container.read(exportPlaylistProvider(id).future);
       final data = jsonDecode(jsonStr) as Map<String, dynamic>;
 
       expect(data['name'], 'Empty Playlist');
@@ -488,8 +511,7 @@ void main() {
       final imported = playlists.firstWhere((p) => p.id == newId);
       expect(imported.name, 'Imported');
 
-      final tracks =
-          await container.read(playlistTracksProvider(newId).future);
+      final tracks = await container.read(playlistTracksProvider(newId).future);
       expect(tracks.length, 3);
       expect(tracks[0].filePath, '/a.mp3');
       expect(tracks[0].fileName, 'a.mp3');
@@ -516,8 +538,7 @@ void main() {
       final importFn = container.read(importPlaylistProvider);
       final newId = await importFn(jsonStr);
 
-      final tracks =
-          await container.read(playlistTracksProvider(newId).future);
+      final tracks = await container.read(playlistTracksProvider(newId).future);
       expect(tracks.length, 5);
     });
 
@@ -543,10 +564,8 @@ void main() {
       expect(doubles.length, 2);
 
       // Each has its own tracks
-      final tracks1 =
-          await container.read(playlistTracksProvider(id1).future);
-      final tracks2 =
-          await container.read(playlistTracksProvider(id2).future);
+      final tracks1 = await container.read(playlistTracksProvider(id1).future);
+      final tracks2 = await container.read(playlistTracksProvider(id2).future);
       expect(tracks1.length, 1);
       expect(tracks2.length, 1);
     });
@@ -567,8 +586,7 @@ void main() {
       final importFn = container.read(importPlaylistProvider);
       final newId = await importFn(jsonStr);
 
-      final tracks =
-          await container.read(playlistTracksProvider(newId).future);
+      final tracks = await container.read(playlistTracksProvider(newId).future);
       // Should only have 2 tracks — duplicate filePath skipped
       expect(tracks.length, 2);
       final paths = tracks.map((t) => t.filePath).toSet();
@@ -619,8 +637,8 @@ void main() {
       // Export
       final exportContainer = makeContainer();
       addTearDown(exportContainer.dispose);
-      final jsonStr = await exportContainer
-          .read(exportPlaylistProvider(originalId).future);
+      final jsonStr =
+          await exportContainer.read(exportPlaylistProvider(originalId).future);
 
       // Import into an independent container
       final importContainer = makeContainer();
@@ -631,14 +649,13 @@ void main() {
       // Verify name matches
       final importedPlaylists =
           await importContainer.read(playlistListProvider.future);
-      final imported =
-          importedPlaylists.firstWhere((p) => p.id == importedId);
+      final imported = importedPlaylists.firstWhere((p) => p.id == importedId);
       expect(imported.name, 'Round Trip');
 
       // Verify tracks match (same count, same filePaths, same fileNames)
       final originalTracks = await dao.findTracksForPlaylist(originalId);
-      final importedTracks = await importContainer
-          .read(playlistTracksProvider(importedId).future);
+      final importedTracks =
+          await importContainer.read(playlistTracksProvider(importedId).future);
 
       expect(importedTracks.length, originalTracks.length);
       for (int i = 0; i < originalTracks.length; i++) {

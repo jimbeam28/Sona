@@ -188,7 +188,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       return;
     }
 
-    debugPrint('[Player] _runSerializedLoad: setting loading, file=${queue.current.path}');
+    debugPrint(
+        '[Player] _runSerializedLoad: setting loading, file=${queue.current.path}');
     _safeSetState(() => _loadState = PlayerLoadState.loading);
     final requestToken = ++_loadRequestToken;
 
@@ -197,7 +198,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       try {
         loaded = await request().timeout(const Duration(seconds: 15));
       } on TimeoutException {
-        debugPrint('[Player] _runSerializedLoad: TIMEOUT token=$requestToken mounted=$mounted');
+        debugPrint(
+            '[Player] _runSerializedLoad: TIMEOUT token=$requestToken mounted=$mounted');
         if (!mounted || requestToken != _loadRequestToken) return;
         _safeSetState(() {
           _loadState = PlayerLoadState.error('加载超时，请重试');
@@ -205,7 +207,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         return;
       }
 
-      debugPrint('[Player] _runSerializedLoad: result=${loaded.status} token=$requestToken');
+      debugPrint(
+          '[Player] _runSerializedLoad: result=${loaded.status} token=$requestToken');
       if (!mounted || requestToken != _loadRequestToken) return;
 
       if (loaded.isLoaded) {
@@ -957,8 +960,8 @@ class _TimerControl extends ConsumerWidget {
     if (isActive && displayText != null) {
       return TextButton.icon(
         onPressed: () => _showTimerSheet(context, true),
-        icon: Icon(Icons.timer, size: 18,
-            color: Theme.of(context).colorScheme.primary),
+        icon: Icon(Icons.timer,
+            size: 18, color: Theme.of(context).colorScheme.primary),
         label: Text(
           displayText,
           style: TextStyle(

@@ -106,16 +106,12 @@ void main() {
       final retrieved = await dao.findById(id);
       expect(retrieved, isNotNull, reason: '应能通过 ID 查询到刚插入的记录');
 
-      expect(retrieved!.name, equals('My NAS'),
-          reason: '名称应与插入时一致');
+      expect(retrieved!.name, equals('My NAS'), reason: '名称应与插入时一致');
       expect(retrieved.url, equals('http://192.168.1.100:5005'),
           reason: 'URL 应与插入时一致');
-      expect(retrieved.username, equals('admin'),
-          reason: '用户名应与插入时一致');
-      expect(retrieved.basePath, equals('/dav'),
-          reason: 'basePath 应与插入时一致');
-      expect(retrieved.isActive, isFalse,
-          reason: '新插入的连接默认不应为活跃状态');
+      expect(retrieved.username, equals('admin'), reason: '用户名应与插入时一致');
+      expect(retrieved.basePath, equals('/dav'), reason: 'basePath 应与插入时一致');
+      expect(retrieved.isActive, isFalse, reason: '新插入的连接默认不应为活跃状态');
     });
 
     // ── CON-T19: Query active connection (empty database) ────────────────────
@@ -123,8 +119,7 @@ void main() {
     test('test_CON_T19_queryActiveConnection_emptyDatabase_returnsNull',
         () async {
       final result = await dao.findActive();
-      expect(result, isNull,
-          reason: '数据库为空时查询活跃连接应返回 null');
+      expect(result, isNull, reason: '数据库为空时查询活跃连接应返回 null');
     });
 
     // ── CON-T20: Query active connection (is_active=1 record exists) ────────
@@ -142,14 +137,10 @@ void main() {
 
       final active = await dao.findActive();
 
-      expect(active, isNotNull,
-          reason: '存在活跃连接时应返回 ConnectionConfig 对象');
-      expect(active!.id, equals(id),
-          reason: '返回的连接 ID 应与设置为活跃的一致');
-      expect(active.isActive, isTrue,
-          reason: '返回的连接 isActive 应为 true');
-      expect(active.name, equals('Active NAS'),
-          reason: '返回的连接名称应与插入时一致');
+      expect(active, isNotNull, reason: '存在活跃连接时应返回 ConnectionConfig 对象');
+      expect(active!.id, equals(id), reason: '返回的连接 ID 应与设置为活跃的一致');
+      expect(active.isActive, isTrue, reason: '返回的连接 isActive 应为 true');
+      expect(active.name, equals('Active NAS'), reason: '返回的连接名称应与插入时一致');
     });
 
     // ── CON-T21: Set one connection as active (multiple exist) ──────────────
@@ -171,19 +162,15 @@ void main() {
       await dao.setActive(id1);
       var conn1 = await dao.findById(id1);
       var conn2 = await dao.findById(id2);
-      expect(conn1!.isActive, isTrue,
-          reason: 'setActive(id1) 后，连接 1 应为活跃');
-      expect(conn2!.isActive, isFalse,
-          reason: 'setActive(id1) 后，连接 2 应为非活跃');
+      expect(conn1!.isActive, isTrue, reason: 'setActive(id1) 后，连接 1 应为活跃');
+      expect(conn2!.isActive, isFalse, reason: 'setActive(id1) 后，连接 2 应为非活跃');
 
       // Toggle: set second connection as active
       await dao.setActive(id2);
       conn1 = await dao.findById(id1);
       conn2 = await dao.findById(id2);
-      expect(conn1!.isActive, isFalse,
-          reason: 'setActive(id2) 后，连接 1 应变为非活跃');
-      expect(conn2!.isActive, isTrue,
-          reason: 'setActive(id2) 后，连接 2 应变为活跃');
+      expect(conn1!.isActive, isFalse, reason: 'setActive(id2) 后，连接 1 应变为非活跃');
+      expect(conn2!.isActive, isTrue, reason: 'setActive(id2) 后，连接 2 应变为活跃');
     });
 
     // ── CON-T22: Query all connections list ─────────────────────────────────
@@ -217,8 +204,7 @@ void main() {
 
       final all = await dao.findAll();
 
-      expect(all.length, equals(3),
-          reason: '应返回全部 3 条连接记录');
+      expect(all.length, equals(3), reason: '应返回全部 3 条连接记录');
       expect(all[0].name, equals('NAS A'),
           reason: '第一条应按 created_at 排序为 NAS A');
       expect(all[1].name, equals('NAS B'),
@@ -237,8 +223,7 @@ void main() {
 
       // Query the raw database directly to inspect the password column.
       final rows = await db.query('connections');
-      expect(rows.length, equals(1),
-          reason: '应有一条记录被插入');
+      expect(rows.length, equals(1), reason: '应有一条记录被插入');
 
       final passwordValue = rows.first['password'] as String;
       expect(passwordValue, equals(refKey),
@@ -274,12 +259,9 @@ void main() {
       expect(updated, isNotNull, reason: '更新后仍应能查到记录');
       expect(updated!.url, equals('http://new.example.com:8080'),
           reason: 'URL 应更新为新值');
-      expect(updated.name, equals('My NAS'),
-          reason: '未修改的字段应保持不变');
-      expect(updated.username, equals('admin'),
-          reason: '未修改的字段应保持不变');
-      expect(updated.basePath, equals('/dav'),
-          reason: '未修改的字段应保持不变');
+      expect(updated.name, equals('My NAS'), reason: '未修改的字段应保持不变');
+      expect(updated.username, equals('admin'), reason: '未修改的字段应保持不变');
+      expect(updated.basePath, equals('/dav'), reason: '未修改的字段应保持不变');
       expect(
         updated.updatedAt.millisecondsSinceEpoch,
         greaterThan(originalUpdatedAtMs),

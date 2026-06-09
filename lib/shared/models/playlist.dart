@@ -109,9 +109,8 @@ class PlaylistTrack {
       name: fileName,
       path: filePath,
       isDirectory: false,
-      audioType: NasFile.isAudioFile(fileName)
-          ? NasFile.classifyType(fileName)
-          : null,
+      audioType:
+          NasFile.isAudioFile(fileName) ? NasFile.classifyType(fileName) : null,
     );
   }
 

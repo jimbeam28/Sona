@@ -84,49 +84,49 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     // PLY-F: eagerly wire NasAudioHandler.onConfigChanged → BackgroundPlaybackNotifier
     ref.read(backgroundPlaybackSyncProvider);
     return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) {
-          moveTaskToBack();
-        }
-      },
-      child: Scaffold(
-      appBar: AppBar(
-        title: const Text('Sona'),
-        centerTitle: true,
-        actions: [
-          if (_tabController.index == 0) _playlistSortMenu(),
-          if (_tabController.index == 1) _browserSortMenu(),
-          IconButton(
-            icon: const Icon(Icons.settings),
-            tooltip: '设置',
-            onPressed: () => context.push('/settings'),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          TabBar(
-            controller: _tabController,
-            labelColor: Theme.of(context).colorScheme.primary,
-            tabs: const [
-              Tab(text: '播放单'),
-              Tab(text: '文件浏览器'),
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) {
+            moveTaskToBack();
+          }
+        },
+        child: Scaffold(
+          appBar: AppBar(
+            title: const Text('Sona'),
+            centerTitle: true,
+            actions: [
+              if (_tabController.index == 0) _playlistSortMenu(),
+              if (_tabController.index == 1) _browserSortMenu(),
+              IconButton(
+                icon: const Icon(Icons.settings),
+                tooltip: '设置',
+                onPressed: () => context.push('/settings'),
+              ),
             ],
           ),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: const [
-                PlaylistListScreen(),
-                BrowserScreen(),
-              ],
-            ),
+          body: Column(
+            children: [
+              TabBar(
+                controller: _tabController,
+                labelColor: Theme.of(context).colorScheme.primary,
+                tabs: const [
+                  Tab(text: '播放单'),
+                  Tab(text: '文件浏览器'),
+                ],
+              ),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: const [
+                    PlaylistListScreen(),
+                    BrowserScreen(),
+                  ],
+                ),
+              ),
+              const MiniPlayerBar(),
+            ],
           ),
-          const MiniPlayerBar(),
-        ],
-      ),
-    ));
+        ));
   }
 
   Widget _playlistSortMenu() {
@@ -166,8 +166,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  PopupMenuItem<T> _sortItem<T>(
-      String title, T value, T current) {
+  PopupMenuItem<T> _sortItem<T>(String title, T value, T current) {
     return PopupMenuItem(
       value: value,
       child: Row(

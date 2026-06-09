@@ -590,8 +590,7 @@ void main() {
       final latest = await dao.findLatest();
       expect(latest, isNotNull);
       expect(latest!.filePath, equals('/music/newer.mp3'));
-      expect(await dao.count(), equals(1),
-          reason: '迁移到单活跃记录模型后应只保留最近一条进度');
+      expect(await dao.count(), equals(1), reason: '迁移到单活跃记录模型后应只保留最近一条进度');
     });
 
     test('upsertLatest replaces previous active progress record', () async {
@@ -608,8 +607,7 @@ void main() {
         durationMs: 200000,
       );
 
-      expect(await dao.count(), equals(1),
-          reason: '单活跃模型下再次保存应替换旧记录而不是累积');
+      expect(await dao.count(), equals(1), reason: '单活跃模型下再次保存应替换旧记录而不是累积');
       expect(await dao.find(1, '/music/first.mp3'), isNull);
 
       final latest = await dao.findLatest();
@@ -1102,7 +1100,8 @@ void main() {
 
     // ── PRG-FIX-T01: 有进度文件 → 对话框 → 选择继续 → 从保存位置播放 ──────
 
-    testWidgets('PRG-FIX-T01: dialog choose continue → returns true with position',
+    testWidgets(
+        'PRG-FIX-T01: dialog choose continue → returns true with position',
         (WidgetTester tester) async {
       final progress = _progress(
         positionMs: 120000, // 2:00
@@ -1266,8 +1265,7 @@ void main() {
 
       expect(progress, isNotNull,
           reason: '播放单曲目有进度时 progressForFileProvider 应返回进度记录');
-      expect(progress!.positionMs, equals(90000),
-          reason: '应返回正确的 positionMs');
+      expect(progress!.positionMs, equals(90000), reason: '应返回正确的 positionMs');
       expect(progress.positionMs >= 5000, isTrue,
           reason: 'positionMs >= 5000 时应触发恢复对话框');
     });
@@ -1309,8 +1307,7 @@ void main() {
 
       // Verify the threshold logic directly
       final shouldShowDialog = result != null && result.positionMs >= 5000;
-      expect(shouldShowDialog, isFalse,
-          reason: 'positionMs < 5000 时不应弹出恢复对话框');
+      expect(shouldShowDialog, isFalse, reason: 'positionMs < 5000 时不应弹出恢复对话框');
     });
 
     // ── Additional: PlayQueue constructed with startPositionMs ───────────────
@@ -1404,8 +1401,7 @@ void main() {
       when(mockPlayer.duration).thenReturn(const Duration(minutes: 3));
       when(mockPlayer.playing).thenReturn(true);
 
-      final q = queue ??
-          PlayQueue(files: [testFile], currentIndex: 0);
+      final q = queue ?? PlayQueue(files: [testFile], currentIndex: 0);
 
       final conn = testConn();
 
@@ -1460,7 +1456,8 @@ void main() {
         overrides.add(loadAndPlayProvider.overrideWith((_) {
           return () async => const TrackLoadResult.failed();
         }));
-        overrides.add(playModeProvider.overrideWith((_) => PlayMode.sequential));
+        overrides
+            .add(playModeProvider.overrideWith((_) => PlayMode.sequential));
       }
 
       final container = ProviderContainer(overrides: overrides);
@@ -1479,8 +1476,7 @@ void main() {
         when(mockPlayer.position).thenReturn(const Duration(seconds: 30));
         when(mockPlayer.duration).thenReturn(const Duration(minutes: 3));
 
-        final queue =
-            PlayQueue(files: [testFile], currentIndex: 0);
+        final queue = PlayQueue(files: [testFile], currentIndex: 0);
 
         final container = ProviderContainer(
           overrides: [
@@ -1516,15 +1512,14 @@ void main() {
 
     // ── TST-T08: Pause-triggered save ─────────────────────────────────────
 
-    test('TST-T08: 暂停触发保存 — playerStateStream发出playing: true→false',
-        () {
-      final stateController = StreamController<PlayerState>.broadcast(sync: true);
+    test('TST-T08: 暂停触发保存 — playerStateStream发出playing: true→false', () {
+      final stateController =
+          StreamController<PlayerState>.broadcast(sync: true);
 
       final mockPlayer = MockAudioPlayer();
       when(mockPlayer.playing).thenReturn(true);
 
-      final queue =
-          PlayQueue(files: [testFile], currentIndex: 0);
+      final queue = PlayQueue(files: [testFile], currentIndex: 0);
 
       int saveCount = 0;
 
@@ -1566,19 +1561,16 @@ void main() {
 
       // Emit playing=false — save should trigger
       stateController.add(PlayerState(false, ProcessingState.ready));
-      expect(saveCount, equals(1),
-          reason: 'playing→paused转换应触发进度保存');
+      expect(saveCount, equals(1), reason: 'playing→paused转换应触发进度保存');
 
       // Emit another playing→paused cycle — should trigger again
       stateController.add(PlayerState(true, ProcessingState.ready));
       stateController.add(PlayerState(false, ProcessingState.ready));
-      expect(saveCount, equals(2),
-          reason: '第二次playing→paused也应触发保存');
+      expect(saveCount, equals(2), reason: '第二次playing→paused也应触发保存');
 
       // Consecutive paused states — should NOT trigger duplicate saves
       stateController.add(PlayerState(false, ProcessingState.ready));
-      expect(saveCount, equals(2),
-          reason: '连续paused状态不应触发重复保存');
+      expect(saveCount, equals(2), reason: '连续paused状态不应触发重复保存');
     });
 
     // ── TST-T09: Save before skip ─────────────────────────────────────────
@@ -1643,15 +1635,13 @@ void main() {
 
       // Verify queue advanced to next track
       final newQueue = container.read(currentPlayQueueProvider);
-      expect(newQueue!.currentIndex, equals(1),
-          reason: '队列应前进到下一首(index=1)');
+      expect(newQueue!.currentIndex, equals(1), reason: '队列应前进到下一首(index=1)');
       expect(newQueue.current.path, equals('/music/b.mp3'),
           reason: '当前曲目应为 b.mp3');
 
       // Verify the save actually reached the DAO
       final progress = await dao.find(1, '/music/a.mp3');
-      expect(progress, isNotNull,
-          reason: '旧曲目进度应已写入数据库');
+      expect(progress, isNotNull, reason: '旧曲目进度应已写入数据库');
       expect(progress!.positionMs, equals(30000),
           reason: '保存的positionMs应与mock player一致');
     });
@@ -1669,21 +1659,18 @@ void main() {
       // when AppLifecycleState.paused is received, call _saveProgress()
       container.read(saveProgressProvider)();
 
-      expect(saveCount, equals(1),
-          reason: '进入后台时应触发一次进度保存');
+      expect(saveCount, equals(1), reason: '进入后台时应触发一次进度保存');
 
       // Verify data reached the DAO
       final progress = await dao.find(1, '/music/test.mp3');
-      expect(progress, isNotNull,
-          reason: '后台保存的进度应持久化到数据库');
+      expect(progress, isNotNull, reason: '后台保存的进度应持久化到数据库');
       expect(progress!.positionMs, equals(30000),
           reason: '保存的positionMs应与mock player一致');
     });
 
     // ── TST-T11: Dispose save ─────────────────────────────────────────────
 
-    test('TST-T11: dispose保存 — PlayerScreen dispose触发保存并清理订阅',
-        () {
+    test('TST-T11: dispose保存 — PlayerScreen dispose触发保存并清理订阅', () {
       fakeAsync((async) {
         int saveCount = 0;
         final (container, _) = createContainer(
@@ -1698,8 +1685,7 @@ void main() {
         // Simulate what PlayerScreen.dispose does:
         // 1. Save final progress
         container.read(saveProgressProvider)();
-        expect(saveCount, equals(1),
-            reason: 'dispose时应执行最后一次进度保存');
+        expect(saveCount, equals(1), reason: 'dispose时应执行最后一次进度保存');
 
         // 2. Cancel auto-save subscriptions
         container.read(cancelPlaybackSubscriptionsProvider)();
@@ -1709,8 +1695,7 @@ void main() {
         async.elapse(const Duration(seconds: 30));
 
         // Only the manual save, not the periodic ones (timer was cancelled)
-        expect(saveCount, equals(1),
-            reason: '取消订阅后不应再有周期保存');
+        expect(saveCount, equals(1), reason: '取消订阅后不应再有周期保存');
 
         container.dispose();
       });
@@ -1744,10 +1729,8 @@ void main() {
       addTearDown(container2.dispose);
 
       // Read latest progress (as restoreStartupProgressProvider does)
-      final latest =
-          await container2.read(latestPlayedProgressProvider.future);
-      expect(latest, isNotNull,
-          reason: '重启后应能读取到上次保存的进度');
+      final latest = await container2.read(latestPlayedProgressProvider.future);
+      expect(latest, isNotNull, reason: '重启后应能读取到上次保存的进度');
       expect(latest!.positionMs, equals(120000));
       expect(latest.filePath, equals('/music/test.mp3'));
       expect(latest.connectionId, equals(1));
@@ -1797,8 +1780,7 @@ void main() {
       // ── Test sanitizeResumePosition ─────────────────────────────────
       expect(sanitizeResumePosition(120000, 300000), equals(120000),
           reason: '合法位置不变');
-      expect(sanitizeResumePosition(-1, 300000), equals(0),
-          reason: '负数归零');
+      expect(sanitizeResumePosition(-1, 300000), equals(0), reason: '负数归零');
       expect(sanitizeResumePosition(300000, 300000), equals(0),
           reason: '到达结尾归零');
       expect(sanitizeResumePosition(350000, 300000), equals(0),
@@ -1815,8 +1797,7 @@ void main() {
         positionMs: 10000,
         durationMs: 120000,
       ));
-      expect(await dao.count(), equals(1),
-          reason: '初始应有一条记录');
+      expect(await dao.count(), equals(1), reason: '初始应有一条记录');
 
       // upsertLatest should DELETE ALL old records and insert one new
       await dao.upsertLatest(
@@ -1830,13 +1811,11 @@ void main() {
 
       // Verify old record is physically gone
       final oldRecord = await dao.find(1, '/music/first.mp3');
-      expect(oldRecord, isNull,
-          reason: '第一次upsert的记录应被物理删除');
+      expect(oldRecord, isNull, reason: '第一次upsert的记录应被物理删除');
 
       // Verify new record exists
       final newRecord = await dao.find(1, '/music/second.mp3');
-      expect(newRecord, isNotNull,
-          reason: '新记录应存在');
+      expect(newRecord, isNotNull, reason: '新记录应存在');
       expect(newRecord!.positionMs, equals(25000));
 
       // Third call: still count=1, old "second.mp3" deleted
@@ -1850,26 +1829,30 @@ void main() {
           reason: '第三次upsertLatest后仍只有1条记录(非累积)');
 
       final secondRecord = await dao.find(1, '/music/second.mp3');
-      expect(secondRecord, isNull,
-          reason: '第二次记录也被物理删除');
+      expect(secondRecord, isNull, reason: '第二次记录也被物理删除');
 
       final thirdRecord = await dao.find(2, '/music/third.mp3');
-      expect(thirdRecord, isNotNull,
-          reason: '第三次记录存在');
+      expect(thirdRecord, isNotNull, reason: '第三次记录存在');
       expect(thirdRecord!.positionMs, equals(50000));
 
       // Multiple consecutive calls — never accumulate
       await dao.upsertLatest(
-        connectionId: 1, filePath: '/music/a.mp3',
-        positionMs: 10000, durationMs: 100000,
+        connectionId: 1,
+        filePath: '/music/a.mp3',
+        positionMs: 10000,
+        durationMs: 100000,
       );
       await dao.upsertLatest(
-        connectionId: 1, filePath: '/music/b.mp3',
-        positionMs: 20000, durationMs: 100000,
+        connectionId: 1,
+        filePath: '/music/b.mp3',
+        positionMs: 20000,
+        durationMs: 100000,
       );
       await dao.upsertLatest(
-        connectionId: 1, filePath: '/music/c.mp3',
-        positionMs: 30000, durationMs: 100000,
+        connectionId: 1,
+        filePath: '/music/c.mp3',
+        positionMs: 30000,
+        durationMs: 100000,
       );
       expect(await dao.count(), equals(1),
           reason: '连续多次upsertLatest count始终为1,永不累积');
@@ -1915,9 +1898,7 @@ void main() {
       final queue = PlayQueue(
         files: [
           const NasFile(
-              name: 'song.mp3',
-              path: '/music/song.mp3',
-              isDirectory: false),
+              name: 'song.mp3', path: '/music/song.mp3', isDirectory: false),
         ],
         currentIndex: 0,
         startPositionMs: 45000,

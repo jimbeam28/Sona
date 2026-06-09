@@ -61,7 +61,8 @@ class AboutScreen extends StatelessWidget {
           const _SectionHeader(title: '开源许可'),
           const LicenseListTile(
             packageName: 'Flutter',
-            packageDescription: 'Google\'s UI toolkit for building natively compiled applications.',
+            packageDescription:
+                'Google\'s UI toolkit for building natively compiled applications.',
           ),
           const LicenseListTile(
             packageName: 'just_audio',

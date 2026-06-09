@@ -85,10 +85,9 @@ class NasFile {
     }
 
     // Strip trailing slash for directories so name extraction is consistent
-    final cleanHref =
-        decodedHref.endsWith('/') && decodedHref.length > 1
-            ? decodedHref.substring(0, decodedHref.length - 1)
-            : decodedHref;
+    final cleanHref = decodedHref.endsWith('/') && decodedHref.length > 1
+        ? decodedHref.substring(0, decodedHref.length - 1)
+        : decodedHref;
 
     // Determine name
     final rawName = props['displayname'];
@@ -135,9 +134,18 @@ class NasFile {
   static DateTime? _parseRfc1123(String raw) {
     // Try standard HTTP-date format: "Mon, 01 Jan 2024 00:00:00 GMT"
     const months = {
-      'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4,
-      'may': 5, 'jun': 6, 'jul': 7, 'aug': 8,
-      'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12,
+      'jan': 1,
+      'feb': 2,
+      'mar': 3,
+      'apr': 4,
+      'may': 5,
+      'jun': 6,
+      'jul': 7,
+      'aug': 8,
+      'sep': 9,
+      'oct': 10,
+      'nov': 11,
+      'dec': 12,
     };
     try {
       final parts = raw.trim().split(' ');
@@ -181,10 +189,8 @@ class NasFile {
       path: path ?? this.path,
       isDirectory: isDirectory ?? this.isDirectory,
       size: clearSize ? null : (size ?? this.size),
-      modifiedAt:
-          clearModifiedAt ? null : (modifiedAt ?? this.modifiedAt),
-      audioType:
-          clearAudioType ? null : (audioType ?? this.audioType),
+      modifiedAt: clearModifiedAt ? null : (modifiedAt ?? this.modifiedAt),
+      audioType: clearAudioType ? null : (audioType ?? this.audioType),
     );
   }
 
@@ -204,6 +210,5 @@ class NasFile {
           audioType == other.audioType;
 
   @override
-  int get hashCode =>
-      Object.hash(name, path, isDirectory, size, audioType);
+  int get hashCode => Object.hash(name, path, isDirectory, size, audioType);
 }

@@ -365,9 +365,11 @@ void main() {
       // Now try to add tracks A (existing), C (new), B (existing), D (new)
       final addTracks = container.read(addTracksToPlaylistProvider);
       await addTracks(playlistId, [
-        const NasFile(name: 'A.mp3', path: '/existing/A.mp3', isDirectory: false),
+        const NasFile(
+            name: 'A.mp3', path: '/existing/A.mp3', isDirectory: false),
         const NasFile(name: 'C.mp3', path: '/new/C.mp3', isDirectory: false),
-        const NasFile(name: 'B.mp3', path: '/existing/B.mp3', isDirectory: false),
+        const NasFile(
+            name: 'B.mp3', path: '/existing/B.mp3', isDirectory: false),
         const NasFile(name: 'D.mp3', path: '/new/D.mp3', isDirectory: false),
       ]);
 
@@ -406,8 +408,7 @@ void main() {
               .overrideWith((ref) => Future.value(<PlaylistTrack>[])),
           playlistListProvider
               .overrideWith((ref) => Future.value(_testPlaylists)),
-          directoryContentsProvider
-              .overrideWith((ref, path) {
+          directoryContentsProvider.overrideWith((ref, path) {
             if (path == '/') return Future.value(rootFiles);
             if (path == '/music') return Future.value(musicFiles);
             return Future.value(<NasFile>[]);
@@ -475,8 +476,8 @@ void main() {
       );
       final outerNav = outerContainer.read(navigationStackProvider.notifier);
       outerNav.push('/browser-state');
-      final initialStack = List<String>.from(
-          outerContainer.read(navigationStackProvider));
+      final initialStack =
+          List<String>.from(outerContainer.read(navigationStackProvider));
 
       // Open bottom sheet
       await _openSheet(tester);

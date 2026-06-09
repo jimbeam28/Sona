@@ -44,8 +44,9 @@ class AudioSourceBuilder {
     required String filePath,
   }) {
     // Strip trailing slash from base so the path stays clean
-    final base =
-        baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
+    final base = baseUrl.endsWith('/')
+        ? baseUrl.substring(0, baseUrl.length - 1)
+        : baseUrl;
 
     final path = filePath.startsWith('/') ? filePath : '/$filePath';
 
@@ -83,8 +84,7 @@ class AudioSourceBuilder {
     final basePath = baseUri.path.endsWith('/')
         ? baseUri.path.substring(0, baseUri.path.length - 1)
         : baseUri.path;
-    final relPath =
-        filePath.startsWith('/') ? filePath : '/$filePath';
+    final relPath = filePath.startsWith('/') ? filePath : '/$filePath';
     final combinedPath = '$basePath$relPath';
 
     // Encode each segment
@@ -125,8 +125,7 @@ class AudioSourceBuilder {
     required String username,
     required String password,
   }) {
-    final uri =
-        buildUriWithBasePath(baseUrl: baseUrl, filePath: filePath);
+    final uri = buildUriWithBasePath(baseUrl: baseUrl, filePath: filePath);
     final authHeader = buildAuthHeader(username: username, password: password);
     return AudioSource.uri(uri, headers: {'Authorization': authHeader});
   }

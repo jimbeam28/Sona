@@ -345,9 +345,8 @@ class PlayQueue {
           playMode == other.playMode;
 
   @override
-  int get hashCode =>
-      Object.hash(Object.hashAll(files), currentIndex, startPositionMs,
-          playMode);
+  int get hashCode => Object.hash(
+      Object.hashAll(files), currentIndex, startPositionMs, playMode);
 }
 
 /// Shallow list equality helper used by [PlayQueue.==].

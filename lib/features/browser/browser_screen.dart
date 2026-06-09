@@ -78,18 +78,15 @@ class BrowserScreen extends ConsumerWidget {
                 }
                 return RefreshIndicator(
                   onRefresh: () async {
-                    final currentPath =
-                        ref.read(navigationStackProvider).last;
+                    final currentPath = ref.read(navigationStackProvider).last;
                     ref.read(clearDirectoryCacheProvider)(currentPath);
-                    final _ = await ref.refresh(
-                        directoryContentsProvider(currentPath).future);
+                    final _ = await ref
+                        .refresh(directoryContentsProvider(currentPath).future);
                   },
                   child: _FileList(
                     files: files,
                     onDirectoryTap: (dirPath) {
-                      ref
-                          .read(navigationStackProvider.notifier)
-                          .push(dirPath);
+                      ref.read(navigationStackProvider.notifier).push(dirPath);
                     },
                     onFileTap: (tappedFile) async {
                       debugPrint('[Browser] onFileTap: ${tappedFile.path}');
@@ -109,8 +106,7 @@ class BrowserScreen extends ConsumerWidget {
                       final progress =
                           ref.read(playProgressProvider(tappedFile.path));
                       if (progress != null && progress.positionMs >= 5000) {
-                        final container =
-                            ProviderScope.containerOf(context);
+                        final container = ProviderScope.containerOf(context);
                         final resume = await showProgressResumeDialog(
                             context, container, progress);
                         if (resume == true) {
@@ -118,7 +114,8 @@ class BrowserScreen extends ConsumerWidget {
                         }
                       }
 
-                      debugPrint('[Browser] onFileTap: queue ${audioFiles.length} tracks idx=$startIndex');
+                      debugPrint(
+                          '[Browser] onFileTap: queue ${audioFiles.length} tracks idx=$startIndex');
 
                       final goRouter = GoRouter.of(context);
 
@@ -127,8 +124,7 @@ class BrowserScreen extends ConsumerWidget {
                         currentIndex: startIndex,
                         startPositionMs: startPositionMs,
                       );
-                      ref.read(currentPlayQueueProvider.notifier).state =
-                          queue;
+                      ref.read(currentPlayQueueProvider.notifier).state = queue;
                       final connId =
                           ref.read(activeConnectionProvider).valueOrNull?.id;
                       ref.read(lastQueueConnectionIdProvider.notifier).state =
@@ -151,9 +147,8 @@ class BrowserScreen extends ConsumerWidget {
                                   padding: const EdgeInsets.all(16),
                                   child: Text(
                                     tappedFile.name,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium,
+                                    style:
+                                        Theme.of(context).textTheme.titleMedium,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -174,8 +169,7 @@ class BrowserScreen extends ConsumerWidget {
                                       filePath: progress.filePath,
                                     );
                                     Navigator.of(ctx).pop();
-                                    ScaffoldMessenger.of(context)
-                                        .showSnackBar(
+                                    ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                         content: Text('播放进度已清除'),
                                       ),

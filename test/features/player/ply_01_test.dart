@@ -75,8 +75,7 @@ void main() {
       // empty:empty base64 = Og==
       final encodedPart = header.substring(6);
       final decoded = utf8.decode(base64.decode(encodedPart));
-      expect(decoded, equals(':'),
-          reason: '空凭据应产生 ":" 格式');
+      expect(decoded, equals(':'), reason: '空凭据应产生 ":" 格式');
     });
 
     test('buildAuthHeader with Chinese username and password', () {
@@ -87,8 +86,7 @@ void main() {
 
       final encodedPart = header.substring(6);
       final decoded = utf8.decode(base64.decode(encodedPart));
-      expect(decoded, equals('管理员:密码123'),
-          reason: 'UTF-8 编码的中文凭据应正确编解码');
+      expect(decoded, equals('管理员:密码123'), reason: 'UTF-8 编码的中文凭据应正确编解码');
     });
   });
 
@@ -104,8 +102,7 @@ void main() {
       );
 
       final uriSource = _asUriSource(source);
-      expect(uriSource, isNotNull,
-          reason: 'build() 应返回 UriAudioSource 实例');
+      expect(uriSource, isNotNull, reason: 'build() 应返回 UriAudioSource 实例');
 
       // Verify URI
       expect(uriSource!.uri.toString(),
@@ -115,8 +112,7 @@ void main() {
       // Verify auth header in headers map
       expect(uriSource.headers, isNotNull);
       expect(
-          uriSource.headers!['Authorization'],
-          equals('Basic YWRtaW46c2VjcmV0'),
+          uriSource.headers!['Authorization'], equals('Basic YWRtaW46c2VjcmV0'),
           reason: 'Authorization header 应为正确的 Basic Auth 值');
     });
 
@@ -155,8 +151,7 @@ void main() {
       final uriStr = uriSource!.uri.toString();
       expect(uriStr, contains('/dav/'),
           reason: 'buildWithBasePath 应保留连接 URL 的基础路径');
-      expect(uriStr, contains('/music/song.mp3'),
-          reason: '文件路径应拼接在基础路径之后');
+      expect(uriStr, contains('/music/song.mp3'), reason: '文件路径应拼接在基础路径之后');
     });
 
     test('AudioSource headers map contains only Authorization', () {
@@ -184,18 +179,15 @@ void main() {
       const ex = WebDavException('无法连接到服务器');
       expect(ex.message, equals('无法连接到服务器'));
       expect(ex.statusCode, isNull);
-      expect(ex.isAuthError, isFalse,
-          reason: '无状态码的网络错误不应标记为认证错误');
-      expect(ex, isA<Exception>(),
-          reason: 'WebDavException 应是 Exception 的子类型');
+      expect(ex.isAuthError, isFalse, reason: '无状态码的网络错误不应标记为认证错误');
+      expect(ex, isA<Exception>(), reason: 'WebDavException 应是 Exception 的子类型');
     });
 
     test('PlayerLoadState.error creates correct error state', () {
       final state = PlayerLoadState.error('加载失败: 网络错误');
       expect(state.status, equals(PlayerLoadStatus.error));
       expect(state.errorMessage, equals('加载失败: 网络错误'));
-      expect(state.isAuthError, isFalse,
-          reason: '普通错误 isAuthError 应为 false');
+      expect(state.isAuthError, isFalse, reason: '普通错误 isAuthError 应为 false');
     });
 
     test('PlayerLoadState idle / loading / ready states', () {
@@ -220,8 +212,7 @@ void main() {
       final c = PlayerLoadState.error('认证失败', isAuthError: true);
 
       expect(a, equals(b), reason: '相同属性值的状态应相等');
-      expect(a, isNot(equals(c)),
-          reason: '不同 errorMessage 的状态应不相等');
+      expect(a, isNot(equals(c)), reason: '不同 errorMessage 的状态应不相等');
     });
   });
 
@@ -240,8 +231,7 @@ void main() {
       expect(uriSource, isNotNull);
 
       final uri = uriSource!.uri.toString();
-      expect(uri.endsWith('.mp3'), isTrue,
-          reason: 'URL 应以 .mp3 结尾');
+      expect(uri.endsWith('.mp3'), isTrue, reason: 'URL 应以 .mp3 结尾');
       expect(uri, equals('http://192.168.1.1:8080/music/song.mp3'),
           reason: 'MP3 文件 URL 应正确构建');
     });
@@ -278,8 +268,7 @@ void main() {
       expect(uriSource, isNotNull);
 
       final uri = uriSource!.uri.toString();
-      expect(uri.endsWith('.flac'), isTrue,
-          reason: 'URL 应以 .flac 结尾');
+      expect(uri.endsWith('.flac'), isTrue, reason: 'URL 应以 .flac 结尾');
       expect(uri, equals('http://192.168.1.1:8080/music/hires.flac'),
           reason: 'FLAC 文件 URL 应正确构建');
     });
@@ -304,33 +293,27 @@ void main() {
 
   group('PLY-T06: Auth error (401) handling', () {
     test('WebDavException with 401 has isAuthError true', () {
-      const ex =
-          WebDavException('用户名或密码错误', statusCode: 401);
-      expect(ex.isAuthError, isTrue,
-          reason: '状态码 401 的异常 isAuthError 应为 true');
+      const ex = WebDavException('用户名或密码错误', statusCode: 401);
+      expect(ex.isAuthError, isTrue, reason: '状态码 401 的异常 isAuthError 应为 true');
       expect(ex.statusCode, equals(401));
       expect(ex.message, contains('用户名或密码'));
     });
 
     test('WebDavException with 403 has isAuthError true', () {
       const ex = WebDavException('禁止访问', statusCode: 403);
-      expect(ex.isAuthError, isTrue,
-          reason: '状态码 403 的异常也应标记为认证错误');
+      expect(ex.isAuthError, isTrue, reason: '状态码 403 的异常也应标记为认证错误');
     });
 
     test('PlayerLoadState.error with isAuthError true', () {
-      final state =
-          PlayerLoadState.error('用户名或密码错误', isAuthError: true);
+      final state = PlayerLoadState.error('用户名或密码错误', isAuthError: true);
       expect(state.status, equals(PlayerLoadStatus.error));
-      expect(state.isAuthError, isTrue,
-          reason: '认证错误状态 isAuthError 应为 true');
+      expect(state.isAuthError, isTrue, reason: '认证错误状态 isAuthError 应为 true');
       expect(state.errorMessage, contains('用户名或密码'));
     });
 
     test('PlayerLoadState.error for non-auth error does not flag auth', () {
       final state = PlayerLoadState.error('连接超时');
-      expect(state.isAuthError, isFalse,
-          reason: '非认证错误的 isAuthError 应为 false');
+      expect(state.isAuthError, isFalse, reason: '非认证错误的 isAuthError 应为 false');
     });
   });
 
@@ -343,10 +326,10 @@ void main() {
         filePath: '/music/my song.mp3',
       );
 
-      expect(uri.toString(), equals('http://192.168.1.1:8080/music/my%20song.mp3'),
+      expect(
+          uri.toString(), equals('http://192.168.1.1:8080/music/my%20song.mp3'),
           reason: '空格应被编码为 %20');
-      expect(uri.toString(), isNot(contains(' ')),
-          reason: '最终 URL 不应包含未编码的空格');
+      expect(uri.toString(), isNot(contains(' ')), reason: '最终 URL 不应包含未编码的空格');
     });
 
     test('Chinese characters in file path are percent-encoded', () {
@@ -358,11 +341,12 @@ void main() {
       // Chinese characters should be percent-encoded
       final uriStr = uri.toString();
       // 中文歌 in UTF-8: E4 B8 AD E6 96 87 E6 AD 8C
-      expect(uriStr,
-          equals('http://192.168.1.1:8080/music/%E4%B8%AD%E6%96%87%E6%AD%8C.mp3'),
+      expect(
+          uriStr,
+          equals(
+              'http://192.168.1.1:8080/music/%E4%B8%AD%E6%96%87%E6%AD%8C.mp3'),
           reason: '中文字符应被正确 percent-encode');
-      expect(uriStr, isNot(contains('中文')),
-          reason: '最终 URL 不应包含未编码的中文字符');
+      expect(uriStr, isNot(contains('中文')), reason: '最终 URL 不应包含未编码的中文字符');
     });
 
     test('brackets in file path are percent-encoded', () {
@@ -372,14 +356,10 @@ void main() {
       );
 
       final uriStr = uri.toString();
-      expect(uriStr, isNot(contains('[')),
-          reason: '左方括号应被编码');
-      expect(uriStr, isNot(contains(']')),
-          reason: '右方括号应被编码');
-      expect(uriStr, contains('%5B'),
-          reason: '左方括号应编码为 %5B');
-      expect(uriStr, contains('%5D'),
-          reason: '右方括号应编码为 %5D');
+      expect(uriStr, isNot(contains('[')), reason: '左方括号应被编码');
+      expect(uriStr, isNot(contains(']')), reason: '右方括号应被编码');
+      expect(uriStr, contains('%5B'), reason: '左方括号应编码为 %5B');
+      expect(uriStr, contains('%5D'), reason: '右方括号应编码为 %5D');
     });
 
     test('mixed special characters in file path', () {
@@ -440,8 +420,7 @@ void main() {
       );
       final uriStr = uri.toString();
       // 🎵 = U+1F3B5, UTF-8: F0 9F 8E B5
-      expect(uriStr, contains('%F0%9F%8E%B5'),
-          reason: 'emoji 应被正确 UTF-8 编码');
+      expect(uriStr, contains('%F0%9F%8E%B5'), reason: 'emoji 应被正确 UTF-8 编码');
       // Verify URI can be re-parsed
       final reparsed = Uri.parse(uriStr);
       expect(reparsed.scheme, equals('http'));
@@ -453,10 +432,8 @@ void main() {
         filePath: '/music/song#1.mp3',
       );
       final uriStr = uri.toString();
-      expect(uriStr, contains('%23'),
-          reason: '# 应编码为 %23 避免被解析为 fragment');
-      expect(uriStr, isNot(contains('#')),
-          reason: '最终 URL 不应包含未编码的 #');
+      expect(uriStr, contains('%23'), reason: '# 应编码为 %23 避免被解析为 fragment');
+      expect(uriStr, isNot(contains('#')), reason: '最终 URL 不应包含未编码的 #');
     });
 
     test('TST-T116: ? in file path encoded as %3F', () {
@@ -465,10 +442,8 @@ void main() {
         filePath: '/music/whats that?.mp3',
       );
       final uriStr = uri.toString();
-      expect(uriStr, contains('%3F'),
-          reason: '? 应编码为 %3F 避免被解析为 query');
-      expect(uriStr, isNot(contains('?')),
-          reason: '最终 URL 不应包含未编码的 ?');
+      expect(uriStr, contains('%3F'), reason: '? 应编码为 %3F 避免被解析为 query');
+      expect(uriStr, isNot(contains('?')), reason: '最终 URL 不应包含未编码的 ?');
     });
 
     test('TST-T117: & + % in file path are each correctly encoded', () {

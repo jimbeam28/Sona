@@ -238,14 +238,13 @@ void main() {
       expect(executedCount, equals(2),
           reason: 'TST-T119: 只有第1个(阻塞者)和第50个(最终胜者)执行');
       // 49 superseded
-      expect(supersededCount, equals(49),
-          reason: 'TST-T119: 49个请求被 supersede');
+      expect(supersededCount, equals(49), reason: 'TST-T119: 49个请求被 supersede');
       expect(results.last, equals('request-50'),
           reason: 'TST-T119: 最后一个请求应正常完成');
     });
 
-    test(
-        'TST-T120: pending request gets superseded by newer request', () async {
+    test('TST-T120: pending request gets superseded by newer request',
+        () async {
       final gate = SerializedRequestGate();
       final firstBlock = Completer<void>();
       final started = <String>[];
@@ -283,8 +282,7 @@ void main() {
       expect(await a, equals('a-superseded'));
       expect(await b, equals('b-superseded'));
       expect(await c, equals('C-done'));
-      expect(started, equals(['A', 'C']),
-          reason: 'TST-T120: B从未执行，被C取代');
+      expect(started, equals(['A', 'C']), reason: 'TST-T120: B从未执行，被C取代');
     });
   });
 
@@ -328,7 +326,8 @@ void main() {
 
       // Queue button is now next to the play mode button (top row),
       // not next to the next-track button (bottom row).
-      final modeButton = tester.getCenter(find.byTooltip(labelForPlayMode(PlayMode.sequential)));
+      final modeButton = tester
+          .getCenter(find.byTooltip(labelForPlayMode(PlayMode.sequential)));
       final queueCenter = tester.getCenter(find.byIcon(Icons.queue_music));
       expect(queueCenter.dx, greaterThan(modeButton.dx),
           reason: '播放列表按钮应位于顺序播放按钮右侧');
@@ -366,8 +365,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 
-      expect(find.text('60s'), findsNWidgets(2),
-          reason: '图标下方应显示时间标签');
+      expect(find.text('60s'), findsNWidgets(2), reason: '图标下方应显示时间标签');
       expect(find.byIcon(Icons.replay), findsNWidgets(2),
           reason: '快进/快退应统一使用回转箭头语义');
     });
@@ -991,8 +989,7 @@ void main() {
       );
       expect(file.name, equals('song.mp3'),
           reason: 'null displayname 时 fallback 到 href 最后一段');
-      expect(file.isDirectory, isFalse,
-          reason: 'null resourcetype → 不是目录');
+      expect(file.isDirectory, isFalse, reason: 'null resourcetype → 不是目录');
       expect(file.size, isNull);
       expect(file.modifiedAt, isNull);
     });
@@ -1004,10 +1001,8 @@ void main() {
       );
       expect(file.name, equals('audio.mp3'));
       expect(file.path, equals('/music/audio.mp3'));
-      expect(file.isDirectory, isFalse,
-          reason: '缺失 resourcetype → 默认不是目录');
-      expect(file.size, isNull,
-          reason: '缺失 getcontentlength → size=null');
+      expect(file.isDirectory, isFalse, reason: '缺失 resourcetype → 默认不是目录');
+      expect(file.size, isNull, reason: '缺失 getcontentlength → size=null');
       expect(file.modifiedAt, isNull,
           reason: '缺失 getlastmodified → modifiedAt=null');
       expect(file.audioType, equals(AudioFileType.music),
@@ -1024,8 +1019,7 @@ void main() {
       expect(file.isDirectory, isTrue,
           reason: 'resourcetype 含 collection → 是目录');
       expect(file.name, equals('music'));
-      expect(file.audioType, isNull,
-          reason: '目录不应有 audioType');
+      expect(file.audioType, isNull, reason: '目录不应有 audioType');
     });
   });
 
@@ -1043,8 +1037,7 @@ void main() {
           reason: 'TST-T132: failed状态isLoaded应为false');
       expect(result.isSuperseded, isFalse,
           reason: 'TST-T132: failed状态isSuperseded应为false');
-      expect(result.player, isNull,
-          reason: 'TST-T132: failed状态player应为null');
+      expect(result.player, isNull, reason: 'TST-T132: failed状态player应为null');
     });
 
     // ── TST-T133: setAudioSource failure → PlayerLoadState.error ──────────────
@@ -1056,23 +1049,20 @@ void main() {
           reason: 'TST-T133: 通用加载失败status=error');
       expect(genericError.errorMessage, equals('加载失败'),
           reason: 'TST-T133: 错误消息应保留');
-      expect(genericError.isAuthError, isFalse,
-          reason: 'TST-T133: 默认非认证错误');
+      expect(genericError.isAuthError, isFalse, reason: 'TST-T133: 默认非认证错误');
 
       // Auth failure
       final authError = PlayerLoadState.error('认证失败', isAuthError: true);
       expect(authError.status, equals(PlayerLoadStatus.error),
           reason: 'TST-T133: 认证失败status=error');
-      expect(authError.isAuthError, isTrue,
-          reason: 'TST-T133: 认证错误标志应为true');
+      expect(authError.isAuthError, isTrue, reason: 'TST-T133: 认证错误标志应为true');
       expect(authError.errorMessage, equals('认证失败'));
 
       // Timeout error
       final timeoutError = PlayerLoadState.error('加载超时，请重试');
       expect(timeoutError.status, equals(PlayerLoadStatus.error),
           reason: 'TST-T133: 超时错误status=error');
-      expect(timeoutError.isAuthError, isFalse,
-          reason: 'TST-T133: 超时错误非认证错误');
+      expect(timeoutError.isAuthError, isFalse, reason: 'TST-T133: 超时错误非认证错误');
       expect(timeoutError.errorMessage, contains('超时'),
           reason: 'TST-T133: 超时错误消息应包含"超时"');
     });
@@ -1097,14 +1087,11 @@ void main() {
       const isPlaying = false;
 
       // When completed and not playing, the button shows play_arrow.
-      expect(isPlaying, isFalse,
-          reason: 'completed 状态下 playing 为 false');
+      expect(isPlaying, isFalse, reason: 'completed 状态下 playing 为 false');
 
       // The handler must seek to zero before playing.
-      const shouldSeekToZero =
-          processingState == ProcessingState.completed;
-      expect(shouldSeekToZero, isTrue,
-          reason: 'completed 状态下按下播放应先 seek 到开头');
+      const shouldSeekToZero = processingState == ProcessingState.completed;
+      expect(shouldSeekToZero, isTrue, reason: 'completed 状态下按下播放应先 seek 到开头');
     });
 
     test('non-completed state + press play → just play()', () {
@@ -1116,10 +1103,8 @@ void main() {
 
       expect(isPlaying, isFalse);
 
-      const shouldSeekToZero =
-          processingState == ProcessingState.completed;
-      expect(shouldSeekToZero, isFalse,
-          reason: '非 completed 状态下按下播放不应额外 seek');
+      const shouldSeekToZero = processingState == ProcessingState.completed;
+      expect(shouldSeekToZero, isFalse, reason: '非 completed 状态下按下播放不应额外 seek');
     });
   });
 
@@ -1141,8 +1126,7 @@ void main() {
       //   player.seek(Duration(milliseconds: v.round()));
       //   if (wasCompleted) { player.play(); }
 
-      const wasCompleted =
-          processingState == ProcessingState.completed;
+      const wasCompleted = processingState == ProcessingState.completed;
       expect(wasCompleted, isTrue,
           reason: 'completed 状态下拖动进度条应检测到 wasCompleted = true');
 
@@ -1151,18 +1135,15 @@ void main() {
           reason: '应 seek 到用户拖动的目标位置');
 
       // After seeking from completed state, the player should auto-play.
-      expect(wasCompleted, isTrue,
-          reason: 'completed 状态下 seek 后应自动调用 play()');
+      expect(wasCompleted, isTrue, reason: 'completed 状态下 seek 后应自动调用 play()');
     });
 
     test('non-completed state + drag slider → seek(pos) only, no play()', () {
       const processingState = ProcessingState.ready;
       const dragTargetMs = 30000;
 
-      const wasCompleted =
-          processingState == ProcessingState.completed;
-      expect(wasCompleted, isFalse,
-          reason: '非 completed 状态下拖动进度条不应自动 play()');
+      const wasCompleted = processingState == ProcessingState.completed;
+      expect(wasCompleted, isFalse, reason: '非 completed 状态下拖动进度条不应自动 play()');
 
       const seekTarget = Duration(milliseconds: dragTargetMs);
       expect(seekTarget, equals(const Duration(seconds: 30)));

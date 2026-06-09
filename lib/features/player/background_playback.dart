@@ -178,8 +178,7 @@ class BackgroundPlaybackConfig {
       audioFocus != AudioFocusState.lost;
 
   /// Whether the notification / lock-screen should show the "pause" action.
-  bool get showPauseAction =>
-      playbackState == BackgroundPlaybackState.playing;
+  bool get showPauseAction => playbackState == BackgroundPlaybackState.playing;
 
   /// Whether the notification / lock-screen should show the "play" action.
   bool get showPlayAction =>
@@ -222,8 +221,7 @@ class BackgroundPlaybackConfig {
       );
 
   @override
-  String toString() =>
-      'BackgroundPlaybackConfig('
+  String toString() => 'BackgroundPlaybackConfig('
       'backgroundEnabled: $backgroundEnabled, '
       'isInForeground: $isInForeground, '
       'audioFocus: $audioFocus, '

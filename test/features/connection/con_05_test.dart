@@ -233,8 +233,7 @@ void main() {
 
       // Assert validation succeeded
       final postValidation = container.read(connectionValidatorProvider);
-      expect(postValidation, isA<ValidationSuccess>(),
-          reason: '使用新 URL 验证应成功');
+      expect(postValidation, isA<ValidationSuccess>(), reason: '使用新 URL 验证应成功');
 
       // Step 2: Execute update via ConnectionUpdater (simulates clicking "保存")
       final updater = container.read(connectionUpdaterProvider);
@@ -251,12 +250,9 @@ void main() {
       expect(updated, isNotNull, reason: '更新后应仍能查到记录');
       expect(updated!.url, equals('http://new.example.com:8080'),
           reason: 'CON-T29: URL 应更新为新值');
-      expect(updated.name, equals('My NAS'),
-          reason: '未修改的名字应保持不变');
-      expect(updated.username, equals('admin'),
-          reason: '未修改的用户名应保持不变');
-      expect(updated.basePath, equals('/dav'),
-          reason: '未修改的 basePath 应保持不变');
+      expect(updated.name, equals('My NAS'), reason: '未修改的名字应保持不变');
+      expect(updated.username, equals('admin'), reason: '未修改的用户名应保持不变');
+      expect(updated.basePath, equals('/dav'), reason: '未修改的 basePath 应保持不变');
     });
   });
 
@@ -297,10 +293,8 @@ void main() {
           reason: 'CON-T30: 显示名称应更新为新值');
       expect(updated.url, equals('http://example.com:5005'),
           reason: 'URL 应保持不变（未修改）');
-      expect(updated.username, equals('admin'),
-          reason: '用户名应保持不变（未修改）');
-      expect(updated.basePath, equals('/dav'),
-          reason: 'basePath 应保持不变（未修改）');
+      expect(updated.username, equals('admin'), reason: '用户名应保持不变（未修改）');
+      expect(updated.basePath, equals('/dav'), reason: 'basePath 应保持不变（未修改）');
     });
   });
 
@@ -333,7 +327,8 @@ void main() {
             basePath: '/dav',
           );
 
-      expect(container.read(connectionValidatorProvider), isA<ValidationSuccess>(),
+      expect(
+          container.read(connectionValidatorProvider), isA<ValidationSuccess>(),
           reason: '使用新密码验证应成功');
 
       // Update with new password
@@ -344,8 +339,7 @@ void main() {
       );
 
       // Verify the new password was persisted in secure storage
-      final storedPassword =
-          await storage.read(key: 'connection_password_$id');
+      final storedPassword = await storage.read(key: 'connection_password_$id');
       expect(storedPassword, equals('new-password'),
           reason: '新密码应写入 secure storage');
     });

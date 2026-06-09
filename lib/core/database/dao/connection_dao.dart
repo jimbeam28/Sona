@@ -27,7 +27,8 @@ class ConnectionDao {
 
   /// Inserts a new connection row. Returns the new row id.
   /// [passwordKey] is the flutter_secure_storage reference key.
-  Future<int> insert(ConnectionConfig config, {required String passwordKey}) async {
+  Future<int> insert(ConnectionConfig config,
+      {required String passwordKey}) async {
     final db = await _db;
     final map = config.toMap(passwordKey: passwordKey);
     map.remove('id'); // let AUTOINCREMENT assign it
@@ -52,8 +53,8 @@ class ConnectionDao {
 
   Future<ConnectionConfig?> findActive() async {
     final db = await _db;
-    final rows = await db
-        .query('connections', where: 'is_active = 1', limit: 1);
+    final rows =
+        await db.query('connections', where: 'is_active = 1', limit: 1);
     if (rows.isEmpty) return null;
     return ConnectionConfig.fromMap(rows.first);
   }
@@ -73,12 +74,13 @@ class ConnectionDao {
 
   // ── Update ──────────────────────────────────────────────────────────────────
 
-  Future<int> update(ConnectionConfig config, {required String passwordKey}) async {
+  Future<int> update(ConnectionConfig config,
+      {required String passwordKey}) async {
     final db = await _db;
     final map = config.toMap(passwordKey: passwordKey);
     map['updated_at'] = DateTime.now().millisecondsSinceEpoch;
-    return db.update('connections', map,
-        where: 'id = ?', whereArgs: [config.id]);
+    return db
+        .update('connections', map, where: 'id = ?', whereArgs: [config.id]);
   }
 
   /// Sets [id] as the only active connection (clears all others).
@@ -145,8 +147,7 @@ class ConnectionDao {
 
   Future<int> count() async {
     final db = await _db;
-    final result =
-        await db.rawQuery('SELECT COUNT(*) as cnt FROM connections');
+    final result = await db.rawQuery('SELECT COUNT(*) as cnt FROM connections');
     return (result.first['cnt'] as int?) ?? 0;
   }
 }

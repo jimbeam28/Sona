@@ -109,7 +109,8 @@ void main() {
           reason: 'provider 状态应回到 sequential');
     });
 
-    test('full cycle: sequential → repeatOne → repeatAll → shuffle → sequential',
+    test(
+        'full cycle: sequential → repeatOne → repeatAll → shuffle → sequential',
         () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
@@ -122,12 +123,15 @@ void main() {
         modes.add(cycle());
       }
 
-      expect(modes, equals([
-        PlayMode.repeatOne,
-        PlayMode.repeatAll,
-        PlayMode.shuffle,
-        PlayMode.sequential,
-      ]), reason: '完整循环应依次经过 repeatOne, repeatAll, shuffle, sequential');
+      expect(
+          modes,
+          equals([
+            PlayMode.repeatOne,
+            PlayMode.repeatAll,
+            PlayMode.shuffle,
+            PlayMode.sequential,
+          ]),
+          reason: '完整循环应依次经过 repeatOne, repeatAll, shuffle, sequential');
     });
   });
 
@@ -168,14 +172,12 @@ void main() {
 
     test('all four mode icons are distinct', () {
       final icons = PlayMode.values.map(iconForPlayMode).toSet();
-      expect(icons.length, equals(4),
-          reason: '四种播放模式应各有不同的图标');
+      expect(icons.length, equals(4), reason: '四种播放模式应各有不同的图标');
     });
 
     test('labelForMode returns distinct labels for each mode', () {
       final labels = PlayMode.values.map(labelForPlayMode).toSet();
-      expect(labels.length, equals(4),
-          reason: '四种播放模式应各有不同的标签文字');
+      expect(labels.length, equals(4), reason: '四种播放模式应各有不同的标签文字');
     });
   });
 }

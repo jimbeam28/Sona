@@ -88,8 +88,7 @@ final createPlaylistProvider =
   };
 });
 
-final deletePlaylistProvider =
-    Provider<Future<void> Function(int id)>((ref) {
+final deletePlaylistProvider = Provider<Future<void> Function(int id)>((ref) {
   final dao = ref.watch(playlistDaoProvider);
   return (int id) async {
     await dao.deletePlaylist(id);
@@ -156,13 +155,11 @@ final removeTracksFromPlaylistProvider =
 /// Exports a playlist to a JSON string containing name, track list.
 final exportPlaylistProvider =
     FutureProvider.family<String, int>((ref, playlistId) async {
-  final playlists =
-      await ref.read(playlistListProvider.future);
+  final playlists = await ref.read(playlistListProvider.future);
   final playlist = playlists.where((p) => p.id == playlistId).firstOrNull;
   if (playlist == null) throw Exception('播放单不存在');
 
-  final tracks =
-      await ref.read(playlistTracksProvider(playlistId).future);
+  final tracks = await ref.read(playlistTracksProvider(playlistId).future);
   final json = {
     'name': playlist.name,
     'tracks': tracks

@@ -127,8 +127,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
           Expanded(
             child: visible.isEmpty
                 ? const Center(
-                    child: Text('暂无日志',
-                        style: TextStyle(color: Colors.grey)),
+                    child: Text('暂无日志', style: TextStyle(color: Colors.grey)),
                   )
                 : ListView.builder(
                     controller: _controller,

@@ -27,8 +27,7 @@ import 'package:nas_audio_player/features/settings/settings_screen.dart';
 Widget wrapWithSettings(Widget child, {SharedPreferences? prefs}) {
   return ProviderScope(
     overrides: [
-      if (prefs != null)
-        sharedPreferencesProvider.overrideWith((ref) => prefs),
+      if (prefs != null) sharedPreferencesProvider.overrideWith((ref) => prefs),
     ],
     child: MaterialApp(
       home: Scaffold(body: child),
@@ -40,8 +39,7 @@ Widget wrapWithSettings(Widget child, {SharedPreferences? prefs}) {
 ProviderContainer createContainer({SharedPreferences? prefs}) {
   return ProviderContainer(
     overrides: [
-      if (prefs != null)
-        sharedPreferencesProvider.overrideWith((ref) => prefs),
+      if (prefs != null) sharedPreferencesProvider.overrideWith((ref) => prefs),
     ],
   );
 }
@@ -170,8 +168,7 @@ void main() {
   // ═══════════════════════════════════════════════════════════════════════════════
 
   group('SET-03: 界面主题切换', () {
-    test('SET-T12: 首次启动无配置记录, getThemeMode() 返回 ThemeMode.system',
-        () async {
+    test('SET-T12: 首次启动无配置记录, getThemeMode() 返回 ThemeMode.system', () async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
 
@@ -258,8 +255,7 @@ void main() {
 
       expect(readSeekStep(null), equals(15),
           reason: 'prefs 为 null 时应返回默认步长 15秒');
-      expect(readSeekStep(prefs), equals(15),
-          reason: '无存储时应返回默认步长 15秒');
+      expect(readSeekStep(prefs), equals(15), reason: '无存储时应返回默认步长 15秒');
     });
 
     test('SET-T17b: seekStepSettingProvider 首次启动返回 15', () async {
@@ -366,8 +362,7 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
 
       final result = setSeekStep(prefs, 5);
-      expect(result, isFalse,
-          reason: '5秒不是有效步长选项，应返回 false');
+      expect(result, isFalse, reason: '5秒不是有效步长选项，应返回 false');
       expect(prefs.getInt('seek_step_seconds'), isNull,
           reason: '无效值不应写入 SharedPreferences');
     });
@@ -388,16 +383,12 @@ void main() {
       // Check section headers exist
       expect(find.text('播放设置'), findsOneWidget,
           reason: '应显示"播放设置" section header');
-      expect(find.text('外观'), findsOneWidget,
-          reason: '应显示"外观" section header');
-      expect(find.text('连接'), findsOneWidget,
-          reason: '应显示"连接" section header');
-      expect(find.text('关于'), findsOneWidget,
-          reason: '应显示"关于" section header');
+      expect(find.text('外观'), findsOneWidget, reason: '应显示"外观" section header');
+      expect(find.text('连接'), findsOneWidget, reason: '应显示"连接" section header');
+      expect(find.text('关于'), findsOneWidget, reason: '应显示"关于" section header');
     });
 
-    testWidgets('SET-T24: 「默认播放速度」ListTile 副标题显示当前值',
-        (tester) async {
+    testWidgets('SET-T24: 「默认播放速度」ListTile 副标题显示当前值', (tester) async {
       SharedPreferences.setMockInitialValues({
         'default_playback_speed': 1.5,
       });
@@ -406,14 +397,11 @@ void main() {
       await pumpSettingsScreen(tester, prefs: prefs);
       await tester.pumpAndSettle();
 
-      expect(find.text('默认播放速度'), findsOneWidget,
-          reason: '应显示"默认播放速度"标题');
-      expect(find.text('1.5x'), findsOneWidget,
-          reason: '副标题应显示当前默认速度 1.5x');
+      expect(find.text('默认播放速度'), findsOneWidget, reason: '应显示"默认播放速度"标题');
+      expect(find.text('1.5x'), findsOneWidget, reason: '副标题应显示当前默认速度 1.5x');
     });
 
-    testWidgets('SET-T25: 点击「默认播放速度」弹出 6 个速度选项对话框',
-        (tester) async {
+    testWidgets('SET-T25: 点击「默认播放速度」弹出 6 个速度选项对话框', (tester) async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
 
@@ -425,8 +413,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Dialog should appear with title
-      expect(find.text('选择默认播放速度'), findsOneWidget,
-          reason: '应弹出速度选择对话框');
+      expect(find.text('选择默认播放速度'), findsOneWidget, reason: '应弹出速度选择对话框');
 
       // Check all 6 speed options (note: some may also appear as subtitle text
       // behind the dialog — hence findsAtLeastNWidgets instead of findsOneWidget)
@@ -436,8 +423,7 @@ void main() {
       }
     });
 
-    testWidgets('SET-T26: 「快进/快退步长」ListTile 副标题显示当前步长',
-        (tester) async {
+    testWidgets('SET-T26: 「快进/快退步长」ListTile 副标题显示当前步长', (tester) async {
       SharedPreferences.setMockInitialValues({
         'seek_step_seconds': 30,
       });
@@ -446,14 +432,11 @@ void main() {
       await pumpSettingsScreen(tester, prefs: prefs);
       await tester.pumpAndSettle();
 
-      expect(find.text('快进/快退步长'), findsOneWidget,
-          reason: '应显示"快进/快退步长"标题');
-      expect(find.text('30秒'), findsOneWidget,
-          reason: '副标题应显示当前步长 30秒');
+      expect(find.text('快进/快退步长'), findsOneWidget, reason: '应显示"快进/快退步长"标题');
+      expect(find.text('30秒'), findsOneWidget, reason: '副标题应显示当前步长 30秒');
     });
 
-    testWidgets('SET-T27: 点击「快进/快退步长」弹出 4 个步长选项对话框',
-        (tester) async {
+    testWidgets('SET-T27: 点击「快进/快退步长」弹出 4 个步长选项对话框', (tester) async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
 
@@ -465,8 +448,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Dialog should appear with title
-      expect(find.text('选择快进/快退步长'), findsOneWidget,
-          reason: '应弹出步长选择对话框');
+      expect(find.text('选择快进/快退步长'), findsOneWidget, reason: '应弹出步长选择对话框');
 
       // Check all 4 step options (note: some may also appear as subtitle text
       // behind the dialog — hence findsAtLeastNWidgets instead of findsOneWidget)
@@ -476,8 +458,7 @@ void main() {
       }
     });
 
-    testWidgets('SET-T28: 「主题」ListTile 副标题显示当前主题模式',
-        (tester) async {
+    testWidgets('SET-T28: 「主题」ListTile 副标题显示当前主题模式', (tester) async {
       SharedPreferences.setMockInitialValues({
         'theme_mode': 'dark',
       });
@@ -486,14 +467,11 @@ void main() {
       await pumpSettingsScreen(tester, prefs: prefs);
       await tester.pumpAndSettle();
 
-      expect(find.text('主题'), findsOneWidget,
-          reason: '应显示"主题"标题');
-      expect(find.text('暗色'), findsOneWidget,
-          reason: '副标题应显示当前主题模式"暗色"');
+      expect(find.text('主题'), findsOneWidget, reason: '应显示"主题"标题');
+      expect(find.text('暗色'), findsOneWidget, reason: '副标题应显示当前主题模式"暗色"');
     });
 
-    testWidgets('SET-T29: 点击「主题」ListTile 弹出三选一对话框',
-        (tester) async {
+    testWidgets('SET-T29: 点击「主题」ListTile 弹出三选一对话框', (tester) async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
 
@@ -505,17 +483,14 @@ void main() {
       await tester.pumpAndSettle();
 
       // Dialog should appear with title
-      expect(find.text('选择主题'), findsOneWidget,
-          reason: '应弹出主题选择对话框');
+      expect(find.text('选择主题'), findsOneWidget, reason: '应弹出主题选择对话框');
 
       // Check all 3 theme options (note: some may also appear as subtitle text
       // behind the dialog — hence findsAtLeastNWidgets instead of findsOneWidget)
       expect(find.text('跟随系统'), findsAtLeastNWidgets(1),
           reason: '对话框中应包含"跟随系统"选项');
-      expect(find.text('亮色'), findsAtLeastNWidgets(1),
-          reason: '对话框中应包含"亮色"选项');
-      expect(find.text('暗色'), findsAtLeastNWidgets(1),
-          reason: '对话框中应包含"暗色"选项');
+      expect(find.text('亮色'), findsAtLeastNWidgets(1), reason: '对话框中应包含"亮色"选项');
+      expect(find.text('暗色'), findsAtLeastNWidgets(1), reason: '对话框中应包含"暗色"选项');
     });
 
     testWidgets('SET-T30: 点击「管理 NAS 连接」显示 ListTile', (tester) async {
@@ -527,8 +502,7 @@ void main() {
 
       expect(find.text('管理 NAS 连接'), findsOneWidget,
           reason: '应显示"管理 NAS 连接" ListTile');
-      expect(find.text('添加、编辑或切换连接'), findsOneWidget,
-          reason: '应显示连接管理的副标题说明');
+      expect(find.text('添加、编辑或切换连接'), findsOneWidget, reason: '应显示连接管理的副标题说明');
     });
   });
 
@@ -590,8 +564,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('版本 $appVersion'), findsOneWidget,
-          reason: '关于页面应显示版本号');
+      expect(find.text('版本 $appVersion'), findsOneWidget, reason: '关于页面应显示版本号');
     });
 
     testWidgets('SET-T34: 关于页面显示开源许可证信息', (tester) async {
@@ -607,8 +580,7 @@ void main() {
           reason: '关于页面应显示"开源许可" section header');
 
       // Check that key open-source libraries are listed
-      expect(find.text('Flutter'), findsOneWidget,
-          reason: '应包含 Flutter 许可证信息');
+      expect(find.text('Flutter'), findsOneWidget, reason: '应包含 Flutter 许可证信息');
       expect(find.text('just_audio'), findsOneWidget,
           reason: '应包含 just_audio 许可证信息');
       expect(find.text('flutter_riverpod'), findsOneWidget,
@@ -672,8 +644,7 @@ void main() {
 
       for (final step in seekStepOptions) {
         final result = setSeekStep(prefs, step);
-        expect(result, isTrue,
-            reason: '$step 是有效步长，应返回 true');
+        expect(result, isTrue, reason: '$step 是有效步长，应返回 true');
         expect(prefs.getInt('seek_step_seconds'), equals(step),
             reason: 'SharedPreferences 应存储 $step');
       }
@@ -685,8 +656,7 @@ void main() {
 
       for (final step in [5, 20, 45, 90, 0, -1]) {
         final result = setSeekStep(prefs, step);
-        expect(result, isFalse,
-            reason: '$step 不是有效步长，应返回 false');
+        expect(result, isFalse, reason: '$step 不是有效步长，应返回 false');
       }
     });
   });
@@ -704,15 +674,13 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify the tile renders with correct title and subtitle
-      expect(find.text('记住播放速度'), findsOneWidget,
-          reason: '设置页应显示"记住播放速度"开关标题');
+      expect(find.text('记住播放速度'), findsOneWidget, reason: '设置页应显示"记住播放速度"开关标题');
       expect(find.text('调速后自动设为默认，切歌不重置'), findsOneWidget,
           reason: '应显示副标题说明文字');
 
       // Find the SwitchListTile and verify initial state (off by default)
       final switchTile = find.byType(SwitchListTile);
-      expect(switchTile, findsOneWidget,
-          reason: '应有一个 SwitchListTile widget');
+      expect(switchTile, findsOneWidget, reason: '应有一个 SwitchListTile widget');
 
       // Switch should be off by default
       expect(prefs.getBool('remember_playback_speed'), isNull,
@@ -731,8 +699,7 @@ void main() {
           reason: '切换开启后 getRememberSpeed 应返回 true');
     });
 
-    testWidgets('TST-T79b: rememberSpeed 开关从持久化值初始化并切换关',
-        (tester) async {
+    testWidgets('TST-T79b: rememberSpeed 开关从持久化值初始化并切换关', (tester) async {
       SharedPreferences.setMockInitialValues({
         'remember_playback_speed': true,
       });
@@ -757,8 +724,7 @@ void main() {
           reason: '再次切换后 getRememberSpeed 应返回 false');
     });
 
-    testWidgets('TST-T79c: rememberSpeed 开关切换后重新读取反映新值',
-        (tester) async {
+    testWidgets('TST-T79c: rememberSpeed 开关切换后重新读取反映新值', (tester) async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
 
@@ -834,8 +800,7 @@ void main() {
 
       // The subtitle for the default speed tile shows the current default
       // There should be a 1.0x text somewhere near "默认播放速度"
-      expect(find.text('1.0x'), findsOneWidget,
-          reason: '未设置偏好时应显示默认速度 1.0x');
+      expect(find.text('1.0x'), findsOneWidget, reason: '未设置偏好时应显示默认速度 1.0x');
     });
 
     testWidgets('default speed subtitle shows 2.0x when that is stored',
@@ -858,16 +823,14 @@ void main() {
   // ═══════════════════════════════════════════════════════════════════════════════
 
   group('theme tile widget — all modes', () {
-    testWidgets('theme subtitle shows "跟随系统" for system mode',
-        (tester) async {
+    testWidgets('theme subtitle shows "跟随系统" for system mode', (tester) async {
       SharedPreferences.setMockInitialValues({'theme_mode': 'system'});
       final prefs = await SharedPreferences.getInstance();
 
       await pumpSettingsScreen(tester, prefs: prefs);
       await tester.pumpAndSettle();
 
-      expect(find.text('跟随系统'), findsOneWidget,
-          reason: '跟随系统时应显示"跟随系统"');
+      expect(find.text('跟随系统'), findsOneWidget, reason: '跟随系统时应显示"跟随系统"');
     });
 
     testWidgets('theme subtitle shows "亮色" for light mode', (tester) async {
@@ -877,8 +840,7 @@ void main() {
       await pumpSettingsScreen(tester, prefs: prefs);
       await tester.pumpAndSettle();
 
-      expect(find.text('亮色'), findsOneWidget,
-          reason: '亮色模式时应显示"亮色"');
+      expect(find.text('亮色'), findsOneWidget, reason: '亮色模式时应显示"亮色"');
     });
 
     testWidgets('theme subtitle shows "暗色" for dark mode', (tester) async {
@@ -888,8 +850,7 @@ void main() {
       await pumpSettingsScreen(tester, prefs: prefs);
       await tester.pumpAndSettle();
 
-      expect(find.text('暗色'), findsOneWidget,
-          reason: '暗色模式时应显示"暗色"');
+      expect(find.text('暗色'), findsOneWidget, reason: '暗色模式时应显示"暗色"');
     });
   });
 
@@ -906,8 +867,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('关于'), findsOneWidget,
-          reason: '关于页面 AppBar 标题应为"关于"');
+      expect(find.text('关于'), findsOneWidget, reason: '关于页面 AppBar 标题应为"关于"');
     });
 
     testWidgets('about page has app icon', (tester) async {
@@ -956,8 +916,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // AppBar title should be "设置"
-      expect(find.text('设置'), findsOneWidget,
-          reason: '设置页 AppBar 标题应为"设置"');
+      expect(find.text('设置'), findsOneWidget, reason: '设置页 AppBar 标题应为"设置"');
     });
   });
 
@@ -986,12 +945,10 @@ void main() {
       await tester.pumpAndSettle();
 
       // Dialog should be dismissed
-      expect(find.text('选择默认播放速度'), findsNothing,
-          reason: '选择后对话框应关闭');
+      expect(find.text('选择默认播放速度'), findsNothing, reason: '选择后对话框应关闭');
 
       // Subtitle should now show 1.5x
-      expect(find.text('1.5x'), findsOneWidget,
-          reason: '选择 1.5x 后副标题应更新');
+      expect(find.text('1.5x'), findsOneWidget, reason: '选择 1.5x 后副标题应更新');
 
       // SharedPreferences should be updated
       expect(prefs.getDouble('default_playback_speed'), equals(1.5),
@@ -1024,12 +981,10 @@ void main() {
       await tester.pumpAndSettle();
 
       // Dialog should be dismissed
-      expect(find.text('选择快进/快退步长'), findsNothing,
-          reason: '选择后对话框应关闭');
+      expect(find.text('选择快进/快退步长'), findsNothing, reason: '选择后对话框应关闭');
 
       // Subtitle should now show 30秒
-      expect(find.text('30秒'), findsOneWidget,
-          reason: '选择 30秒 后副标题应更新');
+      expect(find.text('30秒'), findsOneWidget, reason: '选择 30秒 后副标题应更新');
 
       // SharedPreferences should be updated
       expect(prefs.getInt('seek_step_seconds'), equals(30),
@@ -1058,13 +1013,11 @@ void main() {
       await tester.pumpAndSettle();
 
       // Dialog should be dismissed
-      expect(find.text('选择主题'), findsNothing,
-          reason: '选择后对话框应关闭');
+      expect(find.text('选择主题'), findsNothing, reason: '选择后对话框应关闭');
 
       // Subtitle should now show 暗色
       // Find the subtitle text — there should be the header and the subtitle
-      expect(find.text('暗色'), findsOneWidget,
-          reason: '选择暗色后副标题应更新');
+      expect(find.text('暗色'), findsOneWidget, reason: '选择暗色后副标题应更新');
 
       // SharedPreferences should be updated
       expect(prefs.getString('theme_mode'), equals('dark'),

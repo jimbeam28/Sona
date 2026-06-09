@@ -15,18 +15,17 @@ import '../../shared/models/connection_config.dart';
 
 final connectionDaoProvider = Provider<ConnectionDao>((ref) => ConnectionDao());
 
-final webDavClientProvider = Provider<WebDavClientInterface>(
-    (ref) => WebDavClient());
+final webDavClientProvider =
+    Provider<WebDavClientInterface>((ref) => WebDavClient());
 
-final secureStorageProvider = Provider<FlutterSecureStorage>(
-    (ref) => const FlutterSecureStorage());
+final secureStorageProvider =
+    Provider<FlutterSecureStorage>((ref) => const FlutterSecureStorage());
 
 // ── Active connection ─────────────────────────────────────────────────────────
 
 /// Resolves the currently active [ConnectionConfig] from the database.
 /// Returns null when no active connection is configured.
-final activeConnectionProvider =
-    FutureProvider<ConnectionConfig?>((ref) async {
+final activeConnectionProvider = FutureProvider<ConnectionConfig?>((ref) async {
   final dao = ref.watch(connectionDaoProvider);
   return dao.findActive();
 });
@@ -133,7 +132,8 @@ final startupValidationProvider =
     return WebDavValidationResult.authError();
   }
 
-  debugPrint('[Conn] startupValidation: checking id=${activeConn.id} url=${activeConn.url}');
+  debugPrint(
+      '[Conn] startupValidation: checking id=${activeConn.id} url=${activeConn.url}');
 
   // Read the password from secure storage
   final storage = ref.watch(secureStorageProvider);
@@ -273,7 +273,8 @@ final connectionUpdaterProvider = Provider<ConnectionUpdater>((ref) {
 ///
 /// Throws [LastConnectionException] when only one connection remains (CON-T32).
 /// Auto-activates another connection if the deleted one was active (CON-T34).
-final deleteConnectionProvider = FutureProvider.family<void, int>((ref, id) async {
+final deleteConnectionProvider =
+    FutureProvider.family<void, int>((ref, id) async {
   final dao = ref.watch(connectionDaoProvider);
   final storage = ref.watch(secureStorageProvider);
 

@@ -54,11 +54,10 @@ void main() {
     // ── BRW-T19: Filename contains "有声书" keyword → audiobook ───────────────
 
     test('BRW-T19: "有声书" keyword in filename → audiobook', () {
-      expect(NasFile.classifyType('第一章有声书.mp3'),
-          equals(AudioFileType.audiobook),
+      expect(
+          NasFile.classifyType('第一章有声书.mp3'), equals(AudioFileType.audiobook),
           reason: '含"有声书"关键字的文件应归类为有声书');
-      expect(NasFile.classifyType('有声书.flac'),
-          equals(AudioFileType.audiobook),
+      expect(NasFile.classifyType('有声书.flac'), equals(AudioFileType.audiobook),
           reason: '文件名为"有声书"开头的也应归类为有声书');
       expect(NasFile.classifyType('my_有声书_collection.aac'),
           equals(AudioFileType.audiobook),
@@ -124,8 +123,7 @@ void main() {
       for (final entry in regularFormats.entries) {
         expect(NasFile.isAudioFile(entry.key), isTrue,
             reason: '${entry.value} 应被识别为支持的音频格式');
-        expect(NasFile.classifyType(entry.key),
-            equals(AudioFileType.music),
+        expect(NasFile.classifyType(entry.key), equals(AudioFileType.music),
             reason: '${entry.value} 普通音频应归类为 music');
       }
 
@@ -153,10 +151,8 @@ void main() {
         isDirectory: true,
         audioType: null,
       );
-      expect(dir.audioType, isNull,
-          reason: '目录的 audioType 应为 null');
-      expect(dir.isDirectory, isTrue,
-          reason: '目录的 isDirectory 应为 true');
+      expect(dir.audioType, isNull, reason: '目录的 audioType 应为 null');
+      expect(dir.isDirectory, isTrue, reason: '目录的 isDirectory 应为 true');
 
       // Constructed via fromProps
       final dirFromProps = NasFile.fromProps(
@@ -168,8 +164,7 @@ void main() {
       );
       expect(dirFromProps.audioType, isNull,
           reason: 'fromProps 解析目录的 audioType 应为 null');
-      expect(dirFromProps.isDirectory, isTrue,
-          reason: '解析的条目应为目录');
+      expect(dirFromProps.isDirectory, isTrue, reason: '解析的条目应为目录');
 
       // A directory named like an audiobook should still NOT have audioType
       final audioBookDir = NasFile.fromProps(
@@ -226,9 +221,8 @@ void main() {
           reason: 'progressPercentage 非 null 时应显示进度条');
 
       // Verify the value was passed through
-      final indicator =
-          tester.widget<LinearProgressIndicator>(
-              find.byType(LinearProgressIndicator));
+      final indicator = tester.widget<LinearProgressIndicator>(
+          find.byType(LinearProgressIndicator));
       expect(indicator.value, equals(0.4),
           reason: '进度条 value 应等于传入的 progressPercentage');
     });
@@ -253,7 +247,8 @@ void main() {
 
     // ── BRW-T49: Audiobook icon vs music icon distinction ─────────────────────
 
-    testWidgets('BRW-T49: audiobook shows headphones icon, music shows music note',
+    testWidgets(
+        'BRW-T49: audiobook shows headphones icon, music shows music note',
         (WidgetTester tester) async {
       final audiobookFile = _audioFile('book.m4b',
           path: '/books/book.m4b', type: AudioFileType.audiobook);
@@ -287,12 +282,10 @@ void main() {
           reason: '音乐文件应显示 music_note_outlined 图标');
     });
 
-    testWidgets(
-        'BRW-T49: audiobook icon shown for file with "有声书" keyword',
+    testWidgets('BRW-T49: audiobook icon shown for file with "有声书" keyword',
         (WidgetTester tester) async {
       final file = _audioFile('第一章有声书.mp3',
-          path: '/books/第一章有声书.mp3',
-          type: AudioFileType.audiobook);
+          path: '/books/第一章有声书.mp3', type: AudioFileType.audiobook);
 
       await tester.pumpWidget(
         MaterialApp(

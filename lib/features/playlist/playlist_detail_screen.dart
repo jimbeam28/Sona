@@ -94,7 +94,9 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
         '播放单';
 
     return Scaffold(
-      appBar: _selectionMode ? _selectionAppBar(playlistId) : _normalAppBar(playlistName, playlistId),
+      appBar: _selectionMode
+          ? _selectionAppBar(playlistId)
+          : _normalAppBar(playlistName, playlistId),
       body: tracksAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(
@@ -127,7 +129,8 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.queue_music_outlined, size: 64, color: Colors.grey),
+                  Icon(Icons.queue_music_outlined,
+                      size: 64, color: Colors.grey),
                   SizedBox(height: 16),
                   Text('播放单为空',
                       style: TextStyle(color: Colors.grey, fontSize: 16)),
@@ -182,7 +185,9 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
               onReorder: (oldIndex, newIndex) {
                 if (newIndex > oldIndex) newIndex--;
                 ref.read(reorderPlaylistTrackProvider)(
-                  playlistId, oldIndex, newIndex,
+                  playlistId,
+                  oldIndex,
+                  newIndex,
                 );
               },
               itemBuilder: trackItemBuilder,
@@ -191,8 +196,7 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
           return ListView.separated(
             padding: const EdgeInsets.symmetric(vertical: 8),
             itemCount: tracks.length,
-            separatorBuilder: (_, __) =>
-                const Divider(height: 1, indent: 72),
+            separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
             itemBuilder: trackItemBuilder,
           );
         },
@@ -320,8 +324,8 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
                   ),
                   TextButton(
                     onPressed: () => Navigator.of(ctx).pop(true),
-                    child: const Text('删除',
-                        style: TextStyle(color: Colors.red)),
+                    child:
+                        const Text('删除', style: TextStyle(color: Colors.red)),
                   ),
                 ],
               ),

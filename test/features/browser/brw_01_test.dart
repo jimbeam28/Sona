@@ -90,8 +90,7 @@ void main() {
       final result = WebDavClient.parsePropfindResponse(xml);
 
       // All 3 entries parsed
-      expect(result.length, equals(3),
-          reason: '应解析出所有 3 个条目（含自引用）');
+      expect(result.length, equals(3), reason: '应解析出所有 3 个条目（含自引用）');
 
       // Self-reference (root dir)
       expect(result[0].isDirectory, isTrue, reason: '根目录应为目录');
@@ -132,19 +131,16 @@ void main() {
 
       // Non-audio files: parsed but audioType is null
       final files = result.where((f) => !f.isDirectory).toList();
-      expect(files.length, equals(2),
-          reason: '两个非音频文件都应被解析');
+      expect(files.length, equals(2), reason: '两个非音频文件都应被解析');
       for (final f in files) {
-        expect(f.audioType, isNull,
-            reason: '${f.name} 不应有 audioType');
+        expect(f.audioType, isNull, reason: '${f.name} 不应有 audioType');
         expect(NasFile.isAudioFile(f.name), isFalse,
             reason: '${f.name} 不应被识别为音频文件');
       }
 
       // Directories still present
       final dirs = result.where((f) => f.isDirectory).toList();
-      expect(dirs.length, equals(1),
-          reason: '目录条目应正常返回');
+      expect(dirs.length, equals(1), reason: '目录条目应正常返回');
     });
 
     // ── BRW-T03: Parse completely empty dir (only self node) ─────────────────
@@ -156,8 +152,7 @@ void main() {
 
       final result = WebDavClient.parsePropfindResponse(xml);
 
-      expect(result.length, equals(1),
-          reason: '空目录应只返回自身条目');
+      expect(result.length, equals(1), reason: '空目录应只返回自身条目');
       expect(result[0].isDirectory, isTrue);
       expect(result[0].name, equals('empty'));
       expect(result[0].path, equals('/empty'));
@@ -181,16 +176,13 @@ void main() {
 
     test('BRW-T05: 401 produces auth error with isAuthError true', () {
       const authEx = WebDavException('用户名或密码错误', statusCode: 401);
-      expect(authEx.isAuthError, isTrue,
-          reason: '401 异常的 isAuthError 应为 true');
+      expect(authEx.isAuthError, isTrue, reason: '401 异常的 isAuthError 应为 true');
       expect(authEx.statusCode, equals(401));
       expect(authEx.message, contains('用户名或密码'));
 
       // Also test 403
-      const forbiddenEx =
-          WebDavException('禁止访问', statusCode: 403);
-      expect(forbiddenEx.isAuthError, isTrue,
-          reason: '403 异常也应标记为认证错误');
+      const forbiddenEx = WebDavException('禁止访问', statusCode: 403);
+      expect(forbiddenEx.isAuthError, isTrue, reason: '403 异常也应标记为认证错误');
     });
 
     // ── BRW-T06: Special characters in filenames ─────────────────────────────
@@ -219,25 +211,20 @@ void main() {
       final result = WebDavClient.parsePropfindResponse(xml);
 
       // Find the Chinese filename entry
-      final chineseFile =
-          result.where((f) => f.name == '中文歌.mp3').toList();
-      expect(chineseFile.length, equals(1),
-          reason: '中文文件名应正确解析');
+      final chineseFile = result.where((f) => f.name == '中文歌.mp3').toList();
+      expect(chineseFile.length, equals(1), reason: '中文文件名应正确解析');
       expect(chineseFile[0].audioType, equals(AudioFileType.music));
 
       // Find the space-containing entry
-      final spaceFile =
-          result.where((f) => f.name == 'my song.mp3').toList();
-      expect(spaceFile.length, equals(1),
-          reason: '含空格文件名应正确解析');
+      final spaceFile = result.where((f) => f.name == 'my song.mp3').toList();
+      expect(spaceFile.length, equals(1), reason: '含空格文件名应正确解析');
       expect(spaceFile[0].path, equals('/music/my song.mp3'),
           reason: '路径中的 %20 应被解码为空格');
 
       // Find the bracket entry
       final bracketFile =
           result.where((f) => f.name == 'test [bracket].flac').toList();
-      expect(bracketFile.length, equals(1),
-          reason: '含方括号文件名应正确解析');
+      expect(bracketFile.length, equals(1), reason: '含方括号文件名应正确解析');
     });
 
     // ── BRW-T07: All 8 audio formats recognized ─────────────────────────────
@@ -255,13 +242,11 @@ void main() {
       ];
 
       for (final name in formats) {
-        expect(NasFile.isAudioFile(name), isTrue,
-            reason: '$name 应被识别为支持的音频格式');
+        expect(NasFile.isAudioFile(name), isTrue, reason: '$name 应被识别为支持的音频格式');
       }
 
       // Verify classification: .m4b → audiobook
-      expect(NasFile.classifyType('book.m4b'),
-          equals(AudioFileType.audiobook));
+      expect(NasFile.classifyType('book.m4b'), equals(AudioFileType.audiobook));
       // All others → music
       expect(NasFile.classifyType('song.mp3'), equals(AudioFileType.music));
       expect(NasFile.classifyType('song.flac'), equals(AudioFileType.music));
@@ -273,11 +258,9 @@ void main() {
 
       // "有声书" keyword → audiobook
       expect(
-          NasFile.classifyType('有声书 第一章.mp3'),
-          equals(AudioFileType.audiobook),
+          NasFile.classifyType('有声书 第一章.mp3'), equals(AudioFileType.audiobook),
           reason: '含"有声书"关键词的文件应归类为有声书');
-      expect(
-          NasFile.classifyType('audiobook_ch01.mp3'),
+      expect(NasFile.classifyType('audiobook_ch01.mp3'),
           equals(AudioFileType.audiobook),
           reason: '含"audiobook"关键词的文件应归类为有声书');
     });
@@ -297,8 +280,7 @@ void main() {
       ];
 
       for (final name in nonAudio) {
-        expect(NasFile.isAudioFile(name), isFalse,
-            reason: '$name 不应被识别为音频文件');
+        expect(NasFile.isAudioFile(name), isFalse, reason: '$name 不应被识别为音频文件');
       }
     });
 
@@ -316,12 +298,10 @@ void main() {
 
       // Apply the same sort logic as the provider
       final sorted = [...unsorted]..sort((a, b) {
-            if (a.isDirectory && !b.isDirectory) return -1;
-            if (!a.isDirectory && b.isDirectory) return 1;
-            return a.name
-                .toLowerCase()
-                .compareTo(b.name.toLowerCase());
-          });
+          if (a.isDirectory && !b.isDirectory) return -1;
+          if (!a.isDirectory && b.isDirectory) return 1;
+          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        });
 
       // Directories first (alphabetically)
       expect(sorted[0].name, equals('apple'));
@@ -335,12 +315,10 @@ void main() {
 
       // Verify type separation
       for (int i = 0; i < 3; i++) {
-        expect(sorted[i].isDirectory, isTrue,
-            reason: '前 3 项应为目录');
+        expect(sorted[i].isDirectory, isTrue, reason: '前 3 项应为目录');
       }
       for (int i = 3; i < 6; i++) {
-        expect(sorted[i].isDirectory, isFalse,
-            reason: '后 3 项应为文件');
+        expect(sorted[i].isDirectory, isFalse, reason: '后 3 项应为文件');
       }
     });
   });
@@ -372,17 +350,14 @@ void main() {
       await tester.pump();
 
       // The breadcrumb bar should show "根目录" for the root path
-      expect(find.text('根目录'), findsOneWidget,
-          reason: '应显示根目录标识');
+      expect(find.text('根目录'), findsOneWidget, reason: '应显示根目录标识');
 
       // No actual file/directory tiles rendered
-      expect(find.byType(ListTile), findsNothing,
-          reason: '加载中不应显示实际文件列表项');
+      expect(find.byType(ListTile), findsNothing, reason: '加载中不应显示实际文件列表项');
 
       // Skeleton placeholders: the _LoadingView renders 8 placeholder rows.
       // Verify by checking that no error/empty/data content is present.
-      expect(find.text('此目录为空'), findsNothing,
-          reason: '加载中不应显示空目录提示');
+      expect(find.text('此目录为空'), findsNothing, reason: '加载中不应显示空目录提示');
       expect(find.byIcon(Icons.error_outline), findsNothing,
           reason: '加载中不应显示错误图标');
 
@@ -398,8 +373,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            directoryContentsProvider('/')
-                .overrideWith((ref) async {
+            directoryContentsProvider('/').overrideWith((ref) async {
               throw const WebDavException('无法连接到服务器');
             }),
           ],
@@ -413,14 +387,11 @@ void main() {
           reason: '错误状态应显示错误图标');
 
       // Error message
-      expect(find.text('无法连接到服务器'), findsOneWidget,
-          reason: '应显示错误信息');
+      expect(find.text('无法连接到服务器'), findsOneWidget, reason: '应显示错误信息');
 
       // Retry button
-      expect(find.text('重试'), findsOneWidget,
-          reason: '错误状态应显示重试按钮');
-      expect(find.byIcon(Icons.refresh), findsOneWidget,
-          reason: '重试按钮应有刷新图标');
+      expect(find.text('重试'), findsOneWidget, reason: '错误状态应显示重试按钮');
+      expect(find.byIcon(Icons.refresh), findsOneWidget, reason: '重试按钮应有刷新图标');
     });
 
     // ── BRW-T45: Click "重试" re-triggers directory load ─────────────────────
@@ -453,8 +424,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // First invocation → error state
-      expect(find.text('重试'), findsOneWidget,
-          reason: '首次加载失败应显示重试按钮');
+      expect(find.text('重试'), findsOneWidget, reason: '首次加载失败应显示重试按钮');
       expect(invocationCount, equals(1));
 
       // Tap retry
@@ -464,8 +434,7 @@ void main() {
       // Second invocation → success, data shown
       expect(invocationCount, equals(2),
           reason: '点击重试应触发第二次加载（ref.invalidate）');
-      expect(find.text('test.mp3'), findsOneWidget,
-          reason: '重试成功后应显示文件列表');
+      expect(find.text('test.mp3'), findsOneWidget, reason: '重试成功后应显示文件列表');
     });
 
     // ── BRW-T46: Empty directory shows "此目录为空" message ──────────────────
@@ -477,8 +446,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            directoryContentsProvider('/')
-                .overrideWith((ref) async => []),
+            directoryContentsProvider('/').overrideWith((ref) async => []),
           ],
           child: const MaterialApp(home: Scaffold(body: BrowserScreen())),
         ),
@@ -486,8 +454,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Empty state message
-      expect(find.text('此目录为空'), findsOneWidget,
-          reason: '空目录应显示提示信息');
+      expect(find.text('此目录为空'), findsOneWidget, reason: '空目录应显示提示信息');
       expect(find.byIcon(Icons.folder_open_outlined), findsOneWidget,
           reason: '空目录应显示空文件夹图标');
     });

@@ -965,16 +965,14 @@ void main() {
       //    the new index to coincidentally equal the old one when
       //    _shuffleOrder[1] == currentIndex.
       final newQueue = container.read(currentPlayQueueProvider);
-      expect(newQueue, isNotNull,
-          reason: 'shuffle 模式应产生新的队列');
+      expect(newQueue, isNotNull, reason: 'shuffle 模式应产生新的队列');
 
       // 3. Destination index is within valid range
       expect(newQueue!.currentIndex >= 0 && newQueue.currentIndex < 5, isTrue,
           reason: 'shuffle 目标索引应在有效范围内');
 
       // 4. A new queue object was created (advance succeeded)
-      expect(identical(newQueue, queue), isFalse,
-          reason: '应创建新的队列对象而非原地修改');
+      expect(identical(newQueue, queue), isFalse, reason: '应创建新的队列对象而非原地修改');
 
       // 5. loadAndPlay was called
       expect(loadAndPlayCalls, isNotEmpty,
@@ -1237,8 +1235,7 @@ void main() {
       // Phase 2: fresh container, register listener — should work
       final player2 = MockAudioPlayer();
       final procCtrl2 = StreamController<ProcessingState>.broadcast();
-      when(player2.processingStateStream)
-          .thenAnswer((_) => procCtrl2.stream);
+      when(player2.processingStateStream).thenAnswer((_) => procCtrl2.stream);
       when(player2.position).thenReturn(const Duration(seconds: 30));
       when(player2.duration).thenReturn(const Duration(minutes: 3));
 
@@ -1257,22 +1254,18 @@ void main() {
       try {
         final queue2 = buildQueue(5, 1);
         container2.read(currentPlayQueueProvider.notifier).state = queue2;
-        container2
-            .read(playModeProvider.notifier)
-            .state = PlayMode.sequential;
+        container2.read(playModeProvider.notifier).state = PlayMode.sequential;
 
-        final startFn2 =
-            container2.read(startProcessingListenerProvider);
+        final startFn2 = container2.read(startProcessingListenerProvider);
         startFn2();
 
         procCtrl2.add(ProcessingState.completed);
         await Future<void>.delayed(Duration.zero);
 
-        expect(container2.read(currentPlayQueueProvider)!.currentIndex,
-            equals(2),
+        expect(
+            container2.read(currentPlayQueueProvider)!.currentIndex, equals(2),
             reason: '新容器的 listener 应正确捕获 completed 并前进队列');
-        expect(loadCalls2, isNotEmpty,
-            reason: '新容器的 listener 应触发 loadAndPlay');
+        expect(loadCalls2, isNotEmpty, reason: '新容器的 listener 应触发 loadAndPlay');
       } finally {
         procCtrl2.close();
       }
@@ -1315,7 +1308,8 @@ void main() {
 
     // ── TST-T142: Last track pause ensures play button state ──────────────
 
-    test('TST-T142: sequential last track completion calls pause(),'
+    test(
+        'TST-T142: sequential last track completion calls pause(),'
         ' queue unchanged', () async {
       // Single-track queue: index 0 is both first and last.
       final queue = buildQueue(1, 0);
@@ -1335,12 +1329,10 @@ void main() {
 
       // 3. Queue was not modified — no next track to advance to.
       final q = container.read(currentPlayQueueProvider);
-      expect(identical(q, queue), isTrue,
-          reason: '队尾停止时队列应保持不变');
+      expect(identical(q, queue), isTrue, reason: '队尾停止时队列应保持不变');
 
       // 4. loadAndPlay was NOT called — nothing to load.
-      expect(loadAndPlayCalls, isEmpty,
-          reason: '队尾停止时不应触发 loadAndPlay');
+      expect(loadAndPlayCalls, isEmpty, reason: '队尾停止时不应触发 loadAndPlay');
     });
   });
 }

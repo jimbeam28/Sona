@@ -85,20 +85,16 @@ void main() {
       expect(queue, isNotNull, reason: '应成功构建播放队列');
 
       // Queue contains all 5 audio files (dirs filtered out)
-      expect(queue!.length, equals(5),
-          reason: '队列应包含当前目录所有 5 个音频文件');
+      expect(queue!.length, equals(5), reason: '队列应包含当前目录所有 5 个音频文件');
 
       // Start index = 2 (0-indexed 3rd file)
-      expect(queue.currentIndex, equals(2),
-          reason: '第 3 个音频文件索引应为 2');
+      expect(queue.currentIndex, equals(2), reason: '第 3 个音频文件索引应为 2');
 
       // Current file is the tapped one
-      expect(queue.current.name, equals('song_03.aac'),
-          reason: '当前文件应为被点击的文件');
+      expect(queue.current.name, equals('song_03.aac'), reason: '当前文件应为被点击的文件');
 
       // Navigation helpers
-      expect(queue.hasNext, isTrue,
-          reason: '当前不是最后一个文件，hasNext 应为 true');
+      expect(queue.hasNext, isTrue, reason: '当前不是最后一个文件，hasNext 应为 true');
       expect(queue.hasPrevious, isTrue,
           reason: '当前不是第一个文件，hasPrevious 应为 true');
 
@@ -127,15 +123,11 @@ void main() {
       final queue = buildPlayQueue(entries, tappedFile);
 
       expect(queue, isNotNull);
-      expect(queue!.length, equals(5),
-          reason: '队列应包含所有 5 个音频文件');
-      expect(queue.currentIndex, equals(0),
-          reason: '点击第 1 个文件索引应为 0');
+      expect(queue!.length, equals(5), reason: '队列应包含所有 5 个音频文件');
+      expect(queue.currentIndex, equals(0), reason: '点击第 1 个文件索引应为 0');
       expect(queue.current.name, equals('song_01.mp3'));
-      expect(queue.hasNext, isTrue,
-          reason: '第一个文件后有后续文件');
-      expect(queue.hasPrevious, isFalse,
-          reason: '第一个文件没有前一个文件');
+      expect(queue.hasNext, isTrue, reason: '第一个文件后有后续文件');
+      expect(queue.hasPrevious, isFalse, reason: '第一个文件没有前一个文件');
     });
 
     // ── BRW-T25: Click last audio file — still full queue ─────────────────────
@@ -155,15 +147,11 @@ void main() {
       final queue = buildPlayQueue(entries, tappedFile);
 
       expect(queue, isNotNull);
-      expect(queue!.length, equals(5),
-          reason: '队列仍应包含全部 5 个音频文件');
-      expect(queue.currentIndex, equals(4),
-          reason: '最后文件的索引应为 4');
+      expect(queue!.length, equals(5), reason: '队列仍应包含全部 5 个音频文件');
+      expect(queue.currentIndex, equals(4), reason: '最后文件的索引应为 4');
       expect(queue.current.name, equals('song_05.ogg'));
-      expect(queue.hasNext, isFalse,
-          reason: '最后一个文件 hasNext 应为 false');
-      expect(queue.hasPrevious, isTrue,
-          reason: '最后一个文件有前一个文件');
+      expect(queue.hasNext, isFalse, reason: '最后一个文件 hasNext 应为 false');
+      expect(queue.hasPrevious, isTrue, reason: '最后一个文件有前一个文件');
 
       // Previous files are still in the queue
       expect(queue.files[0].name, equals('song_01.mp3'));
@@ -184,15 +172,11 @@ void main() {
       final queue = buildPlayQueue(entries, tappedFile);
 
       expect(queue, isNotNull);
-      expect(queue!.length, equals(1),
-          reason: '只有一个音频文件时队列长度应为 1');
-      expect(queue.currentIndex, equals(0),
-          reason: '唯一的文件索引应为 0');
+      expect(queue!.length, equals(1), reason: '只有一个音频文件时队列长度应为 1');
+      expect(queue.currentIndex, equals(0), reason: '唯一的文件索引应为 0');
       expect(queue.current.name, equals('lone_song.mp3'));
-      expect(queue.hasNext, isFalse,
-          reason: '唯一文件没有下一个');
-      expect(queue.hasPrevious, isFalse,
-          reason: '唯一文件没有上一个');
+      expect(queue.hasNext, isFalse, reason: '唯一文件没有下一个');
+      expect(queue.hasPrevious, isFalse, reason: '唯一文件没有上一个');
     });
   });
 
@@ -208,21 +192,18 @@ void main() {
 
       // Default behaviour: no progress saved for any file path
       final result = container.read(playProgressProvider('/some/file.mp3'));
-      expect(result, isNull,
-          reason: '未保存进度的文件应返回 null（直接播放）');
+      expect(result, isNull, reason: '未保存进度的文件应返回 null（直接播放）');
 
       // Also verify for another path
       final result2 = container.read(playProgressProvider('/other/file.flac'));
-      expect(result2, isNull,
-          reason: '所有文件默认都无进度记录');
+      expect(result2, isNull, reason: '所有文件默认都无进度记录');
 
       container.dispose();
     });
 
     // ── BRW-T28: Has progress history — dialog would be shown ─────────────────
 
-    test(
-        'BRW-T28: PlayProgress.formattedPosition formats correctly for dialog',
+    test('BRW-T28: PlayProgress.formattedPosition formats correctly for dialog',
         () {
       // 12:34 = 12 * 60 + 34 = 754 seconds = 754,000 ms
       final progress = _progress(
@@ -247,8 +228,7 @@ void main() {
           reason: '超过1小时应格式化为 H:MM:SS');
 
       // No duration → percentage is 0
-      expect(progress.percentage, equals(0.0),
-          reason: '无 duration 时百分比应为 0');
+      expect(progress.percentage, equals(0.0), reason: '无 duration 时百分比应为 0');
     });
 
     test('BRW-T28: PlayProgress with zero duration returns zero percentage',
@@ -258,8 +238,7 @@ void main() {
         durationMs: 0, // zero-duration edge case
       );
 
-      expect(progress.percentage, equals(0.0),
-          reason: 'duration 为 0 时百分比应为 0');
+      expect(progress.percentage, equals(0.0), reason: 'duration 为 0 时百分比应为 0');
     });
 
     test('BRW-T28: progress provider can be overridden to simulate saved state',
@@ -277,19 +256,15 @@ void main() {
       );
 
       // Overridden provider returns the saved progress
-      final result =
-          container.read(playProgressProvider('/music/track.mp3'));
-      expect(result, isNotNull,
-          reason: '有保存进度的文件应返回 PlayProgress');
+      final result = container.read(playProgressProvider('/music/track.mp3'));
+      expect(result, isNotNull, reason: '有保存进度的文件应返回 PlayProgress');
       expect(result!.filePath, equals('/music/track.mp3'));
       expect(result.positionMs, equals(180000));
       expect(result.formattedPosition, equals('3:00'));
 
       // Other files still return null
-      final other =
-          container.read(playProgressProvider('/music/other.mp3'));
-      expect(other, isNull,
-          reason: '未覆盖的其他文件路径仍应返回 null');
+      final other = container.read(playProgressProvider('/music/other.mp3'));
+      expect(other, isNull, reason: '未覆盖的其他文件路径仍应返回 null');
 
       container.dispose();
     });
@@ -307,13 +282,13 @@ void main() {
       // Given a file with progress → context menu should include clear option
       const hasProgress = true;
       const shouldShowClear = hasProgress;
-      expect(shouldShowClear, isTrue,
-          reason: 'TST-T126: 有进度的文件长按应显示"清除播放进度"');
+      expect(shouldShowClear, isTrue, reason: 'TST-T126: 有进度的文件长按应显示"清除播放进度"');
     });
 
     // ── TST-T127: 长按无进度的文件 → 不应显示"清除播放进度"选项 ────────────
 
-    test('TST-T127: file without progress should not show clear-progress option',
+    test(
+        'TST-T127: file without progress should not show clear-progress option',
         () {
       const hasProgress = false;
       const shouldShowClear = hasProgress;
