@@ -11,19 +11,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/features/browser/browser_screen.dart';
 import 'package:nas_audio_player/features/browser/widgets/breadcrumb_bar.dart';
-import 'package:nas_audio_player/shared/models/nas_file.dart';
+
+import '../../helpers/test_factories.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────────
 
-/// Builds a directory [NasFile] for test assertions.
-NasFile _dir(String name, String path) {
-  return NasFile(name: name, path: path, isDirectory: true);
-}
-
-/// Builds an audio [NasFile] for test assertions.
-NasFile _audio(String name, String path) {
-  return NasFile(name: name, path: path, isDirectory: false);
-}
+// testDir() and testAudio() are imported from test_factories.dart as
+// testDir() and testAudio().
 
 /// Creates a [NavigationStackNotifier] pre-populated with [paths].
 /// The notifier always starts with '/' in its constructor; [paths] should
@@ -52,16 +46,16 @@ List<Override> _multiLevelOverrides(NavigationStackNotifier notifier) {
   return [
     navigationStackProvider.overrideWith((ref) => notifier),
     directoryContentsProvider(_root).overrideWith((ref) async => [
-          _dir('MusicDir', _l1),
+          testDir('MusicDir', _l1),
         ]),
     directoryContentsProvider(_l1).overrideWith((ref) async => [
-          _dir('ArtistDir', _l2),
+          testDir('ArtistDir', _l2),
         ]),
     directoryContentsProvider(_l2).overrideWith((ref) async => [
-          _dir('AlbumDir', _l3),
+          testDir('AlbumDir', _l3),
         ]),
     directoryContentsProvider(_l3).overrideWith((ref) async => [
-          _audio('track01.mp3', '$_l3/track01.mp3'),
+          testAudio('track01.mp3', '$_l3/track01.mp3'),
         ]),
   ];
 }
@@ -80,7 +74,7 @@ void main() {
         ProviderScope(
           overrides: [
             directoryContentsProvider(_root).overrideWith((ref) async => [
-                  _dir('MusicDir', _l1),
+                  testDir('MusicDir', _l1),
                 ]),
           ],
           child: const MaterialApp(home: Scaffold(body: BrowserScreen())),
@@ -315,13 +309,13 @@ void main() {
           overrides: [
             navigationStackProvider.overrideWith((ref) => notifier),
             directoryContentsProvider(_root).overrideWith((ref) async => [
-                  _dir('FolderA', a),
+                  testDir('FolderA', a),
                 ]),
             directoryContentsProvider(a).overrideWith((ref) async => [
-                  _dir('FolderB', ab),
+                  testDir('FolderB', ab),
                 ]),
             directoryContentsProvider(ab).overrideWith((ref) async => [
-                  _audio('song.mp3', '$ab/song.mp3'),
+                  testAudio('song.mp3', '$ab/song.mp3'),
                 ]),
           ],
           child: const MaterialApp(home: Scaffold(body: BrowserScreen())),

@@ -9,8 +9,9 @@ import '../../helpers/fake_secure_storage.dart';
 import 'package:nas_audio_player/core/network/webdav_client.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/features/connection/connection_provider.dart';
-import 'package:nas_audio_player/shared/models/connection_config.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
+
+import '../../helpers/test_factories.dart';
 
 // ── Manual mocks ────────────────────────────────────────────────────────────────
 
@@ -49,42 +50,16 @@ class _MockWebDavClient implements WebDavClientInterface {
 
 // ── Test helpers ────────────────────────────────────────────────────────────────
 
-/// Builds a directory [NasFile] for test assertions.
-NasFile _dir(String name, String path) {
-  return NasFile(name: name, path: path, isDirectory: true);
-}
-
-/// Builds an audio [NasFile] for test assertions.
-NasFile _audio(String name, String path) {
-  return NasFile(
-    name: name,
-    path: path,
-    isDirectory: false,
-    audioType: AudioFileType.music,
-  );
-}
-
-/// Creates a [ConnectionConfig] for test use.
-ConnectionConfig _connection({int id = 1, String name = 'Test'}) {
-  return ConnectionConfig(
-    id: id,
-    name: name,
-    url: 'http://192.168.1.1:8080',
-    username: 'admin',
-    basePath: '/',
-    isActive: true,
-    createdAt: DateTime(2024),
-    updatedAt: DateTime(2024),
-  );
-}
+// testDir(), testAudio(), and testConnection() are imported from test_factories.dart as
+// testDir(), testAudio(), and testConnection().
 
 /// Raw entries returned by the mock WebDAV client for the /music directory.
 /// Provider logic will filter out the self-reference and keep only audio files.
 List<NasFile> _musicRawEntries() {
   return [
-    _dir('music', '/music'), // self-reference — filtered out by provider
-    _audio('song.mp3', '/music/song.mp3'),
-    _audio('track.flac', '/music/track.flac'),
+    testDir('music', '/music'), // self-reference — filtered out by provider
+    testAudio('song.mp3', '/music/song.mp3'),
+    testAudio('track.flac', '/music/track.flac'),
   ];
 }
 
@@ -107,7 +82,7 @@ void main() {
         overrides: [
           webDavClientProvider.overrideWith((ref) => mockClient),
           activeConnectionProvider
-              .overrideWith((ref) async => _connection(id: 1)),
+              .overrideWith((ref) async => testConnection(id: 1)),
           secureStorageProvider.overrideWith((ref) => fakeStorage),
         ],
       );
@@ -149,7 +124,7 @@ void main() {
         overrides: [
           webDavClientProvider.overrideWith((ref) => mockClient),
           activeConnectionProvider
-              .overrideWith((ref) async => _connection(id: 1)),
+              .overrideWith((ref) async => testConnection(id: 1)),
           secureStorageProvider.overrideWith((ref) => fakeStorage),
         ],
       );
@@ -185,12 +160,12 @@ void main() {
 
       // Different results per connection to verify independence
       final filesA = [
-        _dir('music', '/music'),
-        _audio('song_a.mp3', '/music/song_a.mp3'),
+        testDir('music', '/music'),
+        testAudio('song_a.mp3', '/music/song_a.mp3'),
       ];
       final filesB = [
-        _dir('music', '/music'),
-        _audio('song_b.flac', '/music/song_b.flac'),
+        testDir('music', '/music'),
+        testAudio('song_b.flac', '/music/song_b.flac'),
       ];
       mockClientA.returnResult(filesA);
       mockClientB.returnResult(filesB);
@@ -200,7 +175,7 @@ void main() {
         overrides: [
           webDavClientProvider.overrideWith((ref) => mockClientA),
           activeConnectionProvider
-              .overrideWith((ref) async => _connection(id: 1, name: 'ConnA')),
+              .overrideWith((ref) async => testConnection(id: 1, name: 'ConnA')),
           secureStorageProvider.overrideWith((ref) => fakeStorageA),
         ],
       );
@@ -211,7 +186,7 @@ void main() {
         overrides: [
           webDavClientProvider.overrideWith((ref) => mockClientB),
           activeConnectionProvider
-              .overrideWith((ref) async => _connection(id: 2, name: 'ConnB')),
+              .overrideWith((ref) async => testConnection(id: 2, name: 'ConnB')),
           secureStorageProvider.overrideWith((ref) => fakeStorageB),
         ],
       );
@@ -262,7 +237,7 @@ void main() {
         overrides: [
           webDavClientProvider.overrideWith((ref) => mockClient),
           activeConnectionProvider
-              .overrideWith((ref) async => _connection(id: 1)),
+              .overrideWith((ref) async => testConnection(id: 1)),
           secureStorageProvider.overrideWith((ref) => fakeStorage),
         ],
       );
@@ -301,14 +276,14 @@ void main() {
       // Connection 1: has files
       final mockClient1 = _MockWebDavClient();
       mockClient1.returnResult([
-        _dir('music', '/music'),
-        _audio('conn1_song.mp3', '/music/conn1_song.mp3'),
+        testDir('music', '/music'),
+        testAudio('conn1_song.mp3', '/music/conn1_song.mp3'),
       ]);
 
       // Connection 2: empty directory
       final mockClient2 = _MockWebDavClient();
       mockClient2.returnResult([
-        _dir('music', '/music'), // self-ref only
+        testDir('music', '/music'), // self-ref only
       ]);
 
       // Load with connection 1
@@ -316,7 +291,7 @@ void main() {
         overrides: [
           webDavClientProvider.overrideWith((ref) => mockClient1),
           activeConnectionProvider
-              .overrideWith((ref) async => _connection(id: 1)),
+              .overrideWith((ref) async => testConnection(id: 1)),
           secureStorageProvider.overrideWith((ref) => fakeStorage),
         ],
       );
@@ -332,7 +307,7 @@ void main() {
         overrides: [
           webDavClientProvider.overrideWith((ref) => mockClient2),
           activeConnectionProvider
-              .overrideWith((ref) async => _connection(id: 2)),
+              .overrideWith((ref) async => testConnection(id: 2)),
           secureStorageProvider.overrideWith((ref) => fakeStorage),
         ],
       );
@@ -377,7 +352,7 @@ void main() {
         overrides: [
           webDavClientProvider.overrideWith((ref) => mockClient),
           activeConnectionProvider
-              .overrideWith((ref) async => _connection(id: 1)),
+              .overrideWith((ref) async => testConnection(id: 1)),
           secureStorageProvider.overrideWith((ref) => fakeStorage),
         ],
       );
@@ -424,7 +399,7 @@ void main() {
         overrides: [
           webDavClientProvider.overrideWith((ref) => mockClient),
           activeConnectionProvider
-              .overrideWith((ref) async => _connection(id: 1)),
+              .overrideWith((ref) async => testConnection(id: 1)),
           secureStorageProvider.overrideWith((ref) => fakeStorage),
         ],
       );
@@ -465,7 +440,7 @@ void main() {
         overrides: [
           webDavClientProvider.overrideWith((ref) => mockClient),
           activeConnectionProvider
-              .overrideWith((ref) async => _connection(id: 1)),
+              .overrideWith((ref) async => testConnection(id: 1)),
           secureStorageProvider.overrideWith((ref) => fakeStorage),
         ],
       );
@@ -508,7 +483,7 @@ void main() {
         overrides: [
           webDavClientProvider.overrideWith((ref) => mockClient),
           activeConnectionProvider
-              .overrideWith((ref) async => _connection(id: 1)),
+              .overrideWith((ref) async => testConnection(id: 1)),
           secureStorageProvider.overrideWith((ref) => fakeStorage),
         ],
       );
@@ -548,7 +523,7 @@ void main() {
         final updated = Map<String, CacheEntry>.from(state);
         for (int i = 1; i <= 50; i++) {
           updated['1:/music$i'] = CacheEntry(
-            files: [_audio('song$i.mp3', '/music$i/song$i.mp3')],
+            files: [testAudio('song$i.mp3', '/music$i/song$i.mp3')],
             createdAt: DateTime.now(),
           );
         }
@@ -575,7 +550,7 @@ void main() {
         overrides: [
           webDavClientProvider.overrideWith((ref) => mockClient),
           activeConnectionProvider
-              .overrideWith((ref) async => _connection(id: 1)),
+              .overrideWith((ref) async => testConnection(id: 1)),
           secureStorageProvider.overrideWith((ref) => fakeStorage),
         ],
       );
@@ -586,7 +561,7 @@ void main() {
         final updated = Map<String, CacheEntry>.from(state);
         for (int i = 1; i <= 50; i++) {
           updated['1:/music$i'] = CacheEntry(
-            files: [_audio('song$i.mp3', '/music$i/song$i.mp3')],
+            files: [testAudio('song$i.mp3', '/music$i/song$i.mp3')],
             createdAt: DateTime.now().subtract(Duration(minutes: 51 - i)),
           );
         }
@@ -622,7 +597,7 @@ void main() {
         overrides: [
           webDavClientProvider.overrideWith((ref) => mockClient),
           activeConnectionProvider
-              .overrideWith((ref) async => _connection(id: 1)),
+              .overrideWith((ref) async => testConnection(id: 1)),
           secureStorageProvider.overrideWith((ref) => fakeStorage),
         ],
       );
@@ -633,7 +608,7 @@ void main() {
         final updated = Map<String, CacheEntry>.from(state);
         for (int i = 1; i <= 50; i++) {
           updated['1:/music$i'] = CacheEntry(
-            files: [_audio('song$i.mp3', '/music$i/song$i.mp3')],
+            files: [testAudio('song$i.mp3', '/music$i/song$i.mp3')],
             createdAt: DateTime.now().subtract(Duration(minutes: 51 - i)),
           );
         }
@@ -668,7 +643,7 @@ void main() {
         overrides: [
           webDavClientProvider.overrideWith((ref) => mockClient),
           activeConnectionProvider
-              .overrideWith((ref) async => _connection(id: 1)),
+              .overrideWith((ref) async => testConnection(id: 1)),
           secureStorageProvider.overrideWith((ref) => fakeStorage),
         ],
       );
@@ -679,7 +654,7 @@ void main() {
         final updated = Map<String, CacheEntry>.from(state);
         for (int i = 1; i <= 50; i++) {
           updated['1:/music$i'] = CacheEntry(
-            files: [_audio('song$i.mp3', '/music$i/song$i.mp3')],
+            files: [testAudio('song$i.mp3', '/music$i/song$i.mp3')],
             createdAt: DateTime.now().subtract(Duration(minutes: 51 - i)),
           );
         }

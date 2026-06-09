@@ -23,18 +23,12 @@ import 'package:nas_audio_player/features/timer/timer_provider.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:nas_audio_player/shared/models/play_queue.dart';
 
+import '../../helpers/test_factories.dart';
 import 'bug_01_test.mocks.dart';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-NasFile _audio(String name, String path) {
-  return NasFile(
-    name: name,
-    path: path,
-    isDirectory: false,
-    audioType: AudioFileType.music,
-  );
-}
+// testAudio() is imported from test_factories.dart as testAudio().
 
 PlayQueue _queue(List<NasFile> files, {int currentIndex = 0}) {
   return PlayQueue(files: files, currentIndex: currentIndex);
@@ -100,8 +94,8 @@ void main() {
       // this should NOT be silently ignored.  With a non-null queue,
       // it should attempt to advance.
       final files = [
-        _audio('a.mp3', '/a.mp3'),
-        _audio('b.mp3', '/b.mp3'),
+        testAudio('a.mp3', '/a.mp3'),
+        testAudio('b.mp3', '/b.mp3'),
       ];
       container.read(currentPlayQueueProvider.notifier).state =
           _queue(files, currentIndex: 0);
@@ -148,9 +142,9 @@ void main() {
 
       // Now set a queue with 3 tracks at index 1.
       final files = [
-        _audio('track1.mp3', '/track1.mp3'),
-        _audio('track2.mp3', '/track2.mp3'),
-        _audio('track3.mp3', '/track3.mp3'),
+        testAudio('track1.mp3', '/track1.mp3'),
+        testAudio('track2.mp3', '/track2.mp3'),
+        testAudio('track3.mp3', '/track3.mp3'),
       ];
       container.read(currentPlayQueueProvider.notifier).state =
           _queue(files, currentIndex: 1);
@@ -181,9 +175,9 @@ void main() {
       when(player.pause()).thenAnswer((_) async {});
 
       final files = [
-        _audio('a.mp3', '/a.mp3'),
-        _audio('b.mp3', '/b.mp3'),
-        _audio('c.mp3', '/c.mp3'),
+        testAudio('a.mp3', '/a.mp3'),
+        testAudio('b.mp3', '/b.mp3'),
+        testAudio('c.mp3', '/c.mp3'),
       ];
 
       // First container: afterCurrent is active, so onTrackCompleted returns true.

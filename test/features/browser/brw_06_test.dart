@@ -10,8 +10,9 @@ import '../../helpers/fake_secure_storage.dart';
 import 'package:nas_audio_player/core/network/webdav_client.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/features/connection/connection_provider.dart';
-import 'package:nas_audio_player/shared/models/connection_config.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
+
+import '../../helpers/test_factories.dart';
 
 // ── Manual mocks ────────────────────────────────────────────────────────────────
 
@@ -58,49 +59,26 @@ class _MockWebDavClient implements WebDavClientInterface {
 
 // ── Test helpers ────────────────────────────────────────────────────────────────
 
-NasFile _dir(String name, String path) {
-  return NasFile(name: name, path: path, isDirectory: true);
-}
-
-NasFile _audio(String name, String path) {
-  return NasFile(
-    name: name,
-    path: path,
-    isDirectory: false,
-    audioType: AudioFileType.music,
-  );
-}
-
-ConnectionConfig _connection({int id = 1, String name = 'Test'}) {
-  return ConnectionConfig(
-    id: id,
-    name: name,
-    url: 'http://192.168.1.1:8080',
-    username: 'admin',
-    basePath: '/',
-    isActive: true,
-    createdAt: DateTime(2024),
-    updatedAt: DateTime(2024),
-  );
-}
+// testDir(), testAudio(), and testConnection() are imported from test_factories.dart as
+// testDir(), testAudio(), and testConnection().
 
 /// Raw entries returned by the mock WebDAV client for the /music directory
 /// (includes self-reference that the provider filters out).
 List<NasFile> _musicRawEntries() {
   return [
-    _dir('music', '/music'),
-    _audio('song.mp3', '/music/song.mp3'),
-    _audio('track.flac', '/music/track.flac'),
+    testDir('music', '/music'),
+    testAudio('song.mp3', '/music/song.mp3'),
+    testAudio('track.flac', '/music/track.flac'),
   ];
 }
 
 /// Different raw entries simulating updated server data.
 List<NasFile> _musicRawEntriesUpdated() {
   return [
-    _dir('music', '/music'),
-    _audio('new_album.mp3', '/music/new_album.mp3'),
-    _audio('song.mp3', '/music/song.mp3'),
-    _audio('track.flac', '/music/track.flac'),
+    testDir('music', '/music'),
+    testAudio('new_album.mp3', '/music/new_album.mp3'),
+    testAudio('song.mp3', '/music/song.mp3'),
+    testAudio('track.flac', '/music/track.flac'),
   ];
 }
 
@@ -124,7 +102,7 @@ void main() {
         overrides: [
           webDavClientProvider.overrideWith((ref) => mockClient),
           activeConnectionProvider
-              .overrideWith((ref) async => _connection(id: 1)),
+              .overrideWith((ref) async => testConnection(id: 1)),
           secureStorageProvider.overrideWith((ref) => fakeStorage),
         ],
       );
@@ -187,7 +165,7 @@ void main() {
         overrides: [
           webDavClientProvider.overrideWith((ref) => mockClient),
           activeConnectionProvider
-              .overrideWith((ref) async => _connection(id: 1)),
+              .overrideWith((ref) async => testConnection(id: 1)),
           secureStorageProvider.overrideWith((ref) => fakeStorage),
         ],
       );
@@ -243,7 +221,7 @@ void main() {
         overrides: [
           webDavClientProvider.overrideWith((ref) => mockClient),
           activeConnectionProvider
-              .overrideWith((ref) async => _connection(id: 1)),
+              .overrideWith((ref) async => testConnection(id: 1)),
           secureStorageProvider.overrideWith((ref) => fakeStorage),
         ],
       );
@@ -259,10 +237,10 @@ void main() {
 
       // Simulate server-side changes: a file was deleted and a new one added
       final updatedEntries = [
-        _dir('music', '/music'),
-        _audio('track.flac', '/music/track.flac'),
-        _audio('new_release.ogg', '/music/new_release.ogg'),
-        _audio('latest.aac', '/music/latest.aac'),
+        testDir('music', '/music'),
+        testAudio('track.flac', '/music/track.flac'),
+        testAudio('new_release.ogg', '/music/new_release.ogg'),
+        testAudio('latest.aac', '/music/latest.aac'),
       ];
       mockClient.returnResult(updatedEntries);
 

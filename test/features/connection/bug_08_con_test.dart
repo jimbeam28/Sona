@@ -11,30 +11,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:nas_audio_player/features/connection/connection_list_screen.dart';
 import 'package:nas_audio_player/features/connection/connection_provider.dart';
-import 'package:nas_audio_player/shared/models/connection_config.dart';
+
+import '../../helpers/test_factories.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-ConnectionConfig _testConfig({
-  int? id,
-  String name = 'Test NAS',
-  String url = 'http://192.168.1.100:5005',
-  String username = 'admin',
-  String basePath = '/dav',
-  bool isActive = false,
-}) {
-  final now = DateTime.now();
-  return ConnectionConfig(
-    id: id,
-    name: name,
-    url: url,
-    username: username,
-    basePath: basePath,
-    isActive: isActive,
-    createdAt: now,
-    updatedAt: now,
-  );
-}
+// testConfig() is imported from test_factories.dart as testConfig().
 
 Widget _buildTestApp(Widget child, {List<Override>? overrides}) {
   return ProviderScope(
@@ -53,8 +35,8 @@ void main() {
   group('BUG-08-T01 conn.id == null does not crash', () {
     testWidgets('tap on connection with null id does not crash',
         (WidgetTester tester) async {
-      final connWithNullId = _testConfig(id: null, name: 'Null ID Conn');
-      final connWithId = _testConfig(id: 1, name: 'Valid Conn', isActive: true);
+      final connWithNullId = testConfig(id: null, name: 'Null ID Conn');
+      final connWithId = testConfig(id: 1, name: 'Valid Conn', isActive: true);
 
       await tester.pumpWidget(_buildTestApp(
         const ConnectionListScreen(),
@@ -81,8 +63,8 @@ void main() {
 
     testWidgets('popup delete on connection with null id does not crash',
         (WidgetTester tester) async {
-      final connWithNullId = _testConfig(id: null, name: 'Null ID Conn');
-      final connWithId = _testConfig(id: 1, name: 'Valid Conn', isActive: true);
+      final connWithNullId = testConfig(id: null, name: 'Null ID Conn');
+      final connWithId = testConfig(id: 1, name: 'Valid Conn', isActive: true);
 
       await tester.pumpWidget(_buildTestApp(
         const ConnectionListScreen(),
@@ -114,8 +96,8 @@ void main() {
 
     testWidgets('slidable delete on connection with null id does not crash',
         (WidgetTester tester) async {
-      final connWithNullId = _testConfig(id: null, name: 'Null ID Conn');
-      final connWithId = _testConfig(id: 1, name: 'Valid Conn', isActive: true);
+      final connWithNullId = testConfig(id: null, name: 'Null ID Conn');
+      final connWithId = testConfig(id: 1, name: 'Valid Conn', isActive: true);
 
       // Track whether the slidable onPressed was invoked without crashing
       bool slidableDeleteInvoked = false;
@@ -153,8 +135,8 @@ void main() {
   group('BUG-08-T02 conn.id != null works normally (regression)', () {
     testWidgets('tap switch on connection with valid id triggers onSwitch',
         (WidgetTester tester) async {
-      final conn1 = _testConfig(id: 1, name: 'NAS 1', isActive: true);
-      final conn2 = _testConfig(id: 2, name: 'NAS 2', isActive: false);
+      final conn1 = testConfig(id: 1, name: 'NAS 1', isActive: true);
+      final conn2 = testConfig(id: 2, name: 'NAS 2', isActive: false);
 
       await tester.pumpWidget(_buildTestApp(
         const ConnectionListScreen(),
@@ -181,8 +163,8 @@ void main() {
 
     testWidgets('popup delete on connection with valid id triggers onDelete',
         (WidgetTester tester) async {
-      final conn1 = _testConfig(id: 1, name: 'NAS 1', isActive: true);
-      final conn2 = _testConfig(id: 2, name: 'NAS 2', isActive: false);
+      final conn1 = testConfig(id: 1, name: 'NAS 1', isActive: true);
+      final conn2 = testConfig(id: 2, name: 'NAS 2', isActive: false);
 
       await tester.pumpWidget(_buildTestApp(
         const ConnectionListScreen(),

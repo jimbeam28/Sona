@@ -2,8 +2,8 @@
   "metadata": {
     "last_updated": "2026-06-09",
     "total": 54,
-    "pending": 41,
-    "done": 13
+    "pending": 40,
+    "done": 14
   },
   "order": [
     "BUG-01", "BUG-02", "BUG-03", "BUG-04", "BUG-05",
@@ -140,8 +140,8 @@
     "REF-04": {
       "name": "提取 _audio()/_dir() 工厂函数",
       "plan_section": "dev-plan.md §REF-04",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": ["REF-01"],
       "retry_count": 0,
       "last_error": ""

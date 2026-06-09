@@ -425,3 +425,17 @@
 
 ### 测试结果
 - 通过: 864 / 总计: 864
+
+---
+
+## [2026-06-09] [REF-04] - 提取 _audio()/_dir() 工厂函数
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `test/helpers/test_factories.dart` — 实现共享工厂函数 (testDir, testAudio, testConfig, testConnection, testProgress)
+- 13 个测试文件 — 使用共享版本
+- 11 个测试文件 — 移除不再需要的 import
+
+### 测试结果
+- 通过: 864 / 总计: 864

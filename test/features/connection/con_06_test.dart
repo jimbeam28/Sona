@@ -11,10 +11,10 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nas_audio_player/core/database/dao/connection_dao.dart';
 import 'package:nas_audio_player/features/connection/connection_provider.dart';
-import 'package:nas_audio_player/shared/models/connection_config.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../../helpers/test_database.dart';
+import '../../helpers/test_factories.dart';
 
 // ── Fake storage ──────────────────────────────────────────────────────────────────
 
@@ -73,29 +73,7 @@ class FakeSecureStorage extends FlutterSecureStorage {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────────
 
-/// Creates a [ConnectionConfig] with sensible defaults for testing.
-ConnectionConfig _testConfig({
-  int? id,
-  String name = 'Test NAS',
-  String url = 'http://192.168.1.100:5005',
-  String username = 'admin',
-  String basePath = '/dav',
-  bool isActive = false,
-  DateTime? createdAt,
-  DateTime? updatedAt,
-}) {
-  final now = DateTime.now();
-  return ConnectionConfig(
-    id: id,
-    name: name,
-    url: url,
-    username: username,
-    basePath: basePath,
-    isActive: isActive,
-    createdAt: createdAt ?? now,
-    updatedAt: updatedAt ?? now,
-  );
-}
+// testConfig() is imported from test_factories.dart as testConfig().
 
 /// SQL for the play_progress table used in CON-T31 cascade-delete tests.
 /// This is a simplified version (no FK constraint) matching the original test.
@@ -142,8 +120,8 @@ void main() {
 
     test('test_CON_T31_deleteConnection_cascadesToPlayProgress', () async {
       // Insert two connections (need >=2 so delete is allowed)
-      final c1 = _testConfig(name: 'NAS-1');
-      final c2 = _testConfig(name: 'NAS-2');
+      final c1 = testConfig(name: 'NAS-1');
+      final c2 = testConfig(name: 'NAS-2');
       final id1 = await dao.insert(c1, passwordKey: 'key_1');
       final id2 = await dao.insert(c2, passwordKey: 'key_2');
 
@@ -208,7 +186,7 @@ void main() {
 
     test('test_CON_T32_onlyOneConnection_deleteRejected', () async {
       // Insert a single connection
-      final c1 = _testConfig(name: 'Only NAS');
+      final c1 = testConfig(name: 'Only NAS');
       final id = await dao.insert(c1, passwordKey: 'key_only');
 
       // Attempt to delete — must throw LastConnectionException
@@ -242,8 +220,8 @@ void main() {
 
     test('test_CON_T33_deleteNonActiveConnection_activeUnaffected', () async {
       // Insert two connections
-      final c1 = _testConfig(name: 'NAS-Active', isActive: true);
-      final c2 = _testConfig(name: 'NAS-Inactive', isActive: false);
+      final c1 = testConfig(name: 'NAS-Active', isActive: true);
+      final c2 = testConfig(name: 'NAS-Inactive', isActive: false);
       final id1 = await dao.insert(c1, passwordKey: 'key_a');
       final id2 = await dao.insert(c2, passwordKey: 'key_b');
 
@@ -285,8 +263,8 @@ void main() {
 
     test('test_CON_T34_deleteActiveConnection_autoActivateAnother', () async {
       // Insert two connections
-      final c1 = _testConfig(name: 'NAS-1', isActive: true);
-      final c2 = _testConfig(name: 'NAS-2', isActive: false);
+      final c1 = testConfig(name: 'NAS-1', isActive: true);
+      final c2 = testConfig(name: 'NAS-2', isActive: false);
       final id1 = await dao.insert(c1, passwordKey: 'key_1');
       final id2 = await dao.insert(c2, passwordKey: 'key_2');
 
@@ -334,8 +312,8 @@ void main() {
 
     test('test_CON_06_deleteProvider_clearsPasswordAndInvalidates', () async {
       // Insert two connections
-      final c1 = _testConfig(name: 'NAS-A');
-      final c2 = _testConfig(name: 'NAS-B');
+      final c1 = testConfig(name: 'NAS-A');
+      final c2 = testConfig(name: 'NAS-B');
       final id1 = await dao.insert(c1, passwordKey: 'key_1');
       final id2 = await dao.insert(c2, passwordKey: 'key_2');
 
@@ -398,8 +376,8 @@ void main() {
 
     test('CON-FIX-T07: delete non-last connection succeeds via provider',
         () async {
-      final c1 = _testConfig(name: 'Keep');
-      final c2 = _testConfig(name: 'Remove');
+      final c1 = testConfig(name: 'Keep');
+      final c2 = testConfig(name: 'Remove');
       final id1 = await dao.insert(c1, passwordKey: 'k1');
       final id2 = await dao.insert(c2, passwordKey: 'k2');
 
@@ -428,7 +406,7 @@ void main() {
 
     test('CON-FIX-T08: deleting last connection → provider surfaces error',
         () async {
-      final c1 = _testConfig(name: 'Sole');
+      final c1 = testConfig(name: 'Sole');
       final id = await dao.insert(c1, passwordKey: 'k');
 
       storage.stub('connection_password_$id', 'pw');

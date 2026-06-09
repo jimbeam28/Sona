@@ -25,26 +25,13 @@ import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:nas_audio_player/shared/models/play_progress.dart';
 import 'package:nas_audio_player/shared/models/play_queue.dart';
 
+import '../../helpers/test_factories.dart';
 import 'ply_08_test.mocks.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────────
 
-/// Builds an audio [NasFile] with minimal properties.
-NasFile _audio(String name, String path,
-    {AudioFileType type = AudioFileType.music}) {
-  return NasFile(
-    name: name,
-    path: path,
-    isDirectory: false,
-    size: 1024,
-    audioType: type,
-  );
-}
-
-/// Builds a directory [NasFile].
-NasFile _dir(String name, String path) {
-  return NasFile(name: name, path: path, isDirectory: true);
-}
+// testAudio() and testDir() are imported from test_factories.dart as
+// testAudio() and testDir().
 
 /// Builds a [PlayQueue] from a mixed list of entries by filtering out
 /// directories, preserving the original sort order.  This mirrors the
@@ -65,13 +52,13 @@ void main() {
     test('queue order matches Browser sort order (directories filtered out)',
         () {
       final entries = [
-        _audio('02_song.mp3', '/music/02_song.mp3'),
-        _audio('01_song.flac', '/music/01_song.flac'),
-        _dir('folder_a', '/music/folder_a'),
-        _audio('03_song.aac', '/music/03_song.aac'),
-        _dir('folder_b', '/music/folder_b'),
-        _audio('05_song.m4a', '/music/05_song.m4a'),
-        _audio('04_song.ogg', '/music/04_song.ogg'),
+        testAudio('02_song.mp3', '/music/02_song.mp3'),
+        testAudio('01_song.flac', '/music/01_song.flac'),
+        testDir('folder_a', '/music/folder_a'),
+        testAudio('03_song.aac', '/music/03_song.aac'),
+        testDir('folder_b', '/music/folder_b'),
+        testAudio('05_song.m4a', '/music/05_song.m4a'),
+        testAudio('04_song.ogg', '/music/04_song.ogg'),
       ];
 
       final queue = buildQueueFromFiles(entries);
@@ -101,8 +88,8 @@ void main() {
 
     test('buildQueueFromFiles with only directories produces empty queue', () {
       final entries = [
-        _dir('only_dir_1', '/only_dir_1'),
-        _dir('only_dir_2', '/only_dir_2'),
+        testDir('only_dir_1', '/only_dir_1'),
+        testDir('only_dir_2', '/only_dir_2'),
       ];
       final queue = buildQueueFromFiles(entries);
       expect(queue.length, equals(0), reason: '全是目录时应产生空队列');
@@ -114,11 +101,11 @@ void main() {
   group('PLY-T31: Click nth file sets correct index', () {
     test('click 3rd audio file sets currentIndex to 2 (0-based)', () {
       final entries = [
-        _audio('track_01.mp3', '/music/track_01.mp3'),
-        _audio('track_02.flac', '/music/track_02.flac'),
-        _audio('track_03.aac', '/music/track_03.aac'),
-        _audio('track_04.m4a', '/music/track_04.m4a'),
-        _audio('track_05.ogg', '/music/track_05.ogg'),
+        testAudio('track_01.mp3', '/music/track_01.mp3'),
+        testAudio('track_02.flac', '/music/track_02.flac'),
+        testAudio('track_03.aac', '/music/track_03.aac'),
+        testAudio('track_04.m4a', '/music/track_04.m4a'),
+        testAudio('track_05.ogg', '/music/track_05.ogg'),
       ];
 
       // Simulate tapping the 3rd audio file (index 2)
@@ -147,9 +134,9 @@ void main() {
 
     test('click 1st file sets currentIndex to 0', () {
       final entries = [
-        _audio('first.mp3', '/music/first.mp3'),
-        _audio('second.flac', '/music/second.flac'),
-        _audio('third.aac', '/music/third.aac'),
+        testAudio('first.mp3', '/music/first.mp3'),
+        testAudio('second.flac', '/music/second.flac'),
+        testAudio('third.aac', '/music/third.aac'),
       ];
       final audioFiles = entries.where((f) => !f.isDirectory).toList();
       const tappedPath = '/music/first.mp3';
@@ -164,9 +151,9 @@ void main() {
 
     test('click last file sets currentIndex to length-1', () {
       final entries = [
-        _audio('a.mp3', '/music/a.mp3'),
-        _audio('b.flac', '/music/b.flac'),
-        _audio('c.aac', '/music/c.aac'),
+        testAudio('a.mp3', '/music/a.mp3'),
+        testAudio('b.flac', '/music/b.flac'),
+        testAudio('c.aac', '/music/c.aac'),
       ];
       final audioFiles = entries.where((f) => !f.isDirectory).toList();
       const tappedPath = '/music/c.aac';
@@ -392,8 +379,8 @@ void main() {
 
       final queue = PlayQueue(
         files: [
-          _audio('song.mp3', '/music/song.mp3'),
-          _audio('next.mp3', '/music/next.mp3'),
+          testAudio('song.mp3', '/music/song.mp3'),
+          testAudio('next.mp3', '/music/next.mp3'),
         ],
         currentIndex: 0,
         startPositionMs: 120000, // was playing at 2:00
@@ -425,11 +412,11 @@ void main() {
     test('withIndex changes currentIndex to the specified value', () {
       final queue = PlayQueue(
         files: [
-          _audio('track_01.mp3', '/music/track_01.mp3'),
-          _audio('track_02.flac', '/music/track_02.flac'),
-          _audio('track_03.aac', '/music/track_03.aac'),
-          _audio('track_04.m4a', '/music/track_04.m4a'),
-          _audio('track_05.ogg', '/music/track_05.ogg'),
+          testAudio('track_01.mp3', '/music/track_01.mp3'),
+          testAudio('track_02.flac', '/music/track_02.flac'),
+          testAudio('track_03.aac', '/music/track_03.aac'),
+          testAudio('track_04.m4a', '/music/track_04.m4a'),
+          testAudio('track_05.ogg', '/music/track_05.ogg'),
         ],
         currentIndex: 0,
       );
@@ -450,8 +437,8 @@ void main() {
     test('withIndex preserves playMode and other fields', () {
       final queue = PlayQueue(
         files: [
-          _audio('a.mp3', '/music/a.mp3'),
-          _audio('b.flac', '/music/b.flac'),
+          testAudio('a.mp3', '/music/a.mp3'),
+          testAudio('b.flac', '/music/b.flac'),
         ],
         currentIndex: 0,
         startPositionMs: 5000,
@@ -470,7 +457,7 @@ void main() {
     test('skipToQueueItem for already-current index is idempotent', () {
       final queue = PlayQueue(
         files: [
-          _audio('song.mp3', '/music/song.mp3'),
+          testAudio('song.mp3', '/music/song.mp3'),
         ],
         currentIndex: 0,
       );
@@ -483,9 +470,9 @@ void main() {
     test('withIndex with boundary values', () {
       final queue = PlayQueue(
         files: [
-          _audio('a.mp3', '/music/a.mp3'),
-          _audio('b.flac', '/music/b.flac'),
-          _audio('c.aac', '/music/c.aac'),
+          testAudio('a.mp3', '/music/a.mp3'),
+          testAudio('b.flac', '/music/b.flac'),
+          testAudio('c.aac', '/music/c.aac'),
         ],
         currentIndex: 0,
       );
@@ -503,11 +490,11 @@ void main() {
     test('toMap / fromMap round-trip preserves queue state', () {
       final original = PlayQueue(
         files: [
-          _audio('song_01.mp3', '/music/song_01.mp3'),
-          _audio('song_02.flac', '/music/song_02.flac'),
-          _audio('song_03.aac', '/music/song_03.aac'),
-          _audio('song_04.m4a', '/music/song_04.m4a'),
-          _audio('song_05.ogg', '/music/song_05.ogg'),
+          testAudio('song_01.mp3', '/music/song_01.mp3'),
+          testAudio('song_02.flac', '/music/song_02.flac'),
+          testAudio('song_03.aac', '/music/song_03.aac'),
+          testAudio('song_04.m4a', '/music/song_04.m4a'),
+          testAudio('song_05.ogg', '/music/song_05.ogg'),
         ],
         currentIndex: 2,
         startPositionMs: 45000, // 0:45 into the track
@@ -542,7 +529,7 @@ void main() {
 
     test('restore queue with sequential mode (default) and no position', () {
       final files = [
-        _audio('track.mp3', '/music/track.mp3'),
+        testAudio('track.mp3', '/music/track.mp3'),
       ];
       final map = {
         'filePaths': ['/music/track.mp3'],
@@ -560,8 +547,8 @@ void main() {
 
     test('restore with missing playMode defaults to sequential', () {
       final files = [
-        _audio('a.mp3', '/music/a.mp3'),
-        _audio('b.flac', '/music/b.flac'),
+        testAudio('a.mp3', '/music/a.mp3'),
+        testAudio('b.flac', '/music/b.flac'),
       ];
       final map = {
         'filePaths': ['/music/a.mp3', '/music/b.flac'],
@@ -579,7 +566,7 @@ void main() {
 
     test('restore queue with null startPositionMs', () {
       final files = [
-        _audio('x.mp3', '/music/x.mp3'),
+        testAudio('x.mp3', '/music/x.mp3'),
       ];
       final map = <String, dynamic>{
         'filePaths': ['/music/x.mp3'],
@@ -607,7 +594,7 @@ void main() {
       // seek + pause.
 
       final files = [
-        _audio('resume_me.mp3', '/music/resume_me.mp3'),
+        testAudio('resume_me.mp3', '/music/resume_me.mp3'),
       ];
 
       // Simulate: user was 2:30 into the track when the app was killed
@@ -638,7 +625,7 @@ void main() {
     test('applyLatestProgressToQueue updates startPosition for matching file',
         () {
       final queue = PlayQueue(
-        files: [_audio('resume.mp3', '/music/resume.mp3')],
+        files: [testAudio('resume.mp3', '/music/resume.mp3')],
         currentIndex: 0,
       );
       final latest = PlayProgress(
@@ -660,7 +647,7 @@ void main() {
 
     test('applyLatestProgressToQueue ignores different file or connection', () {
       final queue = PlayQueue(
-        files: [_audio('resume.mp3', '/music/resume.mp3')],
+        files: [testAudio('resume.mp3', '/music/resume.mp3')],
         currentIndex: 0,
       );
       final latest = PlayProgress(
@@ -708,7 +695,7 @@ void main() {
   group('PlayQueue withMode', () {
     test('withMode creates copy with new playMode', () {
       final queue = PlayQueue(
-        files: [_audio('a.mp3', '/a.mp3')],
+        files: [testAudio('a.mp3', '/a.mp3')],
         currentIndex: 0,
       );
 
@@ -724,7 +711,7 @@ void main() {
 
   group('PlayQueue equality', () {
     test('queues with different playMode are not equal', () {
-      final files = [_audio('a.mp3', '/a.mp3')];
+      final files = [testAudio('a.mp3', '/a.mp3')];
       final a = PlayQueue(
           files: files, currentIndex: 0, playMode: PlayMode.sequential);
       final b = PlayQueue(
@@ -733,7 +720,7 @@ void main() {
     });
 
     test('queues with same properties are equal', () {
-      final files = [_audio('a.mp3', '/a.mp3')];
+      final files = [testAudio('a.mp3', '/a.mp3')];
       final a =
           PlayQueue(files: files, currentIndex: 0, playMode: PlayMode.shuffle);
       final b =
@@ -783,7 +770,7 @@ void main() {
     PlayQueue buildQueue(int count, int currentIndex) {
       final files = List.generate(count, (i) {
         final n = (i + 1).toString().padLeft(2, '0');
-        return _audio('track_$n.mp3', '/music/track_$n.mp3');
+        return testAudio('track_$n.mp3', '/music/track_$n.mp3');
       });
       return PlayQueue(files: files, currentIndex: currentIndex);
     }
@@ -947,7 +934,7 @@ void main() {
       final queue = PlayQueue(
         files: List.generate(5, (i) {
           final n = (i + 1).toString().padLeft(2, '0');
-          return _audio('track_$n.mp3', '/music/track_$n.mp3');
+          return testAudio('track_$n.mp3', '/music/track_$n.mp3');
         }),
         currentIndex: 2,
         playMode: PlayMode.shuffle,
@@ -1073,9 +1060,9 @@ void main() {
         () {
       final original = PlayQueue(
         files: [
-          _audio('a.mp3', '/music/a.mp3'),
-          _audio('b.mp3', '/music/b.mp3'),
-          _audio('c.mp3', '/music/c.mp3'),
+          testAudio('a.mp3', '/music/a.mp3'),
+          testAudio('b.mp3', '/music/b.mp3'),
+          testAudio('c.mp3', '/music/c.mp3'),
         ],
         currentIndex: 1,
         startPositionMs: 30000,
@@ -1120,7 +1107,7 @@ void main() {
     PlayQueue buildQueue(int count, int currentIndex) {
       final files = List.generate(count, (i) {
         final n = (i + 1).toString().padLeft(2, '0');
-        return _audio('track_$n.mp3', '/music/track_$n.mp3');
+        return testAudio('track_$n.mp3', '/music/track_$n.mp3');
       });
       return PlayQueue(files: files, currentIndex: currentIndex);
     }

@@ -11,37 +11,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nas_audio_player/core/database/dao/connection_dao.dart';
 import 'package:nas_audio_player/features/connection/connection_provider.dart';
-import 'package:nas_audio_player/shared/models/connection_config.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../../helpers/test_database.dart';
+import '../../helpers/test_factories.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/// Creates a [ConnectionConfig] with sensible defaults for testing.
-ConnectionConfig _testConfig({
-  int? id,
-  String name = 'Test NAS',
-  String url = 'http://192.168.1.100:5005',
-  String username = 'admin',
-  String basePath = '/dav',
-  bool isActive = false,
-  DateTime? createdAt,
-  DateTime? updatedAt,
-}) {
-  final now = DateTime.now();
-  return ConnectionConfig(
-    id: id,
-    name: name,
-    url: url,
-    username: username,
-    basePath: basePath,
-    isActive: isActive,
-    createdAt: createdAt ?? now,
-    updatedAt: updatedAt ?? now,
-  );
-}
-
+// testConfig() is imported from test_factories.dart as testConfig().
 
 /// Builds a [ProviderContainer] that overrides [connectionDaoProvider] with
 /// the supplied [dao].
@@ -79,11 +56,11 @@ void main() {
 
     test('test_CON_T25_setActiveSwitchesCorrectly', () async {
       // Insert two connections
-      final config1 = _testConfig(
+      final config1 = testConfig(
         name: 'NAS Alpha',
         url: 'http://192.168.1.100:5005',
       );
-      final config2 = _testConfig(
+      final config2 = testConfig(
         name: 'NAS Beta',
         url: 'http://192.168.1.101:5005',
       );
@@ -123,11 +100,11 @@ void main() {
 
     test('test_CON_T26_switchInvalidatesActiveConnectionProvider', () async {
       // Insert two connections
-      final config1 = _testConfig(
+      final config1 = testConfig(
         name: 'NAS Alpha',
         url: 'http://192.168.1.100:5005',
       );
-      final config2 = _testConfig(
+      final config2 = testConfig(
         name: 'NAS Beta',
         url: 'http://192.168.1.101:5005',
       );
@@ -169,11 +146,11 @@ void main() {
 
     test('test_CON_T27_activeConnectionProviderUpdatesAfterSwitch', () async {
       // Insert two connections
-      final config1 = _testConfig(
+      final config1 = testConfig(
         name: 'NAS Alpha',
         url: 'http://192.168.1.100:5005',
       );
-      final config2 = _testConfig(
+      final config2 = testConfig(
         name: 'NAS Beta',
         url: 'http://192.168.1.101:5005',
       );

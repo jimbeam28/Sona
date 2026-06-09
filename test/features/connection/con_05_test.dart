@@ -13,11 +13,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nas_audio_player/core/database/dao/connection_dao.dart';
 import 'package:nas_audio_player/core/network/webdav_client.dart';
 import 'package:nas_audio_player/features/connection/connection_provider.dart';
-import 'package:nas_audio_player/shared/models/connection_config.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../../helpers/test_database.dart';
+import '../../helpers/test_factories.dart';
 
 // ── Mocks ────────────────────────────────────────────────────────────────────────
 
@@ -88,29 +88,7 @@ class FakeSecureStorage extends FlutterSecureStorage {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/// Creates a [ConnectionConfig] with sensible defaults for testing.
-ConnectionConfig _testConfig({
-  int? id,
-  String name = 'Test NAS',
-  String url = 'http://192.168.1.100:5005',
-  String username = 'admin',
-  String basePath = '/dav',
-  bool isActive = false,
-  DateTime? createdAt,
-  DateTime? updatedAt,
-}) {
-  final now = DateTime.now();
-  return ConnectionConfig(
-    id: id,
-    name: name,
-    url: url,
-    username: username,
-    basePath: basePath,
-    isActive: isActive,
-    createdAt: createdAt ?? now,
-    updatedAt: updatedAt ?? now,
-  );
-}
+// testConfig() is imported from test_factories.dart as testConfig().
 
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -139,7 +117,7 @@ void main() {
 
     test('test_CON_T28_modifyUrl_saveWithoutValidation_blocked', () async {
       // Insert original connection
-      final original = _testConfig(url: 'http://old.example.com:5005');
+      final original = testConfig(url: 'http://old.example.com:5005');
       final id = await dao.insert(original, passwordKey: 'key_1');
 
       // Set up mock WebDAV client with failure result — validation has NOT
@@ -179,7 +157,7 @@ void main() {
 
     test('test_CON_T29_modifyUrl_validateThenSave_urlUpdated', () async {
       // Insert original connection
-      final original = _testConfig(
+      final original = testConfig(
         name: 'My NAS',
         url: 'http://old.example.com:5005',
         username: 'admin',
@@ -240,7 +218,7 @@ void main() {
     test('test_CON_T30_modifyNameOnly_saveWithoutValidation_nameUpdated',
         () async {
       // Insert original connection
-      final original = _testConfig(
+      final original = testConfig(
         name: 'Old Name',
         url: 'http://example.com:5005',
         username: 'admin',
@@ -281,7 +259,7 @@ void main() {
 
     test('test_CON_T30b_passwordChange_needsValidation', () async {
       // Insert original connection
-      final original = _testConfig(url: 'http://example.com:5005');
+      final original = testConfig(url: 'http://example.com:5005');
       final id = await dao.insert(original, passwordKey: 'key_4');
 
       final mockClient = MockWebDavClient();

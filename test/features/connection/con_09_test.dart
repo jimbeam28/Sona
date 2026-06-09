@@ -10,39 +10,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import '../../helpers/fake_secure_storage.dart';
 import '../../helpers/test_database.dart';
+import '../../helpers/test_factories.dart';
 import 'package:nas_audio_player/core/database/dao/connection_dao.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/features/connection/connection_provider.dart';
-import 'package:nas_audio_player/shared/models/connection_config.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:nas_audio_player/shared/models/play_queue.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/// Creates a [ConnectionConfig] with defaults convenient for testing.
-ConnectionConfig _testConfig({
-  int? id,
-  String name = 'Test NAS',
-  String url = 'http://192.168.1.100:5005',
-  String username = 'admin',
-  String basePath = '/dav',
-  bool isActive = false,
-  DateTime? createdAt,
-  DateTime? updatedAt,
-}) {
-  final now = DateTime.now();
-  return ConnectionConfig(
-    id: id,
-    name: name,
-    url: url,
-    username: username,
-    basePath: basePath,
-    isActive: isActive,
-    createdAt: createdAt ?? now,
-    updatedAt: updatedAt ?? now,
-  );
-}
+// testConfig() is imported from test_factories.dart as testConfig().
 
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -65,8 +43,8 @@ void main() {
     setUp(() async {
       db = await openTestDatabase(TestSchema.connections);
       dao = ConnectionDao();
-      final c1 = _testConfig(name: 'NAS-1', url: 'http://nas1.local:5005');
-      final c2 = _testConfig(name: 'NAS-2', url: 'http://nas2.local:5005');
+      final c1 = testConfig(name: 'NAS-1', url: 'http://nas1.local:5005');
+      final c2 = testConfig(name: 'NAS-2', url: 'http://nas2.local:5005');
       conn1Id = await dao.insert(c1, passwordKey: 'key_1');
       conn2Id = await dao.insert(c2, passwordKey: 'key_2');
       await dao.setActive(conn1Id);
@@ -123,8 +101,8 @@ void main() {
       db = await openTestDatabase(TestSchema.connections);
       dao = ConnectionDao();
       storage = FakeSecureStorage();
-      final c1 = _testConfig(name: 'NAS-1', url: 'http://nas1.local:5005');
-      final c2 = _testConfig(name: 'NAS-2', url: 'http://nas2.local:5005');
+      final c1 = testConfig(name: 'NAS-1', url: 'http://nas1.local:5005');
+      final c2 = testConfig(name: 'NAS-2', url: 'http://nas2.local:5005');
       conn1Id = await dao.insert(c1, passwordKey: 'key_1');
       conn2Id = await dao.insert(c2, passwordKey: 'key_2');
       await dao.setActive(conn1Id);
@@ -191,8 +169,8 @@ void main() {
     setUp(() async {
       db = await openTestDatabase(TestSchema.connections);
       dao = ConnectionDao();
-      final c1 = _testConfig(name: 'NAS-1', url: 'http://nas1.local:5005');
-      final c2 = _testConfig(name: 'NAS-2', url: 'http://nas2.local:5005');
+      final c1 = testConfig(name: 'NAS-1', url: 'http://nas1.local:5005');
+      final c2 = testConfig(name: 'NAS-2', url: 'http://nas2.local:5005');
       conn1Id = await dao.insert(c1, passwordKey: 'key_1');
       conn2Id = await dao.insert(c2, passwordKey: 'key_2');
       await dao.setActive(conn1Id);
@@ -256,7 +234,7 @@ void main() {
       // ConnectionSaver.save does not trigger LastConnectionException.
       // (ConnectionDao.delete requires count > 1 to allow deletion.)
       final preExisting =
-          _testConfig(name: 'Pre-existing', url: 'http://pre.local:5005');
+          testConfig(name: 'Pre-existing', url: 'http://pre.local:5005');
       await dao.insert(preExisting, passwordKey: 'key_pre');
     });
 
@@ -268,7 +246,7 @@ void main() {
       final throwingStorage = ThrowingFakeSecureStorage();
       final saver = ConnectionSaver(dao, throwingStorage);
 
-      final newConfig = _testConfig(
+      final newConfig = testConfig(
         name: 'New NAS',
         url: 'http://new.local:5005',
       );
@@ -313,7 +291,7 @@ void main() {
     test('test_TST_T95_bothSucceed_completeSave', () async {
       final saver = ConnectionSaver(dao, storage);
 
-      final config = _testConfig(
+      final config = testConfig(
         name: 'My NAS',
         url: 'http://my-nas.local:5005',
       );
@@ -356,8 +334,8 @@ void main() {
       db = await openTestDatabase(TestSchema.connections);
       dao = ConnectionDao();
       storage = FakeSecureStorage();
-      final c1 = _testConfig(name: 'NAS-A', url: 'http://nas-a.local:5005');
-      final c2 = _testConfig(name: 'NAS-B', url: 'http://nas-b.local:5005');
+      final c1 = testConfig(name: 'NAS-A', url: 'http://nas-a.local:5005');
+      final c2 = testConfig(name: 'NAS-B', url: 'http://nas-b.local:5005');
       conn1Id = await dao.insert(c1, passwordKey: 'key_a');
       conn2Id = await dao.insert(c2, passwordKey: 'key_b');
       await dao.setActive(conn1Id);
@@ -410,8 +388,8 @@ void main() {
       db = await openTestDatabase(TestSchema.connections);
       dao = ConnectionDao();
       storage = FakeSecureStorage();
-      final c1 = _testConfig(name: 'Old', url: 'http://old.local:5005');
-      final c2 = _testConfig(name: 'New', url: 'http://new.local:5005');
+      final c1 = testConfig(name: 'Old', url: 'http://old.local:5005');
+      final c2 = testConfig(name: 'New', url: 'http://new.local:5005');
       conn1Id = await dao.insert(c1, passwordKey: 'key_old');
       conn2Id = await dao.insert(c2, passwordKey: 'key_new');
       await dao.setActive(conn1Id);
@@ -455,8 +433,8 @@ void main() {
       db = await openTestDatabase(TestSchema.connections);
       dao = ConnectionDao();
       storage = FakeSecureStorage();
-      final c1 = _testConfig(name: 'First', url: 'http://first.local:5005');
-      final c2 = _testConfig(name: 'Second', url: 'http://second.local:5005');
+      final c1 = testConfig(name: 'First', url: 'http://first.local:5005');
+      final c2 = testConfig(name: 'Second', url: 'http://second.local:5005');
       conn1Id = await dao.insert(c1, passwordKey: 'k1');
       conn2Id = await dao.insert(c2, passwordKey: 'k2');
       await dao.setActive(conn1Id);

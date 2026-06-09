@@ -28,16 +28,10 @@ import 'package:nas_audio_player/features/player/player_provider.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:nas_audio_player/shared/models/play_queue.dart';
 
+import '../../helpers/test_factories.dart';
 import 'ply_08_test.mocks.dart';
 
-NasFile _audio(String name, String path) {
-  return NasFile(
-    name: name,
-    path: path,
-    isDirectory: false,
-    audioType: AudioFileType.music,
-  );
-}
+// testAudio() is imported from test_factories.dart as testAudio().
 
 Widget _wrapPlayerScreen({
   required AudioPlayer player,
@@ -305,8 +299,8 @@ void main() {
 
       final queue = PlayQueue(
         files: [
-          _audio('first.mp3', '/music/first.mp3'),
-          _audio('second.mp3', '/music/second.mp3'),
+          testAudio('first.mp3', '/music/first.mp3'),
+          testAudio('second.mp3', '/music/second.mp3'),
         ],
         currentIndex: 0,
       );
@@ -353,8 +347,8 @@ void main() {
 
       final queue = PlayQueue(
         files: [
-          _audio('first.mp3', '/music/first.mp3'),
-          _audio('second.mp3', '/music/second.mp3'),
+          testAudio('first.mp3', '/music/first.mp3'),
+          testAudio('second.mp3', '/music/second.mp3'),
         ],
         currentIndex: 0,
       );

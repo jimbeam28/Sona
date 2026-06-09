@@ -8,47 +8,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
-import 'package:nas_audio_player/shared/models/play_progress.dart';
 import 'package:nas_audio_player/shared/models/play_queue.dart';
 import 'package:nas_audio_player/core/database/database_helper.dart';
 import 'package:nas_audio_player/core/database/dao/progress_dao.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import '../../helpers/test_factories.dart';
+
 // ── Helpers ───────────────────────────────────────────────────────────────────────
-
-/// Builds a directory [NasFile] for test assertions.
-NasFile _dir(String name, String path) {
-  return NasFile(name: name, path: path, isDirectory: true);
-}
-
-/// Builds an audio [NasFile] for test assertions.
-NasFile _audio(String name, String path,
-    {int? size, AudioFileType type = AudioFileType.music}) {
-  return NasFile(
-    name: name,
-    path: path,
-    isDirectory: false,
-    size: size,
-    audioType: type,
-  );
-}
-
-/// Builds a [PlayProgress] for test assertions.
-PlayProgress _progress({
-  int connectionId = 1,
-  String filePath = '/test.mp3',
-  int positionMs = 754000,
-  int? durationMs,
-  DateTime? lastPlayedAt,
-}) {
-  return PlayProgress(
-    connectionId: connectionId,
-    filePath: filePath,
-    positionMs: positionMs,
-    durationMs: durationMs,
-    lastPlayedAt: lastPlayedAt ?? DateTime(2026, 5, 1),
-  );
-}
 
 /// Mirrors the queue-building logic from the Browser onTap handler so that
 /// the unit tests exercise the same rules as production code.
@@ -69,17 +36,17 @@ void main() {
 
     test('BRW-T23: click 3rd audio file — queue starts from index 2', () {
       final entries = [
-        _dir('folder1', '/folder1'),
-        _audio('song_01.mp3', '/song_01.mp3'),
-        _audio('song_02.flac', '/song_02.flac'),
-        _audio('song_03.aac', '/song_03.aac'),
-        _dir('folder2', '/folder2'),
-        _audio('song_04.m4a', '/song_04.m4a'),
-        _audio('song_05.ogg', '/song_05.ogg'),
+        testDir('folder1', '/folder1'),
+        testAudio('song_01.mp3', '/song_01.mp3'),
+        testAudio('song_02.flac', '/song_02.flac'),
+        testAudio('song_03.aac', '/song_03.aac'),
+        testDir('folder2', '/folder2'),
+        testAudio('song_04.m4a', '/song_04.m4a'),
+        testAudio('song_05.ogg', '/song_05.ogg'),
       ];
 
       // Tap the 3rd audio file
-      final tappedFile = _audio('song_03.aac', '/song_03.aac');
+      final tappedFile = testAudio('song_03.aac', '/song_03.aac');
       final queue = buildPlayQueue(entries, tappedFile);
 
       expect(queue, isNotNull, reason: '应成功构建播放队列');
@@ -110,16 +77,16 @@ void main() {
 
     test('BRW-T24: click 1st audio file — queue starts from index 0', () {
       final entries = [
-        _dir('folder1', '/folder1'),
-        _audio('song_01.mp3', '/song_01.mp3'),
-        _audio('song_02.flac', '/song_02.flac'),
-        _audio('song_03.aac', '/song_03.aac'),
-        _dir('folder2', '/folder2'),
-        _audio('song_04.m4a', '/song_04.m4a'),
-        _audio('song_05.ogg', '/song_05.ogg'),
+        testDir('folder1', '/folder1'),
+        testAudio('song_01.mp3', '/song_01.mp3'),
+        testAudio('song_02.flac', '/song_02.flac'),
+        testAudio('song_03.aac', '/song_03.aac'),
+        testDir('folder2', '/folder2'),
+        testAudio('song_04.m4a', '/song_04.m4a'),
+        testAudio('song_05.ogg', '/song_05.ogg'),
       ];
 
-      final tappedFile = _audio('song_01.mp3', '/song_01.mp3');
+      final tappedFile = testAudio('song_01.mp3', '/song_01.mp3');
       final queue = buildPlayQueue(entries, tappedFile);
 
       expect(queue, isNotNull);
@@ -134,16 +101,16 @@ void main() {
 
     test('BRW-T25: click last audio file — full queue, starts from last', () {
       final entries = [
-        _dir('folder1', '/folder1'),
-        _audio('song_01.mp3', '/song_01.mp3'),
-        _audio('song_02.flac', '/song_02.flac'),
-        _audio('song_03.aac', '/song_03.aac'),
-        _dir('folder2', '/folder2'),
-        _audio('song_04.m4a', '/song_04.m4a'),
-        _audio('song_05.ogg', '/song_05.ogg'),
+        testDir('folder1', '/folder1'),
+        testAudio('song_01.mp3', '/song_01.mp3'),
+        testAudio('song_02.flac', '/song_02.flac'),
+        testAudio('song_03.aac', '/song_03.aac'),
+        testDir('folder2', '/folder2'),
+        testAudio('song_04.m4a', '/song_04.m4a'),
+        testAudio('song_05.ogg', '/song_05.ogg'),
       ];
 
-      final tappedFile = _audio('song_05.ogg', '/song_05.ogg');
+      final tappedFile = testAudio('song_05.ogg', '/song_05.ogg');
       final queue = buildPlayQueue(entries, tappedFile);
 
       expect(queue, isNotNull);
@@ -164,11 +131,11 @@ void main() {
 
     test('BRW-T26: single audio file — queue length 1, currentIndex 0', () {
       final entries = [
-        _dir('only_dir', '/only_dir'),
-        _audio('lone_song.mp3', '/lone_song.mp3'),
+        testDir('only_dir', '/only_dir'),
+        testAudio('lone_song.mp3', '/lone_song.mp3'),
       ];
 
-      final tappedFile = _audio('lone_song.mp3', '/lone_song.mp3');
+      final tappedFile = testAudio('lone_song.mp3', '/lone_song.mp3');
       final queue = buildPlayQueue(entries, tappedFile);
 
       expect(queue, isNotNull);
@@ -206,7 +173,7 @@ void main() {
     test('BRW-T28: PlayProgress.formattedPosition formats correctly for dialog',
         () {
       // 12:34 = 12 * 60 + 34 = 754 seconds = 754,000 ms
-      final progress = _progress(
+      final progress = testProgress(
         positionMs: 754000,
         durationMs: 3600000, // 1 hour
       );
@@ -222,7 +189,7 @@ void main() {
 
     test('BRW-T28: PlayProgress with hours formats as H:MM:SS', () {
       // 1:23:45 = 1*3600 + 23*60 + 45 = 5025 seconds = 5,025,000 ms
-      final progress = _progress(positionMs: 5025000);
+      final progress = testProgress(positionMs: 5025000, durationMs: null);
 
       expect(progress.formattedPosition, equals('1:23:45'),
           reason: '超过1小时应格式化为 H:MM:SS');
@@ -233,7 +200,7 @@ void main() {
 
     test('BRW-T28: PlayProgress with zero duration returns zero percentage',
         () {
-      final progress = _progress(
+      final progress = testProgress(
         positionMs: 10000,
         durationMs: 0, // zero-duration edge case
       );
@@ -243,7 +210,7 @@ void main() {
 
     test('BRW-T28: progress provider can be overridden to simulate saved state',
         () {
-      final savedProgress = _progress(
+      final savedProgress = testProgress(
         filePath: '/music/track.mp3',
         positionMs: 180000, // 3:00
       );

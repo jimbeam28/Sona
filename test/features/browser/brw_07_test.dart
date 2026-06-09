@@ -11,36 +11,16 @@ import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/features/browser/browser_screen.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../helpers/test_factories.dart';
 import 'package:nas_audio_player/core/database/database_helper.dart';
 import 'package:nas_audio_player/core/database/dao/progress_dao.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 // ── Test helpers ────────────────────────────────────────────────────────────────
 
-/// Builds a directory [NasFile] for test assertions.
-NasFile _dir(String name, String path, {DateTime? modifiedAt}) {
-  return NasFile(
-    name: name,
-    path: path,
-    isDirectory: true,
-    modifiedAt: modifiedAt,
-  );
-}
-
-/// Builds an audio [NasFile] for test assertions.
-NasFile _audio(String name, String path,
-    {int? size,
-    DateTime? modifiedAt,
-    AudioFileType type = AudioFileType.music}) {
-  return NasFile(
-    name: name,
-    path: path,
-    isDirectory: false,
-    size: size,
-    modifiedAt: modifiedAt,
-    audioType: type,
-  );
-}
+// testDir() and testAudio() are imported from test_factories.dart as
+// testDir() and testAudio().
 
 /// Creates a [SortOptionNotifier] backed by a mock [SharedPreferences].
 Future<SortOptionNotifier> _notifierWithPrefs(
@@ -60,12 +40,12 @@ void main() {
 
     test('BRW-T37: name descending sorts Z to A', () {
       final unsorted = [
-        _audio('a_track.flac', '/a_track.flac'),
-        _audio('z_song.mp3', '/z_song.mp3'),
-        _audio('m_music.aac', '/m_music.aac'),
-        _dir('apple', '/apple'),
-        _dir('zebra', '/zebra'),
-        _dir('banana', '/banana'),
+        testAudio('a_track.flac', '/a_track.flac'),
+        testAudio('z_song.mp3', '/z_song.mp3'),
+        testAudio('m_music.aac', '/m_music.aac'),
+        testDir('apple', '/apple'),
+        testDir('zebra', '/zebra'),
+        testDir('banana', '/banana'),
       ];
 
       final sorted = sortFiles(unsorted, SortOption.nameDesc);
@@ -92,14 +72,14 @@ void main() {
     test('BRW-T38: modified time descending sorts newest first', () {
       final baseTime = DateTime(2024, 1, 1);
       final unsorted = [
-        _audio('old.mp3', '/old.mp3', modifiedAt: baseTime),
-        _audio('new.mp3', '/new.mp3',
+        testAudio('old.mp3', '/old.mp3', modifiedAt: baseTime),
+        testAudio('new.mp3', '/new.mp3',
             modifiedAt: baseTime.add(const Duration(days: 30))),
-        _audio('mid.mp3', '/mid.mp3',
+        testAudio('mid.mp3', '/mid.mp3',
             modifiedAt: baseTime.add(const Duration(days: 10))),
-        _dir('old_dir', '/old_dir',
+        testDir('old_dir', '/old_dir',
             modifiedAt: baseTime.subtract(const Duration(days: 5))),
-        _dir('new_dir', '/new_dir',
+        testDir('new_dir', '/new_dir',
             modifiedAt: baseTime.add(const Duration(days: 60))),
       ];
 
@@ -124,12 +104,12 @@ void main() {
 
     test('BRW-T39: name ascending sorts A to Z', () {
       final unsorted = [
-        _audio('z_song.mp3', '/z_song.mp3'),
-        _audio('a_track.flac', '/a_track.flac'),
-        _audio('m_music.aac', '/m_music.aac'),
-        _dir('zebra', '/zebra'),
-        _dir('apple', '/apple'),
-        _dir('banana', '/banana'),
+        testAudio('z_song.mp3', '/z_song.mp3'),
+        testAudio('a_track.flac', '/a_track.flac'),
+        testAudio('m_music.aac', '/m_music.aac'),
+        testDir('zebra', '/zebra'),
+        testDir('apple', '/apple'),
+        testDir('banana', '/banana'),
       ];
 
       final sorted = sortFiles(unsorted, SortOption.nameAsc);
@@ -217,12 +197,12 @@ void main() {
       // would appear after files.  We need to confirm dirs stay first.
       final baseTime = DateTime(2024, 6, 1);
       final mixed = [
-        _audio('z_song.mp3', '/z_song.mp3',
+        testAudio('z_song.mp3', '/z_song.mp3',
             modifiedAt: baseTime.add(const Duration(days: 1))),
-        _dir('music', '/music',
+        testDir('music', '/music',
             modifiedAt: baseTime.subtract(const Duration(days: 10))),
-        _audio('a_track.flac', '/a_track.flac', modifiedAt: baseTime),
-        _dir('audiobooks', '/audiobooks',
+        testAudio('a_track.flac', '/a_track.flac', modifiedAt: baseTime),
+        testDir('audiobooks', '/audiobooks',
             modifiedAt: baseTime.add(const Duration(days: 5))),
       ];
 
@@ -285,7 +265,7 @@ void main() {
         ProviderScope(
           overrides: [
             directoryContentsProvider('/').overrideWith((ref) async => [
-                  _audio('song.mp3', '/song.mp3'),
+                  testAudio('song.mp3', '/song.mp3'),
                 ]),
           ],
           child: const MaterialApp(home: Scaffold(body: BrowserScreen())),
@@ -314,7 +294,7 @@ void main() {
         ProviderScope(
           overrides: [
             directoryContentsProvider('/').overrideWith((ref) async => [
-                  _audio('song.mp3', '/song.mp3'),
+                  testAudio('song.mp3', '/song.mp3'),
                 ]),
           ],
           child: const MaterialApp(home: Scaffold(body: BrowserScreen())),

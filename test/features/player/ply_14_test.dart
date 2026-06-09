@@ -25,21 +25,14 @@ import 'package:mockito/mockito.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/features/player/player_screen.dart';
 import 'package:nas_audio_player/features/player/player_provider.dart';
-import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:nas_audio_player/shared/models/play_queue.dart';
 
+import '../../helpers/test_factories.dart';
 import 'ply_08_test.mocks.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-NasFile _audio(String name, String path) {
-  return NasFile(
-    name: name,
-    path: path,
-    isDirectory: false,
-    audioType: AudioFileType.music,
-  );
-}
+// testAudio() is imported from test_factories.dart as testAudio().
 
 /// Builds the test app with [PlayerScreen] wrapped in [ProviderScope].
 Widget _buildTestApp({
@@ -92,8 +85,8 @@ void main() {
   // Default test queue: 2 tracks, current index 0
   final defaultQueue = PlayQueue(
     files: [
-      _audio('Test Song.mp3', '/music/Test Song.mp3'),
-      _audio('Song 2.flac', '/music/Song 2.flac'),
+      testAudio('Test Song.mp3', '/music/Test Song.mp3'),
+      testAudio('Song 2.flac', '/music/Song 2.flac'),
     ],
     currentIndex: 0,
   );
@@ -101,9 +94,9 @@ void main() {
   // 3-track queue with currentIndex=1 so both prev and next are valid
   final threeTrackQueue = PlayQueue(
     files: [
-      _audio('A.mp3', '/music/A.mp3'),
-      _audio('B.mp3', '/music/B.mp3'),
-      _audio('C.mp3', '/music/C.mp3'),
+      testAudio('A.mp3', '/music/A.mp3'),
+      testAudio('B.mp3', '/music/B.mp3'),
+      testAudio('C.mp3', '/music/C.mp3'),
     ],
     currentIndex: 1,
   );

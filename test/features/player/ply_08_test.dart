@@ -26,19 +26,12 @@ import 'package:nas_audio_player/features/player/widgets/queue_sheet.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:nas_audio_player/shared/models/play_queue.dart';
 
+import '../../helpers/test_factories.dart';
 import 'ply_08_test.mocks.dart';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-/// Builds an audio [NasFile] with minimal properties.
-NasFile _audio(String name, String path) {
-  return NasFile(
-    name: name,
-    path: path,
-    isDirectory: false,
-    audioType: AudioFileType.music,
-  );
-}
+// testAudio() is imported from test_factories.dart as testAudio().
 
 /// Builds a [PlayQueue] from a list of audio [NasFile] entries.
 PlayQueue _queue(List<NasFile> files, {int currentIndex = 0}) {
@@ -150,7 +143,7 @@ void main() {
       when(player.playerStateStream).thenAnswer(
           (_) => Stream.value(PlayerState(false, ProcessingState.ready)));
 
-      final queue = _queue([_audio('track.mp3', '/music/track.mp3')]);
+      final queue = _queue([testAudio('track.mp3', '/music/track.mp3')]);
 
       await tester.pumpWidget(_wrapMiniPlayer(
         queue: queue,
@@ -224,8 +217,8 @@ void main() {
           (_) => Stream.value(PlayerState(false, ProcessingState.ready)));
 
       final queue = _queue([
-        _audio('01_中文歌.mp3', '/music/01_中文歌.mp3'),
-        _audio('02_song.flac', '/music/02_song.flac'),
+        testAudio('01_中文歌.mp3', '/music/01_中文歌.mp3'),
+        testAudio('02_song.flac', '/music/02_song.flac'),
       ], currentIndex: 0);
 
       await tester.pumpWidget(_wrapMiniPlayer(
@@ -254,8 +247,8 @@ void main() {
           (_) => Stream.value(PlayerState(false, ProcessingState.ready)));
 
       final queue = _queue([
-        _audio('first.mp3', '/music/first.mp3'),
-        _audio('second.flac', '/music/second.flac'),
+        testAudio('first.mp3', '/music/first.mp3'),
+        testAudio('second.flac', '/music/second.flac'),
       ], currentIndex: 1);
 
       await tester.pumpWidget(_wrapMiniPlayer(
@@ -336,7 +329,7 @@ void main() {
       when(player.playerStateStream).thenAnswer(
           (_) => Stream.value(PlayerState(false, ProcessingState.ready)));
 
-      final queue = _queue([_audio('song.mp3', '/music/song.mp3')]);
+      final queue = _queue([testAudio('song.mp3', '/music/song.mp3')]);
 
       await tester.pumpWidget(_wrapMiniPlayer(
         queue: queue,
@@ -380,9 +373,9 @@ void main() {
 
     test('withIndex creates new queue with updated index', () {
       final queue = _queue([
-        _audio('a.mp3', '/a.mp3'),
-        _audio('b.flac', '/b.flac'),
-        _audio('c.aac', '/c.aac'),
+        testAudio('a.mp3', '/a.mp3'),
+        testAudio('b.flac', '/b.flac'),
+        testAudio('c.aac', '/c.aac'),
       ], currentIndex: 0);
 
       final nextIdx =
@@ -406,8 +399,8 @@ void main() {
           (_) => Stream.value(PlayerState(false, ProcessingState.ready)));
 
       final queue = _queue([
-        _audio('track1.mp3', '/music/track1.mp3'),
-        _audio('track2.flac', '/music/track2.flac'),
+        testAudio('track1.mp3', '/music/track1.mp3'),
+        testAudio('track2.flac', '/music/track2.flac'),
       ], currentIndex: 0);
 
       await tester.pumpWidget(_wrapMiniPlayer(
@@ -436,7 +429,7 @@ void main() {
       when(player.playerStateStream).thenAnswer(
           (_) => Stream.value(PlayerState(true, ProcessingState.ready)));
 
-      final queue = _queue([_audio('song.mp3', '/music/song.mp3')]);
+      final queue = _queue([testAudio('song.mp3', '/music/song.mp3')]);
 
       await tester.pumpWidget(_wrapWithRouter(
         queue: queue,
@@ -469,7 +462,7 @@ void main() {
       when(player.playerStateStream).thenAnswer(
           (_) => Stream.value(PlayerState(false, ProcessingState.ready)));
 
-      final queue = _queue([_audio('test.mp3', '/music/test.mp3')]);
+      final queue = _queue([testAudio('test.mp3', '/music/test.mp3')]);
 
       await tester.pumpWidget(_wrapMiniPlayer(
         queue: queue,
@@ -489,7 +482,7 @@ void main() {
         (WidgetTester tester) async {
       final files = List.generate(
         120,
-        (index) => _audio('track_$index.mp3', '/music/track_$index.mp3'),
+        (index) => testAudio('track_$index.mp3', '/music/track_$index.mp3'),
       );
       final queue = _queue(files);
 
@@ -516,9 +509,9 @@ void main() {
     testWidgets('queue sheet taps a later item and forwards its index',
         (WidgetTester tester) async {
       final files = [
-        _audio('track_0.mp3', '/music/track_0.mp3'),
-        _audio('track_1.mp3', '/music/track_1.mp3'),
-        _audio('track_2.mp3', '/music/track_2.mp3'),
+        testAudio('track_0.mp3', '/music/track_0.mp3'),
+        testAudio('track_1.mp3', '/music/track_1.mp3'),
+        testAudio('track_2.mp3', '/music/track_2.mp3'),
       ];
       final queue = _queue(files);
       int? selectedIndex;
@@ -557,7 +550,7 @@ void main() {
           (_) => Stream.value(PlayerState(false, ProcessingState.completed)));
       when(player.processingState).thenReturn(ProcessingState.completed);
 
-      final queue = _queue([_audio('song.mp3', '/music/song.mp3')]);
+      final queue = _queue([testAudio('song.mp3', '/music/song.mp3')]);
 
       await tester.pumpWidget(_wrapMiniPlayer(
         queue: queue,

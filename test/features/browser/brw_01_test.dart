@@ -14,6 +14,8 @@ import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/features/browser/browser_screen.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 
+import '../../helpers/test_factories.dart';
+
 // ── XML builders ───────────────────────────────────────────────────────────────
 
 /// Builds a minimal PROPFIND multistatus XML body with namespace prefix `d:`.
@@ -54,22 +56,8 @@ String _fileResponse(
       '  </d:response>\n';
 }
 
-/// Builds a directory [NasFile] for test assertions.
-NasFile _dir(String name, String path) {
-  return NasFile(name: name, path: path, isDirectory: true);
-}
-
-/// Builds an audio [NasFile] for test assertions.
-NasFile _audio(String name, String path,
-    {int? size, AudioFileType type = AudioFileType.music}) {
-  return NasFile(
-    name: name,
-    path: path,
-    isDirectory: false,
-    size: size,
-    audioType: type,
-  );
-}
+// testDir() and testAudio() are imported from ../../helpers/test_factories.dart as
+// testDir() and testAudio().
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Unit tests — BRW-T01~T09
@@ -288,12 +276,12 @@ void main() {
 
     test('BRW-T09: file list sorted A-Z with directories first', () {
       final unsorted = [
-        _audio('z_song.mp3', '/z_song.mp3'),
-        _dir('apple', '/apple'),
-        _audio('a_track.flac', '/a_track.flac'),
-        _dir('zebra', '/zebra'),
-        _audio('m_music.aac', '/m_music.aac'),
-        _dir('banana', '/banana'),
+        testAudio('z_song.mp3', '/z_song.mp3'),
+        testDir('apple', '/apple'),
+        testAudio('a_track.flac', '/a_track.flac'),
+        testDir('zebra', '/zebra'),
+        testAudio('m_music.aac', '/m_music.aac'),
+        testDir('banana', '/banana'),
       ];
 
       // Apply the same sort logic as the provider
@@ -414,7 +402,7 @@ void main() {
                 throw const WebDavException('网络错误');
               }
               return [
-                _audio('test.mp3', '/test.mp3'),
+                testAudio('test.mp3', '/test.mp3'),
               ];
             }),
           ],

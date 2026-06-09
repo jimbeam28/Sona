@@ -9,37 +9,14 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nas_audio_player/core/database/dao/connection_dao.dart';
-import 'package:nas_audio_player/shared/models/connection_config.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../../helpers/test_database.dart';
+import '../../helpers/test_factories.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/// Creates a [ConnectionConfig] with sensible defaults for testing.
-/// All fields can be overridden per test case.
-ConnectionConfig _testConfig({
-  int? id,
-  String name = 'Test NAS',
-  String url = 'http://192.168.1.100:5005',
-  String username = 'admin',
-  String basePath = '/dav',
-  bool isActive = false,
-  DateTime? createdAt,
-  DateTime? updatedAt,
-}) {
-  final now = DateTime.now();
-  return ConnectionConfig(
-    id: id,
-    name: name,
-    url: url,
-    username: username,
-    basePath: basePath,
-    isActive: isActive,
-    createdAt: createdAt ?? now,
-    updatedAt: updatedAt ?? now,
-  );
-}
+// testConfig() is imported from test_factories.dart as testConfig().
 
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -67,7 +44,7 @@ void main() {
     // ── CON-T18: Insert new connection config ───────────────────────────────
 
     test('test_CON_T18_insertNewConnectionConfig', () async {
-      final config = _testConfig(
+      final config = testConfig(
         name: 'My NAS',
         url: 'http://192.168.1.100:5005',
         username: 'admin',
@@ -101,7 +78,7 @@ void main() {
     // ── CON-T20: Query active connection (is_active=1 record exists) ────────
 
     test('test_CON_T20_queryActiveConnection_whenActiveExists', () async {
-      final config = _testConfig(
+      final config = testConfig(
         name: 'Active NAS',
         url: 'http://192.168.1.100:5005',
         username: 'admin',
@@ -122,11 +99,11 @@ void main() {
     // ── CON-T21: Set one connection as active (multiple exist) ──────────────
 
     test('test_CON_T21_setActive_togglesCorrectly', () async {
-      final config1 = _testConfig(
+      final config1 = testConfig(
         name: 'NAS 1',
         url: 'http://192.168.1.100:5005',
       );
-      final config2 = _testConfig(
+      final config2 = testConfig(
         name: 'NAS 2',
         url: 'http://192.168.1.101:5005',
       );
@@ -154,19 +131,19 @@ void main() {
     test('test_CON_T22_queryAllConnections_orderedByCreatedAt', () async {
       // Use explicit timestamps so ordering is deterministic.
       final configs = [
-        _testConfig(
+        testConfig(
           name: 'NAS A',
           url: 'http://a.example.com',
           createdAt: DateTime(2024, 1, 1, 10, 0, 0),
           updatedAt: DateTime(2024, 1, 1, 10, 0, 0),
         ),
-        _testConfig(
+        testConfig(
           name: 'NAS B',
           url: 'http://b.example.com',
           createdAt: DateTime(2024, 1, 2, 10, 0, 0),
           updatedAt: DateTime(2024, 1, 2, 10, 0, 0),
         ),
-        _testConfig(
+        testConfig(
           name: 'NAS C',
           url: 'http://c.example.com',
           createdAt: DateTime(2024, 1, 3, 10, 0, 0),
@@ -192,7 +169,7 @@ void main() {
     // ── CON-T23: Password not stored as plaintext ───────────────────────────
 
     test('test_CON_T23_passwordStoredAsReferenceKey_notPlaintext', () async {
-      final config = _testConfig();
+      final config = testConfig();
       const refKey = 'connection_password_1';
 
       await dao.insert(config, passwordKey: refKey);
@@ -211,7 +188,7 @@ void main() {
     // ── CON-T24: Update existing connection's URL field ─────────────────────
 
     test('test_CON_T24_updateConnectionUrl', () async {
-      final config = _testConfig(
+      final config = testConfig(
         name: 'My NAS',
         url: 'http://old.example.com:5005',
         username: 'admin',
