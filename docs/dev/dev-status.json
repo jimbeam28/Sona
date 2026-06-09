@@ -2,8 +2,8 @@
   "metadata": {
     "last_updated": "2026-06-09",
     "total": 54,
-    "pending": 9,
-    "done": 45
+    "pending": 8,
+    "done": 46
   },
   "order": [
     "BUG-01", "BUG-02", "BUG-03", "BUG-04", "BUG-05",
@@ -428,8 +428,8 @@
     "TST-04": {
       "name": "播放单曲目点击完整播放流程",
       "plan_section": "dev-plan.md §TST-04",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": [],
       "retry_count": 0,
       "last_error": ""
