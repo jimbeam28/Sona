@@ -525,3 +525,17 @@
 
 ### 测试结果
 - 通过: 942 / 总计: 942
+
+---
+
+## [2026-06-09] [REF-11] - 创建 player/domain/request_gate.dart
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/player/domain/request_gate.dart` — 新建，SerializedRequestGate + 相关类型
+- `lib/features/player/player_provider.dart` — 移除重复定义
+- `test/features/player/ref_11_test.dart` — 新建，14 个测试用例
+
+### 测试结果
+- 通过: 956 / 总计: 956
