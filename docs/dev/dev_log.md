@@ -554,3 +554,18 @@
 
 ### 测试结果
 - 通过: 982 / 总计: 982
+
+---
+
+## [2026-06-09] [REF-13] - 创建 player/domain/background_playback.dart
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/player/domain/background_playback.dart` — 新建，BackgroundPlaybackConfig + Notifier
+- `lib/features/player/background_playback.dart` — 改为 re-export
+- `lib/features/player/player_provider.dart` — 移除重复定义
+- `test/features/player/ref_13_test.dart` — 新建，65 个测试用例
+
+### 测试结果
+- 通过: 1047 / 总计: 1047

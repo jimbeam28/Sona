@@ -23,10 +23,20 @@ import '../browser/browser_provider.dart';
 import '../connection/connection_provider.dart';
 import '../progress/progress_provider.dart';
 import '../timer/timer_provider.dart';
-import 'background_playback.dart';
+import 'domain/background_playback.dart';
 import 'domain/play_mode.dart';
 import 'domain/request_gate.dart';
 import 'domain/speed_manager.dart';
+export 'domain/background_playback.dart'
+    show
+        AudioFocusState,
+        BackgroundPlaybackConfig,
+        BackgroundPlaybackNotifier,
+        BackgroundPlaybackState,
+        MediaControlAction,
+        backgroundPlaybackProvider,
+        computePlaybackStateAfterLifecycle,
+        shouldContinueInBackground;
 export 'domain/media_control.dart' show formatDuration;
 export 'domain/play_mode.dart' show PlayMode, labelForPlayMode;
 export 'domain/request_gate.dart'
@@ -251,82 +261,8 @@ final restoreStartupProgressProvider = FutureProvider<void>((ref) async {
   }
 });
 
-/// Manages the background-playback state machine (PLY-T20~T23).
-///
-/// Exposed as a [StateNotifier] so that both the player screen and the
-/// app-lifecycle observer can drive transitions.  The state machine is
-/// pure logic — it does not touch [AudioPlayer] directly, making it
-/// fully testable.
-class BackgroundPlaybackNotifier
-    extends StateNotifier<BackgroundPlaybackConfig> {
-  BackgroundPlaybackNotifier() : super(BackgroundPlaybackConfig.initial);
-
-  /// Call when the app lifecycle changes (foreground <-> background).
-  ///
-  /// If background playback is enabled, audio should continue playing
-  /// when the app goes to background (PLY-T20).
-  void onAppLifecycleChange(AppLifecycleState lifecycleState) {
-    switch (lifecycleState) {
-      case AppLifecycleState.resumed:
-        state = state.updateForeground(true);
-      case AppLifecycleState.inactive:
-      case AppLifecycleState.paused:
-      case AppLifecycleState.hidden:
-        // App going to background — audio continues if backgroundEnabled.
-        state = state.updateForeground(false);
-      case AppLifecycleState.detached:
-        // App being destroyed — stop playback.
-        state = state.copyWith(
-          isInForeground: false,
-          playbackState: BackgroundPlaybackState.stopped,
-        );
-    }
-  }
-
-  /// Call when a notification media-control action is received
-  /// (PLY-T21, PLY-T22).
-  void onMediaControl(MediaControlAction action) {
-    state = state.handleMediaControl(action);
-  }
-
-  /// Call when audio focus changes (e.g. another app starts/stops
-  /// playing audio).
-  void onAudioFocusChange(AudioFocusState focus) {
-    state = state.updateAudioFocus(focus);
-  }
-
-  /// Start playback (sets state to playing).
-  void startPlayback() {
-    state = state.copyWith(playbackState: BackgroundPlaybackState.playing);
-  }
-
-  /// Pause playback (sets state to paused).
-  void pausePlayback() {
-    state = state.copyWith(playbackState: BackgroundPlaybackState.paused);
-  }
-
-  /// Stop playback and tear down the background session.
-  void stopPlayback() {
-    state = state.copyWith(playbackState: BackgroundPlaybackState.stopped);
-  }
-
-  /// Toggle background playback enabled flag.
-  void setBackgroundEnabled(bool enabled) {
-    state = state.copyWith(backgroundEnabled: enabled);
-  }
-
-  /// Mirrors the config pushed by [NasAudioHandler] so the Riverpod layer
-  /// stays in sync with the handler's internal state machine (PLY-F).
-  void syncFromHandler(BackgroundPlaybackConfig config) {
-    state = config;
-  }
-}
-
-/// Provider for the background-playback state notifier.
-final backgroundPlaybackProvider =
-    StateNotifierProvider<BackgroundPlaybackNotifier, BackgroundPlaybackConfig>(
-  (ref) => BackgroundPlaybackNotifier(),
-);
+// BackgroundPlaybackNotifier and backgroundPlaybackProvider are now in
+// domain/background_playback.dart — imported and re-exported above (REF-13).
 
 /// Bridges [NasAudioHandler.onConfigChanged] to [BackgroundPlaybackNotifier]
 /// so the Riverpod layer mirrors the handler's internal state machine (PLY-F).
@@ -342,22 +278,8 @@ final backgroundPlaybackSyncProvider = Provider<void>((ref) {
   });
 });
 
-/// Helper function that determines whether playback should continue
-/// when the app transitions to background, given the current
-/// background-enabled flag and playback state.
-///
-/// This is a pure function, fully testable without widgets or platform
-/// channels (PLY-T20).
-///
-/// Returns `true` if audio should continue in background.
-bool shouldContinueInBackground({
-  required bool backgroundEnabled,
-  required BackgroundPlaybackState currentPlaybackState,
-}) {
-  if (!backgroundEnabled) return false;
-  // Only continue if the player is actively playing.
-  return currentPlaybackState == BackgroundPlaybackState.playing;
-}
+// shouldContinueInBackground is now in domain/background_playback.dart
+// — imported and re-exported above (REF-13).
 
 // ── D-1: Unified playback entry point ──────────────────────────────────────────
 //
@@ -805,54 +727,5 @@ final cancelPlaybackSubscriptionsProvider = Provider<void Function()>((ref) {
   };
 });
 
-/// Pure function: given an [AppLifecycleState] and playback state,
-/// returns the expected [BackgroundPlaybackState] after the transition.
-///
-/// This models the lifecycle-handling logic without depending on
-/// StateNotifier or AudioPlayer, so it can be tested in isolation
-/// (PLY-T20).
-BackgroundPlaybackConfig computePlaybackStateAfterLifecycle({
-  required AppLifecycleState newState,
-  required bool backgroundEnabled,
-  required BackgroundPlaybackState currentPlaybackState,
-}) {
-  switch (newState) {
-    case AppLifecycleState.resumed:
-      // Coming back to foreground — playback state unchanged.
-      return BackgroundPlaybackConfig(
-        backgroundEnabled: backgroundEnabled,
-        isInForeground: true,
-        playbackState: currentPlaybackState,
-      );
-    case AppLifecycleState.inactive:
-    case AppLifecycleState.paused:
-    case AppLifecycleState.hidden:
-      // Going to background — if background is enabled and audio is
-      // playing, it should continue.
-      if (!shouldContinueInBackground(
-        backgroundEnabled: backgroundEnabled,
-        currentPlaybackState: currentPlaybackState,
-      )) {
-        // If background playback is disabled or player is not playing,
-        // the state reflects that the app is in background but audio
-        // state is unchanged (it may already be paused/stopped).
-        return BackgroundPlaybackConfig(
-          backgroundEnabled: backgroundEnabled,
-          isInForeground: false,
-          playbackState: currentPlaybackState,
-        );
-      }
-      // Background playback enabled and audio is playing — continue.
-      return BackgroundPlaybackConfig(
-        backgroundEnabled: backgroundEnabled,
-        isInForeground: false,
-        playbackState: BackgroundPlaybackState.playing,
-      );
-    case AppLifecycleState.detached:
-      return BackgroundPlaybackConfig(
-        backgroundEnabled: backgroundEnabled,
-        isInForeground: false,
-        playbackState: BackgroundPlaybackState.stopped,
-      );
-  }
-}
+// computePlaybackStateAfterLifecycle is now in domain/background_playback.dart
+// — imported and re-exported above (REF-13).
