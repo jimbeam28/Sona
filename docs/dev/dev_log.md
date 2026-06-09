@@ -622,3 +622,18 @@
 
 ### 测试结果
 - 通过: 1081 / 总计: 1081
+
+---
+
+## [2026-06-09] [REF-18] - 创建 browser/domain/cache_policy.dart
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/browser/domain/cache_policy.dart` — 新建，CacheEntry + CachePolicy
+- `lib/features/browser/browser_provider.dart` — 使用新文件
+- 4 个测试文件 — 更新 CacheEntry 引用
+- `test/features/browser/ref_18_test.dart` — 新建，5 个测试用例
+
+### 测试结果
+- 通过: 1086 / 总计: 1086

@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import '../../helpers/fake_secure_storage.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
+import 'package:nas_audio_player/features/browser/domain/cache_policy.dart';
 import 'package:nas_audio_player/features/connection/connection_provider.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 
@@ -72,7 +73,7 @@ void main() {
       final cache = container.read(directoryCacheProvider);
       expect(cache.containsKey('1:/music'), isTrue,
           reason: '缓存中应有 key 1:/music');
-      expect(cache['1:/music']!.files.length, equals(2),
+      expect(cache['1:/music']!.value.length, equals(2),
           reason: '缓存条目应包含 2 个过滤后的文件');
     });
 
@@ -290,12 +291,12 @@ void main() {
           reason: '连接 1 的缓存不应出现在容器 2 中');
 
       // Connection 2's cached result should be empty, not conn1's data
-      expect(cache2['2:/music']!.files.length, equals(0),
+      expect(cache2['2:/music']!.value.length, equals(0),
           reason: '连接 2 的缓存条目应为空列表');
 
       // Connection 1's cache is independent
       final cache1 = container1.read(directoryCacheProvider);
-      expect(cache1['1:/music']!.files.length, equals(1),
+      expect(cache1['1:/music']!.value.length, equals(1),
           reason: '连接 1 的缓存应保持不变');
     });
   });
@@ -330,9 +331,9 @@ void main() {
 
       // Re-set the cache entry createdAt to 3 minutes ago (within TTL)
       container.read(directoryCacheProvider.notifier).update((state) {
-        final updated = Map<String, CacheEntry>.from(state);
-        updated['1:/music'] = CacheEntry(
-          files: updated['1:/music']!.files,
+        final updated = Map<String, CacheEntry<List<NasFile>>>.from(state);
+        updated['1:/music'] = CacheEntry<List<NasFile>>(
+          value: updated['1:/music']!.value,
           createdAt: DateTime.now().subtract(const Duration(minutes: 3)),
         );
         return updated;
@@ -376,9 +377,9 @@ void main() {
 
       // Re-set the cache entry createdAt to 6 minutes ago (past TTL)
       container.read(directoryCacheProvider.notifier).update((state) {
-        final updated = Map<String, CacheEntry>.from(state);
-        updated['1:/music'] = CacheEntry(
-          files: updated['1:/music']!.files,
+        final updated = Map<String, CacheEntry<List<NasFile>>>.from(state);
+        updated['1:/music'] = CacheEntry<List<NasFile>>(
+          value: updated['1:/music']!.value,
           createdAt: DateTime.now().subtract(const Duration(minutes: 6)),
         );
         return updated;
@@ -417,9 +418,9 @@ void main() {
 
       // Re-set the cache entry createdAt to exactly 5 minutes ago (boundary)
       container.read(directoryCacheProvider.notifier).update((state) {
-        final updated = Map<String, CacheEntry>.from(state);
-        updated['1:/music'] = CacheEntry(
-          files: updated['1:/music']!.files,
+        final updated = Map<String, CacheEntry<List<NasFile>>>.from(state);
+        updated['1:/music'] = CacheEntry<List<NasFile>>(
+          value: updated['1:/music']!.value,
           createdAt: DateTime.now().subtract(const Duration(minutes: 5)),
         );
         return updated;
@@ -485,10 +486,10 @@ void main() {
 
       // Directly populate the cache with 50 entries keyed by connection 1
       container.read(directoryCacheProvider.notifier).update((state) {
-        final updated = Map<String, CacheEntry>.from(state);
+        final updated = Map<String, CacheEntry<List<NasFile>>>.from(state);
         for (int i = 1; i <= 50; i++) {
-          updated['1:/music$i'] = CacheEntry(
-            files: [testAudio('song$i.mp3', '/music$i/song$i.mp3')],
+          updated['1:/music$i'] = CacheEntry<List<NasFile>>(
+            value: [testAudio('song$i.mp3', '/music$i/song$i.mp3')],
             createdAt: DateTime.now(),
           );
         }
@@ -523,10 +524,10 @@ void main() {
 
       // Pre-populate 50 cache entries (music1 is oldest in insertion order)
       container.read(directoryCacheProvider.notifier).update((state) {
-        final updated = Map<String, CacheEntry>.from(state);
+        final updated = Map<String, CacheEntry<List<NasFile>>>.from(state);
         for (int i = 1; i <= 50; i++) {
-          updated['1:/music$i'] = CacheEntry(
-            files: [testAudio('song$i.mp3', '/music$i/song$i.mp3')],
+          updated['1:/music$i'] = CacheEntry<List<NasFile>>(
+            value: [testAudio('song$i.mp3', '/music$i/song$i.mp3')],
             createdAt: DateTime.now().subtract(Duration(minutes: 51 - i)),
           );
         }
@@ -570,10 +571,10 @@ void main() {
 
       // Pre-populate 50 entries
       container.read(directoryCacheProvider.notifier).update((state) {
-        final updated = Map<String, CacheEntry>.from(state);
+        final updated = Map<String, CacheEntry<List<NasFile>>>.from(state);
         for (int i = 1; i <= 50; i++) {
-          updated['1:/music$i'] = CacheEntry(
-            files: [testAudio('song$i.mp3', '/music$i/song$i.mp3')],
+          updated['1:/music$i'] = CacheEntry<List<NasFile>>(
+            value: [testAudio('song$i.mp3', '/music$i/song$i.mp3')],
             createdAt: DateTime.now().subtract(Duration(minutes: 51 - i)),
           );
         }
@@ -586,7 +587,7 @@ void main() {
       // The new entry is in the cache
       final cache = container.read(directoryCacheProvider);
       expect(cache.containsKey('1:/music51'), isTrue, reason: 'music51 应已写入缓存');
-      expect(cache['1:/music51']!.files, isNotEmpty,
+      expect(cache['1:/music51']!.value, isNotEmpty,
           reason: 'music51 的缓存数据应非空');
 
       // Reading /music51 again uses the cache (no new network request)
@@ -616,10 +617,10 @@ void main() {
 
       // Pre-populate 50 entries (music1 is oldest)
       container.read(directoryCacheProvider.notifier).update((state) {
-        final updated = Map<String, CacheEntry>.from(state);
+        final updated = Map<String, CacheEntry<List<NasFile>>>.from(state);
         for (int i = 1; i <= 50; i++) {
-          updated['1:/music$i'] = CacheEntry(
-            files: [testAudio('song$i.mp3', '/music$i/song$i.mp3')],
+          updated['1:/music$i'] = CacheEntry<List<NasFile>>(
+            value: [testAudio('song$i.mp3', '/music$i/song$i.mp3')],
             createdAt: DateTime.now().subtract(Duration(minutes: 51 - i)),
           );
         }

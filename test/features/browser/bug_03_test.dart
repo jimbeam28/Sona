@@ -5,36 +5,29 @@
 // ordering based on lastAccessedAt, not Map insertion order.
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nas_audio_player/features/browser/browser_provider.dart';
+import 'package:nas_audio_player/features/browser/domain/cache_policy.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 
 /// Helper: creates a [CacheEntry] with explicit [lastAccessedAt].
-CacheEntry _entry({
+CacheEntry<List<NasFile>> _entry({
   required DateTime createdAt,
   DateTime? lastAccessedAt,
 }) {
-  return CacheEntry(
-    files: [NasFile(name: 'test.mp3', path: '/test.mp3', isDirectory: false)],
+  return CacheEntry<List<NasFile>>(
+    value: [NasFile(name: 'test.mp3', path: '/test.mp3', isDirectory: false)],
     createdAt: createdAt,
     lastAccessedAt: lastAccessedAt,
   );
 }
 
-/// Helper: simulates the LRU eviction logic from directoryContentsProvider.
+/// Helper: simulates the LRU eviction logic from CachePolicy.
 ///
 /// Takes a map of cache entries and returns a new map with at most [maxSize]
 /// entries, evicting the entries with the oldest [lastAccessedAt] first.
-Map<String, CacheEntry> _evict(Map<String, CacheEntry> cache, {int maxSize = 50}) {
-  if (cache.length <= maxSize) return cache;
-  final sortedEntries = cache.entries.toList()
-    ..sort((a, b) => a.value.lastAccessedAt.compareTo(b.value.lastAccessedAt));
-  final keysToRemove =
-      sortedEntries.take(cache.length - maxSize).map((e) => e.key).toList();
-  final updated = Map<String, CacheEntry>.from(cache);
-  for (final k in keysToRemove) {
-    updated.remove(k);
-  }
-  return updated;
+Map<String, CacheEntry<List<NasFile>>> _evict(
+    Map<String, CacheEntry<List<NasFile>>> cache,
+    {int maxSize = 50}) {
+  return const CachePolicy<List<NasFile>>(maxSize: 50).evict(cache);
 }
 
 void main() {
@@ -49,7 +42,7 @@ void main() {
       final baseTime = DateTime(2024, 1, 1, 0, 0, 0);
 
       // Build 50 entries with sequential timestamps
-      final cache = <String, CacheEntry>{};
+      final cache = <String, CacheEntry<List<NasFile>>>{};
       for (int i = 1; i <= 50; i++) {
         cache['conn:/dir$i'] = _entry(
           createdAt: baseTime.add(Duration(minutes: i)),
@@ -58,11 +51,7 @@ void main() {
 
       // Simulate cache hit on entry 1: update lastAccessedAt to "now"
       final now = baseTime.add(const Duration(hours: 1));
-      cache['conn:/dir1'] = CacheEntry(
-        files: cache['conn:/dir1']!.files,
-        createdAt: cache['conn:/dir1']!.createdAt,
-        lastAccessedAt: now,
-      );
+      cache['conn:/dir1'] = cache['conn:/dir1']!.accessedAt(now);
 
       // Insert entry 51 (the 51st entry triggers eviction)
       cache['conn:/dir51'] = _entry(
@@ -92,7 +81,7 @@ void main() {
       final baseTime = DateTime(2024, 1, 1, 0, 0, 0);
 
       // Build 50 entries with sequential timestamps
-      final cache = <String, CacheEntry>{};
+      final cache = <String, CacheEntry<List<NasFile>>>{};
       for (int i = 1; i <= 50; i++) {
         cache['conn:/dir$i'] = _entry(
           createdAt: baseTime.add(Duration(minutes: i)),
@@ -132,11 +121,7 @@ void main() {
           reason: '未设置 lastAccessedAt 时应默认等于 createdAt');
 
       // Simulate cache hit: create new entry with updated lastAccessedAt
-      final updated = CacheEntry(
-        files: original.files,
-        createdAt: original.createdAt,
-        lastAccessedAt: accessedAt,
-      );
+      final updated = original.accessedAt(accessedAt);
 
       expect(updated.lastAccessedAt, equals(accessedAt),
           reason: '缓存命中后 lastAccessedAt 应更新');
@@ -153,7 +138,7 @@ void main() {
       final baseTime = DateTime(2024, 1, 1, 0, 0, 0);
 
       // Build 50 entries
-      final cache = <String, CacheEntry>{};
+      final cache = <String, CacheEntry<List<NasFile>>>{};
       for (int i = 1; i <= 50; i++) {
         cache['conn:/dir$i'] = _entry(
           createdAt: baseTime.add(Duration(minutes: i)),
@@ -163,11 +148,7 @@ void main() {
       // Simulate 10 separate cache hits on entry 1 over time
       for (int hit = 1; hit <= 10; hit++) {
         final hitTime = baseTime.add(Duration(hours: hit));
-        cache['conn:/dir1'] = CacheEntry(
-          files: cache['conn:/dir1']!.files,
-          createdAt: cache['conn:/dir1']!.createdAt,
-          lastAccessedAt: hitTime,
-        );
+        cache['conn:/dir1'] = cache['conn:/dir1']!.accessedAt(hitTime);
 
         // Insert a new entry each time, triggering eviction
         cache['conn:/new$hit'] = _entry(

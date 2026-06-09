@@ -21,7 +21,9 @@ import '../../shared/models/play_queue.dart';
 import '../connection/connection_provider.dart';
 import '../player/player_provider.dart';
 import '../progress/progress_provider.dart';
+import 'domain/cache_policy.dart';
 import 'domain/navigation_stack.dart';
+export 'domain/cache_policy.dart';
 export 'domain/navigation_stack.dart';
 
 // ── Sort option ────────────────────────────────────────────────────────────────────
@@ -93,28 +95,12 @@ final sortOptionProvider =
 
 // ── Directory contents cache ────────────────────────────────────────────────────
 
-/// Default cache TTL: entries older than 5 minutes are considered stale.
-const _cacheTtl = Duration(minutes: 5);
-
 /// In-memory cache for directory contents with TTL, keyed by `connectionId:path`.
 /// Each entry stores the file list and the timestamp when it was created.
 /// Survives for the lifetime of the provider container (app lifecycle).
 /// Cleared on pull-to-refresh via [clearDirectoryCacheProvider].
 final directoryCacheProvider =
-    StateProvider<Map<String, CacheEntry>>((ref) => {});
-
-/// A cached directory listing with its creation timestamp for TTL checking
-/// and last-accessed timestamp for LRU eviction (BUG-03).
-class CacheEntry {
-  final List<NasFile> files;
-  final DateTime createdAt;
-  final DateTime lastAccessedAt;
-  CacheEntry({
-    required this.files,
-    required this.createdAt,
-    DateTime? lastAccessedAt,
-  }) : lastAccessedAt = lastAccessedAt ?? createdAt;
-}
+    StateProvider<Map<String, CacheEntry<List<NasFile>>>>((ref) => {});
 
 /// Clears the directory contents cache and invalidates the corresponding
 /// [directoryContentsProvider] so the next read triggers a fresh network
@@ -138,7 +124,7 @@ final clearDirectoryCacheProvider =
       final keysToRemove = cache.keys.where((k) => k.endsWith(suffix)).toList();
       if (keysToRemove.isNotEmpty) {
         ref.read(directoryCacheProvider.notifier).update((state) {
-          final updated = Map<String, CacheEntry>.from(state);
+          final updated = Map<String, CacheEntry<List<NasFile>>>.from(state);
           for (final key in keysToRemove) {
             updated.remove(key);
           }
@@ -186,21 +172,18 @@ final directoryContentsProvider =
   final cacheKey = '${activeConn.id}:$path';
   final cachedEntry = cache[cacheKey];
   if (cachedEntry != null) {
-    final age = DateTime.now().difference(cachedEntry.createdAt);
-    if (age < _cacheTtl) {
+    final now = DateTime.now();
+    final age = now.difference(cachedEntry.createdAt);
+    if (const CachePolicy<List<NasFile>>().isAlive(cachedEntry, now)) {
       debugPrint(
           '[Browser] dirContents: cache hit path=$path (age=${age.inSeconds}s)');
       // BUG-03: update lastAccessedAt on cache hit for LRU eviction
       ref.read(directoryCacheProvider.notifier).update((state) {
-        final updated = Map<String, CacheEntry>.from(state);
-        updated[cacheKey] = CacheEntry(
-          files: cachedEntry.files,
-          createdAt: cachedEntry.createdAt,
-          lastAccessedAt: DateTime.now(),
-        );
+        final updated = Map<String, CacheEntry<List<NasFile>>>.from(state);
+        updated[cacheKey] = cachedEntry.accessedAt(now);
         return updated;
       });
-      return sortFiles(cachedEntry.files, sortOption);
+      return sortFiles(cachedEntry.value, sortOption);
     }
     debugPrint(
         '[Browser] dirContents: cache expired path=$path (age=${age.inSeconds}s)');
@@ -248,22 +231,11 @@ final directoryContentsProvider =
   // 7. Write to cache with TTL (PRG-03: limit to 50 entries, LRU eviction BUG-03)
   ref.read(directoryCacheProvider.notifier).update((state) {
     final now = DateTime.now();
-    final updated = {
-      ...state,
-      cacheKey: CacheEntry(files: sorted, createdAt: now, lastAccessedAt: now),
-    };
-    if (updated.length > 50) {
-      // BUG-03: evict by least-recently-used (oldest lastAccessedAt first)
-      final sortedEntries = updated.entries.toList()
-        ..sort((a, b) =>
-            a.value.lastAccessedAt.compareTo(b.value.lastAccessedAt));
-      final keysToRemove =
-          sortedEntries.take(updated.length - 50).map((e) => e.key).toList();
-      for (final k in keysToRemove) {
-        updated.remove(k);
-      }
-    }
-    return updated;
+    return const CachePolicy<List<NasFile>>().put(
+      state,
+      cacheKey,
+      CacheEntry<List<NasFile>>(value: sorted, createdAt: now),
+    );
   });
 
   return sorted;

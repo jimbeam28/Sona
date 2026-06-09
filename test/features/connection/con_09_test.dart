@@ -13,6 +13,7 @@ import '../../helpers/test_database.dart';
 import '../../helpers/test_factories.dart';
 import 'package:nas_audio_player/core/database/dao/connection_dao.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
+import 'package:nas_audio_player/features/browser/domain/cache_policy.dart';
 import 'package:nas_audio_player/features/connection/connection_provider.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:nas_audio_player/shared/models/play_queue.dart';
@@ -65,8 +66,8 @@ void main() {
           name: 'song.mp3', path: '/music/song.mp3', isDirectory: false);
       container.read(directoryCacheProvider.notifier).state = {
         '$conn1Id:/music':
-            CacheEntry(files: [testFile], createdAt: DateTime.now()),
-        '$conn1Id:/books': CacheEntry(files: [], createdAt: DateTime.now()),
+            CacheEntry<List<NasFile>>(value: [testFile], createdAt: DateTime.now()),
+        '$conn1Id:/books': CacheEntry<List<NasFile>>(value: [], createdAt: DateTime.now()),
       };
 
       // Switch the active connection to conn2
@@ -74,7 +75,7 @@ void main() {
 
       // Clear stale cache entries whose key starts with the old connection id
       container.read(directoryCacheProvider.notifier).update((state) {
-        final updated = Map<String, CacheEntry>.from(state);
+        final updated = Map<String, CacheEntry<List<NasFile>>>.from(state);
         updated.removeWhere((key, _) => key.startsWith('$conn1Id:'));
         return updated;
       });
@@ -193,9 +194,9 @@ void main() {
           name: 'book.m4b', path: '/books/book.m4b', isDirectory: false);
       container.read(directoryCacheProvider.notifier).state = {
         '$conn1Id:/music':
-            CacheEntry(files: [testFile], createdAt: DateTime.now()),
+            CacheEntry<List<NasFile>>(value: [testFile], createdAt: DateTime.now()),
         '$conn2Id:/books':
-            CacheEntry(files: [conn2File], createdAt: DateTime.now()),
+            CacheEntry<List<NasFile>>(value: [conn2File], createdAt: DateTime.now()),
       };
 
       // Switch to connection 2
@@ -203,7 +204,7 @@ void main() {
 
       // Clear only stale conn1 entries from the cache (targeted cleanup)
       container.read(directoryCacheProvider.notifier).update((state) {
-        final updated = Map<String, CacheEntry>.from(state);
+        final updated = Map<String, CacheEntry<List<NasFile>>>.from(state);
         updated.removeWhere((key, _) => key.startsWith('$conn1Id:'));
         return updated;
       });
@@ -216,7 +217,7 @@ void main() {
       // Verify: conn2 entries remain untouched
       expect(cache.containsKey('$conn2Id:/books'), isTrue,
           reason: 'TST-T93: 连接 2 的缓存条目应不受影响');
-      expect(cache['$conn2Id:/books']!.files.first.name, equals('book.m4b'),
+      expect(cache['$conn2Id:/books']!.value.first.name, equals('book.m4b'),
           reason: 'TST-T93: 连接 2 的缓存数据应完整保留');
     });
   });
