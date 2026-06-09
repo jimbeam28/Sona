@@ -262,6 +262,7 @@ class _ConnectionListView extends StatelessWidget {
               if (value == 'edit') {
                 context.push('/connections/edit/${conn.id}');
               } else if (value == 'delete') {
+                if (conn.id == null) return;
                 onDelete(conn.id!);
               }
             },
@@ -288,7 +289,12 @@ class _ConnectionListView extends StatelessWidget {
               ),
             ],
           ),
-          onTap: isActive ? null : () => onSwitch(conn.id!),
+          onTap: isActive
+              ? null
+              : () {
+                  if (conn.id == null) return;
+                  onSwitch(conn.id!);
+                },
         );
 
         return Slidable(
@@ -304,7 +310,10 @@ class _ConnectionListView extends StatelessWidget {
                 label: '编辑',
               ),
               SlidableAction(
-                onPressed: (_) => onDelete(conn.id!),
+                onPressed: (_) {
+                  if (conn.id == null) return;
+                  onDelete(conn.id!);
+                },
                 backgroundColor: Colors.red,
                 foregroundColor: Colors.white,
                 icon: Icons.delete_outline,

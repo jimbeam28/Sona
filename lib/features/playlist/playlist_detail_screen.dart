@@ -159,6 +159,7 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
                       _selectedIds.remove(track.id);
                       if (_selectedIds.isEmpty) _exitSelectionMode();
                     } else {
+                      if (track.id == null) return;
                       _selectedIds.add(track.id!);
                     }
                   });
@@ -168,6 +169,7 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
               },
               onLongPress: () {
                 if (!_selectionMode) {
+                  if (track.id == null) return;
                   setState(() {
                     _selectionMode = true;
                     _selectedIds.add(track.id!);

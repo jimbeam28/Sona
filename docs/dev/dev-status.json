@@ -2,8 +2,8 @@
   "metadata": {
     "last_updated": "2026-06-09",
     "total": 54,
-    "pending": 47,
-    "done": 7
+    "pending": 46,
+    "done": 8
   },
   "order": [
     "BUG-01", "BUG-02", "BUG-03", "BUG-04", "BUG-05",
@@ -86,8 +86,8 @@
     "BUG-08": {
       "name": "conn.id! / track.id! 空指针闪退",
       "plan_section": "dev-plan.md §BUG-08",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": [],
       "retry_count": 0,
       "last_error": ""

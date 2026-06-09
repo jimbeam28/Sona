@@ -337,3 +337,18 @@
 
 ### 测试结果
 - 通过: 847 / 总计: 847
+
+---
+
+## [2026-06-09] [BUG-08] - conn.id! / track.id! 空指针闪退
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/connection/connection_list_screen.dart` — 3 处添加 null 守卫
+- `lib/features/playlist/playlist_detail_screen.dart` — 2 处添加 null 守卫
+- `test/features/connection/bug_08_con_test.dart` — 新建，5 个测试用例
+- `test/features/playlist/bug_08_test.dart` — 新建，4 个测试用例
+
+### 测试结果
+- 通过: 856 / 总计: 856
