@@ -194,6 +194,152 @@ onPressed: () => _exitSelectionMode(),
 
 ---
 
+### BUG-06 audio_handler 中 await 无超时导致通知栏控件卡死
+
+**来源**：代码扫描 | **优先级**：P0
+**涉及文件**：`lib/core/services/audio_handler.dart`
+**依赖**：无
+
+**根因**：
+`play()`、`stop()`、`pause()` 都是 `await` 平台调用，无超时保护。just_audio 在某些设备/Android 版本上可能因平台通道竞争导致 Future 永不返回。
+
+**代码锚点**：
+- `audio_handler.dart:200` `await _player.play();`
+- `audio_handler.dart:207` `await _player.pause();`
+- `audio_handler.dart:214` `await _player.stop();`
+- `audio_handler.dart:241` `await _player.stop();`
+
+**修复方案**：
+所有平台调用加 5 秒超时，超时后静默忽略。
+
+**测试用例**：BUG-06-T01 ~ BUG-06-T04
+- BUG-06-T01: play() 挂起 → 5 秒后超时 → 不阻塞
+- BUG-06-T02: pause() 挂起 → 5 秒后超时 → 不阻塞
+- BUG-06-T03: stop() 挂起 → 5 秒后超时 → 不阻塞
+- BUG-06-T04: 正常 play/pause/stop → 超时未触发 → 行为不变（回归）
+
+**验收标准**：
+- [ ] BUG-06-T01 ~ T04 全部通过
+- [ ] `flutter test` 全量回归通过
+
+---
+
+### BUG-07 App 启动恢复队列时 setAudioSource/seek 无超时导致启动卡住
+
+**来源**：代码扫描 | **优先级**：P0
+**涉及文件**：`lib/features/browser/browser_provider.dart`
+**依赖**：无
+
+**根因**：
+`restoreQueueFromPrefsProvider` 启动时调用 `player.setAudioSource()` 和 `player.seek()`，均无超时。NAS 不可达时 App 启动卡在加载页。
+
+**代码锚点**：
+- `browser_provider.dart:427` `await player.setAudioSource(source);`
+- `browser_provider.dart:429` `await player.seek(Duration(milliseconds: startPositionMs));`
+
+**修复方案**：
+给整个预加载序列加 10 秒超时，超时后跳过预加载（队列仍恢复，但不预加载音频源）。
+
+**测试用例**：BUG-07-T01 ~ BUG-07-T03
+- BUG-07-T01: setAudioSource 挂起 → 10 秒后超时 → 队列恢复但不预加载
+- BUG-07-T02: 正常启动 → 预加载成功 → 迷你播放栏立即可用（回归）
+- BUG-07-T03: NAS 不可达 → 启动不卡住 → 进入 browser 页面
+
+**验收标准**：
+- [ ] BUG-07-T01 ~ T03 全部通过
+- [ ] `flutter test` 全量回归通过
+
+---
+
+### BUG-08 conn.id! / track.id! 空指针闪退
+
+**来源**：代码扫描 | **优先级**：P1
+**涉及文件**：`lib/features/connection/connection_list_screen.dart`、`lib/features/playlist/playlist_detail_screen.dart`
+**依赖**：无
+
+**根因**：
+`conn.id!` 和 `track.id!` 在 DB 记录损坏时可能为 null，导致 `Null check operator used on a null value` 闪退。
+
+**代码锚点**：
+- `connection_list_screen.dart:263,289,299,306` 多处 `conn.id!`
+- `playlist_detail_screen.dart:159,295` 多处 `track.id!`
+
+**修复方案**：
+添加 `if (conn.id == null) return;` / `if (track.id == null) return;` 守卫。
+
+**测试用例**：BUG-08-T01 ~ BUG-08-T04
+- BUG-08-T01: ConnectionConfig.id == null → 不闪退 → 忽略操作
+- BUG-08-T02: ConnectionConfig.id != null → 正常操作（回归）
+- BUG-08-T03: PlaylistTrack.id == null → 不闪退 → 忽略操作
+- BUG-08-T04: PlaylistTrack.id != null → 正常操作（回归）
+
+**验收标准**：
+- [ ] BUG-08-T01 ~ T04 全部通过
+- [ ] `flutter test` 全量回归通过
+
+---
+
+### BUG-09 upsertProgressProvider / clearProgressProvider 无 try-catch 导致闪退
+
+**来源**：代码扫描 | **优先级**：P1
+**涉及文件**：`lib/features/progress/progress_provider.dart`
+**依赖**：无
+
+**根因**：
+`upsertProgressProvider` 和 `clearProgressProvider` 直接调用 DAO 方法，无 try-catch。在定时器回调和生命周期钩子中调用时，DB 磁盘满/损坏会导致未捕获异常闪退。
+
+**代码锚点**：
+- `progress_provider.dart:75` `dao.upsert(...)` 无 try-catch
+- `progress_provider.dart:103` `dao.delete(...)` 无 try-catch
+
+**修复方案**：
+在 provider 内部用 try-catch 包裹 DAO 调用，错误时日志记录但不崩溃。
+
+**测试用例**：BUG-09-T01 ~ BUG-09-T04
+- BUG-09-T01: upsert 时 DB 抛异常 → 不闪退 → 错误被日志记录
+- BUG-09-T02: delete 时 DB 抛异常 → 不闪退 → 错误被日志记录
+- BUG-09-T03: 正常 upsert → 行为不变（回归）
+- BUG-09-T04: 正常 delete → 行为不变（回归）
+
+**验收标准**：
+- [ ] BUG-09-T01 ~ T04 全部通过
+- [ ] `flutter test` 全量回归通过
+
+---
+
+### BUG-10 SecureStorage 全局无超时保护
+
+**来源**：代码扫描 | **优先级**：P1
+**涉及文件**：多个文件（5 处 read、2 处 write、1 处 delete）
+**依赖**：无
+
+**根因**：
+FlutterSecureStorage 使用平台通道，在某些 Android 设备（损坏的 KeyStore、OS 升级后）上可能永久挂起。所有调用点均无超时保护。
+
+**代码锚点**：
+- `browser_provider.dart:188` `await storage.read(...)`
+- `browser_provider.dart:417` `await storage.read(...)`
+- `player_provider.dart:928` `await storage.read(...)`
+- `connection_provider.dart:141` `await storage.read(...)`
+- `player_screen.dart:231` `await storage.read(...)`
+- `connection_provider.dart:203,250` `await storage.write(...)`
+- `connection_provider.dart:289` `await storage.delete(...)`
+
+**修复方案**：
+创建工具函数 `safeStorageRead()`/`safeStorageWrite()`/`safeStorageDelete()`，统一 5 秒超时。替换所有调用点。
+
+**测试用例**：BUG-10-T01 ~ BUG-10-T04
+- BUG-10-T01: storage.read 挂起 → 5 秒后返回 null
+- BUG-10-T02: storage.write 挂起 → 5 秒后抛 TimeoutException（被调用方 catch）
+- BUG-10-T03: 正常 read → 超时未触发 → 返回正确值（回归）
+- BUG-10-T04: 正常 write → 超时未触发 → 写入成功（回归）
+
+**验收标准**：
+- [ ] BUG-10-T01 ~ T04 全部通过
+- [ ] `flutter test` 全量回归通过
+
+---
+
 ## 待实现 — 重构 Phase 0：测试基础设施
 
 ### REF-01 创建 test/helpers/ 目录结构
