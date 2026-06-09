@@ -28,6 +28,89 @@ jobs:
       - name: Run tests
         run: flutter test --coverage
 
+      - name: Check test coverage threshold
+        run: |
+          COVERAGE=$(lcov --summary coverage/lcov.info 2>&1 | grep 'lines' | grep -oP '[\d.]+%' | head -1 | tr -d '%')
+          echo "Test coverage: ${COVERAGE}%"
+          THRESHOLD=60
+          if [ "$(echo "$COVERAGE < $THRESHOLD" | bc -l)" -eq 1 ]; then
+            echo "::error::Test coverage ${COVERAGE}% is below threshold ${THRESHOLD}%"
+            exit 1
+          fi
+          echo "Coverage ${COVERAGE}% meets threshold ${THRESHOLD}%"
+
+      - name: Check architecture boundaries
+        run: |
+          echo "Checking cross-feature imports..."
+          echo "Allowed: shared/di/providers.dart, core/, shared/models/, package:, dart:"
+          VIOLATIONS=0
+          FEATURES=$(find lib/features -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
+          for feature_dir in lib/features/*/; do
+            feature_name=$(basename "$feature_dir")
+            for dart_file in $(find "$feature_dir" -name '*.dart'); do
+              while IFS= read -r import_line; do
+                # Skip comments
+                [[ "$import_line" =~ ^[[:space:]]*// ]] && continue
+                import_path=$(echo "$import_line" | grep -oP "(?<=import ')[^']+(?=')" || true)
+                [[ -z "$import_path" ]] && continue
+                # Allowed: dart:, package:, relative to same feature
+                [[ "$import_path" == dart:* ]] && continue
+                [[ "$import_path" == package:* ]] && continue
+                # Allowed: shared/di/providers.dart (cross-feature bridge)
+                echo "$import_path" | grep -q 'shared/di/providers' && continue
+                # Resolve relative imports to absolute within lib/
+                resolved=""
+                if [[ "$import_path" == ../* ]]; then
+                  file_dir=$(dirname "$dart_file")
+                  resolved=$(cd "$file_dir" && realpath -m "$import_path" 2>/dev/null || true)
+                  # Make it relative to project root
+                  resolved=$(echo "$resolved" | sed "s|$(pwd)/||")
+                fi
+                # Skip imports to core/ or shared/models/ (allowed)
+                [[ "$import_path" == *core/* ]] && continue
+                [[ "$import_path" == *shared/models/* ]] && continue
+                [[ "$resolved" == *core/* ]] && continue
+                [[ "$resolved" == *shared/models/* ]] && continue
+                # Now check: does this import reference another feature?
+                target_feature=""
+                for f in $FEATURES; do
+                  if [[ "$f" != "$feature_name" ]]; then
+                    if echo "$import_path" | grep -q "features/$f\|/$f/" || echo "$resolved" | grep -q "features/$f\|/$f/"; then
+                      target_feature="$f"
+                      break
+                    fi
+                  fi
+                done
+                if [[ -n "$target_feature" ]]; then
+                  echo "::error file=$dart_file::Cross-feature import: '$import_path' (targets feature '$target_feature')"
+                  VIOLATIONS=$((VIOLATIONS + 1))
+                fi
+              done < <(grep "import " "$dart_file" || true)
+            done
+          done
+          if [ "$VIOLATIONS" -gt 0 ]; then
+            echo "::error::Found $VIOLATIONS cross-feature import violation(s). Use shared/di/providers.dart for cross-feature dependencies."
+            exit 1
+          fi
+          echo "No architecture boundary violations found."
+
+      - name: Check file line count limit
+        run: |
+          echo "Checking for files exceeding 500 lines..."
+          EXCEEDED=0
+          while IFS= read -r file; do
+            lines=$(wc -l < "$file")
+            if [ "$lines" -gt 500 ]; then
+              echo "::error file=$file::File has $lines lines, exceeding the 500-line limit"
+              EXCEEDED=$((EXCEEDED + 1))
+            fi
+          done < <(find lib -name '*.dart' -type f)
+          if [ "$EXCEEDED" -gt 0 ]; then
+            echo "::error::$EXCEEDED file(s) exceed the 500-line limit. Please refactor."
+            exit 1
+          fi
+          echo "All files are within the 500-line limit."
+
       - name: Check formatting
         run: dart format --set-exit-if-changed lib test
 
