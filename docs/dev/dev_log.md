@@ -569,3 +569,17 @@
 
 ### 测试结果
 - 通过: 1047 / 总计: 1047
+
+---
+
+## [2026-06-09] [REF-14] - 创建 player/domain/playback_orchestrator.dart
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/player/domain/playback_orchestrator.dart` — 新建，PlaybackOrchestrator 核心类
+- `test/features/player/ref_14_test.dart` — 新建，28 个测试用例
+- `test/features/player/ref_14_test.mocks.dart` — 自动生成 mock
+
+### 测试结果
+- 通过: 1075 / 总计: 1075

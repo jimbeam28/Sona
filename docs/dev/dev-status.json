@@ -2,8 +2,8 @@
   "metadata": {
     "last_updated": "2026-06-09",
     "total": 54,
-    "pending": 31,
-    "done": 23
+    "pending": 30,
+    "done": 24
   },
   "order": [
     "BUG-01", "BUG-02", "BUG-03", "BUG-04", "BUG-05",
@@ -230,8 +230,8 @@
     "REF-14": {
       "name": "创建 player/domain/playback_orchestrator.dart",
       "plan_section": "dev-plan.md §REF-14",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": ["REF-08", "REF-09", "REF-10", "REF-11", "REF-13"],
       "retry_count": 0,
       "last_error": ""
