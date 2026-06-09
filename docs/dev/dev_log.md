@@ -296,3 +296,16 @@
 
 ### 测试结果
 - 通过: 829 / 总计: 829
+
+---
+
+## [2026-06-09] [BUG-05] - SerializedRequestGate 卡死导致所有后续加载请求永久挂起
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/player/player_provider.dart` — _start() 添加 20s 超时，loadAndPlayProvider 添加 5s 超时
+- `test/features/player/bug_05_test.dart` — 新建，8 个测试用例
+
+### 测试结果
+- 通过: 837 / 总计: 837

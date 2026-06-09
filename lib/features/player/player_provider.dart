@@ -178,7 +178,14 @@ class SerializedRequestGate {
     _running = true;
     unawaited(() async {
       try {
-        final result = await request.task(request.requestId);
+        // BUG-05: add 20-second timeout to prevent the gate from getting
+        // permanently stuck when the task hangs on an unresolved await.
+        final result = await request.task(request.requestId).timeout(
+          const Duration(seconds: 20),
+          onTimeout: () => throw TimeoutException(
+            'SerializedRequestGate: task timed out after 20 seconds',
+          ),
+        );
         request.complete(
             isLatest(request.requestId) ? result : request.onSuperseded());
       } catch (e) {
@@ -918,7 +925,9 @@ final Provider<Future<TrackLoadResult> Function()> loadAndPlayProvider =
           // E-2: if the connection has changed since the queue was created,
           // refuse to load — file paths may not exist on the new connection.
           final savedConnId = ref.read(lastQueueConnectionIdProvider);
-          final activeConn = await ref.read(activeConnectionProvider.future);
+          // BUG-05: add 5-second timeout to prevent hang on provider future.
+          final activeConn = await ref.read(activeConnectionProvider.future)
+              .timeout(const Duration(seconds: 5));
           if (activeConn == null) {
             debugPrint('[Provider] loadAndPlay: no active connection');
             return const TrackLoadResult.failed();
@@ -932,9 +941,14 @@ final Provider<Future<TrackLoadResult> Function()> loadAndPlayProvider =
             return const TrackLoadResult.superseded();
           }
 
+          // BUG-05: add 5-second timeout to prevent hang on secure storage read.
           final storage = ref.read(secureStorageProvider);
-          final password =
-              await storage.read(key: 'connection_password_${activeConn.id}');
+          final password = await storage
+              .read(key: 'connection_password_${activeConn.id}')
+              .timeout(
+                const Duration(seconds: 5),
+                onTimeout: () => null,
+              );
           if (password == null || password.isEmpty) {
             debugPrint('[Provider] loadAndPlay: no password');
             return const TrackLoadResult.failed();
