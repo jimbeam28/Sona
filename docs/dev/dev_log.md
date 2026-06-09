@@ -678,3 +678,16 @@
 
 ### 测试结果
 - 通过: 1136 / 总计: 1136
+
+---
+
+## [2026-06-09] [REF-22] - 创建 connection/domain/connection_service.dart
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/connection/domain/connection_service.dart` — 新建，ConnectionService (save/delete/setActive/update)
+- `test/features/connection/ref_22_test.dart` — 新建，6 个测试用例
+
+### 测试结果
+- 通过: 1142 / 总计: 1142
