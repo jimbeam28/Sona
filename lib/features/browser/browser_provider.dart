@@ -97,11 +97,17 @@ const _cacheTtl = Duration(minutes: 5);
 final directoryCacheProvider =
     StateProvider<Map<String, CacheEntry>>((ref) => {});
 
-/// A cached directory listing with its creation timestamp for TTL checking.
+/// A cached directory listing with its creation timestamp for TTL checking
+/// and last-accessed timestamp for LRU eviction (BUG-03).
 class CacheEntry {
   final List<NasFile> files;
   final DateTime createdAt;
-  const CacheEntry({required this.files, required this.createdAt});
+  final DateTime lastAccessedAt;
+  CacheEntry({
+    required this.files,
+    required this.createdAt,
+    DateTime? lastAccessedAt,
+  }) : lastAccessedAt = lastAccessedAt ?? createdAt;
 }
 
 /// Clears the directory contents cache and invalidates the corresponding
@@ -178,6 +184,16 @@ final directoryContentsProvider =
     if (age < _cacheTtl) {
       debugPrint(
           '[Browser] dirContents: cache hit path=$path (age=${age.inSeconds}s)');
+      // BUG-03: update lastAccessedAt on cache hit for LRU eviction
+      ref.read(directoryCacheProvider.notifier).update((state) {
+        final updated = Map<String, CacheEntry>.from(state);
+        updated[cacheKey] = CacheEntry(
+          files: cachedEntry.files,
+          createdAt: cachedEntry.createdAt,
+          lastAccessedAt: DateTime.now(),
+        );
+        return updated;
+      });
       return sortFiles(cachedEntry.files, sortOption);
     }
     debugPrint(
@@ -223,14 +239,20 @@ final directoryContentsProvider =
   // 6. Sort with current sort option
   final sorted = sortFiles(filtered, sortOption);
 
-  // 7. Write to cache with TTL (PRG-03: limit to 50 entries)
+  // 7. Write to cache with TTL (PRG-03: limit to 50 entries, LRU eviction BUG-03)
   ref.read(directoryCacheProvider.notifier).update((state) {
+    final now = DateTime.now();
     final updated = {
       ...state,
-      cacheKey: CacheEntry(files: sorted, createdAt: DateTime.now()),
+      cacheKey: CacheEntry(files: sorted, createdAt: now, lastAccessedAt: now),
     };
     if (updated.length > 50) {
-      final keysToRemove = updated.keys.take(updated.length - 50).toList();
+      // BUG-03: evict by least-recently-used (oldest lastAccessedAt first)
+      final sortedEntries = updated.entries.toList()
+        ..sort((a, b) =>
+            a.value.lastAccessedAt.compareTo(b.value.lastAccessedAt));
+      final keysToRemove =
+          sortedEntries.take(updated.length - 50).map((e) => e.key).toList();
       for (final k in keysToRemove) {
         updated.remove(k);
       }

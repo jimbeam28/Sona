@@ -270,3 +270,16 @@
 
 ### 测试结果
 - 通过: 822 / 总计: 822
+
+---
+
+## [2026-06-09] [BUG-03] - 目录缓存淘汰不是 LRU
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/browser/browser_provider.dart` — CacheEntry 添加 lastAccessedAt，淘汰逻辑改为 LRU
+- `test/features/browser/bug_03_test.dart` — 新建，4 个测试用例
+
+### 测试结果
+- 通过: 826 / 总计: 826
