@@ -365,3 +365,20 @@
 
 ### 测试结果
 - 通过: 860 / 总计: 860
+
+---
+
+## [2026-06-09] [BUG-10] - SecureStorage 全局无超时保护
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/core/services/storage_utils.dart` — 新建，safeStorageRead/Write/Delete 工具函数
+- `lib/features/browser/browser_provider.dart` — 2 处调用替换
+- `lib/features/player/player_screen.dart` — 1 处调用替换
+- `lib/features/connection/connection_provider.dart` — 4 处调用替换
+- `test/features/bug_10_test.dart` — 新建，4 个测试用例
+- `test/features/browser/bug_07_test.dart` — 更新 T03 测试预期
+
+### 测试结果
+- 通过: 864 / 总计: 864

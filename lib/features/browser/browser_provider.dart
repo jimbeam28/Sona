@@ -14,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/network/webdav_client.dart';
 import '../../core/services/audio_source_builder.dart';
+import '../../core/services/storage_utils.dart';
 import '../../shared/models/nas_file.dart';
 import '../../shared/models/play_progress.dart';
 import '../../shared/models/play_queue.dart';
@@ -207,7 +208,7 @@ final directoryContentsProvider =
   // 3. Read the password from secure storage
   final storage = ref.watch(secureStorageProvider);
   final passwordKey = 'connection_password_${activeConn.id}';
-  final password = await storage.read(key: passwordKey);
+  final password = await safeStorageRead(storage, key: passwordKey);
   if (password == null || password.isEmpty) {
     throw const WebDavException('密码未保存');
   }
@@ -412,8 +413,7 @@ Future<void> preloadAudioSource({
   required AudioPlayer player,
   int? startPositionMs,
 }) async {
-  final pw = await storage.read(key: 'connection_password_$connectionId')
-      .timeout(const Duration(seconds: 10));
+  final pw = await safeStorageRead(storage, key: 'connection_password_$connectionId');
   if (pw == null || pw.isEmpty) return;
 
   debugPrint('[Browser] restoreQueue: pre-loading $filePath');

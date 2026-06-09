@@ -9,6 +9,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../core/database/dao/connection_dao.dart';
 import '../../core/network/webdav_client.dart';
+import '../../core/services/storage_utils.dart';
 import '../../shared/models/connection_config.dart';
 
 // ── Infrastructure providers ──────────────────────────────────────────────────
@@ -138,7 +139,7 @@ final startupValidationProvider =
   // Read the password from secure storage
   final storage = ref.watch(secureStorageProvider);
   final passwordKey = 'connection_password_${activeConn.id}';
-  final password = await storage.read(key: passwordKey);
+  final password = await safeStorageRead(storage, key: passwordKey);
   if (password == null || password.isEmpty) {
     debugPrint('[Conn] startupValidation: no password');
     return WebDavValidationResult.authError();
@@ -200,7 +201,7 @@ class ConnectionSaver {
     // Persist password under the permanent key
     final permanentKey = 'connection_password_$id';
     try {
-      await _storage.write(key: permanentKey, value: password);
+      await safeStorageWrite(_storage, key: permanentKey, value: password);
     } catch (_) {
       // H-1: rollback the DB insert if secure-storage write fails.
       debugPrint('[Conn] save: secure-storage write failed, rolling back');
@@ -247,7 +248,7 @@ class ConnectionUpdater {
     final permanentKey = 'connection_password_${config.id}';
 
     if (password != null && password.isNotEmpty) {
-      await _storage.write(key: permanentKey, value: password);
+      await safeStorageWrite(_storage, key: permanentKey, value: password);
     }
     debugPrint('[Conn] update: id=${config.id} name=${config.name}');
 
@@ -287,7 +288,7 @@ final deleteConnectionProvider =
   }
 
   // Remove the password from secure storage (CON-T31)
-  await storage.delete(key: 'connection_password_$id');
+  await safeStorageDelete(storage, key: 'connection_password_$id');
   debugPrint('[Conn] delete: done id=$id');
 
   ref.invalidate(activeConnectionProvider);

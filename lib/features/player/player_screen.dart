@@ -17,6 +17,7 @@ import 'package:just_audio/just_audio.dart';
 
 import '../../core/services/timer_service.dart';
 import '../../shared/models/play_queue.dart';
+import '../../core/services/storage_utils.dart';
 import '../browser/browser_provider.dart';
 import '../connection/connection_provider.dart';
 import '../progress/progress_provider.dart';
@@ -231,7 +232,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         }
         final storage = ref.read(secureStorageProvider);
         final pw =
-            await storage.read(key: 'connection_password_${activeConn.id}');
+            await safeStorageRead(storage, key: 'connection_password_${activeConn.id}');
         if (pw == null || pw.isEmpty) {
           debugPrint('[Player] error: no password');
           _safeSetState(() {

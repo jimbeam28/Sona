@@ -147,20 +147,22 @@ void main() {
       verify(player.seek(const Duration(milliseconds: 5000))).called(1);
     });
 
-    // ── BUG-07-T03: NAS unreachable -> storage.read hangs -> 10s timeout
-    //    -> function throws TimeoutException
+    // ── BUG-07-T03: NAS unreachable -> storage.read hangs -> safeStorageRead
+    //    returns null after 5s -> pre-load skipped silently
     //
     // Scenario: storage.read itself hangs (NAS infrastructure unreachable).
-    // The 10-second timeout on storage.read should fire.
+    // safeStorageRead has a 5-second timeout that returns null, so
+    // preloadAudioSource sees null password and returns without error.
 
-    test('BUG-07-T03: NAS unreachable -> storage.read hangs -> timeout -> '
-        'throws TimeoutException', () async {
+    test('BUG-07-T03: NAS unreachable -> storage.read hangs -> '
+        'pre-load skipped silently', () async {
       final storage = hangingStorage();
       final player = workingPlayer();
 
-      // preloadAudioSource should throw TimeoutException after ~10 seconds
-      // because storage.read never completes.
-      final future = preloadAudioSource(
+      // preloadAudioSource should complete without error because
+      // safeStorageRead returns null after 5s timeout, and null password
+      // means pre-load is skipped.
+      await preloadAudioSource(
         storage: storage,
         connectionId: 1,
         baseUrl: 'http://192.168.1.1:8080',
@@ -169,20 +171,7 @@ void main() {
         player: player,
       );
 
-      expect(
-        future,
-        throwsA(isA<TimeoutException>()),
-        reason: 'storage.read hang should trigger 10s timeout',
-      );
-
-      // Wait for the timeout to fire.
-      try {
-        await future.timeout(const Duration(seconds: 15));
-      } catch (_) {
-        // Expected.
-      }
-
-      // Player was never touched because storage.read hung first.
+      // Player was never touched because storage.read returned null.
       verifyNever(player.setAudioSource(any,
           preload: anyNamed('preload'),
           initialPosition: anyNamed('initialPosition'),
