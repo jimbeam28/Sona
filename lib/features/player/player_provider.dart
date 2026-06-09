@@ -27,6 +27,7 @@ import 'background_playback.dart';
 import 'domain/play_mode.dart';
 import 'domain/request_gate.dart';
 import 'domain/speed_manager.dart';
+export 'domain/media_control.dart' show formatDuration;
 export 'domain/play_mode.dart' show PlayMode, labelForPlayMode;
 export 'domain/request_gate.dart'
     show
@@ -176,27 +177,9 @@ final currentSpeedProvider = StateProvider<double>((ref) {
 });
 
 // ── Time formatting helper ─────────────────────────────────────────────────────
-
-/// Formats a [Duration] as a human-readable timestamp.
-///
-/// - Durations under 1 hour: `MM:SS` (e.g. `05:30`)
-/// - Durations 1 hour or more: `H:MM:SS` (e.g. `1:23:45`)
-/// - Null: `--:--`
-String formatDuration(Duration? duration) {
-  if (duration == null) return '--:--';
-  final totalSeconds = duration.inSeconds;
-  final hours = totalSeconds ~/ 3600;
-  final minutes = (totalSeconds % 3600) ~/ 60;
-  final seconds = totalSeconds % 60;
-
-  final mm = minutes.toString().padLeft(2, '0');
-  final ss = seconds.toString().padLeft(2, '0');
-
-  if (hours > 0) {
-    return '$hours:$mm:$ss';
-  }
-  return '$mm:$ss';
-}
+//
+// formatDuration is now in domain/media_control.dart — imported above and
+// re-exported for backward compatibility (REF-12).
 
 /// Normalizes a restored resume position before it is applied to the player.
 ///

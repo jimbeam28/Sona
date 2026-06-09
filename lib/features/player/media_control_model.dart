@@ -13,84 +13,10 @@
 
 import 'package:meta/meta.dart';
 
-// ── Enums ───────────────────────────────────────────────────────────────────────
+import 'domain/media_control.dart';
 
-/// Headphone / headset button click actions.
-///
-/// These are the physical button interactions that the OS delivers as
-/// media-key events.  The mapping to [MediaAction] is defined by
-/// [mapHeadphoneAction].
-enum HeadphoneAction {
-  /// Single press on the headphone button.
-  singleClick,
-
-  /// Double press (two clicks in quick succession).
-  doubleClick,
-
-  /// Triple press (three clicks in quick succession).
-  tripleClick,
-}
-
-/// High-level media actions triggered by headphone clicks or notification
-/// controls.
-///
-/// These correspond to the standard [BaseAudioHandler] methods that
-/// audio_service expects:
-///   - [togglePlayPause] → play() / pause()
-///   - [skipToNext]       → skipToNext()
-///   - [skipToPrevious]   → skipToPrevious()
-enum MediaAction {
-  /// Toggle between play and pause.
-  togglePlayPause,
-
-  /// Skip to the next track in the queue.
-  skipToNext,
-
-  /// Skip to the previous track in the queue.
-  skipToPrevious,
-}
-
-// ── Headphone click mapping ─────────────────────────────────────────────────────
-
-/// Maps a headphone button click action to the corresponding [MediaAction].
-///
-/// Per the PLY-04 design spec (docs/module-player.md §3.4):
-///   - Single click  → play/pause toggle
-///   - Double click  → skip to next
-///   - Triple click  → skip to previous
-MediaAction mapHeadphoneAction(HeadphoneAction action) {
-  switch (action) {
-    case HeadphoneAction.singleClick:
-      return MediaAction.togglePlayPause;
-    case HeadphoneAction.doubleClick:
-      return MediaAction.skipToNext;
-    case HeadphoneAction.tripleClick:
-      return MediaAction.skipToPrevious;
-  }
-}
-
-// ── Title extraction ────────────────────────────────────────────────────────────
-
-/// Extracts the display title from a file path by taking the last path
-/// segment and stripping the file extension.
-///
-/// This produces the [MediaItem.title] value displayed in the notification
-/// and lock-screen controls (PLY-T24).
-///
-/// Examples:
-/// ```dart
-/// extractTitleFromPath('/music/01 - Song.mp3')    // → '01 - Song'
-/// extractTitleFromPath('/music/有声书.m4b')       // → '有声书'
-/// extractTitleFromPath('README')                   // → 'README'
-/// extractTitleFromPath('/a/b/c.tar.gz')            // → 'c.tar'
-/// extractTitleFromPath('')                         // → ''
-/// ```
-String extractTitleFromPath(String filePath) {
-  final name = filePath.split('/').last;
-  final dotIndex = name.lastIndexOf('.');
-  if (dotIndex <= 0) return name;
-  return name.substring(0, dotIndex);
-}
+export 'domain/media_control.dart'
+    show HeadphoneAction, MediaAction, mapHeadphoneAction, extractTitleFromPath;
 
 // ── Track metadata for notification / lock screen ───────────────────────────────
 

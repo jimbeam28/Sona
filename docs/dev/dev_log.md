@@ -539,3 +539,18 @@
 
 ### 测试结果
 - 通过: 956 / 总计: 956
+
+---
+
+## [2026-06-09] [REF-12] - 创建 player/domain/media_control.dart
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/player/domain/media_control.dart` — 新建，extractTitleFromPath/mapHeadphoneAction/formatDuration
+- `lib/features/player/media_control_model.dart` — 委托到新文件
+- `lib/features/player/player_provider.dart` — 移除 formatDuration
+- `test/features/player/ref_12_test.dart` — 新建，26 个测试用例
+
+### 测试结果
+- 通过: 982 / 总计: 982
