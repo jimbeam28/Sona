@@ -11,25 +11,13 @@
 
 import 'dart:math';
 
+import '../../features/player/domain/play_mode.dart' show PlayMode;
+import '../../features/player/domain/play_mode.dart' as play_mode;
 import 'nas_file.dart';
 
-/// Playback mode for the audio queue.
-///
-/// Determines what happens when the current track finishes or the user
-/// skips to next/previous.
-enum PlayMode {
-  /// Play files in order; stop at the end of the queue.
-  sequential,
-
-  /// Replay the current track from the beginning.
-  repeatOne,
-
-  /// Play files in order; wrap to the first track after the last.
-  repeatAll,
-
-  /// Play files in random order.
-  shuffle,
-}
+// Re-export PlayMode so existing consumers importing play_queue.dart
+// continue to work without changes.
+export '../../features/player/domain/play_mode.dart' show PlayMode;
 
 /// Represents a sequential play queue of audio files.
 ///
@@ -235,58 +223,19 @@ class PlayQueue {
   ///
   /// PLY-T32 (sequential at end → null), PLY-T33 (repeatAll wraps),
   /// PLY-T34 (shuffle returns different index), PLY-T35 (repeatOne).
-  static int? nextIndex(int current, int length, PlayMode mode,
-      {Random? random}) {
-    // H-4: guard against out-of-bounds current index.
-    if (length == 0 || current < 0 || current >= length) return null;
-    switch (mode) {
-      case PlayMode.sequential:
-        return current < length - 1 ? current + 1 : null;
-      case PlayMode.repeatOne:
-        return current;
-      case PlayMode.repeatAll:
-        return (current + 1) % length;
-      case PlayMode.shuffle:
-        // Instance methods nextShuffleIndex / advanceShuffle should be
-        // used instead for deterministic shuffle navigation.
-        if (length <= 1) return null;
-        final rng = random ?? Random();
-        int next;
-        do {
-          next = rng.nextInt(length);
-        } while (next == current);
-        return next;
-    }
-  }
-
-  /// Returns the index of the previous track given [mode], or `null` when
-  /// there is no previous track (sequential mode at start of queue).
+  /// Delegates to [play_mode.nextIndex] in domain/play_mode.dart.
   ///
-  /// [current] is the current index (0-based).  [length] is the number of
-  /// items in the queue.  [random] is used for shuffle mode.
+  /// Kept as a static method on PlayQueue for backward compatibility.
+  static int? nextIndex(int current, int length, PlayMode mode,
+          {Random? random}) =>
+      play_mode.nextIndex(current, length, mode, random: random);
+
+  /// Delegates to [play_mode.previousIndex] in domain/play_mode.dart.
+  ///
+  /// Kept as a static method on PlayQueue for backward compatibility.
   static int? previousIndex(int current, int length, PlayMode mode,
-      {Random? random}) {
-    // H-4: guard against out-of-bounds current index.
-    if (length == 0 || current < 0 || current >= length) return null;
-    switch (mode) {
-      case PlayMode.sequential:
-        return current > 0 ? current - 1 : null;
-      case PlayMode.repeatOne:
-        return current;
-      case PlayMode.repeatAll:
-        return (current - 1 + length) % length;
-      case PlayMode.shuffle:
-        // Instance methods previousShuffleIndex / retreatShuffle should be
-        // used instead for deterministic shuffle navigation.
-        if (length <= 1) return null;
-        final rng = random ?? Random();
-        int prev;
-        do {
-          prev = rng.nextInt(length);
-        } while (prev == current);
-        return prev;
-    }
-  }
+          {Random? random}) =>
+      play_mode.previousIndex(current, length, mode, random: random);
 
   // ── Persistence helpers (PLY-T37) ───────────────────────────────────────
 

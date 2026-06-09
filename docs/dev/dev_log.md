@@ -495,3 +495,19 @@
 
 ### 测试结果
 - 通过: 884 / 总计: 884
+
+---
+
+## [2026-06-09] [REF-09] - 创建 player/domain/play_mode.dart
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/player/domain/play_mode.dart` — 新建，PlayMode 枚举 + nextIndex/previousIndex
+- `lib/shared/models/play_queue.dart` — 委托到新文件
+- `lib/features/player/player_provider.dart` — 移除 labelForPlayMode
+- `lib/features/player/player_screen.dart` — 添加 import
+- `test/features/player/ref_09_test.dart` — 新建，34 个测试用例
+
+### 测试结果
+- 通过: 918 / 总计: 918

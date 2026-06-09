@@ -25,6 +25,8 @@ import '../connection/connection_provider.dart';
 import '../progress/progress_provider.dart';
 import '../timer/timer_provider.dart';
 import 'background_playback.dart';
+import 'domain/play_mode.dart';
+export 'domain/play_mode.dart' show PlayMode, labelForPlayMode;
 
 // ── AudioPlayer instance ───────────────────────────────────────────────────────
 
@@ -281,10 +283,12 @@ final nextPlayModeProvider = Provider<PlayMode Function()>((ref) {
   };
 });
 
-/// Returns the icon that visually represents the given [PlayMode].
-///
-/// Each mode has a distinct Material icon so the user can identify the
-/// current playback mode at a glance (PLY-T61).
+// iconForPlayMode and labelForPlayMode are now in domain/play_mode.dart
+// (imported above, re-exported for backward compatibility).
+//
+// NOTE: iconForPlayMode cannot be moved to the pure-Dart domain file because
+// it returns IconData (a Flutter type).  It remains here as a bridge that
+// maps the PlayMode enum to Flutter icons.
 IconData iconForPlayMode(PlayMode mode) {
   switch (mode) {
     case PlayMode.sequential:
@@ -295,20 +299,6 @@ IconData iconForPlayMode(PlayMode mode) {
       return Icons.repeat;
     case PlayMode.shuffle:
       return Icons.shuffle;
-  }
-}
-
-/// Returns a human-readable Chinese label for the given [PlayMode].
-String labelForPlayMode(PlayMode mode) {
-  switch (mode) {
-    case PlayMode.sequential:
-      return '顺序播放';
-    case PlayMode.repeatOne:
-      return '单曲循环';
-    case PlayMode.repeatAll:
-      return '列表循环';
-    case PlayMode.shuffle:
-      return '随机播放';
   }
 }
 

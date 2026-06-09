@@ -24,6 +24,7 @@ import '../progress/progress_provider.dart';
 import '../settings/settings_provider.dart';
 import '../timer/timer_provider.dart';
 import '../timer/widgets/timer_button.dart';
+import 'domain/play_mode.dart';
 import 'domain/seek_utils.dart';
 import 'player_provider.dart';
 import 'widgets/queue_sheet.dart';
