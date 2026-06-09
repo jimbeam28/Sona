@@ -19,7 +19,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../browser/browser_provider.dart';
+import '../../shared/di/providers.dart';
 import 'domain/timer_service.dart';
 
 // ── Service instance ──────────────────────────────────────────────────────────

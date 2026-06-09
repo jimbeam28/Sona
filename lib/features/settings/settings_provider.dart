@@ -14,8 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../browser/browser_provider.dart';
-import '../player/player_provider.dart';
+import '../../shared/di/providers.dart';
 
 // ── Theme mode (SET-03) ─────────────────────────────────────────────────────────
 

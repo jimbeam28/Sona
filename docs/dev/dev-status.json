@@ -2,8 +2,8 @@
   "metadata": {
     "last_updated": "2026-06-09",
     "total": 54,
-    "pending": 13,
-    "done": 41
+    "pending": 12,
+    "done": 42
   },
   "order": [
     "BUG-01", "BUG-02", "BUG-03", "BUG-04", "BUG-05",
@@ -392,8 +392,8 @@
     "REF-32": {
       "name": "更新所有 feature provider 使用接口",
       "plan_section": "dev-plan.md §REF-32",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": ["REF-31"],
       "retry_count": 0,
       "last_error": ""

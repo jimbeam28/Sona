@@ -811,3 +811,18 @@
 
 ### 测试结果
 - 通过: 1219 / 总计: 1219
+
+---
+
+## [2026-06-09] [REF-32] - 更新所有 feature provider 使用接口
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/browser/browser_provider.dart` — 替换 3 个跨 feature import
+- `lib/features/player/player_provider.dart` — 替换 4 个跨 feature import
+- `lib/features/settings/settings_provider.dart` — 替换 2 个跨 feature import
+- `lib/features/timer/timer_provider.dart` — 替换 1 个跨 feature import
+
+### 测试结果
+- 通过: 1219 / 总计: 1219
