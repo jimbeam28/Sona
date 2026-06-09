@@ -703,3 +703,17 @@
 
 ### 测试结果
 - 通过: 1142 / 总计: 1142
+
+---
+
+## [2026-06-09] [REF-24] - 创建 progress/domain/progress_policy.dart
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/progress/domain/progress_policy.dart` — 新建，shouldSave/shouldClear
+- `lib/core/database/dao/progress_dao.dart` — 委托到新文件
+- `test/features/progress/ref_24_test.dart` — 新建，16 个测试用例
+
+### 测试结果
+- 通过: 1158 / 总计: 1158

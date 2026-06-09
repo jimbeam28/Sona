@@ -9,6 +9,8 @@
 import 'package:sqflite/sqflite.dart';
 import '../../database/database_helper.dart';
 import '../../../shared/models/play_progress.dart';
+import '../../../features/progress/domain/progress_policy.dart'
+    as progress_policy;
 
 class ProgressDao {
   final DatabaseHelper _helper;
@@ -221,25 +223,13 @@ class ProgressDao {
 
   // ── Static helpers ───────────────────────────────────────────────────────────
 
-  /// Returns `true` when [positionMs] is >= 5 000 ms.
-  ///
-  /// Positions under 5 seconds are considered "not started" and should not
-  /// be saved (PRG-T03, PRG-T05).
-  static bool shouldSave(int positionMs) => positionMs >= 5000;
+  /// Delegates to [progress_policy.shouldSave].
+  /// See [progress_policy] for full documentation.
+  static bool shouldSave(int positionMs) =>
+      progress_policy.shouldSave(positionMs);
 
-  /// Returns `true` when the position is past the "finished" threshold.
-  ///
-  /// A file is considered finished when its position exceeds
-  /// `duration - 10 000` ms (10 seconds before the end).
-  /// In this case the progress record should be cleared rather than saved
-  /// (PRG-T04, PRG-T06).
-  ///
-  /// Returns `false` when [durationMs] is null (unknown duration).
-  static bool shouldClear(int positionMs, int? durationMs) {
-    if (durationMs == null) return false;
-    // G-3: files shorter than 10 s should never auto-clear — the 10-second
-    // window is meaningless when the file itself is shorter than that.
-    if (durationMs <= 10000) return false;
-    return positionMs > durationMs - 10000;
-  }
+  /// Delegates to [progress_policy.shouldClear].
+  /// See [progress_policy] for full documentation.
+  static bool shouldClear(int positionMs, int? durationMs) =>
+      progress_policy.shouldClear(positionMs, durationMs);
 }
