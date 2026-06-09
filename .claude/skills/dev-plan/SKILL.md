@@ -2,7 +2,8 @@
 name: dev-plan
 description: |
   分析需求或 Bug，制定统一的开发计划。适用于功能开发和 Bug 修复两种场景，输出 dev-plan.md 和 dev-status.json。
-  触发场景：用户提到"制定开发计划"、"设计新功能"、"debug"、"分析bug"、"dev-plan"、"我想要"、"需要开发"、功能编号（CON-01 等格式）、或任何需要规划代码变更的请求。
+  触发场景：用户提到"制定计划"、"设计功能"、"分析需求"、"分析bug"、"debug"、"dev-plan"、或任何需要先分析再实现的请求。
+  不触发：用户提到"开始开发"、"实现"、"dev-exe"、或明确要执行已有计划时，应由 dev-exe 处理。
 ---
 
 # 开发计划制定 (dev-plan)
@@ -36,7 +37,8 @@ description: |
    - Provider/状态管理设计
    - UI 组件结构
    - 关键文件列表
-6. **测试用例**：列出测试场景和预期结果，编号格式 `{ABBREV}-T{NN}`
+6. **代码锚点**：读取涉及文件，提取关键代码片段（含文件路径和行号），标注需要修改的位置和参考实现
+7. **测试用例**：列出测试场景和预期结果，编号格式 `{ABBREV}-T{NN}`。每个用例给出可直接使用的测试函数名，格式：`test('{ABBREV}-T{NN}: 场景描述', () { ... })`
 
 #### 如果是 Bug 修复
 
@@ -47,7 +49,7 @@ description: |
    - 可操作的修复方案（含代码示例、触发条件、逻辑描述）
    - 优先级：P0（核心功能崩溃）/ P1（功能异常但可绕过）/ P2（轻微问题）
    - 涉及文件列表
-3. **测试用例**：列出验证修复的测试场景和预期结果。如果已有测试覆盖该场景则标注"已有测试覆盖"，否则给出新增测试用例（编号格式 `{MODULE}-FIX-T{NN}`）
+3. **测试用例**：列出验证修复的测试场景和预期结果。如果已有测试覆盖该场景则标注"已有测试覆盖"，否则给出新增测试用例（编号格式 `{MODULE}-FIX-T{NN}`）。每个用例给出可直接使用的测试函数名，格式：`test('{MODULE}-FIX-T{NN}: 场景描述', () { ... })`
 
 **多个独立 Bug 时**：为每个 Bug 启动一个 Agent 并行分析，每个 Agent 将结果写入临时文件 `docs/dev/.debug-bug-N.md`，完成后汇总合并，清理临时文件。
 
@@ -69,11 +71,31 @@ description: |
 - 要点 1
 - 要点 2
 
+**代码锚点**：
+- `lib/path/to/file.dart:45` 当前实现（需修改）
+  ```dart
+  // 当前代码片段
+  ```
+- `lib/path/to/reference.dart:100` 参考实现（可复用的模式）
+  ```dart
+  // 参考代码片段
+  ```
+
 **测试用例**：XXX-T01 ~ XXX-T05
+- XXX-T01: 场景描述 → `test('XXX-T01: 场景描述', () { ... })`
+- XXX-T02: 场景描述 → `test('XXX-T02: 场景描述', () { ... })`
+
+**验收标准**：
+- [ ] 所有测试用例通过（`flutter test` 对应测试文件）
+- [ ] `flutter analyze` 0 issues
+- [ ] `dart format` 无格式变更
+- [ ] 不影响现有测试（`flutter test` 全量回归通过）
+- [ ] 实现与计划要点一一对应（无遗漏、无自行发挥）
+- [ ] Bug 修复：根因已消除，非症状掩盖（仅 Bug 修复类）
 ```
 
 - 新条目追加到 `## 待实现` 章节顶部
-- 已完成的条目保留在 `## 已完成` 章节，按时间倒序
+- 已完成的条目由步骤 3.1 清理，不保留在计划文件中
 
 ### 步骤 3：更新 dev-status.json
 
@@ -81,7 +103,9 @@ description: |
 
 #### 3.1 清理已完成项
 
-删除 `impl_status == "done"` 且 `test_status == "passed"` 的条目，从 `order` 数组中移除对应 ID。
+删除 `dev-status.json` 中 `impl_status == "done"` 且 `test_status == "passed"` 的条目，从 `order` 数组中移除对应 ID。
+
+同步删除 `dev-plan.md` 中对应的已完成条目（整个 `### {编号}` 章节）。已完成的内容保存在 git 提交历史中，不需要保留在计划文件中。
 
 #### 3.2 添加新条目
 
@@ -93,14 +117,18 @@ description: |
   "plan_section": "dev-plan.md §{编号}",
   "impl_status": "pending",
   "test_status": "pending",
-  "dependencies": ["{依赖编号}"]
+  "dependencies": ["{依赖编号}"],
+  "retry_count": 0,
+  "last_error": ""
 }
 ```
 
 - `plan_section`：引用 dev-plan.md 中对应条目
-- `impl_status`：新条目统一为 `"pending"`
-- `test_status`：新条目统一为 `"pending"`
+- `impl_status`：`"pending"` / `"done"` / `"failed"` / `"blocked"`
+- `test_status`：`"pending"` / `"passed"`
 - `dependencies`：从 dev-plan.md 提取依赖关系
+- `retry_count`：失败重试次数，dev-exe 执行失败时 +1，达到 3 次标记为 `blocked`
+- `last_error`：最近一次失败原因摘要
 
 #### 3.3 更新 order
 
