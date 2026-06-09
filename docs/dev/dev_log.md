@@ -730,3 +730,16 @@
 
 ### 测试结果
 - 通过: 1175 / 总计: 1175
+
+---
+
+## [2026-06-09] [REF-26] - 创建 playlist/domain/playlist_service.dart
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/playlist/domain/playlist_service.dart` — 新建，PlaylistService (CRUD + 去重 + 导入导出)
+- `test/features/playlist/ref_26_test.dart` — 新建，23 个测试用例
+
+### 测试结果
+- 通过: 1198 / 总计: 1198
