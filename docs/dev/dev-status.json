@@ -2,8 +2,8 @@
   "metadata": {
     "last_updated": "2026-06-09",
     "total": 54,
-    "pending": 2,
-    "done": 52
+    "pending": 1,
+    "done": 53
   },
   "order": [
     "BUG-01", "BUG-02", "BUG-03", "BUG-04", "BUG-05",
@@ -491,8 +491,8 @@
     "DOC-02": {
       "name": "更新 architecture.md",
       "plan_section": "dev-plan.md §DOC-02",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": ["REF-32"],
       "retry_count": 0,
       "last_error": ""
