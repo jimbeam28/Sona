@@ -583,3 +583,16 @@
 
 ### 测试结果
 - 通过: 1075 / 总计: 1075
+
+---
+
+## [2026-06-09] [REF-15] - 重写 player_provider.dart 为薄胶水
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/player/player_provider.dart` — 从 1092 行重写为 297 行
+- `lib/features/player/domain/playback_orchestrator.dart` — 添加 registerListeners 参数
+
+### 测试结果
+- 通过: 1075 / 总计: 1075

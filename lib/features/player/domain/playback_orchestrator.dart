@@ -121,7 +121,7 @@ class PlaybackOrchestrator {
   /// Returns [TrackLoadResult.loaded] on success, [TrackLoadResult.failed]
   /// on any error (no queue, no connection, no password, playback failed),
   /// or [TrackLoadResult.superseded] if a newer request was scheduled.
-  Future<TrackLoadResult> loadAndPlay() {
+  Future<TrackLoadResult> loadAndPlay({bool registerListeners = true}) {
     return _gate.schedule<TrackLoadResult>(
       onSuperseded: () => const TrackLoadResult.superseded(),
       task: (requestId) async {
@@ -169,7 +169,7 @@ class PlaybackOrchestrator {
           );
 
           // Register processing listener before loading.
-          _startProcessingListener();
+          if (registerListeners) _startProcessingListener();
 
           await player.setAudioSource(source);
 
@@ -213,8 +213,10 @@ class PlaybackOrchestrator {
           _activeConnectionId = activeConn.id;
 
           // Start background listeners for progress persistence.
-          _startAutoSave();
-          _startPauseSaveListener();
+          if (registerListeners) {
+            _startAutoSave();
+            _startPauseSaveListener();
+          }
 
           return TrackLoadResult.loaded(player);
         } catch (e) {

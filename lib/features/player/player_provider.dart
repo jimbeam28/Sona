@@ -1,22 +1,13 @@
-// lib/features/player/player_provider.dart
-// Riverpod providers for the Player feature.
-//
-// Provides an AudioPlayer instance and load-state management so the
-// player screen (PLY-01) can load WebDAV audio streams with Basic Auth
-// and react to errors gracefully.
-//
-// PLY-03: 后台播放 — includes background-playback-enabled flag and
-// AppLifecycleState handling so audio continues when the app goes to
-// background.
+// lib/features/player/player_provider.dart — REF-15: thin glue layer.
+// Delegates to PlaybackOrchestrator (REF-14). Processing-state listener,
+// auto-save, and pause-save remain here (bridge just_audio → Riverpod).
 
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
-
 import '../../core/services/audio_handler.dart';
-import '../../core/services/audio_source_builder.dart';
+import '../../shared/models/connection_config.dart';
 import '../../shared/models/play_progress.dart';
 import '../../shared/models/play_queue.dart';
 import '../browser/browser_provider.dart';
@@ -24,708 +15,283 @@ import '../connection/connection_provider.dart';
 import '../progress/progress_provider.dart';
 import '../timer/timer_provider.dart';
 import 'domain/background_playback.dart';
-import 'domain/play_mode.dart';
+import 'domain/playback_orchestrator.dart';
 import 'domain/request_gate.dart';
-import 'domain/speed_manager.dart';
-export 'domain/background_playback.dart'
-    show
-        AudioFocusState,
-        BackgroundPlaybackConfig,
-        BackgroundPlaybackNotifier,
-        BackgroundPlaybackState,
-        MediaControlAction,
-        backgroundPlaybackProvider,
-        computePlaybackStateAfterLifecycle,
-        shouldContinueInBackground;
+import 'domain/speed_manager.dart' as sm;
+
+export 'domain/background_playback.dart' show AudioFocusState, BackgroundPlaybackConfig, BackgroundPlaybackNotifier, BackgroundPlaybackState, MediaControlAction, backgroundPlaybackProvider, computePlaybackStateAfterLifecycle, shouldContinueInBackground;
 export 'domain/media_control.dart' show formatDuration;
 export 'domain/play_mode.dart' show PlayMode, labelForPlayMode;
-export 'domain/request_gate.dart'
-    show
-        PlayerLoadStatus,
-        PlayerLoadState,
-        SerializedRequestGate,
-        TrackLoadResult,
-        TrackLoadStatus;
-export 'domain/speed_manager.dart'
-    show speedOptions, isValidSpeed, getDefaultSpeed, readSeekStep;
+export 'domain/request_gate.dart' show PlayerLoadStatus, PlayerLoadState, SerializedRequestGate, TrackLoadResult, TrackLoadStatus;
+export 'domain/speed_manager.dart' show speedOptions, isValidSpeed, getDefaultSpeed, readSeekStep;
 
-// ── AudioPlayer instance ───────────────────────────────────────────────────────
-
-/// The [AudioPlayer] instance used for playback.
-///
-/// Created lazily on first read and disposed when the provider container
-/// is destroyed (app lifecycle).  Only one player exists application-wide.
 final audioPlayerProvider = Provider<AudioPlayer>((ref) {
-  final player = AudioPlayer();
-  ref.onDispose(() => player.dispose());
-  return player;
+  final p = AudioPlayer();
+  ref.onDispose(() => p.dispose());
+  return p;
 });
-
-/// The [NasAudioHandler] instance created by [AudioService.init].
-///
-/// Provided via [ProviderScope.overrides] in [main] so that the player
-/// screen and other widgets can interact with the handler directly.
-/// Returns `null` by default — overridden in [main] with the actual instance
-/// (which may also be null if [AudioService.init] fails).
 final audioHandlerProvider = Provider<NasAudioHandler?>((ref) => null);
 
-// PlayerLoadStatus, PlayerLoadState, TrackLoadStatus, TrackLoadResult,
-// SerializedRequestGate are now in domain/request_gate.dart — imported
-// and re-exported above (REF-11).
+class _Deps implements ActiveConnectionProvider, PasswordReader, ProgressSaver,
+    DefaultSpeedProvider, QueueConnectionIdProvider {
+  final Ref _ref;
+  _Deps(this._ref);
+  @override Future<ConnectionConfig?> getActiveConnection() =>
+      _ref.read(activeConnectionProvider.future);
+  @override ConnectionConfig? get currentConnection =>
+      _ref.read(activeConnectionProvider).valueOrNull;
+  @override Future<String?> readPassword(int id) =>
+      _ref.read(secureStorageProvider).read(key: 'connection_password_$id');
+  @override Future<void> upsertProgress({
+    required int connectionId, required String filePath,
+    required int positionMs, int? durationMs,
+  }) async => _ref.read(upsertProgressProvider)(
+      connectionId: connectionId, filePath: filePath,
+      positionMs: positionMs, durationMs: durationMs);
+  @override double getDefaultSpeed() =>
+      sm.getDefaultSpeed(_ref.read(sharedPreferencesProvider));
+  @override int? getLastQueueConnectionId() =>
+      _ref.read(lastQueueConnectionIdProvider);
+}
 
-// Seek utility functions (clampSeek, skipForward, skipBackward) are now
-// in domain/seek_utils.dart — imported above (REF-08).
-
-// ── Seek step persistence (SET-04, REF-10) ──────────────────────────────────
-//
-// readSeekStep is now in domain/speed_manager.dart — imported above and
-// re-exported for backward compatibility.
-
-/// Configurable seek step in seconds (default 15), read from SharedPreferences.
-///
-/// Used by skip-forward and skip-backward controls.
-final seekStepProvider = StateProvider<int>((ref) {
-  final prefs = ref.watch(sharedPreferencesProvider);
-  return readSeekStep(prefs);
+final playbackOrchestratorProvider = Provider<PlaybackOrchestrator>((ref) {
+  final d = _Deps(ref);
+  final o = PlaybackOrchestrator(
+    player: ref.read(audioPlayerProvider), connectionProvider: d,
+    passwordReader: d, progressSaver: d,
+    defaultSpeedProvider: d, queueConnectionIdProvider: d,
+  );
+  ref.listen<PlayQueue?>(currentPlayQueueProvider, (_, n) => o.queue = n);
+  o.queue = ref.read(currentPlayQueueProvider);
+  ref.listen<PlayMode>(playModeProvider, (_, n) => o.playMode = n);
+  o.playMode = ref.read(playModeProvider);
+  ref.onDispose(() => o.dispose());
+  return o;
 });
 
-// ── Play mode (PLY-06) ────────────────────────────────────────────────────────────
-
-/// The current playback mode for the audio queue.
-///
-/// Defaults to [PlayMode.sequential].  The user can cycle through modes
-/// via a button on the player screen.
+final seekStepProvider = StateProvider<int>(
+    (ref) => sm.readSeekStep(ref.watch(sharedPreferencesProvider)));
 final playModeProvider = StateProvider<PlayMode>((ref) => PlayMode.sequential);
-
-/// Returns a function that cycles [playModeProvider] to the next mode.
-///
-/// The modes cycle in order:
-///   sequential → repeatOne → repeatAll → shuffle → sequential …
-///
-/// Tapping the play-mode button on the player screen calls this function.
-final nextPlayModeProvider = Provider<PlayMode Function()>((ref) {
-  return () {
-    final current = ref.read(playModeProvider);
-    final next = PlayMode.values[(current.index + 1) % PlayMode.values.length];
-    debugPrint('[Player] playMode: ${current.name} → ${next.name}');
-    ref.read(playModeProvider.notifier).state = next;
-    return next;
-  };
+final nextPlayModeProvider = Provider<PlayMode Function()>((ref) => () {
+  final c = ref.read(playModeProvider);
+  final n = PlayMode.values[(c.index + 1) % PlayMode.values.length];
+  ref.read(playModeProvider.notifier).state = n;
+  return n;
 });
-
-// iconForPlayMode and labelForPlayMode are now in domain/play_mode.dart
-// (imported above, re-exported for backward compatibility).
-//
-// NOTE: iconForPlayMode cannot be moved to the pure-Dart domain file because
-// it returns IconData (a Flutter type).  It remains here as a bridge that
-// maps the PlayMode enum to Flutter icons.
-IconData iconForPlayMode(PlayMode mode) {
-  switch (mode) {
-    case PlayMode.sequential:
-      return Icons.playlist_play;
-    case PlayMode.repeatOne:
-      return Icons.repeat_one;
-    case PlayMode.repeatAll:
-      return Icons.repeat;
-    case PlayMode.shuffle:
-      return Icons.shuffle;
-  }
-}
-
-// ── Speed options & persistence (PLY-07, REF-10) ─────────────────────────────
-//
-// speedOptions, isValidSpeed, getDefaultSpeed, readSeekStep are now in
-// domain/speed_manager.dart — imported above and re-exported for backward
-// compatibility.
-
-/// The default playback speed, persisted to SharedPreferences.
-///
-/// Reads the value from SharedPreferences on first access.  When
-/// SharedPreferences is unavailable (test environments) defaults to 1.0.
-///
-/// This is the "settings-level" default.  It is NOT updated when the user
-/// changes speed during playback via the player UI — that only affects
-/// [currentSpeedProvider].  The default speed is applied when opening a new
-/// file (PLY-T47) and is only changed via the Settings screen.
-final defaultSpeedProvider = Provider<double>((ref) {
-  final prefs = ref.watch(sharedPreferencesProvider);
-  return getDefaultSpeed(prefs);
+IconData iconForPlayMode(PlayMode mode) => switch (mode) {
+  PlayMode.sequential => Icons.playlist_play,
+  PlayMode.repeatOne => Icons.repeat_one,
+  PlayMode.repeatAll => Icons.repeat,
+  PlayMode.shuffle => Icons.shuffle,
+};
+final defaultSpeedProvider = Provider<double>(
+    (ref) => sm.getDefaultSpeed(ref.watch(sharedPreferencesProvider)));
+final setDefaultSpeedProvider = Provider<void Function(double)>((ref) => (s) {
+  if (!sm.isValidSpeed(s)) return;
+  ref.read(sharedPreferencesProvider)?.setDouble(sm.defaultSpeedKey, s);
+  ref.invalidate(defaultSpeedProvider);
+  ref.read(currentSpeedProvider.notifier).state = s;
 });
+final currentSpeedProvider =
+    StateProvider<double>((ref) => ref.read(defaultSpeedProvider));
 
-/// Persists a new default speed to SharedPreferences and invalidates
-/// [defaultSpeedProvider] so that it re-reads the updated value.
-///
-/// Non-[speedOptions] values are silently ignored.
-/// This is the function that the Settings screen would call.
-final setDefaultSpeedProvider = Provider<void Function(double)>((ref) {
-  return (double speed) {
-    if (!isValidSpeed(speed)) return;
-    debugPrint('[Settings] defaultSpeed: ${speed}x');
-    final prefs = ref.read(sharedPreferencesProvider);
-    prefs?.setDouble(defaultSpeedKey, speed);
-    ref.invalidate(defaultSpeedProvider);
-    // Sync the runtime speed provider so the player UI reflects the change
-    // immediately.  The next loadAndPlayProvider call (triggered by selecting
-    // a new song or by the player screen's queue-match logic) will apply the
-    // speed to the AudioPlayer.  We cannot safely access AudioPlayer here
-    // because its constructor requires platform bindings absent in tests.
-    ref.read(currentSpeedProvider.notifier).state = speed;
-  };
-});
+int sanitizeResumePosition(int pos, int? dur) =>
+    pos < 0 ? 0 : (dur != null && dur > 0 && pos >= dur) ? 0 : pos;
 
-/// Tracks the actual playback speed applied to the player.
-///
-/// Initialized from [defaultSpeedProvider] so that every new file starts at
-/// the user's preferred default speed (PLY-T47).  When the user selects a
-/// different speed via the player's speed selector, only this provider is
-/// updated — [defaultSpeedProvider] is left unchanged (PLY-T46).
-final currentSpeedProvider = StateProvider<double>((ref) {
-  // Use ref.read (not ref.watch) so that currentSpeed is seeded from
-  // defaultSpeed on first access but does NOT re-evaluate when the
-  // settings-level default changes later (PLY-T46).
-  return ref.read(defaultSpeedProvider);
-});
-
-// ── Time formatting helper ─────────────────────────────────────────────────────
-//
-// formatDuration is now in domain/media_control.dart — imported above and
-// re-exported for backward compatibility (REF-12).
-
-/// Normalizes a restored resume position before it is applied to the player.
-///
-/// Invalid values fall back to `0` so startup recovery never attempts to seek
-/// beyond the track duration and leave the player in a broken state.
-int sanitizeResumePosition(int positionMs, int? durationMs) {
-  if (positionMs < 0) return 0;
-  if (durationMs != null && durationMs > 0 && positionMs >= durationMs) {
-    return 0;
-  }
-  return positionMs;
-}
-
-/// Applies the latest saved progress to the current queue when it still points
-/// at the same file on the same active connection.
 PlayQueue? applyLatestProgressToQueue({
-  required PlayQueue? queue,
-  required int? activeConnectionId,
+  required PlayQueue? queue, required int? activeConnectionId,
   required PlayProgress? latestProgress,
 }) {
-  if (queue == null || activeConnectionId == null || latestProgress == null) {
-    return queue;
-  }
+  if (queue == null || activeConnectionId == null || latestProgress == null) return queue;
   if (latestProgress.connectionId != activeConnectionId) return queue;
   if (latestProgress.filePath != queue.current.path) return queue;
   return queue.withStartPosition(
-    sanitizeResumePosition(
-      latestProgress.positionMs,
-      latestProgress.durationMs,
-    ),
-  );
+      sanitizeResumePosition(latestProgress.positionMs, latestProgress.durationMs));
 }
 
-// ── Background playback (PLY-03) ─────────────────────────────────────────────────
-
-/// Whether background audio playback is enabled.
-///
-/// When true, audio continues playing when the app enters the background
-/// (via [AudioPlayer]'s built-in background support and the audio_service
-/// integration planned for PLY-04).
-///
-/// This flag can be toggled by settings or platform constraints.  It is
-/// read by the app-lifecycle observer to decide whether to pause or
-/// continue playback on a lifecycle transition.
 final backgroundPlaybackEnabledProvider = StateProvider<bool>((ref) => true);
-
-/// Restores the latest saved playback position onto the persisted queue during
-/// app startup so pressing play resumes from the last known position.
 final restoreStartupProgressProvider = FutureProvider<void>((ref) async {
   await ref.read(restoreQueueFromPrefsProvider.future);
-
-  final queue = ref.read(currentPlayQueueProvider);
-  final activeConn = ref.read(activeConnectionProvider).valueOrNull;
-  final latestProgress = await ref.read(latestPlayedProgressProvider.future);
-  final restoredQueue = applyLatestProgressToQueue(
-    queue: queue,
-    activeConnectionId: activeConn?.id,
-    latestProgress: latestProgress,
-  );
-
-  if (restoredQueue != null && restoredQueue != queue) {
-    ref.read(currentPlayQueueProvider.notifier).state = restoredQueue;
-    final player = ref.read(audioPlayerProvider);
-    if (player.audioSource != null) {
-      await player.seek(
-        Duration(milliseconds: restoredQueue.startPositionMs ?? 0),
-      );
+  final q = ref.read(currentPlayQueueProvider);
+  final c = ref.read(activeConnectionProvider).valueOrNull;
+  final p = await ref.read(latestPlayedProgressProvider.future);
+  final r = applyLatestProgressToQueue(
+      queue: q, activeConnectionId: c?.id, latestProgress: p);
+  if (r != null && r != q) {
+    ref.read(currentPlayQueueProvider.notifier).state = r;
+    final pl = ref.read(audioPlayerProvider);
+    if (pl.audioSource != null) {
+      await pl.seek(Duration(milliseconds: r.startPositionMs ?? 0));
     }
   }
 });
-
-// BackgroundPlaybackNotifier and backgroundPlaybackProvider are now in
-// domain/background_playback.dart — imported and re-exported above (REF-13).
-
-/// Bridges [NasAudioHandler.onConfigChanged] to [BackgroundPlaybackNotifier]
-/// so the Riverpod layer mirrors the handler's internal state machine (PLY-F).
-///
-/// This provider is read once at app startup (via [HomeScreen]) and kept alive
-/// for the lifetime of the app — the callback is unregistered on dispose.
 final backgroundPlaybackSyncProvider = Provider<void>((ref) {
-  final handler = ref.read(audioHandlerProvider);
-  final notifier = ref.read(backgroundPlaybackProvider.notifier);
-  handler?.onConfigChanged = notifier.syncFromHandler;
-  ref.onDispose(() {
-    handler?.onConfigChanged = null;
-  });
+  final h = ref.read(audioHandlerProvider);
+  final n = ref.read(backgroundPlaybackProvider.notifier);
+  h?.onConfigChanged = n.syncFromHandler;
+  ref.onDispose(() => h?.onConfigChanged = null);
 });
 
-// shouldContinueInBackground is now in domain/background_playback.dart
-// — imported and re-exported above (REF-13).
-
-// ── D-1: Unified playback entry point ──────────────────────────────────────────
-//
-// These providers extract the shared "load, play, and set up listeners" logic
-// so that both the full player screen and the mini player bar can trigger
-// playback through the same code path.  Previously the mini bar's skip and
-// queue-selection handlers duplicated a subset of _loadAndPlay(), skipping
-// listener setup and breaking auto-next, auto-save, and timer features.
-
-/// Holds the current [processingStateStream] subscription so it can be
-/// cancelled and re-created from any call site.
 final _processingSubProvider =
     StateProvider<StreamSubscription<void>?>((ref) => null);
+final _autoSaveTimerProvider = StateProvider<Timer?>((ref) => null);
+final _pauseSaveSubProvider =
+    StateProvider<StreamSubscription<void>?>((ref) => null);
+final _completingProvider = StateProvider<bool>((ref) => false);
 
-/// Cancels the active processing-state subscription.
-final cancelProcessingListenerProvider = Provider<void Function()>((ref) {
-  return () {
-    ref.read(_processingSubProvider)?.cancel();
-    ref.read(_processingSubProvider.notifier).state = null;
-  };
+final saveProgressProvider = Provider<void Function()>(
+    (ref) => () => ref.read(playbackOrchestratorProvider).saveProgress());
+
+final _startAutoSaveProvider = Provider<void Function()>((ref) => () {
+  ref.read(_autoSaveTimerProvider)?.cancel();
+  ref.read(_autoSaveTimerProvider.notifier).state =
+      Timer.periodic(const Duration(seconds: 10),
+          (_) => ref.read(saveProgressProvider)());
+});
+final _cancelAutoSaveProvider = Provider<void Function()>((ref) => () {
+  ref.read(_autoSaveTimerProvider)?.cancel();
+  ref.read(_autoSaveTimerProvider.notifier).state = null;
+});
+final _startPauseSaveProvider = Provider<void Function(AudioPlayer)>((ref) => (p) {
+  ref.read(_pauseSaveSubProvider)?.cancel();
+  var was = p.playing;
+  ref.read(_pauseSaveSubProvider.notifier).state =
+      p.playerStateStream.listen((s) {
+    if (was && !s.playing) ref.read(saveProgressProvider)();
+    was = s.playing;
+  });
+});
+final _cancelPauseSaveProvider = Provider<void Function()>((ref) => () {
+  ref.read(_pauseSaveSubProvider)?.cancel();
+  ref.read(_pauseSaveSubProvider.notifier).state = null;
 });
 
-/// Registers (or re-registers) the processing-state listener that handles
-/// track completion — auto-advance to next or afterCurrent timer stop.
-///
-/// Extracted from [loadAndPlayProvider] so the PlayerScreen can re-register
-/// the listener when it re-opens and skips reloading a matching source.
-final startProcessingListenerProvider = Provider<void Function()>((ref) {
-  // PLY-05: cancel processing subscription on dispose to prevent
-  // the listener from reading stale Riverpod state after disposal.
-  ref.onDispose(() {
-    ref.read(_processingSubProvider)?.cancel();
-  });
+final cancelProcessingListenerProvider = Provider<void Function()>(
+    (ref) => () {
+  ref.read(_processingSubProvider)?.cancel();
+  ref.read(_processingSubProvider.notifier).state = null;
+});
 
+final startProcessingListenerProvider = Provider<void Function()>((ref) {
+  ref.onDispose(() => ref.read(_processingSubProvider)?.cancel());
   return () {
     final player = ref.read(audioPlayerProvider);
     ref.read(cancelProcessingListenerProvider)();
-    final sub = player.processingStateStream.listen((state) {
-      if (state == ProcessingState.completed) {
-        if (ref.read(_completingProvider)) {
-          debugPrint('[Player] track completed (ignored, already completing)');
-          return;
-        }
-        ref.read(_completingProvider.notifier).state = true;
-        debugPrint('[Player] track completed');
-        final triggered = ref.read(onTrackCompletedProvider)();
-        if (triggered) {
-          debugPrint('[Player] afterCurrent timer triggered, pausing');
-          player.pause();
-          ref.read(_completingProvider.notifier).state = false;
-        } else {
-          debugPrint('[Player] advancing to next track');
-          final q = ref.read(currentPlayQueueProvider);
-          final m = ref.read(playModeProvider);
-          if (q == null) {
-            ref.read(_completingProvider.notifier).state = false;
-            return;
-          }
-          // PLY-01: use deterministic shuffle order for shuffle mode
-          PlayQueue? nq;
-          if (m == PlayMode.shuffle) {
-            nq = q.advanceShuffle();
-          }
-          nq ??= () {
-            final ni = PlayQueue.nextIndex(q.currentIndex, q.length, m);
-            if (ni == null) return null;
-            return q.withIndex(ni);
-          }();
-          if (nq == null) {
-            debugPrint('[Player] no next track, completed');
-            player.pause();
-            ref.read(_completingProvider.notifier).state = false;
-            return;
-          }
-          ref.read(saveProgressProvider)();
-          ref.read(currentPlayQueueProvider.notifier).state = nq;
-          unawaited(ref.read(loadAndPlayProvider)());
-        }
+    ref.read(_processingSubProvider.notifier).state =
+        player.processingStateStream.listen((state) {
+      if (state != ProcessingState.completed) return;
+      if (ref.read(_completingProvider)) return;
+      ref.read(_completingProvider.notifier).state = true;
+      if (ref.read(onTrackCompletedProvider)()) {
+        player.pause();
+        ref.read(_completingProvider.notifier).state = false;
+        return;
       }
-    });
-    ref.read(_processingSubProvider.notifier).state = sub;
-  };
-});
-
-/// Saves the current playback position to the database.
-final saveProgressProvider = Provider<void Function()>((ref) {
-  return () {
-    final queue = ref.read(currentPlayQueueProvider);
-    final conn = ref.read(activeConnectionProvider).valueOrNull;
-    if (queue == null || conn?.id == null) return;
-    final player = ref.read(audioPlayerProvider);
-    ref.read(upsertProgressProvider)(
-      connectionId: conn!.id!,
-      filePath: queue.current.path,
-      positionMs: player.position.inMilliseconds,
-      durationMs: player.duration?.inMilliseconds,
-    );
-  };
-});
-
-/// Holds the periodic auto-save timer so it can be cancelled.
-final _autoSaveTimerProvider = StateProvider<Timer?>((ref) => null);
-
-/// Starts (or restarts) a periodic timer that saves progress every 10 seconds.
-final _startAutoSaveProvider = Provider<void Function()>((ref) {
-  return () {
-    ref.read(_autoSaveTimerProvider)?.cancel();
-    final timer = Timer.periodic(const Duration(seconds: 10), (_) {
+      final q = ref.read(currentPlayQueueProvider);
+      final m = ref.read(playModeProvider);
+      if (q == null) {
+        ref.read(_completingProvider.notifier).state = false;
+        return;
+      }
+      PlayQueue? nq;
+      if (m == PlayMode.shuffle) nq = q.advanceShuffle();
+      nq ??= () {
+        final ni = PlayQueue.nextIndex(q.currentIndex, q.length, m);
+        return ni != null ? q.withIndex(ni) : null;
+      }();
+      if (nq == null) { player.pause(); ref.read(_completingProvider.notifier).state = false; return; }
       ref.read(saveProgressProvider)();
+      ref.read(currentPlayQueueProvider.notifier).state = nq;
+      unawaited(ref.read(loadAndPlayProvider)());
     });
-    ref.read(_autoSaveTimerProvider.notifier).state = timer;
   };
 });
 
-/// Cancels the auto-save timer.
-final _cancelAutoSaveProvider = Provider<void Function()>((ref) {
-  return () {
-    ref.read(_autoSaveTimerProvider)?.cancel();
-    ref.read(_autoSaveTimerProvider.notifier).state = null;
-  };
-});
-
-/// Holds the player-state subscription for pause-triggered saves.
-final _pauseSaveSubProvider =
-    StateProvider<StreamSubscription<void>?>((ref) => null);
-
-/// Guards against duplicate [ProcessingState.completed] events so that
-/// a second completion does not advance the queue an extra time while
-/// the first advance is still loading the next track.
-final _completingProvider = StateProvider<bool>((ref) => false);
-
-/// Gate that serializes load requests for the shared [AudioPlayer].
-final _loadRequestGateProvider = Provider<SerializedRequestGate>((ref) {
-  return SerializedRequestGate();
-});
-
-/// Starts a listener that saves progress whenever the player transitions
-/// from playing to paused.
-final _startPauseSaveProvider = Provider<void Function(AudioPlayer)>((ref) {
-  return (AudioPlayer player) {
-    ref.read(_pauseSaveSubProvider)?.cancel();
-    var wasPlaying = player.playing;
-    final sub = player.playerStateStream.listen((state) {
-      final playing = state.playing;
-      if (wasPlaying && !playing) {
-        ref.read(saveProgressProvider)();
-      }
-      wasPlaying = playing;
-    });
-    ref.read(_pauseSaveSubProvider.notifier).state = sub;
-  };
-});
-
-/// Re-registers all playback listeners that were cancelled when the
-/// PlayerScreen was disposed.  Call this when the screen re-opens and
-/// skips [_loadAndPlay] because the source already matches.
-final reconnectPlaybackListenersProvider = Provider<void Function()>((ref) {
-  return () {
+final Provider<Future<TrackLoadResult> Function()> loadAndPlayProvider =
+    Provider<Future<TrackLoadResult> Function()>((ref) => () async {
+  final r = await ref.read(playbackOrchestratorProvider)
+      .loadAndPlay(registerListeners: false);
+  if (r.isLoaded) {
     ref.read(startProcessingListenerProvider)();
     ref.read(_startAutoSaveProvider)();
     ref.read(_startPauseSaveProvider)(ref.read(audioPlayerProvider));
-  };
+    final ds = ref.read(defaultSpeedProvider);
+    if ((ds - 1.0).abs() > 0.01) ref.read(currentSpeedProvider.notifier).state = ds;
+  }
+  ref.read(_completingProvider.notifier).state = false;
+  return r;
 });
 
-/// Cancels the pause-save listener.
-final _cancelPauseSaveProvider = Provider<void Function()>((ref) {
-  return () {
-    ref.read(_pauseSaveSubProvider)?.cancel();
-    ref.read(_pauseSaveSubProvider.notifier).state = null;
-  };
-});
-
-/// Advances the queue to the next track and loads it via [loadAndPlayProvider].
-///
-/// G-2: this provider only updates the queue, then delegates to
-/// [loadAndPlayProvider].  The processing listener inside loadAndPlayProvider
-/// calls an inlined _advanceToNext helper instead of reading this provider,
-/// breaking the cycle.
 final Provider<Future<TrackLoadResult> Function()> skipToNextProvider =
-    Provider<Future<TrackLoadResult> Function()>((ref) {
-  return () async {
-    final queue = ref.read(currentPlayQueueProvider);
-    final mode = ref.read(playModeProvider);
-    if (queue == null) return const TrackLoadResult.failed();
-    // PLY-01: use deterministic shuffle order for shuffle mode
-    final nextQueue = mode == PlayMode.shuffle
-        ? queue.advanceShuffle()
-        : () {
-            final ni =
-                PlayQueue.nextIndex(queue.currentIndex, queue.length, mode);
-            return ni != null ? queue.withIndex(ni) : null;
-          }();
-    if (nextQueue == null) {
-      debugPrint('[Player] skipNext: no next track (mode=$mode)');
-      return const TrackLoadResult.failed();
-    }
-    debugPrint(
-        '[Player] skipNext: idx=${nextQueue.currentIndex} file=${nextQueue.current.path}');
-    ref.read(saveProgressProvider)();
-    ref.read(currentPlayQueueProvider.notifier).state = nextQueue;
-    return ref.read(loadAndPlayProvider)();
-  };
+    Provider<Future<TrackLoadResult> Function()>((ref) => () async {
+  final q = ref.read(currentPlayQueueProvider);
+  final m = ref.read(playModeProvider);
+  if (q == null) return const TrackLoadResult.failed();
+  final nq = m == PlayMode.shuffle ? q.advanceShuffle() : () {
+    final ni = PlayQueue.nextIndex(q.currentIndex, q.length, m);
+    return ni != null ? q.withIndex(ni) : null;
+  }();
+  if (nq == null) return const TrackLoadResult.failed();
+  ref.read(saveProgressProvider)();
+  ref.read(currentPlayQueueProvider.notifier).state = nq;
+  return ref.read(loadAndPlayProvider)();
 });
 
-/// Moves the queue backward and loads the selected track through the
-/// serialized playback pipeline.
 final skipToPreviousProvider =
-    Provider<Future<TrackLoadResult> Function()>((ref) {
-  return () async {
-    final queue = ref.read(currentPlayQueueProvider);
-    final mode = ref.read(playModeProvider);
-    if (queue == null) return const TrackLoadResult.failed();
-    // PLY-01: use deterministic shuffle history for shuffle mode
-    final prevQueue = mode == PlayMode.shuffle
-        ? queue.retreatShuffle()
-        : () {
-            final pi =
-                PlayQueue.previousIndex(queue.currentIndex, queue.length, mode);
-            return pi != null ? queue.withIndex(pi) : null;
-          }();
-    if (prevQueue == null) {
-      debugPrint('[Player] skipPrev: no previous track (mode=$mode)');
-      return const TrackLoadResult.failed();
-    }
-    debugPrint(
-        '[Player] skipPrev: idx=${prevQueue.currentIndex} file=${prevQueue.current.path}');
-    ref.read(saveProgressProvider)();
-    ref.read(currentPlayQueueProvider.notifier).state = prevQueue;
-    return ref.read(loadAndPlayProvider)();
-  };
+    Provider<Future<TrackLoadResult> Function()>((ref) => () async {
+  final q = ref.read(currentPlayQueueProvider);
+  final m = ref.read(playModeProvider);
+  if (q == null) return const TrackLoadResult.failed();
+  final pq = m == PlayMode.shuffle ? q.retreatShuffle() : () {
+    final pi = PlayQueue.previousIndex(q.currentIndex, q.length, m);
+    return pi != null ? q.withIndex(pi) : null;
+  }();
+  if (pq == null) return const TrackLoadResult.failed();
+  ref.read(saveProgressProvider)();
+  ref.read(currentPlayQueueProvider.notifier).state = pq;
+  return ref.read(loadAndPlayProvider)();
 });
 
-/// Selects a queue index and loads that track through the serialized
-/// playback pipeline.
 final selectQueueIndexProvider =
-    Provider<Future<TrackLoadResult> Function(int)>((ref) {
-  return (int index) async {
-    final queue = ref.read(currentPlayQueueProvider);
-    if (queue == null || index < 0 || index >= queue.length) {
-      return const TrackLoadResult.failed();
-    }
-    if (index == queue.currentIndex) {
-      debugPrint('[Player] selectIndex: already at idx=$index');
-      return const TrackLoadResult.failed();
-    }
-    debugPrint(
-        '[Player] selectIndex: idx=$index file=${queue.files[index].path}');
-    ref.read(saveProgressProvider)();
-    ref.read(currentPlayQueueProvider.notifier).state = queue.withIndex(index);
-    return ref.read(loadAndPlayProvider)();
-  };
+    Provider<Future<TrackLoadResult> Function(int)>((ref) => (i) async {
+  final q = ref.read(currentPlayQueueProvider);
+  if (q == null || i < 0 || i >= q.length || i == q.currentIndex) {
+    return const TrackLoadResult.failed();
+  }
+  ref.read(saveProgressProvider)();
+  ref.read(currentPlayQueueProvider.notifier).state = q.withIndex(i);
+  return ref.read(loadAndPlayProvider)();
 });
 
-/// Removes a track from the queue at [index].  If the removed track is
-/// currently playing the next track is loaded; if the queue becomes empty
-/// playback is stopped.
 final removeTrackFromQueueProvider =
-    Provider<Future<void> Function(int)>((ref) {
-  return (int index) async {
-    final queue = ref.read(currentPlayQueueProvider);
-    if (queue == null || index < 0 || index >= queue.length) return;
-    final wasCurrent = index == queue.currentIndex;
-    final player = ref.read(audioPlayerProvider);
-    final newQueue = queue.withoutIndex(index);
-    if (newQueue.length == 0) {
-      await player.stop();
-      ref.read(currentPlayQueueProvider.notifier).state = null;
-      final handler = ref.read(audioHandlerProvider);
-      handler?.mediaItem.add(null);
-      ref.read(_cancelAutoSaveProvider)();
-      ref.read(_cancelPauseSaveProvider)();
-      return;
-    }
-    ref.read(currentPlayQueueProvider.notifier).state = newQueue;
-    if (wasCurrent) {
-      ref.read(saveProgressProvider)();
-      await ref.read(loadAndPlayProvider)();
-    }
-  };
-});
-
-/// Unified entry point for loading and playing the current queue's track.
-///
-/// Must be called whenever the playback source needs to change — whether
-/// from the full player screen, the mini bar next button, or the queue sheet.
-/// Registers all required listeners (completion, auto-save, pause-save) and
-/// applies the default speed.
-///
-/// Returns the [AudioPlayer] after the source is loaded and playing, or
-/// `null` on failure.
-///
-final Provider<Future<TrackLoadResult> Function()> loadAndPlayProvider =
-    Provider<Future<TrackLoadResult> Function()>((ref) {
-  return () async {
-    final gate = ref.read(_loadRequestGateProvider);
-    return gate.schedule<TrackLoadResult>(
-      onSuperseded: () => const TrackLoadResult.superseded(),
-      task: (requestId) async {
-        final queue = ref.read(currentPlayQueueProvider);
-        if (queue == null || queue.length == 0) {
-          debugPrint('[Provider] loadAndPlay: queue null/empty');
-          return const TrackLoadResult.failed();
-        }
-
-        try {
-          debugPrint(
-              '[Provider] loadAndPlay: start file=${queue.current.path}');
-          // E-2: if the connection has changed since the queue was created,
-          // refuse to load — file paths may not exist on the new connection.
-          final savedConnId = ref.read(lastQueueConnectionIdProvider);
-          // BUG-05: add 5-second timeout to prevent hang on provider future.
-          final activeConn = await ref.read(activeConnectionProvider.future)
-              .timeout(const Duration(seconds: 5));
-          if (activeConn == null) {
-            debugPrint('[Provider] loadAndPlay: no active connection');
-            return const TrackLoadResult.failed();
-          }
-          if (savedConnId != null && activeConn.id != savedConnId) {
-            debugPrint('[Provider] loadAndPlay: connection changed');
-            return const TrackLoadResult.failed();
-          }
-          if (!gate.isLatest(requestId)) {
-            debugPrint('[Provider] loadAndPlay: superseded before auth');
-            return const TrackLoadResult.superseded();
-          }
-
-          // BUG-05: add 5-second timeout to prevent hang on secure storage read.
-          final storage = ref.read(secureStorageProvider);
-          final password = await storage
-              .read(key: 'connection_password_${activeConn.id}')
-              .timeout(
-                const Duration(seconds: 5),
-                onTimeout: () => null,
-              );
-          if (password == null || password.isEmpty) {
-            debugPrint('[Provider] loadAndPlay: no password');
-            return const TrackLoadResult.failed();
-          }
-          if (!gate.isLatest(requestId)) {
-            return const TrackLoadResult.superseded();
-          }
-
-          final source = AudioSourceBuilder.buildWithBasePath(
-            baseUrl: activeConn.url,
-            filePath: queue.current.path,
-            username: activeConn.username,
-            password: password,
-          );
-
-          final player = ref.read(audioPlayerProvider);
-
-          // Register completion listener before loading new source
-          // (preserves A-2 fix).  Do NOT call player.stop() here —
-          // setAudioSource() handles stopping the current source internally,
-          // and an explicit stop() causes an idle state transition that
-          // triggers audio_service's androidStopForegroundOnPause, which
-          // can cause a native crash when switching tracks during playback.
-          ref.read(startProcessingListenerProvider)();
-
-          debugPrint('[Provider] loadAndPlay: calling setAudioSource');
-          await player.setAudioSource(source);
-          debugPrint('[Provider] loadAndPlay: setAudioSource done');
-
-          if (queue.startPositionMs != null) {
-            await player.seek(Duration(milliseconds: queue.startPositionMs!));
-          }
-
-          // Update the notification with the current track info.
-          final handler = ref.read(audioHandlerProvider);
-          handler?.setMediaItemFromPath(
-            queue.current.path,
-            duration: player.duration,
-          );
-
-          // Apply the default playback speed.
-          final defaultSpeed = ref.read(defaultSpeedProvider);
-          if ((defaultSpeed - 1.0).abs() > 0.01) {
-            await player.setSpeed(defaultSpeed);
-            ref.read(currentSpeedProvider.notifier).state = defaultSpeed;
-          }
-          if (!gate.isLatest(requestId)) {
-            return const TrackLoadResult.superseded();
-          }
-
-          debugPrint('[Provider] loadAndPlay: calling play()');
-          // A-4: Don't await play() — its Future may never complete due to
-          // platform-channel contention with audio_service.  Instead poll
-          // player.playing so the UI shows controls as soon as audio starts.
-          unawaited(player.play());
-          // PLY-03: increased timeout to 60 × 200ms = 12s and added
-          // a final confirmation check to avoid false-positive failures.
-          var playStarted = false;
-          for (int i = 0; i < 60; i++) {
-            await Future<void>.delayed(const Duration(milliseconds: 200));
-            if (player.playing) {
-              playStarted = true;
-              break;
-            }
-          }
-          if (!playStarted) {
-            // Final confirmation: the platform may have taken longer than
-            // expected to update the playing flag.
-            if (player.playing) {
-              playStarted = true;
-              debugPrint('[Provider] loadAndPlay: play() started late');
-            }
-          }
-          if (!playStarted) {
-            debugPrint('[Provider] loadAndPlay: play() never started');
-            await player.stop();
-            return const TrackLoadResult.failed();
-          }
-          debugPrint('[Provider] loadAndPlay: player now playing');
-          if (!gate.isLatest(requestId)) {
-            return const TrackLoadResult.superseded();
-          }
-
-          // Start background listeners for progress persistence.
-          ref.read(_startAutoSaveProvider)();
-          ref.read(_startPauseSaveProvider)(player);
-
-          return TrackLoadResult.loaded(player);
-        } catch (e, st) {
-          debugPrint('loadAndPlayProvider error: $e\n$st');
-          return const TrackLoadResult.failed();
-        } finally {
-          ref.read(_completingProvider.notifier).state = false;
-        }
-      },
-    );
-  };
-});
-
-/// Cancels all background subscriptions set up by [loadAndPlayProvider].
-///
-/// Call this when the player screen is disposed to stop auto-save and
-/// pause-save listeners.
-///
-/// Does NOT cancel the processing-state listener — it must persist so that
-/// auto-advance works when only the mini player bar is visible.
-final cancelPlaybackSubscriptionsProvider = Provider<void Function()>((ref) {
-  return () {
+    Provider<Future<void> Function(int)>((ref) => (i) async {
+  final q = ref.read(currentPlayQueueProvider);
+  if (q == null || i < 0 || i >= q.length) return;
+  final wasCurrent = i == q.currentIndex;
+  final nq = q.withoutIndex(i);
+  if (nq.length == 0) {
+    await ref.read(audioPlayerProvider).stop();
+    ref.read(currentPlayQueueProvider.notifier).state = null;
+    ref.read(audioHandlerProvider)?.mediaItem.add(null);
     ref.read(_cancelAutoSaveProvider)();
     ref.read(_cancelPauseSaveProvider)();
-  };
+    return;
+  }
+  ref.read(currentPlayQueueProvider.notifier).state = nq;
+  if (wasCurrent) {
+    ref.read(saveProgressProvider)();
+    await ref.read(loadAndPlayProvider)();
+  }
 });
 
-// computePlaybackStateAfterLifecycle is now in domain/background_playback.dart
-// — imported and re-exported above (REF-13).
+final reconnectPlaybackListenersProvider =
+    Provider<void Function()>((ref) => () {
+  ref.read(startProcessingListenerProvider)();
+  ref.read(_startAutoSaveProvider)();
+  ref.read(_startPauseSaveProvider)(ref.read(audioPlayerProvider));
+});
+final cancelPlaybackSubscriptionsProvider =
+    Provider<void Function()>((ref) => () {
+  ref.read(_cancelAutoSaveProvider)();
+  ref.read(_cancelPauseSaveProvider)();
+});
