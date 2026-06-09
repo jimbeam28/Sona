@@ -887,3 +887,16 @@
 
 ### 测试结果
 - 通过: 1353 / 总计: 1353
+
+---
+
+## [2026-06-09] [AUD-03] - 错误注入测试补全
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `test/features/coverage/aud_03_error_injection_test.dart` — 新建，19 个测试用例
+- `test/features/coverage/aud_03_error_injection_test.mocks.dart` — 自动生成 mock
+
+### 测试结果
+- 通过: 1372 / 总计: 1372
