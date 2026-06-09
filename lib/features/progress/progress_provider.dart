@@ -71,13 +71,17 @@ final upsertProgressProvider = Provider<
     final dao = ref.read(progressDaoProvider);
     debugPrint('[Progress] upsert: file=$filePath pos=${positionMs}ms'
         ' dur=${durationMs ?? 'null'}ms');
-    // PRG-02: use composite-key UPSERT instead of single-record mode
-    await dao.upsert(
-      connectionId: connectionId,
-      filePath: filePath,
-      positionMs: positionMs,
-      durationMs: durationMs,
-    );
+    try {
+      await dao.upsert(
+        connectionId: connectionId,
+        filePath: filePath,
+        positionMs: positionMs,
+        durationMs: durationMs,
+      );
+    } catch (e) {
+      debugPrint('[Progress] upsert failed: $e');
+      return;
+    }
     // Invalidate the query providers so UI refreshes
     ref.invalidate(progressForFileProvider((
       connectionId: connectionId,
@@ -100,7 +104,12 @@ final clearProgressProvider = Provider<
   }) async {
     final dao = ref.read(progressDaoProvider);
     debugPrint('[Progress] clear: file=$filePath');
-    await dao.delete(connectionId, filePath);
+    try {
+      await dao.delete(connectionId, filePath);
+    } catch (e) {
+      debugPrint('[Progress] clear failed: $e');
+      return;
+    }
     // Invalidate so the UI refreshes
     ref.invalidate(progressForFileProvider((
       connectionId: connectionId,

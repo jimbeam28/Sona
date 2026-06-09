@@ -352,3 +352,16 @@
 
 ### 测试结果
 - 通过: 856 / 总计: 856
+
+---
+
+## [2026-06-09] [BUG-09] - upsertProgressProvider / clearProgressProvider 无 try-catch 导致闪退
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/progress/progress_provider.dart` — upsert/delete 添加 try-catch
+- `test/features/progress/bug_09_test.dart` — 新建，4 个测试用例
+
+### 测试结果
+- 通过: 860 / 总计: 860
