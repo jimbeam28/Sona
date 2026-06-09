@@ -7,8 +7,8 @@
 // Uses sqflite_common_ffi for an in-memory SQLite database.
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../../helpers/fake_secure_storage.dart';
 import 'package:nas_audio_player/core/database/dao/connection_dao.dart';
 import 'package:nas_audio_player/core/database/database_helper.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
@@ -17,76 +17,6 @@ import 'package:nas_audio_player/shared/models/connection_config.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:nas_audio_player/shared/models/play_queue.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-
-// ── Fake secure storage ──────────────────────────────────────────────────────
-
-/// Minimal fake [FlutterSecureStorage] backed by an in-memory map.
-class FakeSecureStorage extends FlutterSecureStorage {
-  final Map<String, String> _store = {};
-
-  void stub(String key, String value) => _store[key] = value;
-
-  @override
-  Future<String?> read({
-    required String key,
-    IOSOptions? iOptions,
-    AndroidOptions? aOptions,
-    LinuxOptions? lOptions,
-    WindowsOptions? wOptions,
-    WebOptions? webOptions,
-    MacOsOptions? mOptions,
-  }) async {
-    return _store[key];
-  }
-
-  @override
-  Future<void> write({
-    required String key,
-    required String? value,
-    IOSOptions? iOptions,
-    AndroidOptions? aOptions,
-    LinuxOptions? lOptions,
-    WindowsOptions? wOptions,
-    WebOptions? webOptions,
-    MacOsOptions? mOptions,
-  }) async {
-    if (value != null) {
-      _store[key] = value;
-    } else {
-      _store.remove(key);
-    }
-  }
-
-  @override
-  Future<void> delete({
-    required String key,
-    IOSOptions? iOptions,
-    AndroidOptions? aOptions,
-    LinuxOptions? lOptions,
-    WindowsOptions? wOptions,
-    WebOptions? webOptions,
-    MacOsOptions? mOptions,
-  }) async {
-    _store.remove(key);
-  }
-}
-
-/// A [FakeSecureStorage] that unconditionally throws on [write].
-class ThrowingFakeSecureStorage extends FakeSecureStorage {
-  @override
-  Future<void> write({
-    required String key,
-    required String? value,
-    IOSOptions? iOptions,
-    AndroidOptions? aOptions,
-    LinuxOptions? lOptions,
-    WindowsOptions? wOptions,
-    WebOptions? webOptions,
-    MacOsOptions? mOptions,
-  }) async {
-    throw Exception('Simulated secure storage write failure');
-  }
-}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

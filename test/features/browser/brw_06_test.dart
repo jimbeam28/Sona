@@ -5,8 +5,8 @@
 // PROPFIND, and correctly handles both error and success outcomes.
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../../helpers/fake_secure_storage.dart';
 import 'package:nas_audio_player/core/network/webdav_client.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/features/connection/connection_provider.dart';
@@ -53,28 +53,6 @@ class _MockWebDavClient implements WebDavClientInterface {
     String basePath = '/',
   }) async {
     throw UnimplementedError('validate not needed for BRW-06 tests');
-  }
-}
-
-/// Fake secure storage that returns a canned password from an in-memory map.
-class _FakeSecureStorage extends FlutterSecureStorage {
-  final Map<String, String> _data = {};
-
-  void setPassword(int connectionId, String password) {
-    _data['connection_password_$connectionId'] = password;
-  }
-
-  @override
-  Future<String?> read({
-    required String key,
-    IOSOptions? iOptions = IOSOptions.defaultOptions,
-    AndroidOptions? aOptions = AndroidOptions.defaultOptions,
-    LinuxOptions? lOptions = LinuxOptions.defaultOptions,
-    WindowsOptions? wOptions = WindowsOptions.defaultOptions,
-    MacOsOptions? mOptions = MacOsOptions.defaultOptions,
-    WebOptions? webOptions = WebOptions.defaultOptions,
-  }) async {
-    return _data[key];
   }
 }
 
@@ -139,7 +117,7 @@ void main() {
       final mockClient = _MockWebDavClient();
       mockClient.returnResult(_musicRawEntries());
 
-      final fakeStorage = _FakeSecureStorage();
+      final fakeStorage = FakeSecureStorage();
       fakeStorage.setPassword(1, 'test-password');
 
       final container = ProviderContainer(
@@ -202,7 +180,7 @@ void main() {
       final mockClient = _MockWebDavClient();
       mockClient.returnResult(_musicRawEntries());
 
-      final fakeStorage = _FakeSecureStorage();
+      final fakeStorage = FakeSecureStorage();
       fakeStorage.setPassword(1, 'test-password');
 
       final container = ProviderContainer(
@@ -258,7 +236,7 @@ void main() {
       final mockClient = _MockWebDavClient();
       mockClient.returnResult(_musicRawEntries());
 
-      final fakeStorage = _FakeSecureStorage();
+      final fakeStorage = FakeSecureStorage();
       fakeStorage.setPassword(1, 'test-password');
 
       final container = ProviderContainer(

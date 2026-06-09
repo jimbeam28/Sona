@@ -4,8 +4,8 @@
 // Unit tests (BRW-T29~T33): in-memory cache behaviour for directory contents
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../../helpers/fake_secure_storage.dart';
 import 'package:nas_audio_player/core/network/webdav_client.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/features/connection/connection_provider.dart';
@@ -44,28 +44,6 @@ class _MockWebDavClient implements WebDavClientInterface {
     String basePath = '/',
   }) async {
     throw UnimplementedError('validate not needed for BRW-05 tests');
-  }
-}
-
-/// Fake secure storage that returns a canned password from an in-memory map.
-class _FakeSecureStorage extends FlutterSecureStorage {
-  final Map<String, String> _data = {};
-
-  void setPassword(int connectionId, String password) {
-    _data['connection_password_$connectionId'] = password;
-  }
-
-  @override
-  Future<String?> read({
-    required String key,
-    IOSOptions? iOptions = IOSOptions.defaultOptions,
-    AndroidOptions? aOptions = AndroidOptions.defaultOptions,
-    LinuxOptions? lOptions = LinuxOptions.defaultOptions,
-    WindowsOptions? wOptions = WindowsOptions.defaultOptions,
-    MacOsOptions? mOptions = MacOsOptions.defaultOptions,
-    WebOptions? webOptions = WebOptions.defaultOptions,
-  }) async {
-    return _data[key];
   }
 }
 
@@ -122,7 +100,7 @@ void main() {
       final mockClient = _MockWebDavClient();
       mockClient.returnResult(_musicRawEntries());
 
-      final fakeStorage = _FakeSecureStorage();
+      final fakeStorage = FakeSecureStorage();
       fakeStorage.setPassword(1, 'test-password');
 
       final container = ProviderContainer(
@@ -164,7 +142,7 @@ void main() {
       final mockClient = _MockWebDavClient();
       mockClient.returnResult(_musicRawEntries());
 
-      final fakeStorage = _FakeSecureStorage();
+      final fakeStorage = FakeSecureStorage();
       fakeStorage.setPassword(1, 'test-password');
 
       final container = ProviderContainer(
@@ -200,9 +178,9 @@ void main() {
       final mockClientA = _MockWebDavClient();
       final mockClientB = _MockWebDavClient();
 
-      final fakeStorageA = _FakeSecureStorage();
+      final fakeStorageA = FakeSecureStorage();
       fakeStorageA.setPassword(1, 'pw-a');
-      final fakeStorageB = _FakeSecureStorage();
+      final fakeStorageB = FakeSecureStorage();
       fakeStorageB.setPassword(2, 'pw-b');
 
       // Different results per connection to verify independence
@@ -277,7 +255,7 @@ void main() {
       final mockClient = _MockWebDavClient();
       mockClient.returnResult(_musicRawEntries());
 
-      final fakeStorage = _FakeSecureStorage();
+      final fakeStorage = FakeSecureStorage();
       fakeStorage.setPassword(1, 'test-password');
 
       final container = ProviderContainer(
@@ -316,7 +294,7 @@ void main() {
     // ── BRW-T33: Switch connection doesn't pollute cache ────────────────────────
 
     test('BRW-T33: switching connection does not pollute results', () async {
-      final fakeStorage = _FakeSecureStorage();
+      final fakeStorage = FakeSecureStorage();
       fakeStorage.setPassword(1, 'pw-1');
       fakeStorage.setPassword(2, 'pw-2');
 
@@ -392,7 +370,7 @@ void main() {
     test('TST-T64: cache in 3min → reuse cache, no new request', () async {
       final mockClient = _MockWebDavClient();
       mockClient.returnResult(_musicRawEntries());
-      final fakeStorage = _FakeSecureStorage();
+      final fakeStorage = FakeSecureStorage();
       fakeStorage.setPassword(1, 'test-password');
 
       final container = ProviderContainer(
@@ -439,7 +417,7 @@ void main() {
         () async {
       final mockClient = _MockWebDavClient();
       mockClient.returnResult(_musicRawEntries());
-      final fakeStorage = _FakeSecureStorage();
+      final fakeStorage = FakeSecureStorage();
       fakeStorage.setPassword(1, 'test-password');
 
       final container = ProviderContainer(
@@ -480,7 +458,7 @@ void main() {
         () async {
       final mockClient = _MockWebDavClient();
       mockClient.returnResult(_musicRawEntries());
-      final fakeStorage = _FakeSecureStorage();
+      final fakeStorage = FakeSecureStorage();
       fakeStorage.setPassword(1, 'test-password');
 
       final container = ProviderContainer(
@@ -523,7 +501,7 @@ void main() {
         () async {
       final mockClient = _MockWebDavClient();
       mockClient.returnResult(_musicRawEntries());
-      final fakeStorage = _FakeSecureStorage();
+      final fakeStorage = FakeSecureStorage();
       fakeStorage.setPassword(1, 'test-password');
 
       final container = ProviderContainer(
@@ -590,7 +568,7 @@ void main() {
     test('TST-T69: 51st entry triggers eviction of oldest', () async {
       final mockClient = _MockWebDavClient();
       mockClient.returnResult(_musicRawEntries());
-      final fakeStorage = _FakeSecureStorage();
+      final fakeStorage = FakeSecureStorage();
       fakeStorage.setPassword(1, 'test-password');
 
       final container = ProviderContainer(
@@ -637,7 +615,7 @@ void main() {
     test('TST-T70: after overflow, new entry is readable', () async {
       final mockClient = _MockWebDavClient();
       mockClient.returnResult(_musicRawEntries());
-      final fakeStorage = _FakeSecureStorage();
+      final fakeStorage = FakeSecureStorage();
       fakeStorage.setPassword(1, 'test-password');
 
       final container = ProviderContainer(
@@ -683,7 +661,7 @@ void main() {
     test('TST-T71: evicted entry re-accessed → new network request', () async {
       final mockClient = _MockWebDavClient();
       mockClient.returnResult(_musicRawEntries());
-      final fakeStorage = _FakeSecureStorage();
+      final fakeStorage = FakeSecureStorage();
       fakeStorage.setPassword(1, 'test-password');
 
       final container = ProviderContainer(

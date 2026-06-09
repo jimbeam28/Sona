@@ -397,3 +397,18 @@
 
 ### 测试结果
 - 通过: 864 / 总计: 864
+
+---
+
+## [2026-06-09] [REF-02] - 提取 FakeSecureStorage 到共享模块
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `test/helpers/fake_secure_storage.dart` — 实现共享 FakeSecureStorage + ThrowingFakeSecureStorage
+- `test/features/connection/con_09_test.dart` — 使用共享版本
+- `test/features/browser/brw_05_test.dart` — 使用共享版本
+- `test/features/browser/brw_06_test.dart` — 使用共享版本
+
+### 测试结果
+- 通过: 864 / 总计: 864
