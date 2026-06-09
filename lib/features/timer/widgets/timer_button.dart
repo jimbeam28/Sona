@@ -14,7 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../timer_provider.dart';
-import '../../../core/services/timer_service.dart';
+import '../domain/timer_service.dart';
 
 /// An icon button that shows the current timer state and opens a
 /// bottom-sheet menu on tap.

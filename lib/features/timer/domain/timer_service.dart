@@ -1,4 +1,4 @@
-// lib/core/services/timer_service.dart
+// lib/features/timer/domain/timer_service.dart
 // Pure-logic timer state machine for the Timer module.
 //
 // Provides TMR-01 (set duration timer), TMR-02 (stop after current track),

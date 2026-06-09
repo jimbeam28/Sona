@@ -15,7 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 
-import '../../core/services/timer_service.dart';
+import '../timer/domain/timer_service.dart';
 import '../../shared/models/play_queue.dart';
 import '../../core/services/storage_utils.dart';
 import '../browser/browser_provider.dart';

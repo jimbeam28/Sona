@@ -20,7 +20,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../browser/browser_provider.dart';
-import '../../core/services/timer_service.dart';
+import 'domain/timer_service.dart';
 
 // ── Service instance ──────────────────────────────────────────────────────────
 

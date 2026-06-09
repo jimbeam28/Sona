@@ -756,3 +756,17 @@
 
 ### 测试结果
 - 通过: 1219 / 总计: 1219
+
+---
+
+## [2026-06-09] [REF-28] - 移动 timer_service.dart 到 timer/domain/
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/timer/domain/timer_service.dart` — 从 core/services/ 移入
+- 7 个文件 — 更新 import 路径
+- `lib/core/services/timer_service.dart` — 删除
+
+### 测试结果
+- 通过: 1219 / 总计: 1219

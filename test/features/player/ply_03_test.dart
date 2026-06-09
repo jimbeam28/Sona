@@ -14,7 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nas_audio_player/features/player/background_playback.dart';
-import 'package:nas_audio_player/core/services/timer_service.dart';
+import 'package:nas_audio_player/features/timer/domain/timer_service.dart';
 import 'package:nas_audio_player/features/player/player_provider.dart';
 import 'package:nas_audio_player/features/timer/timer_provider.dart';
 

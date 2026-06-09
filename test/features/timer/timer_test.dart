@@ -23,7 +23,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:mockito/mockito.dart';
-import 'package:nas_audio_player/core/services/timer_service.dart';
+import 'package:nas_audio_player/features/timer/domain/timer_service.dart';
 import 'package:nas_audio_player/features/player/player_provider.dart';
 import 'package:nas_audio_player/features/timer/timer_provider.dart';
 import 'package:nas_audio_player/features/timer/widgets/timer_button.dart';
