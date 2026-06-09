@@ -770,3 +770,18 @@
 
 ### 测试结果
 - 通过: 1219 / 总计: 1219
+
+---
+
+## [2026-06-09] [REF-29] - 定义 core/contracts/ 接口
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/core/contracts/audio_player_contract.dart` — 新建，IAudioPlayer 接口
+- `lib/core/contracts/storage_contract.dart` — 新建，ISecureStorage 接口
+- `lib/core/contracts/audio_handler_contract.dart` — 新建，IAudioHandler 接口
+- `lib/core/contracts/database_contract.dart` — 新建，IConnectionDao/IProgressDao/IPlaylistDao 接口
+
+### 测试结果
+- 通过: 1219 / 总计: 1219
