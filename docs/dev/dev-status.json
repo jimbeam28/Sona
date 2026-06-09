@@ -2,8 +2,8 @@
   "metadata": {
     "last_updated": "2026-06-09",
     "total": 54,
-    "pending": 7,
-    "done": 47
+    "pending": 6,
+    "done": 48
   },
   "order": [
     "BUG-01", "BUG-02", "BUG-03", "BUG-04", "BUG-05",
@@ -446,8 +446,8 @@
     "AUD-02": {
       "name": "边界值测试补全",
       "plan_section": "dev-plan.md §AUD-02",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": [],
       "retry_count": 0,
       "last_error": ""
