@@ -913,3 +913,16 @@
 
 ### 测试结果
 - 通过: 1395 / 总计: 1395
+
+---
+
+## [2026-06-09] [AUD-05] - 状态可达性审计
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `test/features/coverage/aud_05_state_reachability_test.dart` — 新建，110 个测试用例
+- `test/features/coverage/aud_05_state_reachability_test.mocks.dart` — 自动生成 mock
+
+### 测试结果
+- 通过: 1505 / 总计: 1505
