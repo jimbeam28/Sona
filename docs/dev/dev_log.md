@@ -900,3 +900,16 @@
 
 ### 测试结果
 - 通过: 1372 / 总计: 1372
+
+---
+
+## [2026-06-09] [AUD-04] - 并发场景测试补全
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `test/features/coverage/aud_04_concurrent_test.dart` — 新建，23 个测试用例
+- `test/features/coverage/aud_04_concurrent_test.mocks.dart` — 自动生成 mock
+
+### 测试结果
+- 通过: 1395 / 总计: 1395
