@@ -382,3 +382,18 @@
 
 ### 测试结果
 - 通过: 864 / 总计: 864
+
+---
+
+## [2026-06-09] [REF-01] - 创建 test/helpers/ 目录结构
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `test/helpers/test_database.dart` — 新建占位
+- `test/helpers/fake_secure_storage.dart` — 新建占位
+- `test/helpers/test_factories.dart` — 新建占位
+- `test/helpers/widget_helpers.dart` — 新建占位
+
+### 测试结果
+- 通过: 864 / 总计: 864

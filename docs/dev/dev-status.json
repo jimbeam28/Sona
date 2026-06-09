@@ -2,8 +2,8 @@
   "metadata": {
     "last_updated": "2026-06-09",
     "total": 54,
-    "pending": 44,
-    "done": 10
+    "pending": 43,
+    "done": 11
   },
   "order": [
     "BUG-01", "BUG-02", "BUG-03", "BUG-04", "BUG-05",
@@ -113,8 +113,8 @@
     "REF-01": {
       "name": "创建 test/helpers/ 目录结构",
       "plan_section": "dev-plan.md §REF-01",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": [],
       "retry_count": 0,
       "last_error": ""
