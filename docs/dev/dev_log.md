@@ -717,3 +717,16 @@
 
 ### 测试结果
 - 通过: 1158 / 总计: 1158
+
+---
+
+## [2026-06-09] [REF-25] - 创建 progress/domain/progress_service.dart
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/progress/domain/progress_service.dart` — 新建，ProgressService + ResumeDialogState
+- `test/features/progress/ref_25_test.dart` — 新建，18 个测试用例
+
+### 测试结果
+- 通过: 1175 / 总计: 1175

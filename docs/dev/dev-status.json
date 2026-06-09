@@ -2,8 +2,8 @@
   "metadata": {
     "last_updated": "2026-06-09",
     "total": 54,
-    "pending": 20,
-    "done": 34
+    "pending": 19,
+    "done": 35
   },
   "order": [
     "BUG-01", "BUG-02", "BUG-03", "BUG-04", "BUG-05",
@@ -329,8 +329,8 @@
     "REF-25": {
       "name": "创建 progress/domain/progress_service.dart",
       "plan_section": "dev-plan.md §REF-25",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": ["REF-24"],
       "retry_count": 0,
       "last_error": ""
