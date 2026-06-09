@@ -323,3 +323,17 @@
 
 ### 测试结果
 - 通过: 843 / 总计: 843
+
+---
+
+## [2026-06-09] [BUG-07] - App 启动恢复队列时 setAudioSource/seek 无超时导致启动卡住
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/browser/browser_provider.dart` — 提取 preloadAudioSource 函数，添加 10s 超时
+- `test/features/browser/bug_07_test.dart` — 新建，4 个测试用例
+- `test/features/browser/bug_07_test.mocks.dart` — 自动生成 mock
+
+### 测试结果
+- 通过: 847 / 总计: 847

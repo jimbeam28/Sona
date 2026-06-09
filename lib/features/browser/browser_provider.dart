@@ -3,10 +3,13 @@
 // Written without code generation — uses StateNotifier / FutureProvider.family
 // patterns from flutter_riverpod directly (no @riverpod annotations, no build_runner).
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/network/webdav_client.dart';
@@ -392,6 +395,43 @@ final persistQueueOnChangeProvider = Provider<void>((ref) {
   });
 });
 
+/// Pre-loads the audio source for the current track so the mini player bar
+/// works immediately after app start.
+///
+/// BUG-07: Wrapped with a 10-second timeout to prevent startup hang when
+/// the NAS is unreachable. On timeout, pre-load is silently skipped.
+///
+/// Extracted as a top-level function for testability.
+@visibleForTesting
+Future<void> preloadAudioSource({
+  required FlutterSecureStorage storage,
+  required int connectionId,
+  required String baseUrl,
+  required String filePath,
+  required String username,
+  required AudioPlayer player,
+  int? startPositionMs,
+}) async {
+  final pw = await storage.read(key: 'connection_password_$connectionId')
+      .timeout(const Duration(seconds: 10));
+  if (pw == null || pw.isEmpty) return;
+
+  debugPrint('[Browser] restoreQueue: pre-loading $filePath');
+  final source = AudioSourceBuilder.buildWithBasePath(
+    baseUrl: baseUrl,
+    filePath: filePath,
+    username: username,
+    password: pw,
+  );
+  await player.setAudioSource(source)
+      .timeout(const Duration(seconds: 10));
+  if (startPositionMs != null) {
+    await player.seek(Duration(milliseconds: startPositionMs))
+        .timeout(const Duration(seconds: 10));
+  }
+  debugPrint('[Browser] restoreQueue: pre-load done');
+}
+
 /// Reads the persisted queue from SharedPreferences and sets it on
 /// [currentPlayQueueProvider].  NasFile objects are reconstructed with
 /// minimal metadata (path + name) — enough for playback to work.
@@ -438,25 +478,20 @@ final restoreQueueFromPrefsProvider = FutureProvider<void>((ref) async {
     }
 
     // Pre-load the audio source so the mini player bar's play button works
-    // immediately after app start (BUG-6).
+    // immediately after app start (BUG-6 / BUG-07).
     if (conn != null) {
-      final storage = ref.read(secureStorageProvider);
-      final pw = await storage.read(key: 'connection_password_${conn.id}');
-      if (pw != null && pw.isNotEmpty) {
-        debugPrint(
-            '[Browser] restoreQueue: pre-loading ${files[currentIndex].path}');
-        final source = AudioSourceBuilder.buildWithBasePath(
+      try {
+        await preloadAudioSource(
+          storage: ref.read(secureStorageProvider),
+          connectionId: conn.id!,
           baseUrl: conn.url,
           filePath: files[currentIndex].path,
           username: conn.username,
-          password: pw,
+          player: ref.read(audioPlayerProvider),
+          startPositionMs: startPositionMs,
         );
-        final player = ref.read(audioPlayerProvider);
-        await player.setAudioSource(source);
-        if (startPositionMs != null) {
-          await player.seek(Duration(milliseconds: startPositionMs));
-        }
-        debugPrint('[Browser] restoreQueue: pre-load done');
+      } catch (e) {
+        debugPrint('[Browser] restoreQueue: pre-load failed/timeout: $e');
       }
     }
   } catch (e) {
