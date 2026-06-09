@@ -2,8 +2,8 @@
   "metadata": {
     "last_updated": "2026-06-09",
     "total": 54,
-    "pending": 25,
-    "done": 29
+    "pending": 24,
+    "done": 30
   },
   "order": [
     "BUG-01", "BUG-02", "BUG-03", "BUG-04", "BUG-05",
@@ -284,8 +284,8 @@
     "REF-20": {
       "name": "重写 browser_provider.dart 为薄胶水",
       "plan_section": "dev-plan.md §REF-20",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": ["REF-19"],
       "retry_count": 0,
       "last_error": ""

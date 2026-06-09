@@ -3,6 +3,9 @@
 // Extracted from browser_provider.dart (REF-19).
 // Zero Flutter dependencies — pure Dart.
 
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:state_notifier/state_notifier.dart';
+
 import '../../../core/network/webdav_client.dart';
 import '../../../shared/models/nas_file.dart';
 import 'cache_policy.dart';
@@ -17,6 +20,26 @@ enum SortOption {
 
   /// Sort by last-modified time, newest first.
   modifiedDesc,
+}
+
+/// Manages the current sort option, persisting to [SharedPreferences].
+class SortOptionNotifier extends StateNotifier<SortOption> {
+  final SharedPreferences? _prefs;
+  SortOptionNotifier(this._prefs) : super(SortOption.nameAsc) {
+    final prefs = _prefs;
+    if (prefs != null) {
+      final saved = prefs.getString('browser_sort_option');
+      if (saved != null) {
+        state = SortOption.values.cast<SortOption?>().firstWhere(
+            (e) => e!.name == saved, orElse: () => SortOption.nameAsc)!;
+      }
+    }
+  }
+  void setOption(SortOption option) {
+    if (state == option) return;
+    state = option;
+    _prefs?.setString('browser_sort_option', option.name);
+  }
 }
 
 /// Abstraction over secure storage reads so [DirectoryService] has no

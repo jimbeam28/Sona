@@ -5,10 +5,15 @@
 // This is a pure-logic layer that can be tested without AudioPlayer
 // or platform channels.
 
+import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:meta/meta.dart';
+
+import 'storage_utils.dart';
 
 class AudioSourceBuilder {
   /// Builds a Basic Auth header value from [username] and [password].
@@ -128,5 +133,29 @@ class AudioSourceBuilder {
     final uri = buildUriWithBasePath(baseUrl: baseUrl, filePath: filePath);
     final authHeader = buildAuthHeader(username: username, password: password);
     return AudioSource.uri(uri, headers: {'Authorization': authHeader});
+  }
+}
+
+/// Pre-loads audio source for a track so the mini player bar works
+/// immediately after app start.
+Future<void> preloadAudioSource({
+  required FlutterSecureStorage storage,
+  required int connectionId,
+  required String baseUrl,
+  required String filePath,
+  required String username,
+  required AudioPlayer player,
+  int? startPositionMs,
+}) async {
+  final pw =
+      await safeStorageRead(storage, key: 'connection_password_$connectionId');
+  if (pw == null || pw.isEmpty) return;
+  final src = AudioSourceBuilder.buildWithBasePath(
+      baseUrl: baseUrl, filePath: filePath, username: username, password: pw);
+  await player.setAudioSource(src).timeout(const Duration(seconds: 10));
+  if (startPositionMs != null) {
+    await player
+        .seek(Duration(milliseconds: startPositionMs))
+        .timeout(const Duration(seconds: 10));
   }
 }

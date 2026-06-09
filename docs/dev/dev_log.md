@@ -650,3 +650,17 @@
 
 ### 测试结果
 - 通过: 1095 / 总计: 1095
+
+---
+
+## [2026-06-09] [REF-20] - 重写 browser_provider.dart 为薄胶水
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/browser/browser_provider.dart` — 从 495 行重写为 185 行
+- `lib/features/browser/domain/directory_service.dart` — 移入 SortOptionNotifier
+- `lib/core/services/audio_source_builder.dart` — 移入 preloadAudioSource
+
+### 测试结果
+- 通过: 1095 / 总计: 1095
