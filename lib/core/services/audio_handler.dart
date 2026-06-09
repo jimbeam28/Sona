@@ -196,22 +196,33 @@ class NasAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   Future<void> play() async {
     final next = _config.handleMediaControl(MediaControlAction.play);
     _updateConfig(next);
-    await _player.play();
+    try {
+      await _player.play().timeout(const Duration(seconds: 5));
+    } catch (_) {
+      // Timeout or platform error — silently ignore
+    }
   }
 
   @override
   Future<void> pause() async {
     final next = _config.handleMediaControl(MediaControlAction.pause);
     _updateConfig(next);
-    await _player.pause();
+    try {
+      await _player.pause().timeout(const Duration(seconds: 5));
+    } catch (_) {
+      // Timeout or platform error — silently ignore
+    }
   }
 
   @override
   Future<void> stop() async {
     final next = _config.handleMediaControl(MediaControlAction.stop);
     _updateConfig(next);
-    await _player.stop();
-    await super.stop();
+    try {
+      await _player.stop().timeout(const Duration(seconds: 5));
+    } catch (_) {
+      // Timeout or platform error — silently ignore
+    }
   }
 
   @override
@@ -237,7 +248,11 @@ class NasAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     // Stop playback when the user swipes away the notification.
     final next = _config.handleMediaControl(MediaControlAction.stop);
     _updateConfig(next);
-    await _player.stop();
+    try {
+      await _player.stop().timeout(const Duration(seconds: 5));
+    } catch (_) {
+      // Timeout or platform error — silently ignore
+    }
   }
 
   // ── Cleanup ────────────────────────────────────────────────────────────

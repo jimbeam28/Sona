@@ -309,3 +309,17 @@
 
 ### 测试结果
 - 通过: 837 / 总计: 837
+
+---
+
+## [2026-06-09] [BUG-06] - audio_handler await 无超时导致通知栏控件卡死
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/core/services/audio_handler.dart` — play/pause/stop/onTaskRemoved 添加 5s 超时
+- `test/features/player/bug_06_test.dart` — 新建，6 个测试用例
+- `test/features/player/bug_06_test.mocks.dart` — 自动生成 mock
+
+### 测试结果
+- 通过: 843 / 总计: 843

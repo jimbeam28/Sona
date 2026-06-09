@@ -2,8 +2,8 @@
   "metadata": {
     "last_updated": "2026-06-09",
     "total": 54,
-    "pending": 49,
-    "done": 5
+    "pending": 48,
+    "done": 6
   },
   "order": [
     "BUG-01", "BUG-02", "BUG-03", "BUG-04", "BUG-05",
@@ -68,8 +68,8 @@
     "BUG-06": {
       "name": "audio_handler await 无超时导致通知栏控件卡死",
       "plan_section": "dev-plan.md §BUG-06",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": [],
       "retry_count": 0,
       "last_error": ""
