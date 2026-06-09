@@ -283,3 +283,16 @@
 
 ### 测试结果
 - 通过: 826 / 总计: 826
+
+---
+
+## [2026-06-09] [BUG-04] - 播放单曲目排序缺少防御检查
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/playlist/playlist_provider.dart` — reorderPlaylistTrackProvider 添加排序模式检查
+- `test/features/playlist/bug_04_test.dart` — 新建，3 个测试用例
+
+### 测试结果
+- 通过: 829 / 总计: 829

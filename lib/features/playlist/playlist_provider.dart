@@ -135,6 +135,7 @@ final reorderPlaylistTrackProvider =
         (ref) {
   final dao = ref.watch(playlistDaoProvider);
   return (int playlistId, int oldIndex, int newIndex) async {
+    if (ref.read(trackSortProvider) != TrackSortOption.addedAsc) return;
     await dao.reorderTrack(playlistId, oldIndex, newIndex);
     ref.invalidate(playlistTracksProvider(playlistId));
   };
