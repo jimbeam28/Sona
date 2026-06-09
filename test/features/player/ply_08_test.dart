@@ -17,7 +17,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/features/player/player_provider.dart';
@@ -26,8 +25,8 @@ import 'package:nas_audio_player/features/player/widgets/queue_sheet.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:nas_audio_player/shared/models/play_queue.dart';
 
+import '../../helpers/mock_audio_player.dart';
 import '../../helpers/test_factories.dart';
-import 'ply_08_test.mocks.dart';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -127,7 +126,6 @@ Widget _wrapQueueSheetLauncher({
 // Tests — PLY-T48~T54
 // ═════════════════════════════════════════════════════════════════════════════
 
-@GenerateMocks([AudioPlayer])
 void main() {
   // ── PLY-T48: Audio playing → mini player visible ──────────────────────────
 

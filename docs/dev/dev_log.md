@@ -453,3 +453,17 @@
 
 ### 测试结果
 - 通过: 864 / 总计: 864
+
+---
+
+## [2026-06-09] [REF-06] - 提取 MockAudioPlayer 到共享模块
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `test/helpers/mock_audio_player.dart` — 新建，手写 AudioPlayer mock
+- 6 个测试文件 — 使用共享版本
+- `test/features/player/ply_08_test.mocks.dart` — 删除
+
+### 测试结果
+- 通过: 864 / 总计: 864

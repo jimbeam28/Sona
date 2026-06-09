@@ -28,7 +28,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../../helpers/test_database.dart';
 import '../../helpers/test_factories.dart';
-import '../player/ply_08_test.mocks.dart';
+import '../../helpers/mock_audio_player.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

@@ -27,8 +27,8 @@ import 'package:nas_audio_player/features/player/player_screen.dart';
 import 'package:nas_audio_player/features/player/player_provider.dart';
 import 'package:nas_audio_player/shared/models/play_queue.dart';
 
+import '../../helpers/mock_audio_player.dart';
 import '../../helpers/test_factories.dart';
-import 'ply_08_test.mocks.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

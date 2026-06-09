@@ -30,7 +30,7 @@ import 'package:nas_audio_player/features/timer/timer_provider.dart';
 import 'package:nas_audio_player/features/timer/widgets/timer_button.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../player/ply_08_test.mocks.dart';
+import '../../helpers/mock_audio_player.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Helpers
