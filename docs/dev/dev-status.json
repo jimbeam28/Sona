@@ -2,8 +2,8 @@
   "metadata": {
     "last_updated": "2026-06-09",
     "total": 54,
-    "pending": 11,
-    "done": 43
+    "pending": 10,
+    "done": 44
   },
   "order": [
     "BUG-01", "BUG-02", "BUG-03", "BUG-04", "BUG-05",
@@ -410,8 +410,8 @@
     "TST-02": {
       "name": "播放进度保存与恢复端到端链路",
       "plan_section": "dev-plan.md §TST-02",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": [],
       "retry_count": 0,
       "last_error": ""
