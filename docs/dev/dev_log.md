@@ -1056,3 +1056,18 @@
 ### 测试结果
 - 通过: 1505 / 总计: 1505
 - 静态分析: 0 errors
+
+---
+
+## 2026-06-10 17:00 FIX-07 - 缺少3个集成测试
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `test/features/coverage/int_g01_connection_switch_test.dart` — 新建（10 个测试）
+- `test/features/coverage/int_g05_routing_test.dart` — 新建（9 个测试）
+- `test/features/coverage/int_g06_lifecycle_test.dart` — 新建（20 个测试）
+
+### 测试结果
+- 通过: 1544 / 总计: 1544（+39 新测试）
+- 静态分析: 0 errors
