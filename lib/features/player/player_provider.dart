@@ -92,7 +92,21 @@ final playbackOrchestratorProvider = Provider<PlaybackOrchestrator>((ref) {
     defaultSpeedProvider: d,
     queueConnectionIdProvider: d,
   );
-  ref.listen<PlayQueue?>(currentPlayQueueProvider, (_, n) => o.queue = n);
+  // Guard to prevent circular updates between orchestrator and Riverpod.
+  var _syncingFromOrchestrator = false;
+  // Sync orchestrator queue → Riverpod state.
+  o.onQueueChanged = (q) {
+    _syncingFromOrchestrator = true;
+    ref.read(currentPlayQueueProvider.notifier).state = q;
+    _syncingFromOrchestrator = false;
+    if (q == null) {
+      ref.read(audioHandlerProvider)?.mediaItem.add(null);
+    }
+  };
+  // Sync Riverpod state → orchestrator queue (external mutations only).
+  ref.listen<PlayQueue?>(currentPlayQueueProvider, (_, n) {
+    if (!_syncingFromOrchestrator) o.queue = n;
+  });
   o.queue = ref.read(currentPlayQueueProvider);
   ref.listen<PlayMode>(playModeProvider, (_, n) => o.playMode = n);
   o.playMode = ref.read(playModeProvider);
@@ -222,18 +236,8 @@ final startProcessingListenerProvider = Provider<void Function()>((ref) {
         ref.read(_completingProvider.notifier).state = false;
         return;
       }
-      final q = ref.read(currentPlayQueueProvider);
-      final m = ref.read(playModeProvider);
-      if (q == null) {
-        ref.read(_completingProvider.notifier).state = false;
-        return;
-      }
-      PlayQueue? nq;
-      if (m == PlayMode.shuffle) nq = q.advanceShuffle();
-      nq ??= () {
-        final ni = PlayQueue.nextIndex(q.currentIndex, q.length, m);
-        return ni != null ? q.withIndex(ni) : null;
-      }();
+      final o = ref.read(playbackOrchestratorProvider);
+      final nq = o.computeNextQueue();
       if (nq == null) {
         player.pause();
         ref.read(_completingProvider.notifier).state = false;
@@ -246,88 +250,68 @@ final startProcessingListenerProvider = Provider<void Function()>((ref) {
   };
 });
 
+/// Starts playback listeners after a successful track load.
+/// Shared by loadAndPlayProvider and queue-navigation providers.
+void _startPlaybackListeners(Ref ref) {
+  ref.read(startProcessingListenerProvider)();
+  ref.read(_startAutoSaveProvider)();
+  ref.read(_startPauseSaveProvider)(ref.read(audioPlayerProvider));
+  final ds = ref.read(defaultSpeedProvider);
+  if ((ds - 1.0).abs() > 0.01)
+    ref.read(currentSpeedProvider.notifier).state = ds;
+}
+
 final Provider<Future<TrackLoadResult> Function()> loadAndPlayProvider =
     Provider<Future<TrackLoadResult> Function()>((ref) => () async {
           final r = await ref
               .read(playbackOrchestratorProvider)
               .loadAndPlay(registerListeners: false);
-          if (r.isLoaded) {
-            ref.read(startProcessingListenerProvider)();
-            ref.read(_startAutoSaveProvider)();
-            ref.read(_startPauseSaveProvider)(ref.read(audioPlayerProvider));
-            final ds = ref.read(defaultSpeedProvider);
-            if ((ds - 1.0).abs() > 0.01)
-              ref.read(currentSpeedProvider.notifier).state = ds;
-          }
+          if (r.isLoaded) _startPlaybackListeners(ref);
           ref.read(_completingProvider.notifier).state = false;
           return r;
         });
 
 final Provider<Future<TrackLoadResult> Function()> skipToNextProvider =
     Provider<Future<TrackLoadResult> Function()>((ref) => () async {
-          final q = ref.read(currentPlayQueueProvider);
-          final m = ref.read(playModeProvider);
-          if (q == null) return const TrackLoadResult.failed();
-          final nq = m == PlayMode.shuffle
-              ? q.advanceShuffle()
-              : () {
-                  final ni = PlayQueue.nextIndex(q.currentIndex, q.length, m);
-                  return ni != null ? q.withIndex(ni) : null;
-                }();
-          if (nq == null) return const TrackLoadResult.failed();
-          ref.read(saveProgressProvider)();
-          ref.read(currentPlayQueueProvider.notifier).state = nq;
-          return ref.read(loadAndPlayProvider)();
+          final r = await ref
+              .read(playbackOrchestratorProvider)
+              .skipToNext(registerListeners: false);
+          if (r.isLoaded) _startPlaybackListeners(ref);
+          ref.read(_completingProvider.notifier).state = false;
+          return r;
         });
 
 final skipToPreviousProvider =
     Provider<Future<TrackLoadResult> Function()>((ref) => () async {
-          final q = ref.read(currentPlayQueueProvider);
-          final m = ref.read(playModeProvider);
-          if (q == null) return const TrackLoadResult.failed();
-          final pq = m == PlayMode.shuffle
-              ? q.retreatShuffle()
-              : () {
-                  final pi =
-                      PlayQueue.previousIndex(q.currentIndex, q.length, m);
-                  return pi != null ? q.withIndex(pi) : null;
-                }();
-          if (pq == null) return const TrackLoadResult.failed();
-          ref.read(saveProgressProvider)();
-          ref.read(currentPlayQueueProvider.notifier).state = pq;
-          return ref.read(loadAndPlayProvider)();
+          final r = await ref
+              .read(playbackOrchestratorProvider)
+              .skipToPrevious(registerListeners: false);
+          if (r.isLoaded) _startPlaybackListeners(ref);
+          ref.read(_completingProvider.notifier).state = false;
+          return r;
         });
 
 final selectQueueIndexProvider =
     Provider<Future<TrackLoadResult> Function(int)>((ref) => (i) async {
-          final q = ref.read(currentPlayQueueProvider);
-          if (q == null || i < 0 || i >= q.length || i == q.currentIndex) {
-            return const TrackLoadResult.failed();
-          }
-          ref.read(saveProgressProvider)();
-          ref.read(currentPlayQueueProvider.notifier).state = q.withIndex(i);
-          return ref.read(loadAndPlayProvider)();
+          final r = await ref
+              .read(playbackOrchestratorProvider)
+              .selectQueueIndex(i, registerListeners: false);
+          if (r.isLoaded) _startPlaybackListeners(ref);
+          ref.read(_completingProvider.notifier).state = false;
+          return r;
         });
 
 final removeTrackFromQueueProvider =
     Provider<Future<void> Function(int)>((ref) => (i) async {
           final q = ref.read(currentPlayQueueProvider);
           if (q == null || i < 0 || i >= q.length) return;
-          final wasCurrent = i == q.currentIndex;
-          final nq = q.withoutIndex(i);
-          if (nq.length == 0) {
-            await ref.read(audioPlayerProvider).stop();
-            ref.read(currentPlayQueueProvider.notifier).state = null;
-            ref.read(audioHandlerProvider)?.mediaItem.add(null);
-            ref.read(_cancelAutoSaveProvider)();
-            ref.read(_cancelPauseSaveProvider)();
-            return;
-          }
-          ref.read(currentPlayQueueProvider.notifier).state = nq;
-          if (wasCurrent) {
-            ref.read(saveProgressProvider)();
-            await ref.read(loadAndPlayProvider)();
-          }
+          await ref
+              .read(playbackOrchestratorProvider)
+              .removeTrack(i, registerListeners: false);
+          // removeTrack may have loaded a new track (if wasCurrent).
+          // Check if the player is now playing to decide if listeners are needed.
+          final player = ref.read(audioPlayerProvider);
+          if (player.playing) _startPlaybackListeners(ref);
         });
 
 final reconnectPlaybackListenersProvider =

@@ -1024,3 +1024,17 @@
 ### 测试结果
 - 通过: 1505 / 总计: 1505
 - 静态分析: 0 errors
+
+---
+
+## 2026-06-10 14:30 FIX-05 - player_provider 内联队列导航逻辑
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/player/player_provider.dart` — 4 个 provider 委托给 orchestrator，简化 processing listener
+- `lib/features/player/domain/playback_orchestrator.dart` — 添加 onQueueChanged 回调，queue 改为 getter/setter
+
+### 测试结果
+- 通过: 1505 / 总计: 1505
+- 静态分析: 0 errors

@@ -85,10 +85,21 @@ class PlaybackOrchestrator {
   final DefaultSpeedProvider defaultSpeedProvider;
   final QueueConnectionIdProvider queueConnectionIdProvider;
 
+  /// Callback invoked whenever [queue] is mutated by orchestrator methods.
+  ///
+  /// This allows the Riverpod layer to synchronise its
+  /// `currentPlayQueueProvider` state with the orchestrator's internal queue.
+  void Function(PlayQueue?)? onQueueChanged;
+
   // ── Mutable state ─────────────────────────────────────────────────────
 
   /// The current play queue.  Set by the caller before calling load methods.
-  PlayQueue? queue;
+  PlayQueue? _queue;
+  PlayQueue? get queue => _queue;
+  set queue(PlayQueue? value) {
+    _queue = value;
+    onQueueChanged?.call(value);
+  }
 
   /// The current play mode.
   PlayMode playMode = PlayMode.sequential;
@@ -233,7 +244,8 @@ class PlaybackOrchestrator {
   /// Advances to the next track in the queue and loads it.
   ///
   /// Saves the current progress before advancing.
-  Future<TrackLoadResult> skipToNext() async {
+  Future<TrackLoadResult> skipToNext(
+      {bool registerListeners = true}) async {
     final q = queue;
     if (q == null) return const TrackLoadResult.failed();
 
@@ -252,7 +264,7 @@ class PlaybackOrchestrator {
 
     saveProgress();
     queue = nextQueue;
-    return loadAndPlay();
+    return loadAndPlay(registerListeners: registerListeners);
   }
 
   // ── skipToPrevious ──────────────────────────────────────────────────────
@@ -260,7 +272,8 @@ class PlaybackOrchestrator {
   /// Goes back to the previous track in the queue and loads it.
   ///
   /// Saves the current progress before going back.
-  Future<TrackLoadResult> skipToPrevious() async {
+  Future<TrackLoadResult> skipToPrevious(
+      {bool registerListeners = true}) async {
     final q = queue;
     if (q == null) return const TrackLoadResult.failed();
 
@@ -279,13 +292,14 @@ class PlaybackOrchestrator {
 
     saveProgress();
     queue = prevQueue;
-    return loadAndPlay();
+    return loadAndPlay(registerListeners: registerListeners);
   }
 
   // ── selectQueueIndex ────────────────────────────────────────────────────
 
   /// Selects a specific queue index and loads that track.
-  Future<TrackLoadResult> selectQueueIndex(int index) async {
+  Future<TrackLoadResult> selectQueueIndex(int index,
+      {bool registerListeners = true}) async {
     final q = queue;
     if (q == null || index < 0 || index >= q.length) {
       return const TrackLoadResult.failed();
@@ -296,7 +310,7 @@ class PlaybackOrchestrator {
 
     saveProgress();
     queue = q.withIndex(index);
-    return loadAndPlay();
+    return loadAndPlay(registerListeners: registerListeners);
   }
 
   // ── removeTrack ─────────────────────────────────────────────────────────
@@ -306,7 +320,8 @@ class PlaybackOrchestrator {
   /// - If the queue becomes empty, stops playback.
   /// - If the removed track was the current one, loads the next track.
   /// - If the removed track was not the current one, just updates the queue.
-  Future<void> removeTrack(int index) async {
+  Future<void> removeTrack(int index,
+      {bool registerListeners = true}) async {
     final q = queue;
     if (q == null || index < 0 || index >= q.length) return;
 
@@ -324,7 +339,7 @@ class PlaybackOrchestrator {
     queue = newQueue;
     if (wasCurrent) {
       saveProgress();
-      await loadAndPlay();
+      await loadAndPlay(registerListeners: registerListeners);
     }
   }
 
@@ -360,7 +375,7 @@ class PlaybackOrchestrator {
         if (_completing) return;
         _completing = true;
 
-        final nextQueue = _computeNextQueue();
+        final nextQueue = computeNextQueue();
         if (nextQueue == null) {
           player.pause();
           _completing = false;
@@ -376,7 +391,7 @@ class PlaybackOrchestrator {
 
   /// Computes the next queue entry based on the current mode, or `null` if
   /// playback should stop.
-  PlayQueue? _computeNextQueue() {
+  PlayQueue? computeNextQueue() {
     final q = queue;
     if (q == null) return null;
 
