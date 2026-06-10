@@ -13,6 +13,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nas_audio_player/features/player/background_playback_notifier.dart';
 import 'package:nas_audio_player/features/player/domain/background_playback.dart';
 
 void main() {
@@ -306,7 +307,7 @@ void main() {
     // computePlaybackStateAfterLifecycle
     test('computePlaybackStateAfterLifecycle: resumed sets foreground', () {
       final after = computePlaybackStateAfterLifecycle(
-        newState: AppLifecycleState.resumed,
+        newState: AppLifecyclePhase.resumed,
         backgroundEnabled: true,
         currentPlaybackState: BackgroundPlaybackState.playing,
       );
@@ -316,7 +317,7 @@ void main() {
 
     test('computePlaybackStateAfterLifecycle: paused keeps playing', () {
       final after = computePlaybackStateAfterLifecycle(
-        newState: AppLifecycleState.paused,
+        newState: AppLifecyclePhase.paused,
         backgroundEnabled: true,
         currentPlaybackState: BackgroundPlaybackState.playing,
       );
@@ -326,7 +327,7 @@ void main() {
 
     test('computePlaybackStateAfterLifecycle: detached stops playback', () {
       final after = computePlaybackStateAfterLifecycle(
-        newState: AppLifecycleState.detached,
+        newState: AppLifecyclePhase.detached,
         backgroundEnabled: true,
         currentPlaybackState: BackgroundPlaybackState.playing,
       );
@@ -336,7 +337,7 @@ void main() {
 
     test('computePlaybackStateAfterLifecycle: hidden keeps playing', () {
       final after = computePlaybackStateAfterLifecycle(
-        newState: AppLifecycleState.hidden,
+        newState: AppLifecyclePhase.hidden,
         backgroundEnabled: true,
         currentPlaybackState: BackgroundPlaybackState.playing,
       );
@@ -347,7 +348,7 @@ void main() {
     test('computePlaybackStateAfterLifecycle: paused while paused stays paused',
         () {
       final after = computePlaybackStateAfterLifecycle(
-        newState: AppLifecycleState.paused,
+        newState: AppLifecyclePhase.paused,
         backgroundEnabled: true,
         currentPlaybackState: BackgroundPlaybackState.paused,
       );

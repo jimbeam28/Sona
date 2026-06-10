@@ -1038,3 +1038,21 @@
 ### 测试结果
 - 通过: 1505 / 总计: 1505
 - 静态分析: 0 errors
+
+---
+
+## 2026-06-10 15:30 FIX-06 - background_playback.dart 不是纯 Dart
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/player/domain/background_playback.dart` — 移除 Flutter/Riverpod 依赖，添加 AppLifecyclePhase 枚举
+- `lib/features/player/background_playback_notifier.dart` — 新建，含 BackgroundPlaybackNotifier + provider
+- `lib/features/player/background_playback.dart` — 更新 re-export
+- `lib/features/player/player_provider.dart` — 更新 import/export
+- `test/features/player/ref_13_test.dart` — AppLifecycleState → AppLifecyclePhase
+- `test/features/player/ply_03_test.dart` — AppLifecycleState → AppLifecyclePhase
+
+### 测试结果
+- 通过: 1505 / 总计: 1505
+- 静态分析: 0 errors

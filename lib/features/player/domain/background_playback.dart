@@ -6,15 +6,12 @@
 //
 // Contains:
 //   - AudioFocusState / BackgroundPlaybackState / MediaControlAction enums
+//   - AppLifecyclePhase — pure-Dart mirror of Flutter's AppLifecycleState
 //   - BackgroundPlaybackConfig — immutable value object for playback state
-//   - BackgroundPlaybackNotifier — StateNotifier managing the state machine
 //   - shouldContinueInBackground() — pure helper function
 //   - computePlaybackStateAfterLifecycle() — pure helper function
 //
 // Zero platform dependencies — fully testable in plain Dart.
-
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // ── Enums ───────────────────────────────────────────────────────────────────────
 
@@ -41,6 +38,12 @@ enum BackgroundPlaybackState { playing, paused, stopped }
 /// headset buttons) can trigger on the background player.
 enum MediaControlAction { play, pause, stop, togglePlayPause }
 
+/// Lifecycle phases — mirrors Flutter's [AppLifecycleState] but without
+/// the Flutter dependency.
+///
+/// Each value maps 1:1 to the corresponding [AppLifecycleState] variant.
+enum AppLifecyclePhase { resumed, inactive, paused, detached, hidden }
+
 // ── State machine ───────────────────────────────────────────────────────────────
 
 /// Immutable value object that captures the state of background audio playback.
@@ -57,7 +60,6 @@ enum MediaControlAction { play, pause, stop, togglePlayPause }
 ///   - Pausing from a notification sets [playbackState] to [paused]
 ///     but does not tear down the background session.
 ///   - Lock-screen state (a system concern) does not interrupt playback.
-@immutable
 class BackgroundPlaybackConfig {
   /// Whether background playback is enabled by the user/app config.
   final bool backgroundEnabled;
@@ -251,28 +253,28 @@ bool shouldContinueInBackground({
   return currentPlaybackState == BackgroundPlaybackState.playing;
 }
 
-/// Pure function: given an [AppLifecycleState] and playback state,
+/// Pure function: given an [AppLifecyclePhase] and playback state,
 /// returns the expected [BackgroundPlaybackState] after the transition.
 ///
 /// This models the lifecycle-handling logic without depending on
 /// StateNotifier or AudioPlayer, so it can be tested in isolation
 /// (PLY-T20).
 BackgroundPlaybackConfig computePlaybackStateAfterLifecycle({
-  required AppLifecycleState newState,
+  required AppLifecyclePhase newState,
   required bool backgroundEnabled,
   required BackgroundPlaybackState currentPlaybackState,
 }) {
   switch (newState) {
-    case AppLifecycleState.resumed:
+    case AppLifecyclePhase.resumed:
       // Coming back to foreground — playback state unchanged.
       return BackgroundPlaybackConfig(
         backgroundEnabled: backgroundEnabled,
         isInForeground: true,
         playbackState: currentPlaybackState,
       );
-    case AppLifecycleState.inactive:
-    case AppLifecycleState.paused:
-    case AppLifecycleState.hidden:
+    case AppLifecyclePhase.inactive:
+    case AppLifecyclePhase.paused:
+    case AppLifecyclePhase.hidden:
       // Going to background — if background is enabled and audio is
       // playing, it should continue.
       if (!shouldContinueInBackground(
@@ -294,7 +296,7 @@ BackgroundPlaybackConfig computePlaybackStateAfterLifecycle({
         isInForeground: false,
         playbackState: BackgroundPlaybackState.playing,
       );
-    case AppLifecycleState.detached:
+    case AppLifecyclePhase.detached:
       return BackgroundPlaybackConfig(
         backgroundEnabled: backgroundEnabled,
         isInForeground: false,
@@ -302,82 +304,3 @@ BackgroundPlaybackConfig computePlaybackStateAfterLifecycle({
       );
   }
 }
-
-// ── StateNotifier ──────────────────────────────────────────────────────────────
-
-/// Manages the background-playback state machine (PLY-T20~T23).
-///
-/// Exposed as a [StateNotifier] so that both the player screen and the
-/// app-lifecycle observer can drive transitions.  The state machine is
-/// pure logic — it does not touch [AudioPlayer] directly, making it
-/// fully testable.
-class BackgroundPlaybackNotifier
-    extends StateNotifier<BackgroundPlaybackConfig> {
-  BackgroundPlaybackNotifier() : super(BackgroundPlaybackConfig.initial);
-
-  /// Call when the app lifecycle changes (foreground <-> background).
-  ///
-  /// If background playback is enabled, audio should continue playing
-  /// when the app goes to background (PLY-T20).
-  void onAppLifecycleChange(AppLifecycleState lifecycleState) {
-    switch (lifecycleState) {
-      case AppLifecycleState.resumed:
-        state = state.updateForeground(true);
-      case AppLifecycleState.inactive:
-      case AppLifecycleState.paused:
-      case AppLifecycleState.hidden:
-        // App going to background — audio continues if backgroundEnabled.
-        state = state.updateForeground(false);
-      case AppLifecycleState.detached:
-        // App being destroyed — stop playback.
-        state = state.copyWith(
-          isInForeground: false,
-          playbackState: BackgroundPlaybackState.stopped,
-        );
-    }
-  }
-
-  /// Call when a notification media-control action is received
-  /// (PLY-T21, PLY-T22).
-  void onMediaControl(MediaControlAction action) {
-    state = state.handleMediaControl(action);
-  }
-
-  /// Call when audio focus changes (e.g. another app starts/stops
-  /// playing audio).
-  void onAudioFocusChange(AudioFocusState focus) {
-    state = state.updateAudioFocus(focus);
-  }
-
-  /// Start playback (sets state to playing).
-  void startPlayback() {
-    state = state.copyWith(playbackState: BackgroundPlaybackState.playing);
-  }
-
-  /// Pause playback (sets state to paused).
-  void pausePlayback() {
-    state = state.copyWith(playbackState: BackgroundPlaybackState.paused);
-  }
-
-  /// Stop playback and tear down the background session.
-  void stopPlayback() {
-    state = state.copyWith(playbackState: BackgroundPlaybackState.stopped);
-  }
-
-  /// Toggle background playback enabled flag.
-  void setBackgroundEnabled(bool enabled) {
-    state = state.copyWith(backgroundEnabled: enabled);
-  }
-
-  /// Mirrors the config pushed by [NasAudioHandler] so the Riverpod layer
-  /// stays in sync with the handler's internal state machine (PLY-F).
-  void syncFromHandler(BackgroundPlaybackConfig config) {
-    state = config;
-  }
-}
-
-/// Provider for the background-playback state notifier.
-final backgroundPlaybackProvider =
-    StateNotifierProvider<BackgroundPlaybackNotifier, BackgroundPlaybackConfig>(
-  (ref) => BackgroundPlaybackNotifier(),
-);

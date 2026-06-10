@@ -11,19 +11,21 @@ import '../../shared/models/connection_config.dart';
 import '../../shared/models/play_progress.dart';
 import '../../shared/models/play_queue.dart';
 import '../../shared/di/providers.dart';
+import 'background_playback_notifier.dart';
 import 'domain/background_playback.dart';
 import 'domain/playback_orchestrator.dart';
 import 'domain/request_gate.dart';
 import 'domain/speed_manager.dart' as sm;
 
+export 'background_playback_notifier.dart'
+    show BackgroundPlaybackNotifier, backgroundPlaybackProvider, mapLifecycleState;
 export 'domain/background_playback.dart'
     show
+        AppLifecyclePhase,
         AudioFocusState,
         BackgroundPlaybackConfig,
-        BackgroundPlaybackNotifier,
         BackgroundPlaybackState,
         MediaControlAction,
-        backgroundPlaybackProvider,
         computePlaybackStateAfterLifecycle,
         shouldContinueInBackground;
 export 'domain/media_control.dart' show formatDuration;

@@ -41,7 +41,7 @@ void main() {
 
       // Simulate app going to background (AppLifecycleState.paused)
       final afterState = computePlaybackStateAfterLifecycle(
-        newState: AppLifecycleState.paused,
+        newState: AppLifecyclePhase.paused,
         backgroundEnabled: beforeState.backgroundEnabled,
         currentPlaybackState: beforeState.playbackState,
       );
@@ -58,7 +58,7 @@ void main() {
         'playing audio continues when app is hidden '
         '(AppLifecycleState.hidden)', () {
       final afterState = computePlaybackStateAfterLifecycle(
-        newState: AppLifecycleState.hidden,
+        newState: AppLifecyclePhase.hidden,
         backgroundEnabled: true,
         currentPlaybackState: BackgroundPlaybackState.playing,
       );
@@ -72,7 +72,7 @@ void main() {
         'playing audio continues when app is inactive '
         '(AppLifecycleState.inactive)', () {
       final afterState = computePlaybackStateAfterLifecycle(
-        newState: AppLifecycleState.inactive,
+        newState: AppLifecyclePhase.inactive,
         backgroundEnabled: true,
         currentPlaybackState: BackgroundPlaybackState.playing,
       );
@@ -84,7 +84,7 @@ void main() {
 
     test('paused audio stays paused when app goes to background', () {
       final afterState = computePlaybackStateAfterLifecycle(
-        newState: AppLifecycleState.paused,
+        newState: AppLifecyclePhase.paused,
         backgroundEnabled: true,
         currentPlaybackState: BackgroundPlaybackState.paused,
       );
@@ -96,7 +96,7 @@ void main() {
 
     test('stopped audio stays stopped when app goes to background', () {
       final afterState = computePlaybackStateAfterLifecycle(
-        newState: AppLifecycleState.paused,
+        newState: AppLifecyclePhase.paused,
         backgroundEnabled: true,
         currentPlaybackState: BackgroundPlaybackState.stopped,
       );
@@ -112,7 +112,7 @@ void main() {
       );
 
       final afterState = computePlaybackStateAfterLifecycle(
-        newState: AppLifecycleState.paused,
+        newState: AppLifecyclePhase.paused,
         backgroundEnabled: beforeState.backgroundEnabled,
         currentPlaybackState: beforeState.playbackState,
       );
@@ -129,7 +129,7 @@ void main() {
         'app returns to foreground (AppLifecycleState.resumed) preserves '
         'playback state', () {
       final afterState = computePlaybackStateAfterLifecycle(
-        newState: AppLifecycleState.resumed,
+        newState: AppLifecyclePhase.resumed,
         backgroundEnabled: true,
         currentPlaybackState: BackgroundPlaybackState.playing,
       );
@@ -142,7 +142,7 @@ void main() {
 
     test('AppLifecycleState.detached stops playback', () {
       final afterState = computePlaybackStateAfterLifecycle(
-        newState: AppLifecycleState.detached,
+        newState: AppLifecyclePhase.detached,
         backgroundEnabled: true,
         currentPlaybackState: BackgroundPlaybackState.playing,
       );
@@ -827,7 +827,7 @@ void main() {
       // App is destroyed — playback should stop.
       // This is tested via computePlaybackStateAfterLifecycle.
       final afterDetach = computePlaybackStateAfterLifecycle(
-        newState: AppLifecycleState.detached,
+        newState: AppLifecyclePhase.detached,
         backgroundEnabled: state.backgroundEnabled,
         currentPlaybackState: state.playbackState,
       );
@@ -904,7 +904,7 @@ void main() {
 
       test('pure function: paused lifecycle preserves playing state', () {
         final after = computePlaybackStateAfterLifecycle(
-          newState: AppLifecycleState.paused,
+          newState: AppLifecyclePhase.paused,
           backgroundEnabled: true,
           currentPlaybackState: BackgroundPlaybackState.playing,
         );
@@ -960,7 +960,7 @@ void main() {
 
       test('pure function: detached stops playback', () {
         final after = computePlaybackStateAfterLifecycle(
-          newState: AppLifecycleState.detached,
+          newState: AppLifecyclePhase.detached,
           backgroundEnabled: true,
           currentPlaybackState: BackgroundPlaybackState.playing,
         );
@@ -1182,7 +1182,7 @@ void main() {
           'while playing', () {
         // Step 1: hidden
         final hidden = computePlaybackStateAfterLifecycle(
-          newState: AppLifecycleState.hidden,
+          newState: AppLifecyclePhase.hidden,
           backgroundEnabled: true,
           currentPlaybackState: BackgroundPlaybackState.playing,
         );
@@ -1193,7 +1193,7 @@ void main() {
 
         // Step 2: hidden → inactive
         final inactive = computePlaybackStateAfterLifecycle(
-          newState: AppLifecycleState.inactive,
+          newState: AppLifecyclePhase.inactive,
           backgroundEnabled: true,
           currentPlaybackState: BackgroundPlaybackState.playing,
         );
@@ -1204,7 +1204,7 @@ void main() {
 
         // Step 3: inactive → paused
         final paused = computePlaybackStateAfterLifecycle(
-          newState: AppLifecycleState.paused,
+          newState: AppLifecyclePhase.paused,
           backgroundEnabled: true,
           currentPlaybackState: BackgroundPlaybackState.playing,
         );
@@ -1215,7 +1215,7 @@ void main() {
 
         // Step 4: paused → resumed (back to foreground)
         final resumed = computePlaybackStateAfterLifecycle(
-          newState: AppLifecycleState.resumed,
+          newState: AppLifecyclePhase.resumed,
           backgroundEnabled: true,
           currentPlaybackState: BackgroundPlaybackState.playing,
         );

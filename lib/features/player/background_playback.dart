@@ -3,5 +3,8 @@
 //
 // The implementation has been moved to
 // lib/features/player/domain/background_playback.dart.
+// Riverpod-dependent parts are in
+// lib/features/player/background_playback_notifier.dart.
 
+export 'background_playback_notifier.dart';
 export 'domain/background_playback.dart';
