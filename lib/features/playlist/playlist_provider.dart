@@ -1,13 +1,12 @@
 // lib/features/playlist/playlist_provider.dart
 // Riverpod providers for the Playlist feature.
 
-import 'dart:convert';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/database/dao/playlist_dao.dart';
 import '../../shared/models/nas_file.dart';
 import '../../shared/models/playlist.dart';
+import 'domain/playlist_service.dart';
 
 // ── Sort enums ─────────────────────────────────────────────────────────────
 
@@ -18,6 +17,10 @@ enum TrackSortOption { addedAsc, nameAsc, nameDesc }
 // ── Infrastructure ─────────────────────────────────────────────────────────
 
 final playlistDaoProvider = Provider<PlaylistDao>((ref) => PlaylistDao());
+
+final playlistServiceProvider = Provider<PlaylistService>((ref) {
+  return PlaylistService(dao: ref.read(playlistDaoProvider));
+});
 
 // ── Sort state ─────────────────────────────────────────────────────────────
 
@@ -76,55 +79,35 @@ final playlistTracksProvider =
 
 final createPlaylistProvider =
     Provider<Future<void> Function(String name)>((ref) {
-  final dao = ref.watch(playlistDaoProvider);
+  final service = ref.watch(playlistServiceProvider);
   return (String name) async {
-    final now = DateTime.now();
-    await dao.insertPlaylist(Playlist(
-      name: name,
-      createdAt: now,
-      updatedAt: now,
-    ));
+    await service.createPlaylist(name);
     ref.invalidate(playlistListProvider);
   };
 });
 
 final deletePlaylistProvider = Provider<Future<void> Function(int id)>((ref) {
-  final dao = ref.watch(playlistDaoProvider);
+  final service = ref.watch(playlistServiceProvider);
   return (int id) async {
-    await dao.deletePlaylist(id);
+    await service.deletePlaylist(id);
     ref.invalidate(playlistListProvider);
   };
 });
 
 final updatePlaylistProvider =
     Provider<Future<void> Function(Playlist playlist)>((ref) {
-  final dao = ref.watch(playlistDaoProvider);
+  final service = ref.watch(playlistServiceProvider);
   return (Playlist playlist) async {
-    await dao.updatePlaylist(playlist);
+    await service.updatePlaylist(playlist);
     ref.invalidate(playlistListProvider);
   };
 });
 
 final addTracksToPlaylistProvider =
     Provider<Future<void> Function(int playlistId, List<NasFile> files)>((ref) {
-  final dao = ref.watch(playlistDaoProvider);
+  final service = ref.watch(playlistServiceProvider);
   return (int playlistId, List<NasFile> files) async {
-    final now = DateTime.now();
-    final tracks = <PlaylistTrack>[];
-    for (final file in files) {
-      final exists = await dao.trackExists(playlistId, file.path);
-      if (!exists) {
-        tracks.add(PlaylistTrack(
-          playlistId: playlistId,
-          filePath: file.path,
-          fileName: file.name,
-          addedAt: now,
-        ));
-      }
-    }
-    if (tracks.isNotEmpty) {
-      await dao.addTracks(tracks);
-    }
+    await service.addTracksToPlaylist(playlistId, files);
     ref.invalidate(playlistTracksProvider(playlistId));
     ref.invalidate(playlistListProvider);
   };
@@ -133,19 +116,19 @@ final addTracksToPlaylistProvider =
 final reorderPlaylistTrackProvider =
     Provider<Future<void> Function(int playlistId, int oldIndex, int newIndex)>(
         (ref) {
-  final dao = ref.watch(playlistDaoProvider);
+  final service = ref.watch(playlistServiceProvider);
   return (int playlistId, int oldIndex, int newIndex) async {
     if (ref.read(trackSortProvider) != TrackSortOption.addedAsc) return;
-    await dao.reorderTrack(playlistId, oldIndex, newIndex);
+    await service.reorderTrack(playlistId, oldIndex, newIndex);
     ref.invalidate(playlistTracksProvider(playlistId));
   };
 });
 
 final removeTracksFromPlaylistProvider =
     Provider<Future<void> Function(int playlistId, List<int> trackIds)>((ref) {
-  final dao = ref.watch(playlistDaoProvider);
+  final service = ref.watch(playlistServiceProvider);
   return (int playlistId, List<int> trackIds) async {
-    await dao.removeTracks(trackIds);
+    await service.removeTracks(trackIds);
     ref.invalidate(playlistTracksProvider(playlistId));
     ref.invalidate(playlistListProvider);
   };
@@ -156,51 +139,16 @@ final removeTracksFromPlaylistProvider =
 /// Exports a playlist to a JSON string containing name, track list.
 final exportPlaylistProvider =
     FutureProvider.family<String, int>((ref, playlistId) async {
-  final playlists = await ref.read(playlistListProvider.future);
-  final playlist = playlists.where((p) => p.id == playlistId).firstOrNull;
-  if (playlist == null) throw Exception('播放单不存在');
-
-  final tracks = await ref.read(playlistTracksProvider(playlistId).future);
-  final json = {
-    'name': playlist.name,
-    'tracks': tracks
-        .map((t) => {'filePath': t.filePath, 'fileName': t.fileName})
-        .toList(),
-  };
-  return const JsonEncoder.withIndent('  ').convert(json);
+  final service = ref.read(playlistServiceProvider);
+  return service.exportPlaylist(playlistId);
 });
 
 /// Imports a playlist from a JSON string. Returns the created playlist ID.
 final importPlaylistProvider =
     Provider<Future<int> Function(String jsonString)>((ref) {
-  final dao = ref.watch(playlistDaoProvider);
+  final service = ref.watch(playlistServiceProvider);
   return (String jsonString) async {
-    final data = jsonDecode(jsonString) as Map<String, dynamic>;
-    final name = (data['name'] as String?) ?? '导入的播放单';
-    final trackList = (data['tracks'] as List<dynamic>?) ?? [];
-
-    final now = DateTime.now();
-    final playlistId = await dao.insertPlaylist(Playlist(
-      name: name,
-      createdAt: now,
-      updatedAt: now,
-    ));
-
-    final seen = <String>{};
-    final tracks = trackList
-        .map((t) => PlaylistTrack(
-              playlistId: playlistId,
-              filePath: t['filePath'] as String? ?? '',
-              fileName: t['fileName'] as String? ?? '',
-              addedAt: now,
-            ))
-        .where((t) => t.filePath.isNotEmpty && seen.add(t.filePath))
-        .toList();
-
-    if (tracks.isNotEmpty) {
-      await dao.addTracks(tracks);
-    }
-
+    final playlistId = await service.importPlaylist(jsonString);
     ref.invalidate(playlistListProvider);
     return playlistId;
   };

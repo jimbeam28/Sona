@@ -997,3 +997,16 @@
 ### 测试结果
 - 通过: 1505 / 总计: 1505
 - 静态分析: 0 errors
+
+---
+
+## 2026-06-10 13:00 FIX-03 - playlist provider 未使用 domain service
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/playlist/playlist_provider.dart` — 8 个 provider 委托给 PlaylistService，删除内联去重/导入导出逻辑
+
+### 测试结果
+- 通过: 1505 / 总计: 1505
+- 静态分析: 0 errors

@@ -2,8 +2,8 @@
   "metadata": {
     "last_updated": "2026-06-10",
     "total": 8,
-    "pending": 6,
-    "done": 2
+    "pending": 5,
+    "done": 3
   },
   "order": [
     "FIX-01", "FIX-02", "FIX-03", "FIX-04",
@@ -31,8 +31,8 @@
     "FIX-03": {
       "name": "playlist provider 未使用 domain service",
       "plan_section": "dev-plan.md §FIX-03",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": [],
       "retry_count": 0,
       "last_error": ""
