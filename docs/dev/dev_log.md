@@ -2,6 +2,18 @@
 
 ---
 
+## [2026-06-10] [TREF-03] - PlayerScreen 提取逻辑单元测试
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `test/features/player/player_screen_logic_test.dart` — 新建 19 个纯函数测试（PSL-01~PSL-19）
+
+### 测试结果
+- 通过: 19 / 总计: 19
+
+---
+
 ## [2026-06-10] [TREF-02] - ConnectionEditScreen 验证门逻辑提取为纯函数
 
 **状态**: ✅ 成功

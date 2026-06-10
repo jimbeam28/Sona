@@ -2,8 +2,8 @@
   "metadata": {
     "last_updated": "2026-06-10",
     "total": 6,
-    "pending": 4,
-    "done": 2
+    "pending": 3,
+    "done": 3
   },
   "order": [
     "TREF-01", "TREF-02", "TREF-03", "TREF-04",
@@ -31,8 +31,8 @@
     "TREF-03": {
       "name": "PlayerScreen 提取逻辑单元测试",
       "plan_section": "dev-plan.md §TREF-03",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "dependencies": ["TREF-01"],
       "retry_count": 0,
       "last_error": ""
