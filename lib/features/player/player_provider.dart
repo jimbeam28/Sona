@@ -12,7 +12,6 @@ import '../../shared/models/play_progress.dart';
 import '../../shared/models/play_queue.dart';
 import '../../shared/di/providers.dart';
 import 'background_playback_notifier.dart';
-import 'domain/background_playback.dart';
 import 'domain/playback_orchestrator.dart';
 import 'domain/request_gate.dart';
 import 'domain/speed_manager.dart' as sm;

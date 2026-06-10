@@ -27,7 +27,7 @@ CacheEntry<List<NasFile>> _entry({
 Map<String, CacheEntry<List<NasFile>>> _evict(
     Map<String, CacheEntry<List<NasFile>>> cache,
     {int maxSize = 50}) {
-  return const CachePolicy<List<NasFile>>(maxSize: 50).evict(cache);
+  return CachePolicy<List<NasFile>>(maxSize: maxSize).evict(cache);
 }
 
 void main() {

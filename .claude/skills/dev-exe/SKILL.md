@@ -99,12 +99,12 @@ Agent 需要：
 
 **在本会话中直接执行（不使用 Agent）：**
 
-1. 运行 `flutter analyze`，确认 0 issues
+1. 运行 `flutter analyze --no-fatal-infos`，确认 0 warnings（infos 可接受，warnings 必须为 0）
 2. 运行 `dart format --set-exit-if-changed lib test`，确认无格式变更
 3. 运行 `flutter test`，确认全部通过（回归检查）
 4. 如有失败，直接修复，重复直到全部通过
 
-**质量门禁：** 第4步必须全部通过，否则视为未完成。
+**质量门禁：** 第4步必须全部通过，否则视为未完成。**严禁在 analyze 存在 warnings 的情况下提交代码**——GitHub CI 会因 warnings 导致构建失败。
 
 ---
 
@@ -160,7 +160,8 @@ Agent 需要：
    - 成功：`impl_status = "done"`, `test_status = "passed"`
    - 失败：`impl_status = "failed"`，`retry_count += 1`，`last_error = "失败原因摘要"`
    - 失败且 `retry_count >= 3`：`impl_status = "blocked"`，不再自动重试
-2. Git 提交推送：
+2. **提交前强制检查**：运行 `flutter analyze --no-fatal-infos`，确认 0 warnings。如有 warnings，先修复再提交。
+3. Git 提交推送：
    ```bash
    git add -A
    git commit -m "feat: [编号] - [名称]"  # 或 fix: [编号] - [名称]
