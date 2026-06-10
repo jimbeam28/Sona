@@ -138,7 +138,8 @@ void main() {
       final tracks = await service.findTracksForPlaylist(id);
       expect(tracks.length, 3);
       final paths = tracks.map((t) => t.filePath).toSet();
-      expect(paths, containsAll(['/music/a.mp3', '/music/b.mp3', '/music/c.mp3']));
+      expect(
+          paths, containsAll(['/music/a.mp3', '/music/b.mp3', '/music/c.mp3']));
     });
 
     test('test_REF26_T02_addTracks_allDuplicates_noNewTracks', () async {

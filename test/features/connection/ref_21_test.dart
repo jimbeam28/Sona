@@ -29,8 +29,7 @@ void main() {
       // "not-a-url" normalises to "http://not-a-url:5005" which IS a valid
       // URL per isValidWebDavUrl (has scheme + non-empty host).
       // Use something truly unparseable instead.
-      expect(validateUrl('://bad'), isNotNull,
-          reason: '无效格式应返回错误');
+      expect(validateUrl('://bad'), isNotNull, reason: '无效格式应返回错误');
     });
 
     test('valid http URL with port passes', () {
@@ -49,8 +48,7 @@ void main() {
     });
 
     test('DDNS hostname passes', () {
-      expect(validateUrl('my-nas.ddns.net'), isNull,
-          reason: 'DDNS 域名应通过验证');
+      expect(validateUrl('my-nas.ddns.net'), isNull, reason: 'DDNS 域名应通过验证');
     });
 
     test('URL with port passes', () {
@@ -186,8 +184,7 @@ void main() {
     });
 
     test('hostname with spaces is rejected', () {
-      expect(validateDdnsHostname('nas home'), isNotNull,
-          reason: '不应包含空格');
+      expect(validateDdnsHostname('nas home'), isNotNull, reason: '不应包含空格');
     });
 
     test('hostname starting with hyphen is rejected', () {

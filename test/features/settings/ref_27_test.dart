@@ -39,7 +39,8 @@ void main() {
     });
 
     test('setThemeMode with null prefs does not throw', () {
-      expect(() => service.setThemeMode(null, ThemeMode.light), returnsNormally);
+      expect(
+          () => service.setThemeMode(null, ThemeMode.light), returnsNormally);
     });
 
     test('getThemeMode reads all three modes correctly', () async {
@@ -109,8 +110,7 @@ void main() {
 
       for (final speed in [0.3, 0.6, 1.1, 3.0]) {
         final result = service.setDefaultSpeed(prefs, speed);
-        expect(result, isFalse,
-            reason: '$speed is not a valid speed option');
+        expect(result, isFalse, reason: '$speed is not a valid speed option');
       }
 
       expect(prefs.getDouble('default_playback_speed'), isNull,

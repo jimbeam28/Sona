@@ -165,7 +165,8 @@ void main() {
         sortOption: SortOption.nameAsc,
       );
 
-      expect(result.fromCache, isTrue, reason: 'second load should be from cache');
+      expect(result.fromCache, isTrue,
+          reason: 'second load should be from cache');
       expect(mockClient.listDirectoryCallCount, 1,
           reason: 'should not make a second network call');
       expect(result.files.length, 2);
@@ -379,16 +380,12 @@ void main() {
 
     test('sortFiles: modifiedDesc sorts newest first', () {
       final files = [
-        _audio('old.mp3', path: '/old.mp3',
-            modifiedAt: DateTime(2024, 1, 1)),
-        _audio('new.mp3', path: '/new.mp3',
-            modifiedAt: DateTime(2024, 6, 1)),
-        _audio('mid.mp3', path: '/mid.mp3',
-            modifiedAt: DateTime(2024, 3, 1)),
+        _audio('old.mp3', path: '/old.mp3', modifiedAt: DateTime(2024, 1, 1)),
+        _audio('new.mp3', path: '/new.mp3', modifiedAt: DateTime(2024, 6, 1)),
+        _audio('mid.mp3', path: '/mid.mp3', modifiedAt: DateTime(2024, 3, 1)),
       ];
 
-      final sorted =
-          DirectoryService.sortFiles(files, SortOption.modifiedDesc);
+      final sorted = DirectoryService.sortFiles(files, SortOption.modifiedDesc);
 
       expect(sorted[0].name, 'new.mp3');
       expect(sorted[1].name, 'mid.mp3');

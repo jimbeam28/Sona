@@ -38,10 +38,11 @@ void main() {
   MockAudioPlayer hangingPlayer() {
     final player = MockAudioPlayer();
     final completer = Completer<Duration?>();
-    when(player.setAudioSource(any,
-        preload: anyNamed('preload'),
-        initialPosition: anyNamed('initialPosition'),
-        initialIndex: anyNamed('initialIndex'),
+    when(player.setAudioSource(
+      any,
+      preload: anyNamed('preload'),
+      initialPosition: anyNamed('initialPosition'),
+      initialIndex: anyNamed('initialIndex'),
     )).thenAnswer((_) => completer.future);
     return player;
   }
@@ -50,10 +51,11 @@ void main() {
   /// immediately.
   MockAudioPlayer workingPlayer() {
     final player = MockAudioPlayer();
-    when(player.setAudioSource(any,
-        preload: anyNamed('preload'),
-        initialPosition: anyNamed('initialPosition'),
-        initialIndex: anyNamed('initialIndex'),
+    when(player.setAudioSource(
+      any,
+      preload: anyNamed('preload'),
+      initialPosition: anyNamed('initialPosition'),
+      initialIndex: anyNamed('initialIndex'),
     )).thenAnswer((_) async => Duration.zero);
     when(player.seek(any)).thenAnswer((_) async {});
     return player;
@@ -103,10 +105,11 @@ void main() {
       }
 
       // Verify setAudioSource was called (pre-load was attempted).
-      verify(player.setAudioSource(any,
-          preload: anyNamed('preload'),
-          initialPosition: anyNamed('initialPosition'),
-          initialIndex: anyNamed('initialIndex'),
+      verify(player.setAudioSource(
+        any,
+        preload: anyNamed('preload'),
+        initialPosition: anyNamed('initialPosition'),
+        initialIndex: anyNamed('initialIndex'),
       )).called(1);
 
       // seek should NOT have been called because setAudioSource hung and
@@ -137,10 +140,11 @@ void main() {
       ).timeout(const Duration(seconds: 5));
 
       // setAudioSource was called once
-      verify(player.setAudioSource(any,
-          preload: anyNamed('preload'),
-          initialPosition: anyNamed('initialPosition'),
-          initialIndex: anyNamed('initialIndex'),
+      verify(player.setAudioSource(
+        any,
+        preload: anyNamed('preload'),
+        initialPosition: anyNamed('initialPosition'),
+        initialIndex: anyNamed('initialIndex'),
       )).called(1);
 
       // seek was called because startPositionMs != null
@@ -154,7 +158,8 @@ void main() {
     // safeStorageRead has a 5-second timeout that returns null, so
     // preloadAudioSource sees null password and returns without error.
 
-    test('BUG-07-T03: NAS unreachable -> storage.read hangs -> '
+    test(
+        'BUG-07-T03: NAS unreachable -> storage.read hangs -> '
         'pre-load skipped silently', () async {
       final storage = hangingStorage();
       final player = workingPlayer();
@@ -172,10 +177,11 @@ void main() {
       );
 
       // Player was never touched because storage.read returned null.
-      verifyNever(player.setAudioSource(any,
-          preload: anyNamed('preload'),
-          initialPosition: anyNamed('initialPosition'),
-          initialIndex: anyNamed('initialIndex'),
+      verifyNever(player.setAudioSource(
+        any,
+        preload: anyNamed('preload'),
+        initialPosition: anyNamed('initialPosition'),
+        initialIndex: anyNamed('initialIndex'),
       ));
       verifyNever(player.seek(any));
     });
@@ -200,10 +206,11 @@ void main() {
       ).timeout(const Duration(seconds: 5));
 
       // Player was never touched because there was no password.
-      verifyNever(player.setAudioSource(any,
-          preload: anyNamed('preload'),
-          initialPosition: anyNamed('initialPosition'),
-          initialIndex: anyNamed('initialIndex'),
+      verifyNever(player.setAudioSource(
+        any,
+        preload: anyNamed('preload'),
+        initialPosition: anyNamed('initialPosition'),
+        initialIndex: anyNamed('initialIndex'),
       ));
       verifyNever(player.seek(any));
     });

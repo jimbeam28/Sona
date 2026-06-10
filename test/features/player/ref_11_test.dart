@@ -24,10 +24,12 @@ void main() {
         final gate = SerializedRequestGate();
         var result = -1;
 
-        gate.schedule<int>(
-          task: (_) async => 42,
-          onSuperseded: () => -1,
-        ).then((v) => result = v);
+        gate
+            .schedule<int>(
+              task: (_) async => 42,
+              onSuperseded: () => -1,
+            )
+            .then((v) => result = v);
 
         async.elapse(Duration.zero);
         expect(result, equals(42));
@@ -39,13 +41,15 @@ void main() {
         final gate = SerializedRequestGate();
         var result = -1;
 
-        gate.schedule<int>(
-          task: (_) async {
-            await Future<void>.delayed(const Duration(seconds: 2));
-            return 99;
-          },
-          onSuperseded: () => -1,
-        ).then((v) => result = v);
+        gate
+            .schedule<int>(
+              task: (_) async {
+                await Future<void>.delayed(const Duration(seconds: 2));
+                return 99;
+              },
+              onSuperseded: () => -1,
+            )
+            .then((v) => result = v);
 
         async.elapse(const Duration(seconds: 3));
         expect(result, equals(99));
@@ -57,10 +61,12 @@ void main() {
         final gate = SerializedRequestGate();
         var errorCaught = false;
 
-        gate.schedule<String>(
+        gate
+            .schedule<String>(
           task: (_) async => throw Exception('boom'),
           onSuperseded: () => 'superseded',
-        ).catchError((_) {
+        )
+            .catchError((_) {
           errorCaught = true;
           return 'superseded';
         });
@@ -94,19 +100,23 @@ void main() {
         var secondResult = 'pending';
 
         // First request — takes 5 seconds.
-        gate.schedule<String>(
-          task: (_) async {
-            await Future<void>.delayed(const Duration(seconds: 5));
-            return 'first';
-          },
-          onSuperseded: () => 'superseded',
-        ).then((v) => firstResult = v);
+        gate
+            .schedule<String>(
+              task: (_) async {
+                await Future<void>.delayed(const Duration(seconds: 5));
+                return 'first';
+              },
+              onSuperseded: () => 'superseded',
+            )
+            .then((v) => firstResult = v);
 
         // Second request — arrives while first is running, queued as pending.
-        gate.schedule<String>(
-          task: (_) async => 'second',
-          onSuperseded: () => 'superseded',
-        ).then((v) => secondResult = v);
+        gate
+            .schedule<String>(
+              task: (_) async => 'second',
+              onSuperseded: () => 'superseded',
+            )
+            .then((v) => secondResult = v);
 
         // At 5 seconds: first completes, second auto-starts and finishes.
         async.elapse(const Duration(seconds: 6));
@@ -124,39 +134,47 @@ void main() {
         var r1 = 'pending', r2 = 'pending', r3 = 'pending';
 
         // First — takes 10 seconds.
-        gate.schedule<String>(
-          task: (_) async {
-            await Future<void>.delayed(const Duration(seconds: 10));
-            return 'first';
-          },
-          onSuperseded: () => 'superseded',
-        ).then((v) => r1 = v);
+        gate
+            .schedule<String>(
+              task: (_) async {
+                await Future<void>.delayed(const Duration(seconds: 10));
+                return 'first';
+              },
+              onSuperseded: () => 'superseded',
+            )
+            .then((v) => r1 = v);
 
         // Second — arrives while first is running, queued as pending.
-        gate.schedule<String>(
-          task: (_) async {
-            await Future<void>.delayed(const Duration(seconds: 5));
-            return 'second';
-          },
-          onSuperseded: () => 'superseded',
-        ).then((v) => r2 = v);
+        gate
+            .schedule<String>(
+              task: (_) async {
+                await Future<void>.delayed(const Duration(seconds: 5));
+                return 'second';
+              },
+              onSuperseded: () => 'superseded',
+            )
+            .then((v) => r2 = v);
 
         // Third — arrives while second is queued, replaces second.
-        gate.schedule<String>(
-          task: (_) async => 'third',
-          onSuperseded: () => 'superseded',
-        ).then((v) => r3 = v);
+        gate
+            .schedule<String>(
+              task: (_) async => 'third',
+              onSuperseded: () => 'superseded',
+            )
+            .then((v) => r3 = v);
 
         // At 10s: first completes. Third (the pending) auto-starts and
         // completes immediately.
         async.elapse(const Duration(seconds: 11));
 
         expect(r3, equals('third'),
-            reason: 'third (latest pending) should complete after first finishes');
+            reason:
+                'third (latest pending) should complete after first finishes');
         expect(r2, equals('superseded'),
             reason: 'second should be superseded by third');
         expect(r1, equals('superseded'),
-            reason: 'first should be superseded (third was latest when first ran)');
+            reason:
+                'first should be superseded (third was latest when first ran)');
       });
     });
   });
@@ -179,10 +197,12 @@ void main() {
         );
 
         // Second request — replaces the pending one.
-        gate.schedule<String>(
-          task: (_) async => 'second',
-          onSuperseded: () => 'superseded',
-        ).then((v) => pendingResult = v);
+        gate
+            .schedule<String>(
+              task: (_) async => 'second',
+              onSuperseded: () => 'superseded',
+            )
+            .then((v) => pendingResult = v);
 
         // Third request — replaces the second pending one.
         gate.schedule<String>(
@@ -215,10 +235,12 @@ void main() {
         );
 
         // Second — replaces first's pending spot.
-        gate.schedule<String>(
-          task: (_) async => 'second',
-          onSuperseded: () => 'dropped',
-        ).then((v) => result = v);
+        gate
+            .schedule<String>(
+              task: (_) async => 'second',
+              onSuperseded: () => 'dropped',
+            )
+            .then((v) => result = v);
 
         // Third — replaces second.
         gate.schedule<String>(
@@ -307,8 +329,7 @@ void main() {
 
         // After 3 seconds: second also done.
         async.elapse(const Duration(seconds: 1));
-        expect(secondDone, isTrue,
-            reason: 'second should be done at 3s');
+        expect(secondDone, isTrue, reason: 'second should be done at 3s');
       });
     });
 

@@ -23,7 +23,6 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 // testConfig() is imported from test_factories.dart as testConfig().
 
-
 // ═══════════════════════════════════════════════════════════════════════════════
 // TST-T91 ~ TST-T98
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -65,9 +64,10 @@ void main() {
       const testFile = NasFile(
           name: 'song.mp3', path: '/music/song.mp3', isDirectory: false);
       container.read(directoryCacheProvider.notifier).state = {
-        '$conn1Id:/music':
-            CacheEntry<List<NasFile>>(value: [testFile], createdAt: DateTime.now()),
-        '$conn1Id:/books': CacheEntry<List<NasFile>>(value: [], createdAt: DateTime.now()),
+        '$conn1Id:/music': CacheEntry<List<NasFile>>(
+            value: [testFile], createdAt: DateTime.now()),
+        '$conn1Id:/books':
+            CacheEntry<List<NasFile>>(value: [], createdAt: DateTime.now()),
       };
 
       // Switch the active connection to conn2
@@ -193,10 +193,10 @@ void main() {
       const conn2File = NasFile(
           name: 'book.m4b', path: '/books/book.m4b', isDirectory: false);
       container.read(directoryCacheProvider.notifier).state = {
-        '$conn1Id:/music':
-            CacheEntry<List<NasFile>>(value: [testFile], createdAt: DateTime.now()),
-        '$conn2Id:/books':
-            CacheEntry<List<NasFile>>(value: [conn2File], createdAt: DateTime.now()),
+        '$conn1Id:/music': CacheEntry<List<NasFile>>(
+            value: [testFile], createdAt: DateTime.now()),
+        '$conn2Id:/books': CacheEntry<List<NasFile>>(
+            value: [conn2File], createdAt: DateTime.now()),
       };
 
       // Switch to connection 2

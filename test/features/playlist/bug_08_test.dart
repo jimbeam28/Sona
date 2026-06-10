@@ -59,10 +59,10 @@ void main() {
       await tester.pumpWidget(buildTestAppWithPlayerRoute(
         const PlaylistDetailScreen(playlistId: 1),
         overrides: [
-          playlistTracksProvider(1).overrideWith(
-              (ref) => Future.value([validTrack, nullIdTrack])),
-          playlistListProvider.overrideWith(
-              (ref) => Future.value([_testPlaylist])),
+          playlistTracksProvider(1)
+              .overrideWith((ref) => Future.value([validTrack, nullIdTrack])),
+          playlistListProvider
+              .overrideWith((ref) => Future.value([_testPlaylist])),
         ],
       ));
       await tester.pumpAndSettle();
@@ -93,8 +93,8 @@ void main() {
         overrides: [
           playlistTracksProvider(1)
               .overrideWith((ref) => Future.value([nullIdTrack])),
-          playlistListProvider.overrideWith(
-              (ref) => Future.value([_testPlaylist])),
+          playlistListProvider
+              .overrideWith((ref) => Future.value([_testPlaylist])),
         ],
       ));
       await tester.pumpAndSettle();
@@ -125,8 +125,8 @@ void main() {
         overrides: [
           playlistTracksProvider(1)
               .overrideWith((ref) => Future.value([track1, track2])),
-          playlistListProvider.overrideWith(
-              (ref) => Future.value([_testPlaylist])),
+          playlistListProvider
+              .overrideWith((ref) => Future.value([_testPlaylist])),
         ],
       ));
       await tester.pumpAndSettle();
@@ -153,8 +153,8 @@ void main() {
         overrides: [
           playlistTracksProvider(1)
               .overrideWith((ref) => Future.value([track])),
-          playlistListProvider.overrideWith(
-              (ref) => Future.value([_testPlaylist])),
+          playlistListProvider
+              .overrideWith((ref) => Future.value([_testPlaylist])),
         ],
       ));
       await tester.pumpAndSettle();

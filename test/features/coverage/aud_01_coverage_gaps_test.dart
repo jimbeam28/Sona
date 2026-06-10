@@ -30,7 +30,8 @@ import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/features/browser/domain/cache_policy.dart';
 import 'package:nas_audio_player/features/connection/connection_provider.dart';
 import 'package:nas_audio_player/features/player/player_provider.dart';
-import 'package:nas_audio_player/features/player/domain/speed_manager.dart' as sm;
+import 'package:nas_audio_player/features/player/domain/speed_manager.dart'
+    as sm;
 import 'package:nas_audio_player/features/settings/settings_provider.dart';
 import 'package:nas_audio_player/features/timer/domain/timer_service.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
@@ -131,7 +132,8 @@ void main() {
 
       // Access the entry 3 minutes later
       final accessed = entry.accessedAt(now.add(const Duration(minutes: 3)));
-      expect(accessed.lastAccessedAt, equals(now.add(const Duration(minutes: 3))),
+      expect(
+          accessed.lastAccessedAt, equals(now.add(const Duration(minutes: 3))),
           reason: 'accessedAt should update lastAccessedAt');
 
       // TTL is still based on createdAt, not lastAccessedAt
@@ -237,7 +239,8 @@ void main() {
         CacheEntry(
           value: [testAudio('a.mp3', '/a.mp3')],
           createdAt: now,
-          lastAccessedAt: now.add(const Duration(minutes: 5)), // recently accessed
+          lastAccessedAt:
+              now.add(const Duration(minutes: 5)), // recently accessed
         ),
       );
       cache = policy.put(
@@ -380,14 +383,12 @@ void main() {
           startProcessingListenerProvider.overrideWith((ref) {
             return () {
               // Manually register the processing listener
-              final sub =
-                  player.processingStateStream.listen((state) {
+              final sub = player.processingStateStream.listen((state) {
                 if (state != ProcessingState.completed) return;
                 final q = ref.read(currentPlayQueueProvider);
                 final m = ref.read(playModeProvider);
                 if (q == null) return;
-                final ni =
-                    PlayQueue.nextIndex(q.currentIndex, q.length, m);
+                final ni = PlayQueue.nextIndex(q.currentIndex, q.length, m);
                 if (ni != null) {
                   ref.read(currentPlayQueueProvider.notifier).state =
                       q.withIndex(ni);
@@ -422,7 +423,8 @@ void main() {
           reason: 'loadAndPlay should have been called');
     });
 
-    test('sequential mode at end: processingState completed -> no advance, pause',
+    test(
+        'sequential mode at end: processingState completed -> no advance, pause',
         () async {
       final player = MockAudioPlayer();
       when(player.position).thenReturn(const Duration(seconds: 180));
@@ -488,8 +490,7 @@ void main() {
 
       // Queue stays at index 1
       final q = container.read(currentPlayQueueProvider);
-      expect(q!.currentIndex, equals(1),
-          reason: 'should stay at last track');
+      expect(q!.currentIndex, equals(1), reason: 'should stay at last track');
     });
 
     test('repeatAll mode: processingState completed -> wraps to first track',
@@ -502,8 +503,7 @@ void main() {
 
       // Simulate repeatAll: nextIndex wraps
       final ni = PlayQueue.nextIndex(1, 2, PlayMode.repeatAll);
-      expect(ni, equals(0),
-          reason: 'repeatAll should wrap from last to first');
+      expect(ni, equals(0), reason: 'repeatAll should wrap from last to first');
 
       final newQueue = queue.withIndex(ni!);
       expect(newQueue.currentIndex, equals(0));
@@ -520,8 +520,7 @@ void main() {
 
       // repeatOne: nextIndex returns same index
       final ni = PlayQueue.nextIndex(0, 2, PlayMode.repeatOne);
-      expect(ni, equals(0),
-          reason: 'repeatOne should return the same index');
+      expect(ni, equals(0), reason: 'repeatOne should return the same index');
 
       final newQueue = queue.withIndex(ni!);
       expect(newQueue.current.path, equals('/a.mp3'),
@@ -557,7 +556,8 @@ void main() {
       expect(newQueue.current.path, equals('/c.mp3'),
           reason: 'c should be the new current track');
       expect(newQueue.startPositionMs, isNull,
-          reason: 'startPositionMs should be cleared when removing current track');
+          reason:
+              'startPositionMs should be cleared when removing current track');
     });
 
     test('remove track before current -> current index decrements', () {
@@ -571,7 +571,8 @@ void main() {
       final newQueue = queue.withoutIndex(0); // remove a
       expect(newQueue.length, equals(2));
       expect(newQueue.currentIndex, equals(1),
-          reason: 'current index should decrement when removing a track before it');
+          reason:
+              'current index should decrement when removing a track before it');
       expect(newQueue.current.path, equals('/c.mp3'),
           reason: 'c should still be current');
     });
@@ -591,12 +592,14 @@ void main() {
       expect(newQueue.current.path, equals('/a.mp3'));
     });
 
-    test('remove last track (current is last) -> index adjusted to new last', () {
+    test('remove last track (current is last) -> index adjusted to new last',
+        () {
       final files = [
         testAudio('a.mp3', '/a.mp3'),
         testAudio('b.mp3', '/b.mp3'),
       ];
-      final queue = PlayQueue(files: files, currentIndex: 1); // playing b (last)
+      final queue =
+          PlayQueue(files: files, currentIndex: 1); // playing b (last)
 
       final newQueue = queue.withoutIndex(1); // remove b
       expect(newQueue.length, equals(1));
@@ -605,7 +608,8 @@ void main() {
       expect(newQueue.current.path, equals('/a.mp3'));
     });
 
-    test('removeCurrent preserves startPositionMs when removing non-current', () {
+    test('removeCurrent preserves startPositionMs when removing non-current',
+        () {
       final files = [
         testAudio('a.mp3', '/a.mp3'),
         testAudio('b.mp3', '/b.mp3'),
@@ -619,7 +623,8 @@ void main() {
       // Remove non-current track — startPositionMs should be preserved
       final newQueue = queue.withoutIndex(1);
       expect(newQueue.startPositionMs, equals(45000),
-          reason: 'startPositionMs should be preserved when removing non-current track');
+          reason:
+              'startPositionMs should be preserved when removing non-current track');
     });
   });
 
@@ -662,17 +667,18 @@ void main() {
             .map((t) => {'filePath': t.filePath, 'fileName': t.fileName})
             .toList(),
       };
-      final jsonString =
-          const JsonEncoder.withIndent('  ').convert(json);
+      final jsonString = const JsonEncoder.withIndent('  ').convert(json);
 
       // Parse back and verify
       final parsed = jsonDecode(jsonString) as Map<String, dynamic>;
       expect(parsed['name'], equals('My Playlist'));
       expect(parsed['tracks'], isA<List>());
       expect((parsed['tracks'] as List).length, equals(2));
-      expect((parsed['tracks'] as List)[0]['filePath'], equals('/music/song1.mp3'));
+      expect((parsed['tracks'] as List)[0]['filePath'],
+          equals('/music/song1.mp3'));
       expect((parsed['tracks'] as List)[0]['fileName'], equals('song1.mp3'));
-      expect((parsed['tracks'] as List)[1]['filePath'], equals('/music/song2.flac'));
+      expect((parsed['tracks'] as List)[1]['filePath'],
+          equals('/music/song2.flac'));
     });
 
     test('export empty playlist produces empty tracks array', () {
@@ -936,7 +942,8 @@ void main() {
       }
 
       expect(currentQueue, isNotNull,
-          reason: 'queue should be preserved when lastQueueConnectionId is null');
+          reason:
+              'queue should be preserved when lastQueueConnectionId is null');
     });
   });
 
@@ -1122,61 +1129,47 @@ void main() {
 
   group('PlayQueue: boundary conditions from state.md 3.3', () {
     test('empty queue: nextIndex and previousIndex return null', () {
-      expect(
-          PlayQueue.nextIndex(0, 0, PlayMode.sequential), isNull);
-      expect(
-          PlayQueue.nextIndex(0, 0, PlayMode.repeatAll), isNull);
-      expect(
-          PlayQueue.nextIndex(0, 0, PlayMode.repeatOne), isNull);
-      expect(
-          PlayQueue.previousIndex(0, 0, PlayMode.sequential), isNull);
+      expect(PlayQueue.nextIndex(0, 0, PlayMode.sequential), isNull);
+      expect(PlayQueue.nextIndex(0, 0, PlayMode.repeatAll), isNull);
+      expect(PlayQueue.nextIndex(0, 0, PlayMode.repeatOne), isNull);
+      expect(PlayQueue.previousIndex(0, 0, PlayMode.sequential), isNull);
     });
 
     test('single track: sequential returns null for next', () {
-      expect(
-          PlayQueue.nextIndex(0, 1, PlayMode.sequential), isNull);
+      expect(PlayQueue.nextIndex(0, 1, PlayMode.sequential), isNull);
     });
 
     test('single track: repeatOne returns same index', () {
-      expect(
-          PlayQueue.nextIndex(0, 1, PlayMode.repeatOne), equals(0));
+      expect(PlayQueue.nextIndex(0, 1, PlayMode.repeatOne), equals(0));
     });
 
     test('single track: repeatAll returns 0', () {
-      expect(
-          PlayQueue.nextIndex(0, 1, PlayMode.repeatAll), equals(0));
+      expect(PlayQueue.nextIndex(0, 1, PlayMode.repeatAll), equals(0));
     });
 
     test('single track: previous sequential returns null', () {
-      expect(
-          PlayQueue.previousIndex(0, 1, PlayMode.sequential), isNull);
+      expect(PlayQueue.previousIndex(0, 1, PlayMode.sequential), isNull);
     });
 
     test('out-of-bounds currentIndex: returns null', () {
-      expect(
-          PlayQueue.nextIndex(5, 3, PlayMode.sequential), isNull);
-      expect(
-          PlayQueue.nextIndex(-1, 3, PlayMode.sequential), isNull);
+      expect(PlayQueue.nextIndex(5, 3, PlayMode.sequential), isNull);
+      expect(PlayQueue.nextIndex(-1, 3, PlayMode.sequential), isNull);
     });
 
     test('sequential mode: previous at start returns null', () {
-      expect(
-          PlayQueue.previousIndex(0, 3, PlayMode.sequential), isNull);
+      expect(PlayQueue.previousIndex(0, 3, PlayMode.sequential), isNull);
     });
 
     test('sequential mode: next at end returns null', () {
-      expect(
-          PlayQueue.nextIndex(2, 3, PlayMode.sequential), isNull);
+      expect(PlayQueue.nextIndex(2, 3, PlayMode.sequential), isNull);
     });
 
     test('repeatAll mode: next at end wraps to 0', () {
-      expect(
-          PlayQueue.nextIndex(2, 3, PlayMode.repeatAll), equals(0));
+      expect(PlayQueue.nextIndex(2, 3, PlayMode.repeatAll), equals(0));
     });
 
     test('repeatAll mode: previous at start wraps to last', () {
-      expect(
-          PlayQueue.previousIndex(0, 3, PlayMode.repeatAll), equals(2));
+      expect(PlayQueue.previousIndex(0, 3, PlayMode.repeatAll), equals(2));
     });
 
     test('shuffle mode: nextIndex returns a valid index', () {
@@ -1217,7 +1210,8 @@ void main() {
       // The existing record stays untouched
     });
 
-    test('Saved -> upsert(position >= 5s, not near end) -> Saved (updated)', () {
+    test('Saved -> upsert(position >= 5s, not near end) -> Saved (updated)',
+        () {
       expect(ProgressDao.shouldSave(60000), isTrue);
       expect(ProgressDao.shouldClear(60000, 120000), isFalse);
     });
@@ -1759,14 +1753,12 @@ void main() {
 
     test('shuffle single track: nextIndex returns null', () {
       final result = PlayQueue.nextIndex(0, 1, PlayMode.shuffle);
-      expect(result, isNull,
-          reason: 'single track shuffle should return null');
+      expect(result, isNull, reason: 'single track shuffle should return null');
     });
 
     test('shuffle empty queue: nextIndex returns null', () {
       final result = PlayQueue.nextIndex(0, 0, PlayMode.shuffle);
-      expect(result, isNull,
-          reason: 'empty queue shuffle should return null');
+      expect(result, isNull, reason: 'empty queue shuffle should return null');
     });
   });
 
@@ -1802,8 +1794,7 @@ void main() {
 
       // reset() always returns to idle
       state = idle;
-      expect(state, equals(idle),
-          reason: 'reset from Error should go to Idle');
+      expect(state, equals(idle), reason: 'reset from Error should go to Idle');
     });
 
     test('validate from Success state goes to Loading (re-validate)', () {

@@ -65,7 +65,8 @@ void main() {
       await db.close();
     });
 
-    test('ConnectionService.save rolls back DB row when secure storage write fails',
+    test(
+        'ConnectionService.save rolls back DB row when secure storage write fails',
         () async {
       // Pre-populate with one connection so the rollback delete does not
       // trigger LastConnectionException (ConnectionDao.delete requires >1).
@@ -93,7 +94,8 @@ void main() {
       final all = await dao.findAll();
       final newConn = all.where((c) => c.name == 'New NAS');
       expect(newConn, isEmpty,
-          reason: 'AUD-03-T01: SecureStorage write failure should roll back DB row');
+          reason:
+              'AUD-03-T01: SecureStorage write failure should roll back DB row');
 
       // Verify: the pre-existing connection is untouched.
       expect(all.length, equals(1),
@@ -185,10 +187,10 @@ void main() {
           reason: 'AUD-03-T02: setAudioSource failure should return failed');
     });
 
-    test('setAudioSource throws -> player.stop() not called (play never started)',
+    test(
+        'setAudioSource throws -> player.stop() not called (play never started)',
         () async {
-      when(player.setAudioSource(any))
-          .thenThrow(Exception('Network timeout'));
+      when(player.setAudioSource(any)).thenThrow(Exception('Network timeout'));
 
       orchestrator.queue = _makeQueue(paths: ['/music/bad.mp3']);
       await orchestrator.loadAndPlay();
@@ -197,8 +199,8 @@ void main() {
     });
 
     test('PlayerLoadState.error factory produces correct fields', () {
-      final state = PlayerLoadState.error('Authentication failed',
-          isAuthError: true);
+      final state =
+          PlayerLoadState.error('Authentication failed', isAuthError: true);
 
       expect(state.status, equals(PlayerLoadStatus.error));
       expect(state.errorMessage, equals('Authentication failed'));
@@ -236,8 +238,7 @@ void main() {
         when(speedProvider.getDefaultSpeed()).thenReturn(1.0);
         when(queueConnIdProvider.getLastQueueConnectionId()).thenReturn(1);
 
-        when(player.setAudioSource(any))
-            .thenAnswer((_) async => Duration.zero);
+        when(player.setAudioSource(any)).thenAnswer((_) async => Duration.zero);
         when(player.seek(any)).thenAnswer((_) async {});
         when(player.setSpeed(any)).thenAnswer((_) async {});
         when(player.play()).thenAnswer((_) async {});
@@ -297,13 +298,11 @@ void main() {
       when(connectionProvider.getActiveConnection())
           .thenAnswer((_) async => _makeConnection());
       when(connectionProvider.currentConnection).thenReturn(_makeConnection());
-      when(passwordReader.readPassword(any))
-          .thenAnswer((_) async => 'secret');
+      when(passwordReader.readPassword(any)).thenAnswer((_) async => 'secret');
       when(speedProvider.getDefaultSpeed()).thenReturn(1.0);
       when(queueConnIdProvider.getLastQueueConnectionId()).thenReturn(1);
 
-      when(player.setAudioSource(any))
-          .thenAnswer((_) async => Duration.zero);
+      when(player.setAudioSource(any)).thenAnswer((_) async => Duration.zero);
       when(player.seek(any)).thenAnswer((_) async {});
       when(player.setSpeed(any)).thenAnswer((_) async {});
       when(player.play()).thenAnswer((_) async {});
@@ -357,8 +356,7 @@ void main() {
       when(connectionProvider.getActiveConnection())
           .thenAnswer((_) async => _makeConnection());
       when(connectionProvider.currentConnection).thenReturn(_makeConnection());
-      when(passwordReader.readPassword(any))
-          .thenAnswer((_) async => password);
+      when(passwordReader.readPassword(any)).thenAnswer((_) async => password);
       when(speedProvider.getDefaultSpeed()).thenReturn(1.0);
       when(queueConnIdProvider.getLastQueueConnectionId()).thenReturn(1);
 
@@ -402,8 +400,7 @@ void main() {
           reason: 'AUD-03-T04: first load should succeed with valid password');
 
       // Simulate: password cleared from secure storage.
-      when(env.passwordReader.readPassword(any))
-          .thenAnswer((_) async => null);
+      when(env.passwordReader.readPassword(any)).thenAnswer((_) async => null);
 
       // Second load (e.g., skipToNext triggers a new loadAndPlay).
       env.orchestrator.queue = _makeQueue(
@@ -436,8 +433,7 @@ void main() {
           reason: 'AUD-03-T04: first load with valid password should succeed');
 
       // Password cleared (returns empty).
-      when(env.passwordReader.readPassword(any))
-          .thenAnswer((_) async => '');
+      when(env.passwordReader.readPassword(any)).thenAnswer((_) async => '');
 
       // Retry.
       final result2 = await env.orchestrator.loadAndPlay();
@@ -450,7 +446,8 @@ void main() {
   // AUD-03-T05: Restore dialog page destroyed during countdown -> no crash
   // ═══════════════════════════════════════════════════════════════════════════════
 
-  group('AUD-03-T05: Restore dialog page destroyed during countdown -> no crash',
+  group(
+      'AUD-03-T05: Restore dialog page destroyed during countdown -> no crash',
       () {
     test('dispose during countdown does not throw', () {
       final container = ProviderContainer();
@@ -590,8 +587,7 @@ void main() {
           reason: 'AUD-03-T06: record should exist after contention');
     });
 
-    test(
-        'upsert with different files under contention maintains isolation',
+    test('upsert with different files under contention maintains isolation',
         () async {
       // Fire concurrent upserts for different files.
       final futures = <Future<bool?>>[];
@@ -616,8 +612,7 @@ void main() {
       // Each file should have its own record.
       final count = await dao.count();
       expect(count, equals(20),
-          reason:
-              'AUD-03-T06: each file should have its own progress record');
+          reason: 'AUD-03-T06: each file should have its own progress record');
     });
 
     test('upsert with shouldSave=false under contention -> all return false',
@@ -708,23 +703,20 @@ PlayQueue _makeQueue({
 class _TestConnectionDao {
   Future<int> insert(ConnectionConfig config,
       {required String passwordKey}) async {
-    final db =
-        await db_helper.DatabaseHelper.instance.database;
+    final db = await db_helper.DatabaseHelper.instance.database;
     final map = config.toMap(passwordKey: passwordKey);
     map.remove('id');
     return db.insert('connections', map);
   }
 
   Future<List<ConnectionConfig>> findAll() async {
-    final db =
-        await db_helper.DatabaseHelper.instance.database;
+    final db = await db_helper.DatabaseHelper.instance.database;
     final rows = await db.query('connections', orderBy: 'created_at ASC');
     return rows.map(ConnectionConfig.fromMap).toList();
   }
 
   Future<void> delete(int id) async {
-    final db =
-        await db_helper.DatabaseHelper.instance.database;
+    final db = await db_helper.DatabaseHelper.instance.database;
     await db.delete('connections', where: 'id = ?', whereArgs: [id]);
   }
 }

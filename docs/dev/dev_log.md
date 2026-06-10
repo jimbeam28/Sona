@@ -962,3 +962,23 @@
 
 ### 测试结果
 - 通过: 1505 / 总计: 1505
+
+---
+
+## 2026-06-10 12:00 FIX-01 - player_screen.dart 超500行限制
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/player/player_screen.dart` — 移除 7 个私有 Widget，添加 import（987行 → 437行）
+- `lib/features/player/widgets/now_playing_icon.dart` — 新建（32行）
+- `lib/features/player/widgets/progress_slider.dart` — 新建（118行）
+- `lib/features/player/widgets/playback_controls.dart` — 新建（188行）
+- `lib/features/player/widgets/speed_control.dart` — 新建（96行）
+- `lib/features/player/widgets/play_mode_control.dart` — 新建（32行）
+- `lib/features/player/widgets/queue_button.dart` — 新建（22行）
+- `lib/features/player/widgets/timer_control.dart` — 新建（63行）
+
+### 测试结果
+- 通过: 1505 / 总计: 1505
+- 静态分析: 0 errors

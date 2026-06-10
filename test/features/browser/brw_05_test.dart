@@ -140,8 +140,8 @@ void main() {
       final containerA = ProviderContainer(
         overrides: [
           webDavClientProvider.overrideWith((ref) => mockClientA),
-          activeConnectionProvider
-              .overrideWith((ref) async => testConnection(id: 1, name: 'ConnA')),
+          activeConnectionProvider.overrideWith(
+              (ref) async => testConnection(id: 1, name: 'ConnA')),
           secureStorageProvider.overrideWith((ref) => fakeStorageA),
         ],
       );
@@ -151,8 +151,8 @@ void main() {
       final containerB = ProviderContainer(
         overrides: [
           webDavClientProvider.overrideWith((ref) => mockClientB),
-          activeConnectionProvider
-              .overrideWith((ref) async => testConnection(id: 2, name: 'ConnB')),
+          activeConnectionProvider.overrideWith(
+              (ref) async => testConnection(id: 2, name: 'ConnB')),
           secureStorageProvider.overrideWith((ref) => fakeStorageB),
         ],
       );

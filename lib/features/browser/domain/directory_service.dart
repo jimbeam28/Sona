@@ -31,7 +31,8 @@ class SortOptionNotifier extends StateNotifier<SortOption> {
       final saved = prefs.getString('browser_sort_option');
       if (saved != null) {
         state = SortOption.values.cast<SortOption?>().firstWhere(
-            (e) => e!.name == saved, orElse: () => SortOption.nameAsc)!;
+            (e) => e!.name == saved,
+            orElse: () => SortOption.nameAsc)!;
       }
     }
   }

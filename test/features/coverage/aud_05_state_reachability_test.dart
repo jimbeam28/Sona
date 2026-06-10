@@ -454,7 +454,12 @@ void main() {
         seen.add(mode);
         mode = nextPlayMode(mode);
       }
-      expect(seen, {PlayMode.sequential, PlayMode.repeatOne, PlayMode.repeatAll, PlayMode.shuffle});
+      expect(seen, {
+        PlayMode.sequential,
+        PlayMode.repeatOne,
+        PlayMode.repeatAll,
+        PlayMode.shuffle
+      });
     });
   });
 
@@ -587,19 +592,22 @@ void main() {
 
     test('playing -> paused: togglePlayPause', () {
       final playing = BackgroundPlaybackConfig.playing();
-      final toggled = playing.handleMediaControl(MediaControlAction.togglePlayPause);
+      final toggled =
+          playing.handleMediaControl(MediaControlAction.togglePlayPause);
       expect(toggled.playbackState, BackgroundPlaybackState.paused);
     });
 
     test('paused -> playing: togglePlayPause', () {
       final paused = BackgroundPlaybackConfig.paused();
-      final toggled = paused.handleMediaControl(MediaControlAction.togglePlayPause);
+      final toggled =
+          paused.handleMediaControl(MediaControlAction.togglePlayPause);
       expect(toggled.playbackState, BackgroundPlaybackState.playing);
     });
 
     test('stopped -> playing: togglePlayPause', () {
       const stopped = BackgroundPlaybackConfig.initial;
-      final toggled = stopped.handleMediaControl(MediaControlAction.togglePlayPause);
+      final toggled =
+          stopped.handleMediaControl(MediaControlAction.togglePlayPause);
       expect(toggled.playbackState, BackgroundPlaybackState.playing);
     });
 
@@ -612,7 +620,8 @@ void main() {
 
     test('gained -> transient: no playback change', () {
       final playing = BackgroundPlaybackConfig.playing();
-      final afterTransient = playing.updateAudioFocus(AudioFocusState.transient);
+      final afterTransient =
+          playing.updateAudioFocus(AudioFocusState.transient);
       expect(afterTransient.audioFocus, AudioFocusState.transient);
       expect(afterTransient.playbackState, BackgroundPlaybackState.playing);
     });
@@ -712,10 +721,12 @@ void main() {
     test('timeout: task that hangs is timed out after 20s', () async {
       final gate = SerializedRequestGate();
       try {
-        await gate.schedule<String>(
-          task: (_) => Completer<String>().future, // never completes
-          onSuperseded: () => 'superseded',
-        ).timeout(const Duration(seconds: 25));
+        await gate
+            .schedule<String>(
+              task: (_) => Completer<String>().future, // never completes
+              onSuperseded: () => 'superseded',
+            )
+            .timeout(const Duration(seconds: 25));
         fail('Should have timed out');
       } on TimeoutException {
         // Expected — the gate's internal 20s timeout fires
@@ -746,9 +757,12 @@ void main() {
     test('LRU eviction when cache exceeds maxSize', () {
       final policy = const CachePolicy<int>(maxSize: 2);
       final cache = <String, CacheEntry<int>>{};
-      final updated1 = policy.put(cache, 'a', CacheEntry<int>(value: 1, createdAt: DateTime.now()));
-      final updated2 = policy.put(updated1, 'b', CacheEntry<int>(value: 2, createdAt: DateTime.now()));
-      final updated3 = policy.put(updated2, 'c', CacheEntry<int>(value: 3, createdAt: DateTime.now()));
+      final updated1 = policy.put(
+          cache, 'a', CacheEntry<int>(value: 1, createdAt: DateTime.now()));
+      final updated2 = policy.put(
+          updated1, 'b', CacheEntry<int>(value: 2, createdAt: DateTime.now()));
+      final updated3 = policy.put(
+          updated2, 'c', CacheEntry<int>(value: 3, createdAt: DateTime.now()));
       expect(updated3.length, 2);
       expect(updated3.containsKey('c'), true);
     });
@@ -830,7 +844,8 @@ void main() {
     });
 
     test('shuffle with 2 items: returns different index', () {
-      final result = PlayQueue.nextIndex(0, 2, PlayMode.shuffle, random: Random(42));
+      final result =
+          PlayQueue.nextIndex(0, 2, PlayMode.shuffle, random: Random(42));
       expect(result, 1);
     });
   });
@@ -841,12 +856,15 @@ void main() {
 
   group('AUD-05-T15: Shuffle order state reachability', () {
     test('advanceShuffle terminates after exhausting permutation', () {
-      final files = List.generate(5, (i) => NasFile(
-        path: '/music/track$i.mp3',
-        name: 'track$i.mp3',
-        isDirectory: false,
-      ));
-      var queue = PlayQueue(files: files, currentIndex: 0, playMode: PlayMode.shuffle);
+      final files = List.generate(
+          5,
+          (i) => NasFile(
+                path: '/music/track$i.mp3',
+                name: 'track$i.mp3',
+                isDirectory: false,
+              ));
+      var queue =
+          PlayQueue(files: files, currentIndex: 0, playMode: PlayMode.shuffle);
       int steps = 0;
 
       while (true) {
@@ -864,12 +882,15 @@ void main() {
     });
 
     test('retreatShuffle goes back through history', () {
-      final files = List.generate(3, (i) => NasFile(
-        path: '/music/track$i.mp3',
-        name: 'track$i.mp3',
-        isDirectory: false,
-      ));
-      var queue = PlayQueue(files: files, currentIndex: 0, playMode: PlayMode.shuffle);
+      final files = List.generate(
+          3,
+          (i) => NasFile(
+                path: '/music/track$i.mp3',
+                name: 'track$i.mp3',
+                isDirectory: false,
+              ));
+      var queue =
+          PlayQueue(files: files, currentIndex: 0, playMode: PlayMode.shuffle);
 
       // Advance twice
       final step1 = queue.advanceShuffle();
@@ -884,12 +905,15 @@ void main() {
     });
 
     test('advanceShuffle at end returns null', () {
-      final files = List.generate(2, (i) => NasFile(
-        path: '/music/track$i.mp3',
-        name: 'track$i.mp3',
-        isDirectory: false,
-      ));
-      var queue = PlayQueue(files: files, currentIndex: 0, playMode: PlayMode.shuffle);
+      final files = List.generate(
+          2,
+          (i) => NasFile(
+                path: '/music/track$i.mp3',
+                name: 'track$i.mp3',
+                isDirectory: false,
+              ));
+      var queue =
+          PlayQueue(files: files, currentIndex: 0, playMode: PlayMode.shuffle);
       final step1 = queue.advanceShuffle();
       expect(step1, isNotNull);
       final step2 = step1!.advanceShuffle();
@@ -897,12 +921,15 @@ void main() {
     });
 
     test('retreatShuffle at start returns null', () {
-      final files = List.generate(2, (i) => NasFile(
-        path: '/music/track$i.mp3',
-        name: 'track$i.mp3',
-        isDirectory: false,
-      ));
-      final queue = PlayQueue(files: files, currentIndex: 0, playMode: PlayMode.shuffle);
+      final files = List.generate(
+          2,
+          (i) => NasFile(
+                path: '/music/track$i.mp3',
+                name: 'track$i.mp3',
+                isDirectory: false,
+              ));
+      final queue =
+          PlayQueue(files: files, currentIndex: 0, playMode: PlayMode.shuffle);
       final back = queue.retreatShuffle();
       expect(back, isNull); // at start of shuffle order
     });

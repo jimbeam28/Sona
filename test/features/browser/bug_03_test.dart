@@ -125,8 +125,7 @@ void main() {
 
       expect(updated.lastAccessedAt, equals(accessedAt),
           reason: '缓存命中后 lastAccessedAt 应更新');
-      expect(updated.createdAt, equals(createdAt),
-          reason: 'createdAt 应保持不变');
+      expect(updated.createdAt, equals(createdAt), reason: 'createdAt 应保持不变');
     });
 
     // ── BUG-03-T04: Repeatedly accessed old entry is never evicted

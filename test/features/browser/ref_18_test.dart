@@ -45,8 +45,7 @@ void main() {
 
       // 6 minutes later — past TTL
       final now = createdAt.add(const Duration(minutes: 6));
-      expect(policy.isAlive(entry, now), isFalse,
-          reason: '超过 5 分钟后缓存条目应过期');
+      expect(policy.isAlive(entry, now), isFalse, reason: '超过 5 分钟后缓存条目应过期');
     });
 
     // ── REF-18-T03: 容量 50 条 → 不淘汰 ─────────────────────────────────────
@@ -81,8 +80,7 @@ void main() {
       expect(result.length, equals(50), reason: '51 条触发淘汰后应为 50 条');
       expect(result.containsKey('key:1'), isFalse,
           reason: 'key:1 的 lastAccessedAt 最旧，应被淘汰');
-      expect(result.containsKey('key:51'), isTrue,
-          reason: '新插入的 key:51 应保留');
+      expect(result.containsKey('key:51'), isTrue, reason: '新插入的 key:51 应保留');
     });
 
     // ── REF-18-T05: 访问旧条目 → 更新 lastAccessedAt → 不被淘汰 ────────────
@@ -106,12 +104,10 @@ void main() {
       );
 
       expect(result.length, equals(50), reason: '淘汰后应为 50 条');
-      expect(result.containsKey('key:1'), isTrue,
-          reason: '访问过的 key:1 不应被淘汰');
+      expect(result.containsKey('key:1'), isTrue, reason: '访问过的 key:1 不应被淘汰');
       expect(result.containsKey('key:2'), isFalse,
           reason: '未访问的 key:2（lastAccessedAt 最旧）应被淘汰');
-      expect(result.containsKey('key:51'), isTrue,
-          reason: '新插入的 key:51 应保留');
+      expect(result.containsKey('key:51'), isTrue, reason: '新插入的 key:51 应保留');
     });
   });
 }

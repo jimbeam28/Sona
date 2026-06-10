@@ -197,7 +197,8 @@ void main() {
         async.elapse(const Duration(seconds: 12));
 
         expect(result, equals(TrackLoadStatus.loaded),
-            reason: 'play() succeeding at 11.8s (iteration 59) should yield loaded');
+            reason:
+                'play() succeeding at 11.8s (iteration 59) should yield loaded');
       });
     });
   });
@@ -327,12 +328,12 @@ void main() {
 
       expect(state.mode, equals(TimerMode.duration),
           reason: 'mode should be duration');
-      expect(state.endTime, isNotNull,
-          reason: 'endTime should be set');
+      expect(state.endTime, isNotNull, reason: 'endTime should be set');
 
       // endTime = now + 0 minutes = now, which means !endTime.isAfter(now)
       expect(state.isExpired, isTrue,
-          reason: 'startDuration(0) should create an immediately-expired timer');
+          reason:
+              'startDuration(0) should create an immediately-expired timer');
 
       // checkExpired should return true and clear state
       final expired = service.checkExpired();
@@ -370,30 +371,29 @@ class _LenientMockPlayer extends Mock implements AudioPlayer {
   @override
   Stream<ProcessingState> get processingStateStream =>
       super.noSuchMethod(Invocation.getter(#processingStateStream),
-          returnValue: Stream<ProcessingState>.empty(),
-          returnValueForMissingStub: Stream<ProcessingState>.empty())
-      as Stream<ProcessingState>;
+              returnValue: Stream<ProcessingState>.empty(),
+              returnValueForMissingStub: Stream<ProcessingState>.empty())
+          as Stream<ProcessingState>;
 
   @override
   Stream<PlayerState> get playerStateStream =>
       super.noSuchMethod(Invocation.getter(#playerStateStream),
-          returnValue: Stream<PlayerState>.empty(),
-          returnValueForMissingStub: Stream<PlayerState>.empty())
-      as Stream<PlayerState>;
+              returnValue: Stream<PlayerState>.empty(),
+              returnValueForMissingStub: Stream<PlayerState>.empty())
+          as Stream<PlayerState>;
 
   @override
-  Stream<Duration> get positionStream =>
-      super.noSuchMethod(Invocation.getter(#positionStream),
-          returnValue: Stream<Duration>.empty(),
-          returnValueForMissingStub: Stream<Duration>.empty())
-      as Stream<Duration>;
+  Stream<Duration> get positionStream => super.noSuchMethod(
+      Invocation.getter(#positionStream),
+      returnValue: Stream<Duration>.empty(),
+      returnValueForMissingStub: Stream<Duration>.empty()) as Stream<Duration>;
 
   @override
   Stream<Duration?> get durationStream =>
       super.noSuchMethod(Invocation.getter(#durationStream),
-          returnValue: Stream<Duration?>.empty(),
-          returnValueForMissingStub: Stream<Duration?>.empty())
-      as Stream<Duration?>;
+              returnValue: Stream<Duration?>.empty(),
+              returnValueForMissingStub: Stream<Duration?>.empty())
+          as Stream<Duration?>;
 
   @override
   bool get playing => super.noSuchMethod(Invocation.getter(#playing),
@@ -401,8 +401,8 @@ class _LenientMockPlayer extends Mock implements AudioPlayer {
 
   @override
   Duration get position => super.noSuchMethod(Invocation.getter(#position),
-      returnValue: Duration.zero, returnValueForMissingStub: Duration.zero)
-      as Duration;
+      returnValue: Duration.zero,
+      returnValueForMissingStub: Duration.zero) as Duration;
 
   @override
   Future<Duration?> setAudioSource(AudioSource source,
@@ -410,16 +410,16 @@ class _LenientMockPlayer extends Mock implements AudioPlayer {
           int? initialIndex,
           Duration? initialPosition}) =>
       super.noSuchMethod(
-          Invocation.method(#setAudioSource, [
-            source
-          ], {
-            #preload: preload,
-            if (initialIndex != null) #initialIndex: initialIndex,
-            if (initialPosition != null) #initialPosition: initialPosition,
-          }),
-          returnValue: Future<Duration?>.value(),
-          returnValueForMissingStub: Future<Duration?>.value())
-      as Future<Duration?>;
+              Invocation.method(#setAudioSource, [
+                source
+              ], {
+                #preload: preload,
+                if (initialIndex != null) #initialIndex: initialIndex,
+                if (initialPosition != null) #initialPosition: initialPosition,
+              }),
+              returnValue: Future<Duration?>.value(),
+              returnValueForMissingStub: Future<Duration?>.value())
+          as Future<Duration?>;
 
   @override
   Future<void> play() => super.noSuchMethod(Invocation.method(#play, []),

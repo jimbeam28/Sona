@@ -39,12 +39,17 @@ final clearDirectoryCacheProvider =
       ref.read(directoryCacheProvider.notifier).state = {};
     } else {
       final suffix = ':$path';
-      final toRemove = ref.read(directoryCacheProvider).keys
-          .where((k) => k.endsWith(suffix)).toList();
+      final toRemove = ref
+          .read(directoryCacheProvider)
+          .keys
+          .where((k) => k.endsWith(suffix))
+          .toList();
       if (toRemove.isNotEmpty) {
         ref.read(directoryCacheProvider.notifier).update((s) {
           final u = Map<String, CacheEntry<List<NasFile>>>.from(s);
-          for (final k in toRemove) { u.remove(k); }
+          for (final k in toRemove) {
+            u.remove(k);
+          }
           return u;
         });
       }
@@ -70,13 +75,15 @@ final directoryContentsProvider =
     return sortFiles(cached.value, sortOption);
   }
   final storage = ref.watch(secureStorageProvider);
-  final pw = await safeStorageRead(storage, key: 'connection_password_${conn.id}');
+  final pw =
+      await safeStorageRead(storage, key: 'connection_password_${conn.id}');
   if (pw == null || pw.isEmpty) throw const WebDavException('密码未保存');
   final entries = await ref.watch(webDavClientProvider).listDirectory(
       url: conn.url, username: conn.username, password: pw, path: path);
   final reqPath = path.endsWith('/') ? path : '$path/';
   final filtered = entries.where((e) {
-    if (e.path == path || e.path == reqPath || '${e.path}/' == reqPath) return false;
+    if (e.path == path || e.path == reqPath || '${e.path}/' == reqPath)
+      return false;
     return e.isDirectory || e.audioType != null;
   }).toList();
   final sorted = sortFiles(filtered, sortOption);
@@ -112,7 +119,9 @@ final persistQueueOnChangeProvider = Provider<void>((ref) {
     final prefs = ref.read(sharedPreferencesProvider);
     if (prefs == null) return;
     if (next == null) {
-      prefs..remove(_qKey)..remove(_qConnKey);
+      prefs
+        ..remove(_qKey)
+        ..remove(_qConnKey);
     } else {
       prefs.setString(_qKey, jsonEncode(next.toMap()));
       final c = ref.read(lastQueueConnectionIdProvider);
@@ -130,8 +139,10 @@ final restoreQueueFromPrefsProvider = FutureProvider<void>((ref) async {
     final m = jsonDecode(raw) as Map<String, dynamic>;
     final paths = (m['filePaths'] as List<dynamic>?)?.cast<String>();
     if (paths == null || paths.isEmpty) return;
-    final files = paths.map((p) =>
-        NasFile(path: p, name: p.split('/').last, isDirectory: false)).toList();
+    final files = paths
+        .map((p) =>
+            NasFile(path: p, name: p.split('/').last, isDirectory: false))
+        .toList();
     final idx = (m['currentIndex'] as int?) ?? 0;
     if (idx >= files.length) return;
     final posMs = m['startPositionMs'] as int?;
@@ -141,7 +152,10 @@ final restoreQueueFromPrefsProvider = FutureProvider<void>((ref) async {
             orElse: () => PlayMode.sequential)
         : PlayMode.sequential;
     ref.read(currentPlayQueueProvider.notifier).state = PlayQueue(
-        files: files, currentIndex: idx, startPositionMs: posMs, playMode: mode);
+        files: files,
+        currentIndex: idx,
+        startPositionMs: posMs,
+        playMode: mode);
     final savedConnId = prefs.getInt(_qConnKey);
     final conn = ref.read(activeConnectionProvider).valueOrNull;
     if (savedConnId != null && conn?.id != savedConnId) return;
@@ -149,9 +163,12 @@ final restoreQueueFromPrefsProvider = FutureProvider<void>((ref) async {
       try {
         await preloadAudioSource(
             storage: ref.read(secureStorageProvider),
-            connectionId: conn.id!, baseUrl: conn.url,
-            filePath: files[idx].path, username: conn.username,
-            player: ref.read(audioPlayerProvider), startPositionMs: posMs);
+            connectionId: conn.id!,
+            baseUrl: conn.url,
+            filePath: files[idx].path,
+            username: conn.username,
+            player: ref.read(audioPlayerProvider),
+            startPositionMs: posMs);
       } catch (e) {
         debugPrint('[Browser] restoreQueue: pre-load failed: $e');
       }
@@ -161,7 +178,8 @@ final restoreQueueFromPrefsProvider = FutureProvider<void>((ref) async {
   }
 });
 
-final _progressRegistry = StateProvider<Map<String, PlayProgress?>>((ref) => {});
+final _progressRegistry =
+    StateProvider<Map<String, PlayProgress?>>((ref) => {});
 
 final loadProgressForDirectoryProvider =
     FutureProvider.family<void, String>((ref, path) async {
@@ -173,8 +191,11 @@ final loadProgressForDirectoryProvider =
   final reg = <String, PlayProgress?>{};
   for (final f in contents) {
     if (f.isDirectory) continue;
-    try { reg[f.path] = await dao.find(conn.id!, f.path); }
-    catch (_) { reg[f.path] = null; }
+    try {
+      reg[f.path] = await dao.find(conn.id!, f.path);
+    } catch (_) {
+      reg[f.path] = null;
+    }
   }
   ref.read(_progressRegistry.notifier).state = reg;
 });

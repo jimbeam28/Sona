@@ -82,10 +82,8 @@ void main() {
     });
 
     test('values between options are invalid', () {
-      expect(isValidSpeed(0.6), isFalse,
-          reason: '0.6 is between 0.5 and 0.75');
-      expect(isValidSpeed(1.1), isFalse,
-          reason: '1.1 is between 1.0 and 1.25');
+      expect(isValidSpeed(0.6), isFalse, reason: '0.6 is between 0.5 and 0.75');
+      expect(isValidSpeed(1.1), isFalse, reason: '1.1 is between 1.0 and 1.25');
       expect(isValidSpeed(1.75), isFalse,
           reason: '1.75 is between 1.5 and 2.0');
     });

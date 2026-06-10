@@ -225,11 +225,9 @@ void main() {
       test('current >= length returns null for all modes (nextIndex)', () {
         for (final mode in PlayMode.values) {
           expect(nextIndex(5, 5, mode), isNull,
-              reason:
-                  'current == length nextIndex with $mode should be null');
+              reason: 'current == length nextIndex with $mode should be null');
           expect(nextIndex(10, 5, mode), isNull,
-              reason:
-                  'current > length nextIndex with $mode should be null');
+              reason: 'current > length nextIndex with $mode should be null');
         }
       });
 
@@ -258,10 +256,8 @@ void main() {
       test('previousIndex always picks the other one', () {
         final rng = Random(7);
         for (int i = 0; i < 10; i++) {
-          expect(
-              previousIndex(0, 2, PlayMode.shuffle, random: rng), equals(1));
-          expect(
-              previousIndex(1, 2, PlayMode.shuffle, random: rng), equals(0));
+          expect(previousIndex(0, 2, PlayMode.shuffle, random: rng), equals(1));
+          expect(previousIndex(1, 2, PlayMode.shuffle, random: rng), equals(0));
         }
       });
     });

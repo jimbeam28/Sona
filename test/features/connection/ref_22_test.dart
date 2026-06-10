@@ -112,8 +112,7 @@ void main() {
       // Verify: the new connection was NOT persisted (DB was rolled back)
       final all = await dao.findAll();
       final newConn = all.where((c) => c.name == 'New NAS');
-      expect(newConn, isEmpty,
-          reason: 'SecureStorage 失败后 DB 行应回滚，连接不应存在');
+      expect(newConn, isEmpty, reason: 'SecureStorage 失败后 DB 行应回滚，连接不应存在');
       expect(all.length, equals(1), reason: '只有预填充的连接应保留');
     });
   });
@@ -139,9 +138,11 @@ void main() {
       await db.close();
     });
 
-    test('deleting the only connection throws LastConnectionException', () async {
+    test('deleting the only connection throws LastConnectionException',
+        () async {
       // Insert a single connection
-      final config = testConfig(name: 'Only NAS', url: 'http://only.local:5005');
+      final config =
+          testConfig(name: 'Only NAS', url: 'http://only.local:5005');
       final id = await dao.insert(config, passwordKey: 'key_only');
       storage.stub('connection_password_$id', 'pw');
 
@@ -201,13 +202,11 @@ void main() {
       // Verify: conn2 is now active
       final after = await dao.findActive();
       expect(after, isNotNull, reason: '删除活跃连接后应自动激活另一个');
-      expect(after!.id, equals(conn2Id),
-          reason: 'conn2 应被自动设为活跃连接');
+      expect(after!.id, equals(conn2Id), reason: 'conn2 应被自动设为活跃连接');
       expect(after.name, equals('NAS-2'));
 
       // Verify: conn1's password was removed from secure storage
-      final deletedPw =
-          await storage.read(key: 'connection_password_$conn1Id');
+      final deletedPw = await storage.read(key: 'connection_password_$conn1Id');
       expect(deletedPw, isNull, reason: '已删除连接的密码应从 SecureStorage 中移除');
 
       // Verify: conn2's password is still present
@@ -260,22 +259,17 @@ void main() {
       // After: conn2 is active, conn1 is not
       final afterActive = await dao.findActive();
       expect(afterActive, isNotNull, reason: '切换后应有活跃连接');
-      expect(afterActive!.id, equals(conn2Id),
-          reason: '切换后 conn2 应为活跃连接');
+      expect(afterActive!.id, equals(conn2Id), reason: '切换后 conn2 应为活跃连接');
 
       final afterList = await dao.findAll();
       final afterConn1 = afterList.firstWhere((c) => c.id == conn1Id);
       final afterConn2 = afterList.firstWhere((c) => c.id == conn2Id);
-      expect(afterConn1.isActive, isFalse,
-          reason: '切换后 conn1 应变为非活跃');
-      expect(afterConn2.isActive, isTrue,
-          reason: '切换后 conn2 应变为活跃');
+      expect(afterConn1.isActive, isFalse, reason: '切换后 conn1 应变为非活跃');
+      expect(afterConn2.isActive, isTrue, reason: '切换后 conn2 应变为活跃');
 
       // Exactly one active connection
-      final activeCount =
-          afterList.where((c) => c.isActive).length;
-      expect(activeCount, equals(1),
-          reason: '事务保证任意时刻只有一个活跃连接');
+      final activeCount = afterList.where((c) => c.isActive).length;
+      expect(activeCount, equals(1), reason: '事务保证任意时刻只有一个活跃连接');
     });
 
     test('switching back restores original active', () async {
@@ -287,8 +281,7 @@ void main() {
       // Switch back to conn1
       await service.setActive(conn1Id);
       final after2 = await dao.findActive();
-      expect(after2!.id, equals(conn1Id),
-          reason: '再次切换应回到 conn1');
+      expect(after2!.id, equals(conn1Id), reason: '再次切换应回到 conn1');
 
       // Only conn1 is active
       final list = await dao.findAll();

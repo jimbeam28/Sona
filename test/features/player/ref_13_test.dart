@@ -446,17 +446,20 @@ void main() {
       notifier.startPlayback();
 
       notifier.onAppLifecycleChange(AppLifecycleState.hidden);
-      expect(container.read(backgroundPlaybackProvider).isInForeground, isFalse);
+      expect(
+          container.read(backgroundPlaybackProvider).isInForeground, isFalse);
       expect(container.read(backgroundPlaybackProvider).playbackState,
           equals(BackgroundPlaybackState.playing));
 
       notifier.onAppLifecycleChange(AppLifecycleState.inactive);
-      expect(container.read(backgroundPlaybackProvider).isInForeground, isFalse);
+      expect(
+          container.read(backgroundPlaybackProvider).isInForeground, isFalse);
       expect(container.read(backgroundPlaybackProvider).playbackState,
           equals(BackgroundPlaybackState.playing));
 
       notifier.onAppLifecycleChange(AppLifecycleState.paused);
-      expect(container.read(backgroundPlaybackProvider).isInForeground, isFalse);
+      expect(
+          container.read(backgroundPlaybackProvider).isInForeground, isFalse);
       expect(container.read(backgroundPlaybackProvider).playbackState,
           equals(BackgroundPlaybackState.playing));
 

@@ -35,8 +35,8 @@ void main() {
       await tester.pumpWidget(buildTestApp(
         const ConnectionListScreen(),
         overrides: [
-          connectionListProvider
-              .overrideWith((ref) => Future.value([connWithId, connWithNullId])),
+          connectionListProvider.overrideWith(
+              (ref) => Future.value([connWithId, connWithNullId])),
           activeConnectionProvider
               .overrideWith((ref) => Future.value(connWithId)),
         ],
@@ -63,8 +63,8 @@ void main() {
       await tester.pumpWidget(buildTestApp(
         const ConnectionListScreen(),
         overrides: [
-          connectionListProvider
-              .overrideWith((ref) => Future.value([connWithId, connWithNullId])),
+          connectionListProvider.overrideWith(
+              (ref) => Future.value([connWithId, connWithNullId])),
           activeConnectionProvider
               .overrideWith((ref) => Future.value(connWithId)),
         ],
@@ -99,8 +99,8 @@ void main() {
       await tester.pumpWidget(buildTestApp(
         const ConnectionListScreen(),
         overrides: [
-          connectionListProvider
-              .overrideWith((ref) => Future.value([connWithId, connWithNullId])),
+          connectionListProvider.overrideWith(
+              (ref) => Future.value([connWithId, connWithNullId])),
           activeConnectionProvider
               .overrideWith((ref) => Future.value(connWithId)),
         ],
@@ -137,8 +137,7 @@ void main() {
         overrides: [
           connectionListProvider
               .overrideWith((ref) => Future.value([conn1, conn2])),
-          activeConnectionProvider
-              .overrideWith((ref) => Future.value(conn1)),
+          activeConnectionProvider.overrideWith((ref) => Future.value(conn1)),
         ],
       ));
       await tester.pumpAndSettle();
@@ -165,8 +164,7 @@ void main() {
         overrides: [
           connectionListProvider
               .overrideWith((ref) => Future.value([conn1, conn2])),
-          activeConnectionProvider
-              .overrideWith((ref) => Future.value(conn1)),
+          activeConnectionProvider.overrideWith((ref) => Future.value(conn1)),
         ],
       ));
       await tester.pumpAndSettle();

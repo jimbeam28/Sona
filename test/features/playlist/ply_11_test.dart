@@ -15,7 +15,6 @@ import '../../helpers/test_database.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-
 /// Creates a [ProviderContainer] that overrides [playlistDaoProvider] so the
 /// DAO uses the test database injected via [DatabaseHelper].
 ProviderContainer _makeContainer() {

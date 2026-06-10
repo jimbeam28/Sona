@@ -96,8 +96,7 @@ int? nextIndex(int current, int length, PlayMode mode, {Random? random}) {
 /// - Single-item queue with repeatOne → same index
 /// - Single-item queue with repeatAll → same index
 /// - Single-item queue with shuffle → null (no different index)
-int? previousIndex(int current, int length, PlayMode mode,
-    {Random? random}) {
+int? previousIndex(int current, int length, PlayMode mode, {Random? random}) {
   // Guard against out-of-bounds or empty queue.
   if (length == 0 || current < 0 || current >= length) return null;
   switch (mode) {

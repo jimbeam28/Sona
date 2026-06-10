@@ -22,8 +22,7 @@ void main() {
   group('BUG-10: SecureStorage timeout protection', () {
     // ── BUG-10-T01: storage.read hangs -> 5 seconds later returns null ──────
 
-    test('BUG-10-T01: storage.read hangs -> returns null after 5s timeout',
-        () {
+    test('BUG-10-T01: storage.read hangs -> returns null after 5s timeout', () {
       FakeAsync().run((async) {
         final storage = _HangingSecureStorage();
 

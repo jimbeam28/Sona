@@ -108,8 +108,7 @@ void main() {
       final queueConnIdProvider = MockQueueConnectionIdProvider();
 
       // Connection returns null (simulates no active connection after switch).
-      when(connProvider.getActiveConnection())
-          .thenAnswer((_) async => null);
+      when(connProvider.getActiveConnection()).thenAnswer((_) async => null);
       when(connProvider.currentConnection).thenReturn(null);
       when(passwordReader.readPassword(any)).thenAnswer((_) async => 'secret');
       when(speedProvider.getDefaultSpeed()).thenReturn(1.0);
@@ -132,7 +131,8 @@ void main() {
           reason: 'AUD-04-T01: null connection should return failed');
     });
 
-    test('queue connection cleared then new queue loads -> orchestrator accepts',
+    test(
+        'queue connection cleared then new queue loads -> orchestrator accepts',
         () async {
       final env = _createEnv();
 
@@ -200,7 +200,8 @@ void main() {
 
       // Key: no crash, no double-trigger.
       expect(orchestrator.queue, isNotNull,
-          reason: 'AUD-04-T02: queue should not be null after remove + completed');
+          reason:
+              'AUD-04-T02: queue should not be null after remove + completed');
     });
 
     test('removeTrack on last track + completed -> queue null, no double stop',
@@ -245,7 +246,8 @@ void main() {
   // ═══════════════════════════════════════════════════════════════════════════════
 
   group('AUD-04-T03: Rapid enter/exit PlayerScreen -> no memory leak', () {
-    test('dispose cancels subscriptions; events after dispose do not crash', () {
+    test('dispose cancels subscriptions; events after dispose do not crash',
+        () {
       final player = MockAudioPlayer();
       final processingController =
           StreamController<ProcessingState>.broadcast();
@@ -339,18 +341,22 @@ void main() {
         // First request: slow.
         final slowCompleter = Completer<TrackLoadResult>();
         var firstResult = TrackLoadResult.superseded();
-        gate.schedule<TrackLoadResult>(
-          task: (_) => slowCompleter.future,
-          onSuperseded: () => const TrackLoadResult.superseded(),
-        ).then((r) => firstResult = r);
+        gate
+            .schedule<TrackLoadResult>(
+              task: (_) => slowCompleter.future,
+              onSuperseded: () => const TrackLoadResult.superseded(),
+            )
+            .then((r) => firstResult = r);
 
         // Second request: fast (re-enter screen).
         final fastCompleter = Completer<TrackLoadResult>();
         var secondResult = TrackLoadResult.superseded();
-        gate.schedule<TrackLoadResult>(
-          task: (_) => fastCompleter.future,
-          onSuperseded: () => const TrackLoadResult.superseded(),
-        ).then((r) => secondResult = r);
+        gate
+            .schedule<TrackLoadResult>(
+              task: (_) => fastCompleter.future,
+              onSuperseded: () => const TrackLoadResult.superseded(),
+            )
+            .then((r) => secondResult = r);
 
         // Resolve slow — it should be superseded.
         slowCompleter.complete(const TrackLoadResult.failed());
@@ -380,20 +386,26 @@ void main() {
         var r2 = TrackLoadResult.superseded();
         var r3 = TrackLoadResult.superseded();
 
-        gate.schedule<TrackLoadResult>(
-          task: (_) => c1.future,
-          onSuperseded: () => const TrackLoadResult.superseded(),
-        ).then((r) => r1 = r);
+        gate
+            .schedule<TrackLoadResult>(
+              task: (_) => c1.future,
+              onSuperseded: () => const TrackLoadResult.superseded(),
+            )
+            .then((r) => r1 = r);
 
-        gate.schedule<TrackLoadResult>(
-          task: (_) => c2.future,
-          onSuperseded: () => const TrackLoadResult.superseded(),
-        ).then((r) => r2 = r);
+        gate
+            .schedule<TrackLoadResult>(
+              task: (_) => c2.future,
+              onSuperseded: () => const TrackLoadResult.superseded(),
+            )
+            .then((r) => r2 = r);
 
-        gate.schedule<TrackLoadResult>(
-          task: (_) => c3.future,
-          onSuperseded: () => const TrackLoadResult.superseded(),
-        ).then((r) => r3 = r);
+        gate
+            .schedule<TrackLoadResult>(
+              task: (_) => c3.future,
+              onSuperseded: () => const TrackLoadResult.superseded(),
+            )
+            .then((r) => r3 = r);
 
         // First two superseded.
         c1.complete(const TrackLoadResult.failed());
@@ -424,15 +436,13 @@ void main() {
       when(connProvider.getActiveConnection())
           .thenAnswer((_) async => _makeConnection());
       when(connProvider.currentConnection).thenReturn(_makeConnection());
-      when(passwordReader.readPassword(any))
-          .thenAnswer((_) async => 'secret');
+      when(passwordReader.readPassword(any)).thenAnswer((_) async => 'secret');
       when(speedProvider.getDefaultSpeed()).thenReturn(1.0);
       when(queueConnIdProvider.getLastQueueConnectionId()).thenReturn(1);
 
       // Simulate slow setAudioSource.
       final loadCompleter = Completer<Duration?>();
-      when(player.setAudioSource(any))
-          .thenAnswer((_) => loadCompleter.future);
+      when(player.setAudioSource(any)).thenAnswer((_) => loadCompleter.future);
       when(player.seek(any)).thenAnswer((_) async {});
       when(player.setSpeed(any)).thenAnswer((_) async {});
       when(player.play()).thenAnswer((_) async {});
@@ -507,7 +517,8 @@ void main() {
       // checkExpired is a no-op.
       final expired = service.checkExpired();
       expect(expired, isFalse,
-          reason: 'AUD-04-T05: checkExpired after afterCurrent trigger should be false');
+          reason:
+              'AUD-04-T05: checkExpired after afterCurrent trigger should be false');
     });
 
     test('integration: timer expiry + completed -> pause called exactly once',
@@ -583,7 +594,8 @@ void main() {
       expect(service.state, isNull);
     });
 
-    test('triple event: background resume + timer expired + completed -> single pause',
+    test(
+        'triple event: background resume + timer expired + completed -> single pause',
         () {
       final service = TimerService();
       final player = MockAudioPlayer();
@@ -704,8 +716,7 @@ void _stubPlayer(MockAudioPlayer player) {
   when(connProvider.getActiveConnection())
       .thenAnswer((_) async => _makeConnection());
   when(connProvider.currentConnection).thenReturn(_makeConnection());
-  when(passwordReader.readPassword(any))
-      .thenAnswer((_) async => 'secret');
+  when(passwordReader.readPassword(any)).thenAnswer((_) async => 'secret');
   when(speedProvider.getDefaultSpeed()).thenReturn(1.0);
   when(queueConnIdProvider.getLastQueueConnectionId()).thenReturn(1);
 
@@ -735,8 +746,7 @@ PlaybackOrchestrator _buildOrchestrator(MockAudioPlayer player) {
   when(connProvider.getActiveConnection())
       .thenAnswer((_) async => _makeConnection());
   when(connProvider.currentConnection).thenReturn(_makeConnection());
-  when(passwordReader.readPassword(any))
-      .thenAnswer((_) async => 'secret');
+  when(passwordReader.readPassword(any)).thenAnswer((_) async => 'secret');
   when(speedProvider.getDefaultSpeed()).thenReturn(1.0);
   when(queueConnIdProvider.getLastQueueConnectionId()).thenReturn(1);
 

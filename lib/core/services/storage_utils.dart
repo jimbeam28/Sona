@@ -24,7 +24,9 @@ Future<void> safeStorageWrite(
   required String? value,
 }) async {
   try {
-    await storage.write(key: key, value: value).timeout(const Duration(seconds: 5));
+    await storage
+        .write(key: key, value: value)
+        .timeout(const Duration(seconds: 5));
   } catch (e) {
     debugPrint('[Storage] safeWrite failed: $e');
     rethrow;

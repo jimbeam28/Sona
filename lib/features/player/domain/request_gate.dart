@@ -153,11 +153,11 @@ class SerializedRequestGate {
         // BUG-05: add 20-second timeout to prevent the gate from getting
         // permanently stuck when the task hangs on an unresolved await.
         final result = await request.task(request.requestId).timeout(
-          const Duration(seconds: 20),
-          onTimeout: () => throw TimeoutException(
-            'SerializedRequestGate: task timed out after 20 seconds',
-          ),
-        );
+              const Duration(seconds: 20),
+              onTimeout: () => throw TimeoutException(
+                'SerializedRequestGate: task timed out after 20 seconds',
+              ),
+            );
         request.complete(
             isLatest(request.requestId) ? result : request.onSuperseded());
       } catch (e) {

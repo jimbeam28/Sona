@@ -104,12 +104,14 @@ void main() {
 
     test('durationMs = null, positionMs = 0 → false', () {
       expect(policy.shouldClear(0, null), isFalse,
-          reason: 'REF-24-T04: null duration with 0 position → should NOT clear');
+          reason:
+              'REF-24-T04: null duration with 0 position → should NOT clear');
     });
 
     test('durationMs = null, large position → false', () {
       expect(policy.shouldClear(7200000, null), isFalse,
-          reason: 'REF-24-T04: null duration with 2h position → should NOT clear');
+          reason:
+              'REF-24-T04: null duration with 2h position → should NOT clear');
     });
   });
 }

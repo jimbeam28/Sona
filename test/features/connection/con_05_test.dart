@@ -90,7 +90,6 @@ class FakeSecureStorage extends FlutterSecureStorage {
 
 // testConfig() is imported from test_factories.dart as testConfig().
 
-
 // ═════════════════════════════════════════════════════════════════════════════
 // Unit tests — CON-T28~T30
 // ═════════════════════════════════════════════════════════════════════════════

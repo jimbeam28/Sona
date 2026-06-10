@@ -69,8 +69,7 @@ Widget buildTestAppWithPlayerRoute(Widget child, {List<Override>? overrides}) {
       ),
       GoRoute(
         path: '/player',
-        builder: (_, __) =>
-            const Scaffold(body: Center(child: Text('Player'))),
+        builder: (_, __) => const Scaffold(body: Center(child: Text('Player'))),
       ),
     ],
   );

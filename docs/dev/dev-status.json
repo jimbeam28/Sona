@@ -1,508 +1,84 @@
 {
   "metadata": {
-    "last_updated": "2026-06-09",
-    "total": 54,
-    "pending": 0,
-    "done": 54
+    "last_updated": "2026-06-10",
+    "total": 8,
+    "pending": 7,
+    "done": 1
   },
   "order": [
-    "BUG-01", "BUG-02", "BUG-03", "BUG-04", "BUG-05",
-    "BUG-06", "BUG-07", "BUG-08", "BUG-09", "BUG-10",
-    "REF-01", "REF-02", "REF-03", "REF-04", "REF-05",
-    "REF-06", "REF-07", "REF-08", "REF-09", "REF-10",
-    "REF-11", "REF-12", "REF-13", "REF-14", "REF-15",
-    "REF-16", "REF-17", "REF-18", "REF-19", "REF-20",
-    "REF-21", "REF-22", "REF-23", "REF-24", "REF-25",
-    "REF-26", "REF-27", "REF-28", "REF-29", "REF-30",
-    "REF-31", "REF-32",
-    "TST-01", "TST-02", "TST-03", "TST-04",
-    "AUD-01", "AUD-02", "AUD-03", "AUD-04", "AUD-05",
-    "DOC-01", "DOC-02", "CI-01"
+    "FIX-01", "FIX-02", "FIX-03", "FIX-04",
+    "FIX-05", "FIX-06", "FIX-07", "FIX-08"
   ],
   "items": {
-    "BUG-01": {
-      "name": "_completingProvider 卡死导致自动切歌永久失效",
-      "plan_section": "dev-plan.md §BUG-01",
+    "FIX-01": {
+      "name": "player_screen.dart 超500行限制",
+      "plan_section": "dev-plan.md §FIX-01",
       "impl_status": "done",
       "test_status": "passed",
       "dependencies": [],
       "retry_count": 0,
       "last_error": ""
     },
-    "BUG-02": {
-      "name": "播放单取消全选不退出选择模式",
-      "plan_section": "dev-plan.md §BUG-02",
-      "impl_status": "done",
-      "test_status": "passed",
+    "FIX-02": {
+      "name": "progress provider 未使用 domain service",
+      "plan_section": "dev-plan.md §FIX-02",
+      "impl_status": "pending",
+      "test_status": "pending",
       "dependencies": [],
       "retry_count": 0,
       "last_error": ""
     },
-    "BUG-03": {
-      "name": "目录缓存淘汰不是 LRU",
-      "plan_section": "dev-plan.md §BUG-03",
-      "impl_status": "done",
-      "test_status": "passed",
+    "FIX-03": {
+      "name": "playlist provider 未使用 domain service",
+      "plan_section": "dev-plan.md §FIX-03",
+      "impl_status": "pending",
+      "test_status": "pending",
       "dependencies": [],
       "retry_count": 0,
       "last_error": ""
     },
-    "BUG-04": {
-      "name": "播放单曲目排序缺少防御检查",
-      "plan_section": "dev-plan.md §BUG-04",
-      "impl_status": "done",
-      "test_status": "passed",
+    "FIX-04": {
+      "name": "settings provider 未使用 domain service",
+      "plan_section": "dev-plan.md §FIX-04",
+      "impl_status": "pending",
+      "test_status": "pending",
       "dependencies": [],
       "retry_count": 0,
       "last_error": ""
     },
-    "BUG-05": {
-      "name": "SerializedRequestGate 卡死导致所有后续加载请求永久挂起",
-      "plan_section": "dev-plan.md §BUG-05",
-      "impl_status": "done",
-      "test_status": "passed",
+    "FIX-05": {
+      "name": "player_provider 内联队列导航逻辑",
+      "plan_section": "dev-plan.md §FIX-05",
+      "impl_status": "pending",
+      "test_status": "pending",
       "dependencies": [],
       "retry_count": 0,
       "last_error": ""
     },
-    "BUG-06": {
-      "name": "audio_handler await 无超时导致通知栏控件卡死",
-      "plan_section": "dev-plan.md §BUG-06",
-      "impl_status": "done",
-      "test_status": "passed",
+    "FIX-06": {
+      "name": "background_playback.dart 不是纯 Dart",
+      "plan_section": "dev-plan.md §FIX-06",
+      "impl_status": "pending",
+      "test_status": "pending",
       "dependencies": [],
       "retry_count": 0,
       "last_error": ""
     },
-    "BUG-07": {
-      "name": "App 启动恢复队列时 setAudioSource/seek 无超时导致启动卡住",
-      "plan_section": "dev-plan.md §BUG-07",
-      "impl_status": "done",
-      "test_status": "passed",
+    "FIX-07": {
+      "name": "缺少3个集成测试",
+      "plan_section": "dev-plan.md §FIX-07",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": ["FIX-02", "FIX-03", "FIX-05"],
+      "retry_count": 0,
+      "last_error": ""
+    },
+    "FIX-08": {
+      "name": "lib/app/ 目录未创建",
+      "plan_section": "dev-plan.md §FIX-08",
+      "impl_status": "pending",
+      "test_status": "pending",
       "dependencies": [],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "BUG-08": {
-      "name": "conn.id! / track.id! 空指针闪退",
-      "plan_section": "dev-plan.md §BUG-08",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": [],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "BUG-09": {
-      "name": "upsertProgressProvider / clearProgressProvider 无 try-catch 导致闪退",
-      "plan_section": "dev-plan.md §BUG-09",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": [],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "BUG-10": {
-      "name": "SecureStorage 全局无超时保护",
-      "plan_section": "dev-plan.md §BUG-10",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": [],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "REF-01": {
-      "name": "创建 test/helpers/ 目录结构",
-      "plan_section": "dev-plan.md §REF-01",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": [],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "REF-02": {
-      "name": "提取 FakeSecureStorage 到共享模块",
-      "plan_section": "dev-plan.md §REF-02",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": ["REF-01"],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "REF-03": {
-      "name": "提取 openTestDatabase 到共享模块",
-      "plan_section": "dev-plan.md §REF-03",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": ["REF-01"],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "REF-04": {
-      "name": "提取 _audio()/_dir() 工厂函数",
-      "plan_section": "dev-plan.md §REF-04",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": ["REF-01"],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "REF-05": {
-      "name": "提取 MockWebDavClient 到共享模块",
-      "plan_section": "dev-plan.md §REF-05",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": ["REF-01"],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "REF-06": {
-      "name": "提取 MockAudioPlayer 到共享模块",
-      "plan_section": "dev-plan.md §REF-06",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": ["REF-01"],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "REF-07": {
-      "name": "提取 widget 测试包装函数",
-      "plan_section": "dev-plan.md §REF-07",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": ["REF-01"],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "REF-08": {
-      "name": "创建 player/domain/seek_utils.dart",
-      "plan_section": "dev-plan.md §REF-08",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": [],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "REF-09": {
-      "name": "创建 player/domain/play_mode.dart",
-      "plan_section": "dev-plan.md §REF-09",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": [],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "REF-10": {
-      "name": "创建 player/domain/speed_manager.dart",
-      "plan_section": "dev-plan.md §REF-10",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": [],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "REF-11": {
-      "name": "创建 player/domain/request_gate.dart",
-      "plan_section": "dev-plan.md §REF-11",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": [],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "REF-12": {
-      "name": "创建 player/domain/media_control.dart",
-      "plan_section": "dev-plan.md §REF-12",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": [],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "REF-13": {
-      "name": "创建 player/domain/background_playback.dart",
-      "plan_section": "dev-plan.md §REF-13",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": [],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "REF-14": {
-      "name": "创建 player/domain/playback_orchestrator.dart",
-      "plan_section": "dev-plan.md §REF-14",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": ["REF-08", "REF-09", "REF-10", "REF-11", "REF-13"],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "REF-15": {
-      "name": "重写 player_provider.dart 为薄胶水",
-      "plan_section": "dev-plan.md §REF-15",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": ["REF-14"],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "REF-16": {
-      "name": "更新 player_screen.dart 使用新 provider",
-      "plan_section": "dev-plan.md §REF-16",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": ["REF-15"],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "REF-17": {
-      "name": "创建 browser/domain/navigation_stack.dart",
-      "plan_section": "dev-plan.md §REF-17",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": [],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "REF-18": {
-      "name": "创建 browser/domain/cache_policy.dart",
-      "plan_section": "dev-plan.md §REF-18",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": ["BUG-03"],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "REF-19": {
-      "name": "创建 browser/domain/directory_service.dart",
-      "plan_section": "dev-plan.md §REF-19",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": ["REF-17", "REF-18"],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "REF-20": {
-      "name": "重写 browser_provider.dart 为薄胶水",
-      "plan_section": "dev-plan.md §REF-20",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": ["REF-19"],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "REF-21": {
-      "name": "创建 connection/domain/connection_validator.dart",
-      "plan_section": "dev-plan.md §REF-21",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": [],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "REF-22": {
-      "name": "创建 connection/domain/connection_service.dart",
-      "plan_section": "dev-plan.md §REF-22",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": ["REF-21"],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "REF-23": {
-      "name": "重写 connection_provider.dart 为薄胶水",
-      "plan_section": "dev-plan.md §REF-23",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": ["REF-22"],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "REF-24": {
-      "name": "创建 progress/domain/progress_policy.dart",
-      "plan_section": "dev-plan.md §REF-24",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": [],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "REF-25": {
-      "name": "创建 progress/domain/progress_service.dart",
-      "plan_section": "dev-plan.md §REF-25",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": ["REF-24"],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "REF-26": {
-      "name": "创建 playlist/domain/playlist_service.dart",
-      "plan_section": "dev-plan.md §REF-26",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": [],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "REF-27": {
-      "name": "创建 settings/domain/settings_service.dart",
-      "plan_section": "dev-plan.md §REF-27",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": [],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "REF-28": {
-      "name": "移动 timer_service.dart 到 timer/domain/",
-      "plan_section": "dev-plan.md §REF-28",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": [],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "REF-29": {
-      "name": "定义 core/contracts/ 接口",
-      "plan_section": "dev-plan.md §REF-29",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": ["REF-14", "REF-19", "REF-22"],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "REF-30": {
-      "name": "Data 层实现接口",
-      "plan_section": "dev-plan.md §REF-30",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": ["REF-29"],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "REF-31": {
-      "name": "创建 shared/di/providers.dart",
-      "plan_section": "dev-plan.md §REF-31",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": ["REF-30"],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "REF-32": {
-      "name": "更新所有 feature provider 使用接口",
-      "plan_section": "dev-plan.md §REF-32",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": ["REF-31"],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "TST-01": {
-      "name": "自动切歌流程集成测试",
-      "plan_section": "dev-plan.md §TST-01",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": [],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "TST-02": {
-      "name": "播放进度保存与恢复端到端链路",
-      "plan_section": "dev-plan.md §TST-02",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": [],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "TST-03": {
-      "name": "Timer 到期 → Player 暂停集成链路",
-      "plan_section": "dev-plan.md §TST-03",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": [],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "TST-04": {
-      "name": "播放单曲目点击完整播放流程",
-      "plan_section": "dev-plan.md §TST-04",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": [],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "AUD-01": {
-      "name": "测试覆盖映射审计",
-      "plan_section": "dev-plan.md §AUD-01",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": ["REF-32", "TST-01", "TST-02", "TST-03", "TST-04"],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "AUD-02": {
-      "name": "边界值测试补全",
-      "plan_section": "dev-plan.md §AUD-02",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": [],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "AUD-03": {
-      "name": "错误注入测试补全",
-      "plan_section": "dev-plan.md §AUD-03",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": [],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "AUD-04": {
-      "name": "并发场景测试补全",
-      "plan_section": "dev-plan.md §AUD-04",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": [],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "AUD-05": {
-      "name": "状态可达性审计",
-      "plan_section": "dev-plan.md §AUD-05",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": ["REF-32", "TST-01", "TST-02", "TST-03", "TST-04"],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "DOC-01": {
-      "name": "更新 CLAUDE.md 反映新架构",
-      "plan_section": "dev-plan.md §DOC-01",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": ["REF-32"],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "DOC-02": {
-      "name": "更新 architecture.md",
-      "plan_section": "dev-plan.md §DOC-02",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": ["REF-32"],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "CI-01": {
-      "name": "CI 增加架构边界检查",
-      "plan_section": "dev-plan.md §CI-01",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": ["REF-32"],
       "retry_count": 0,
       "last_error": ""
     }
