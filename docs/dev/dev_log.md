@@ -2,6 +2,18 @@
 
 ---
 
+## [2026-06-10] [TREF-06] - DatabaseHelper 迁移专项测试
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `test/features/coverage/db_migration_test.dart` — 新建 6 个 sqflite_ffi 迁移测试（DB-MIG-01~DB-MIG-06）
+
+### 测试结果
+- 通过: 6 / 总计: 6
+
+---
+
 ## [2026-06-10] [TREF-05] - OnboardingPage 重定向逻辑测试
 
 **状态**: ✅ 成功
