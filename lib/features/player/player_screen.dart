@@ -12,6 +12,7 @@ import '../../shared/models/play_queue.dart';
 import '../browser/browser_provider.dart';
 import '../connection/connection_provider.dart';
 import '../timer/timer_provider.dart';
+import 'domain/player_screen_logic.dart';
 import 'player_provider.dart';
 import 'widgets/now_playing_icon.dart';
 import 'widgets/play_mode_control.dart';
@@ -49,7 +50,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         '[Player] postFrameCallback: queue=${queue?.current.path}, '
         'hasSource=${player.sequenceState != null}',
       );
-      final needsReload = queue != null && !_sourceMatchesQueue(player, queue);
+      final currentSourcePath = _extractCurrentSourcePath(player);
+      final needsReload =
+          queue != null && !sourceMatchesQueue(currentSourcePath, queue);
       if (!needsReload &&
           (player.playing || player.processingState == ProcessingState.ready)) {
         debugPrint('[Player] skipping load — source matches and player ready');
@@ -102,9 +105,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _saveProgressWithContainer(_container);
     final queue = _container.read(currentPlayQueueProvider);
     if (queue != null) {
-      final parentDir = _parentDir(queue.current.path);
-      if (parentDir.isNotEmpty) {
-        _container.invalidate(loadProgressForDirectoryProvider(parentDir));
+      final dir = parentDir(queue.current.path);
+      if (dir.isNotEmpty) {
+        _container.invalidate(loadProgressForDirectoryProvider(dir));
       }
     }
     _timerExpiryChecker?.cancel();
@@ -122,16 +125,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   // ── Load & Play ────────────────────────────────────────────────────────
 
-  /// Returns true when the player's loaded source URI matches [queue]'s current file.
-  bool _sourceMatchesQueue(AudioPlayer player, PlayQueue queue) {
+  /// Extracts the decoded URI path of the currently loaded audio source,
+  /// or `null` if no source is loaded.
+  String? _extractCurrentSourcePath(AudioPlayer player) {
     final state = player.sequenceState;
-    if (state == null) return false;
+    if (state == null) return null;
     final source = state.currentSource;
     if (source is UriAudioSource) {
-      final decoded = Uri.decodeComponent(source.uri.path);
-      return decoded.endsWith(queue.current.path);
+      return Uri.decodeComponent(source.uri.path);
     }
-    return false;
+    return null;
   }
 
   Future<void> _loadAndPlay() async {
@@ -193,27 +196,24 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       } else {
         debugPrint('[Player] _runSerializedLoad: → failed, checking reason');
         final activeConn = ref.read(activeConnectionProvider).valueOrNull;
-        if (activeConn == null) {
-          debugPrint('[Player] error: no active connection');
-          _safeSetState(() {
-            _loadState = PlayerLoadState.error('没有活跃的连接', isAuthError: true);
-          });
-          return;
+        bool hasPassword = false;
+        if (activeConn != null) {
+          final storage = ref.read(secureStorageProvider);
+          final pw = await safeStorageRead(storage,
+              key: 'connection_password_${activeConn.id}');
+          hasPassword = pw != null && pw.isNotEmpty;
         }
-        final storage = ref.read(secureStorageProvider);
-        final pw = await safeStorageRead(storage,
-            key: 'connection_password_${activeConn.id}');
-        if (pw == null || pw.isEmpty) {
-          debugPrint('[Player] error: no password');
-          _safeSetState(() {
-            _loadState = PlayerLoadState.error('密码未保存', isAuthError: true);
-          });
-        } else {
-          debugPrint('[Player] error: generic load failure');
-          _safeSetState(() {
-            _loadState = PlayerLoadState.error('加载失败');
-          });
-        }
+        final reason = classifyLoadFailure(
+          hasActiveConnection: activeConn != null,
+          hasPassword: hasPassword,
+        );
+        debugPrint('[Player] error: $reason');
+        _safeSetState(() {
+          _loadState = PlayerLoadState.error(
+            errorMessageForLoadFailure(reason),
+            isAuthError: isAuthError(reason),
+          );
+        });
       }
     } catch (e, st) {
       debugPrint('[Player] _runSerializedLoad: unexpected error $e\n$st');
@@ -221,12 +221,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         _loadState = PlayerLoadState.error('加载失败');
       });
     }
-  }
-
-  String _parentDir(String filePath) {
-    final idx = filePath.lastIndexOf('/');
-    if (idx <= 0) return '/';
-    return filePath.substring(0, idx);
   }
 
   Future<void> _retry() => _loadAndPlay();

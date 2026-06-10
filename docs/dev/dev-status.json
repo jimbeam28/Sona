@@ -1,83 +1,65 @@
 {
   "metadata": {
     "last_updated": "2026-06-10",
-    "total": 8,
-    "pending": 0,
-    "done": 8
+    "total": 6,
+    "pending": 5,
+    "done": 1
   },
   "order": [
-    "FIX-01", "FIX-02", "FIX-03", "FIX-04",
-    "FIX-05", "FIX-06", "FIX-07", "FIX-08"
+    "TREF-01", "TREF-02", "TREF-03", "TREF-04",
+    "TREF-05", "TREF-06"
   ],
   "items": {
-    "FIX-01": {
-      "name": "player_screen.dart 超500行限制",
-      "plan_section": "dev-plan.md §FIX-01",
+    "TREF-01": {
+      "name": "PlayerScreen 嵌入逻辑提取到 Domain 层",
+      "plan_section": "dev-plan.md §TREF-01",
       "impl_status": "done",
       "test_status": "passed",
       "dependencies": [],
       "retry_count": 0,
       "last_error": ""
     },
-    "FIX-02": {
-      "name": "progress provider 未使用 domain service",
-      "plan_section": "dev-plan.md §FIX-02",
-      "impl_status": "done",
-      "test_status": "passed",
+    "TREF-02": {
+      "name": "ConnectionEditScreen 验证门逻辑提取为纯函数",
+      "plan_section": "dev-plan.md §TREF-02",
+      "impl_status": "pending",
+      "test_status": "pending",
       "dependencies": [],
       "retry_count": 0,
       "last_error": ""
     },
-    "FIX-03": {
-      "name": "playlist provider 未使用 domain service",
-      "plan_section": "dev-plan.md §FIX-03",
-      "impl_status": "done",
-      "test_status": "passed",
+    "TREF-03": {
+      "name": "PlayerScreen 提取逻辑单元测试",
+      "plan_section": "dev-plan.md §TREF-03",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": ["TREF-01"],
+      "retry_count": 0,
+      "last_error": ""
+    },
+    "TREF-04": {
+      "name": "ConnectionEditScreen 提取逻辑单元测试",
+      "plan_section": "dev-plan.md §TREF-04",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "dependencies": ["TREF-02"],
+      "retry_count": 0,
+      "last_error": ""
+    },
+    "TREF-05": {
+      "name": "OnboardingPage 重定向逻辑测试",
+      "plan_section": "dev-plan.md §TREF-05",
+      "impl_status": "pending",
+      "test_status": "pending",
       "dependencies": [],
       "retry_count": 0,
       "last_error": ""
     },
-    "FIX-04": {
-      "name": "settings provider 未使用 domain service",
-      "plan_section": "dev-plan.md §FIX-04",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": [],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "FIX-05": {
-      "name": "player_provider 内联队列导航逻辑",
-      "plan_section": "dev-plan.md §FIX-05",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": [],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "FIX-06": {
-      "name": "background_playback.dart 不是纯 Dart",
-      "plan_section": "dev-plan.md §FIX-06",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": [],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "FIX-07": {
-      "name": "缺少3个集成测试",
-      "plan_section": "dev-plan.md §FIX-07",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": ["FIX-02", "FIX-03", "FIX-05"],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "FIX-08": {
-      "name": "lib/app/ 目录未创建",
-      "plan_section": "dev-plan.md §FIX-08",
-      "impl_status": "done",
-      "test_status": "passed",
+    "TREF-06": {
+      "name": "DatabaseHelper 迁移专项测试",
+      "plan_section": "dev-plan.md §TREF-06",
+      "impl_status": "pending",
+      "test_status": "pending",
       "dependencies": [],
       "retry_count": 0,
       "last_error": ""

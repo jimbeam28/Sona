@@ -2,6 +2,19 @@
 
 ---
 
+## [2026-06-10] [TREF-01] - PlayerScreen 嵌入逻辑提取到 Domain 层
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/player/domain/player_screen_logic.dart` — 新建纯 Dart 函数：sourceMatchesQueue, parentDir, LoadFailureReason 枚举, classifyLoadFailure, errorMessageForLoadFailure, isAuthError
+- `lib/features/player/player_screen.dart` — 删除 _sourceMatchesQueue/_parentDir 方法，替换 _runSerializedLoad 错误分类逻辑为纯函数调用
+
+### 测试结果
+- 通过: 611 / 总计: 611
+
+---
+
 ## [2026-05-23] [PRG-01] - 进度恢复对话框接入
 
 **状态**: ✅ 成功

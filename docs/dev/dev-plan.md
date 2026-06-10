@@ -1,446 +1,286 @@
 # 开发计划
 
-> 基于 refactor-result.md 偏差分析生成。
+> 基于 docs/test_refactor.md 测试覆盖空白填补与架构重构方案生成。
 > 更新日期: 2026-06-10
 
 ---
 
-## 待实现 — 偏差修复
+## 待实现 — 测试覆盖空白与架构重构
 
-### FIX-01 player_screen.dart 超500行限制
+### TREF-01 PlayerScreen 嵌入逻辑提取到 Domain 层
 
-**来源**：refactor-result.md | **优先级**：P0
-**涉及文件**：`lib/features/player/player_screen.dart`（987行 → 目标 ≤450行）
+**来源**：新功能（架构重构） | **优先级**：P1
+**涉及文件**：
+- `lib/features/player/domain/player_screen_logic.dart`（新建）
+- `lib/features/player/player_screen.dart`（修改）
+
 **依赖**：无
 
-**根因**：
-player_screen.dart 包含 1 个主 Widget + 7 个私有 Widget（`_NowPlayingIcon`、`_ProgressSlider`、`_PlaybackControls`、`_SpeedControl`、`_PlayModeControl`、`_QueueButton`、`_TimerControl`），全部挤在一个文件中。CI 的 500 行限制会阻止合并。
+**实现要点**：
+- 新建 `player_screen_logic.dart`，包含 5 个纯 Dart 函数/枚举：
+  - `sourceMatchesQueue(AudioPlayer, PlayQueue)` — 判断 player 当前 URI 是否匹配队列
+  - `parentDir(String)` — 从文件路径提取父目录
+  - `LoadFailureReason` 枚举 — `noConnection` / `noPassword` / `generic`
+  - `classifyLoadFailure({hasActiveConnection, hasPassword})` — 分类加载失败原因
+  - `errorMessageForLoadFailure(LoadFailureReason)` — 返回用户可见错误消息
+  - `isAuthError(LoadFailureReason)` — 判断是否为认证错误
+- 修改 `player_screen.dart`：
+  - 删除 `_sourceMatchesQueue()`（L126-135），替换为 `sourceMatchesQueue(player, queue)`
+  - 删除 `_parentDir()`（L226-230），替换为 `parentDir(path)`
+  - 替换 `_runSerializedLoad()` 中的错误分类逻辑（L194-L216）为 `classifyLoadFailure()` + `errorMessageForLoadFailure()` + `isAuthError()`
 
 **代码锚点**：
-- `player_screen.dart:35-290` — PlayerScreen 主 Widget + 状态管理（~255行）
-- `player_screen.dart:496-525` — `_NowPlayingIcon`（~30行）
-- `player_screen.dart:526-629` — `_ProgressSlider`（~104行）
-- `player_screen.dart:630-806` — `_PlaybackControls`（~177行）
-- `player_screen.dart:807-896` — `_SpeedControl`（~90行）
-- `player_screen.dart:897-916` — `_PlayModeControl`（~20行）
-- `player_screen.dart:917-933` — `_QueueButton`（~17行）
-- `player_screen.dart:934-987` — `_TimerControl`（~54行）
+- `lib/features/player/player_screen.dart:126-135` — `_sourceMatchesQueue()` 当前实现（需提取）
+  ```dart
+  bool _sourceMatchesQueue(AudioPlayer player, PlayQueue queue) {
+    final state = player.sequenceState;
+    if (state == null) return false;
+    final source = state.currentSource;
+    if (source is UriAudioSource) {
+      final decoded = Uri.decodeComponent(source.uri.path);
+      return decoded.endsWith(queue.current.path);
+    }
+    return false;
+  }
+  ```
+- `lib/features/player/player_screen.dart:226-230` — `_parentDir()` 当前实现（需提取）
+  ```dart
+  String _parentDir(String filePath) {
+    final idx = filePath.lastIndexOf('/');
+    if (idx <= 0) return '/';
+    return filePath.substring(0, idx);
+  }
+  ```
+- `lib/features/player/player_screen.dart:194-216` — 错误分类 if-else 链（需替换）
+- `lib/features/progress/domain/progress_policy.dart` — 参考：纯函数提取模式
 
-**修复方案**：
-
-将 7 个私有 Widget 提取到 `lib/features/player/widgets/` 目录：
-
-1. **新建 `lib/features/player/widgets/now_playing_icon.dart`**
-   - 移入 `_NowPlayingIcon` → 改为公开类 `NowPlayingIcon`
-   - 依赖：`player_provider.dart`（读取 `currentPlayQueueProvider`）
-
-2. **新建 `lib/features/player/widgets/progress_slider.dart`**
-   - 移入 `_ProgressSlider` + `_ProgressSliderState` → `ProgressSlider`
-   - 依赖：`player_provider.dart`（读取 position/duration 流）
-
-3. **新建 `lib/features/player/widgets/playback_controls.dart`**
-   - 移入 `_PlaybackControls` → `PlaybackControls`
-   - 依赖：`player_provider.dart`（play/pause/skip 操作）、`seek_utils.dart`
-
-4. **新建 `lib/features/player/widgets/speed_control.dart`**
-   - 移入 `_SpeedControl` → `SpeedControl`
-   - 依赖：`player_provider.dart`（speedOptions、currentSpeed）
-
-5. **新建 `lib/features/player/widgets/play_mode_control.dart`**
-   - 移入 `_PlayModeControl` → `PlayModeControl`
-   - 依赖：`player_provider.dart`（playMode、nextPlayMode）
-
-6. **新建 `lib/features/player/widgets/queue_button.dart`**
-   - 移入 `_QueueButton` → `QueueButton`
-   - 依赖：无（纯 UI，通过回调通知父级）
-
-7. **新建 `lib/features/player/widgets/timer_control.dart`**
-   - 移入 `_TimerControl` → `TimerControl`
-   - 依赖：`timer_provider.dart`、`timer/domain/timer_service.dart`
-
-8. **修改 `player_screen.dart`**
-   - import 上述 7 个新文件
-   - 替换私有 Widget 引用为公开类名
-   - 预估剩余 ~300 行
-
-**测试用例**：FIX-01-T01 ~ FIX-01-T03
-- FIX-01-T01: `flutter test test/features/player/` 全量回归通过
-- FIX-01-T02: `wc -l lib/features/player/player_screen.dart` ≤ 450
-- FIX-01-T03: `flutter analyze` 0 issues
+**测试用例**：TREF-01-T01 ~ TREF-01-T03
+- TREF-01-T01: `flutter test test/features/player/` 全量回归通过
+- TREF-01-T02: `flutter analyze` 0 issues
+- TREF-01-T03: `player_screen_logic.dart` 零 Flutter/Riverpod import
 
 **验收标准**：
-- [ ] player_screen.dart ≤ 450 行
-- [ ] 每个新 widget 文件 ≤ 200 行
+- [ ] `player_screen_logic.dart` 不 import `flutter` 或 `flutter_riverpod`
+- [ ] `player_screen.dart` 不再包含 `_sourceMatchesQueue` 和 `_parentDir` 方法
+- [ ] `_runSerializedLoad` 中的错误分类逻辑已替换为纯函数调用
 - [ ] `flutter test` 全量回归通过
 - [ ] `flutter analyze` 0 issues
-- [ ] CI 文件行数检查通过
+- [ ] `dart format` 无格式变更
 
 ---
 
-### FIX-02 progress provider 未使用 domain service
+### TREF-02 ConnectionEditScreen 验证门逻辑提取为纯函数
 
-**来源**：refactor-result.md | **优先级**：P1
+**来源**：新功能（架构重构） | **优先级**：P1
 **涉及文件**：
-- `lib/features/progress/progress_provider.dart`（重写）
-- `lib/features/progress/domain/progress_service.dart`（可能调整）
-- `lib/features/progress/domain/progress_policy.dart`（确认）
+- `lib/features/connection/domain/edit_screen_logic.dart`（新建）
+- `lib/features/connection/connection_edit_screen.dart`（修改）
 
 **依赖**：无
 
-**根因**：
-`progress_provider.dart` 直接调用 `ProgressDao`，未使用已提取的 `ProgressService` 和 `progress_policy.dart`。导致：
-- 业务逻辑存在两份实现（provider 内联 + domain 层独立）
-- domain 层的 `ProgressService` 和 `progress_policy.dart` 是死代码
-- provider 中的 `ProgressResumeState`/`ProgressResumeNotifier` 与 domain 层的 `ResumeDialogState` 重复
+**实现要点**：
+- 新建 `edit_screen_logic.dart`，包含：
+  - `EditFieldChanges` 类 — 描述表单当前字段值（url/username/basePath/password）
+  - `needsValidation({original, current, isAttached})` — 判断是否需要重新验证
+  - `ValidationStatus` 枚举 — `idle` / `loading` / `success` / `error`
+  - `canSave({needsRevalidation, validationStatus})` — 判断保存按钮是否启用
+- 修改 `connection_edit_screen.dart`：
+  - 删除 `_needsValidation()`（L191-198），替换为 `needsValidation(original, current, isAttached)`
+  - 删除 `_canSave()`（L201-207），替换为 `canSave(needsRevalidation, validationStatus)`
+  - 添加 `_mapValidationState()` 辅助函数将 Riverpod 状态映射为 `ValidationStatus` 枚举
 
 **代码锚点**：
-- `progress_provider.dart:58-93` — `upsertProgressProvider` 直接调用 `dao.upsert()`，未通过 `ProgressService`
-- `progress_provider.dart:96-121` — `clearProgressProvider` 直接调用 `dao.delete()`，未通过 `ProgressService`
-- `progress_provider.dart:129-165` — `ProgressResumeState` 与 domain 层 `ResumeDialogState` 重复
-- `progress_provider.dart:171-213` — `ProgressResumeNotifier` 与 domain 层 `ProgressService.tickCountdown()` 重复
+- `lib/features/connection/connection_edit_screen.dart:191-198` — `_needsValidation()` 当前实现（需提取）
+  ```dart
+  bool _needsValidation() {
+    if (_originalConfig == null) return true;
+    if (!_formController.isAttached) return false;
+    return _formController.url != _originalConfig!.url ||
+        _formController.username != _originalConfig!.username ||
+        _formController.basePath != _originalConfig!.basePath ||
+        _formController.password.isNotEmpty;
+  }
+  ```
+- `lib/features/connection/connection_edit_screen.dart:201-207` — `_canSave()` 当前实现（需提取）
+  ```dart
+  bool _canSave(ConnectionValidationState validationState) {
+    if (_needsValidation()) {
+      return validationState is ValidationSuccess;
+    }
+    return true;
+  }
+  ```
+- `lib/features/connection/domain/connection_validator.dart` — 参考：纯函数提取模式
 
-**修复方案**：
-
-1. **修改 `progress_provider.dart`**：
-   - 添加 `progressServiceProvider` provider，创建 `ProgressService` 实例
-   - `upsertProgressProvider` 改为委托给 `ProgressService.saveProgress()`
-   - `clearProgressProvider` 改为委托给 `ProgressService.clearProgress()`
-   - `progressForFileProvider` 改为委托给 `ProgressService.getProgress()`
-   - 删除 `ProgressResumeState` 类（使用 domain 层的 `ResumeDialogState`）
-   - 重写 `ProgressResumeNotifier` 使用 `ProgressService.showResumeDialog()` 和 `ProgressService.tickCountdown()`
-   - 保留 `progressDaoProvider`（注入点，测试可覆盖）
-   - 保留 `ref.invalidate()` 调用（UI 刷新属于 provider 层职责）
-
-2. **确认 `progress_policy.dart`**：
-   - `shouldSave()` 和 `shouldClear()` 已在 `ProgressDao.upsert()` 内部调用
-   - 不需要在 provider 层重复调用
-   - 保持现状，但确认 domain 测试覆盖了这两个函数
-
-3. **确认 `progress_service.dart`**：
-   - `saveProgress()` 已正确委托给 `ProgressDao.upsert()`
-   - `showResumeDialog()` 和 `tickCountdown()` 需要被 provider 使用
-
-**测试用例**：FIX-02-T01 ~ FIX-02-T05
-- FIX-02-T01: `upsertProgressProvider` 调用 → `ProgressService.saveProgress()` 被调用（验证委托）
-- FIX-02-T02: `clearProgressProvider` 调用 → `ProgressService.clearProgress()` 被调用
-- FIX-02-T03: 恢复对话框 → `ProgressService.showResumeDialog()` 创建状态 → `tickCountdown()` 推进倒计时
-- FIX-02-T04: 倒计时归零 → `isExpired` 为 true（回归）
-- FIX-02-T05: `flutter test test/features/progress/` 全量回归通过
+**测试用例**：TREF-02-T01 ~ TREF-02-T03
+- TREF-02-T01: `flutter test test/features/connection/` 全量回归通过
+- TREF-02-T02: `flutter analyze` 0 issues
+- TREF-02-T03: `edit_screen_logic.dart` 零 Flutter/Riverpod import
 
 **验收标准**：
-- [ ] `progress_provider.dart` 不再直接调用 `ProgressDao.upsert()`/`delete()`（除了注入点）
-- [ ] `ProgressResumeState` 类已删除，使用 `ResumeDialogState`
-- [ ] domain 层 `ProgressService` 和 `progress_policy.dart` 不再是死代码
+- [ ] `edit_screen_logic.dart` 不 import `flutter` 或 `flutter_riverpod`
+- [ ] `connection_edit_screen.dart` 不再包含 `_needsValidation` 和 `_canSave` 方法
 - [ ] `flutter test` 全量回归通过
 - [ ] `flutter analyze` 0 issues
+- [ ] `dart format` 无格式变更
 
 ---
 
-### FIX-03 playlist provider 未使用 domain service
+### TREF-03 PlayerScreen 提取逻辑单元测试
 
-**来源**：refactor-result.md | **优先级**：P1
+**来源**：新功能（测试覆盖空白） | **优先级**：P1
 **涉及文件**：
-- `lib/features/playlist/playlist_provider.dart`（重写）
-- `lib/features/playlist/domain/playlist_service.dart`（确认）
+- `test/features/player/player_screen_logic_test.dart`（新建）
 
-**依赖**：无
+**依赖**：TREF-01
 
-**根因**：
-`playlist_provider.dart` 直接调用 `PlaylistDao`，未使用已提取的 `PlaylistService`。去重逻辑和导入导出逻辑在 provider 和 domain service 中各有一份。
+**实现要点**：
+- 测试 `sourceMatchesQueue`：5 个场景（null sequenceState / 匹配路径 / 不匹配路径 / 非 UriAudioSource / URL 编码路径）
+- 测试 `parentDir`：4 个场景（嵌套路径 / 根级文件 / 无前导斜杠 / 尾部斜杠）
+- 测试 `classifyLoadFailure`：4 个场景（无连接 / 无密码 / 有连接有密码 / 无连接无密码优先级）
+- 测试 `errorMessageForLoadFailure`：3 个场景（每种 reason 一条消息）
+- 测试 `isAuthError`：3 个场景（noConnection→true / noPassword→true / generic→false）
+- 共 19 个测试用例，编号 PSL-01 ~ PSL-19
 
 **代码锚点**：
-- `playlist_provider.dart:77-89` — `createPlaylistProvider` 直接调用 `dao.insertPlaylist()`
-- `playlist_provider.dart:108-131` — `addTracksToPlaylistProvider` 内联去重逻辑（与 `PlaylistService.addTracksToPlaylist()` 重复）
-- `playlist_provider.dart:157-171` — `exportPlaylistProvider` 内联导出逻辑（与 `PlaylistService.exportPlaylist()` 重复）
-- `playlist_provider.dart:174-207` — `importPlaylistProvider` 内联导入逻辑（与 `PlaylistService.importPlaylist()` 重复）
+- `test/features/player/ref_08_test.dart` — 参考：纯函数测试模式
+- `test/features/player/ref_14_test.dart` — 参考：PlaybackOrchestrator 测试模式
 
-**修复方案**：
-
-1. **修改 `playlist_provider.dart`**：
-   - 添加 `playlistServiceProvider` provider，创建 `PlaylistService` 实例
-   - `createPlaylistProvider` 委托给 `PlaylistService.createPlaylist()`
-   - `deletePlaylistProvider` 委托给 `PlaylistService.deletePlaylist()`
-   - `updatePlaylistProvider` 委托给 `PlaylistService.updatePlaylist()`
-   - `addTracksToPlaylistProvider` 委托给 `PlaylistService.addTracksToPlaylist()`
-   - `removeTracksFromPlaylistProvider` 委托给 `PlaylistService.removeTracks()`
-   - `reorderPlaylistTrackProvider` 委托给 `PlaylistService.reorderTrack()`（保留排序模式检查）
-   - `exportPlaylistProvider` 委托给 `PlaylistService.exportPlaylist()`
-   - `importPlaylistProvider` 委托给 `PlaylistService.importPlaylist()`
-   - `playlistListProvider` 委托给 `PlaylistService.findAllPlaylists()`（排序逻辑保留在 provider）
-   - `playlistTracksProvider` 委托给 `PlaylistService.findTracksForPlaylist()`（排序逻辑保留在 provider）
-   - 保留 `playlistDaoProvider`（注入点）
-   - 保留 `ref.invalidate()` 调用
-   - 保留排序枚举和比较函数（UI 层关注点）
-
-2. **确认 `playlist_service.dart`**：
-   - 所有 CRUD、去重、导入导出方法已实现
-   - 无需修改
-
-**测试用例**：FIX-03-T01 ~ FIX-03-T04
-- FIX-03-T01: `createPlaylistProvider` → `PlaylistService.createPlaylist()` 被调用
-- FIX-03-T02: `addTracksToPlaylistProvider` 重复曲目 → 去重生效（通过 service）
-- FIX-03-T03: `exportPlaylistProvider` → JSON 格式正确（通过 service）
-- FIX-03-T04: `flutter test test/features/playlist/` 全量回归通过
+**测试用例**：TREF-03-T01 ~ TREF-03-T19
+- TREF-03-T01 (PSL-01): `sourceMatchesQueue` sequenceState 为 null → false
+- TREF-03-T02 (PSL-02): `sourceMatchesQueue` URI 匹配 → true
+- TREF-03-T03 (PSL-03): `sourceMatchesQueue` URI 不匹配 → false
+- TREF-03-T04 (PSL-04): `sourceMatchesQueue` 非 UriAudioSource → false
+- TREF-03-T05 (PSL-05): `sourceMatchesQueue` URL 编码路径匹配 → true
+- TREF-03-T06 (PSL-06): `parentDir` 嵌套路径 → 父目录
+- TREF-03-T07 (PSL-07): `parentDir` 根级文件 → `/`
+- TREF-03-T08 (PSL-08): `parentDir` 无前导斜杠 → `/`
+- TREF-03-T09 (PSL-09): `parentDir` 尾部斜杠 → 保留
+- TREF-03-T10 (PSL-10): `classifyLoadFailure` 无连接 → noConnection
+- TREF-03-T11 (PSL-11): `classifyLoadFailure` 有连接无密码 → noPassword
+- TREF-03-T12 (PSL-12): `classifyLoadFailure` 有连接有密码 → generic
+- TREF-03-T13 (PSL-13): `classifyLoadFailure` 无连接无密码 → noConnection（优先级）
+- TREF-03-T14 (PSL-14): `errorMessageForLoadFailure` noConnection → "没有活跃的连接"
+- TREF-03-T15 (PSL-15): `errorMessageForLoadFailure` noPassword → "密码未保存"
+- TREF-03-T16 (PSL-16): `errorMessageForLoadFailure` generic → "加载失败"
+- TREF-03-T17 (PSL-17): `isAuthError` noConnection → true
+- TREF-03-T18 (PSL-18): `isAuthError` noPassword → true
+- TREF-03-T19 (PSL-19): `isAuthError` generic → false
 
 **验收标准**：
-- [ ] `playlist_provider.dart` 不再直接调用 `PlaylistDao`（除了 `playlistDaoProvider` 注入点）
-- [ ] 去重/导入导出逻辑只在 `PlaylistService` 中存在一份
-- [ ] `flutter test` 全量回归通过
+- [ ] 19 个测试用例全部通过
+- [ ] `flutter test test/features/player/player_screen_logic_test.dart` 通过
 - [ ] `flutter analyze` 0 issues
 
 ---
 
-### FIX-04 settings provider 未使用 domain service
+### TREF-04 ConnectionEditScreen 提取逻辑单元测试
 
-**来源**：refactor-result.md | **优先级**：P1
+**来源**：新功能（测试覆盖空白） | **优先级**：P1
 **涉及文件**：
-- `lib/features/settings/settings_provider.dart`（重写）
-- `lib/features/settings/domain/settings_service.dart`（调整）
+- `test/features/connection/edit_screen_logic_test.dart`（新建）
 
-**依赖**：无
+**依赖**：TREF-02
 
-**根因**：
-`settings_provider.dart` 内联定义了 `getThemeMode()`、`setThemeMode()`、`labelForThemeMode()`、`setSeekStep()`、`labelForSeekStep()`、`getRememberSpeed()` 等函数，未使用已提取的 `SettingsService`。
+**实现要点**：
+- 测试 `needsValidation`：8 个场景（null original / not attached / no changes / URL changed / username changed / basePath changed / password provided / only name changed）
+- 测试 `canSave`：6 个场景（no revalidation → true / revalidation+idle → false / revalidation+loading → false / revalidation+success → true / revalidation+error → false / no revalidation+error → true）
+- 共 14 个测试用例，编号 ESL-01 ~ ESL-14
 
 **代码锚点**：
-- `settings_provider.dart:27-35` — `getThemeMode()` 与 `SettingsService.getThemeMode()` 重复
-- `settings_provider.dart:40-42` — `setThemeMode()` 与 `SettingsService.setThemeMode()` 重复
-- `settings_provider.dart:45-54` — `labelForThemeMode()` 与 `SettingsService.labelForThemeMode()` 重复
-- `settings_provider.dart:89-93` — `setSeekStep()` 与 `SettingsService.setSeekStep()` 重复
-- `settings_provider.dart:105-108` — `getRememberSpeed()` 未在 `SettingsService` 中
+- `test/features/connection/ref_21_test.dart` — 参考：纯验证函数测试模式
 
-**修复方案**：
-
-1. **修改 `settings_service.dart`**：
-   - 添加 `getRememberSpeed()` / `setRememberSpeed()` 方法
-   - 添加 `labelForSeekStep()` 方法（如果不存在）
-   - 确认 `getThemeMode()` / `setThemeMode()` / `labelForThemeMode()` / `setSeekStep()` 已存在
-
-2. **修改 `settings_provider.dart`**：
-   - 添加 `settingsServiceProvider` provider，创建 `SettingsService` 实例
-   - `themeModeProvider` 委托给 `SettingsService.getThemeMode()`
-   - `setThemeModeProvider` 委托给 `SettingsService.setThemeMode()`
-   - `seekStepSettingProvider` 委托给 `SettingsService.readSeekStep()`
-   - `setSeekStepSettingProvider` 委托给 `SettingsService.setSeekStep()`
-   - `rememberSpeedProvider` 委托给 `SettingsService.getRememberSpeed()`
-   - `setRememberSpeedProvider` 委托给 `SettingsService.setRememberSpeed()`
-   - 删除内联的 `getThemeMode()`、`setThemeMode()`、`labelForThemeMode()`、`setSeekStep()`、`labelForSeekStep()`、`getRememberSpeed()` 函数
-   - 保留 `sharedPreferencesProvider`（注入点）
-   - 保留 `ref.invalidate()` 调用
-
-3. **处理 `ThemeMode` 依赖**：
-   - `settings_service.dart` 当前 import `flutter/material.dart` 仅用于 `ThemeMode`
-   - 可接受：`ThemeMode` 是 Flutter 框架的枚举，不是 widget，不影响纯逻辑测试性
-   - 或者：在 domain 层定义自己的 `AppThemeMode` 枚举，在 provider 层映射到 Flutter 的 `ThemeMode`（更干净但工程量大）
-   - **建议**：保持现状，`ThemeMode` 依赖可接受
-
-**测试用例**：FIX-04-T01 ~ FIX-04-T04
-- FIX-04-T01: `themeModeProvider` 读取 → 通过 `SettingsService.getThemeMode()`
-- FIX-04-T02: `setThemeModeProvider` 写入 → 通过 `SettingsService.setThemeMode()`
-- FIX-04-T03: `rememberSpeedProvider` 读写 → 通过 `SettingsService`
-- FIX-04-T04: `flutter test test/features/settings/` 全量回归通过
+**测试用例**：TREF-04-T01 ~ TREF-04-T14
+- TREF-04-T01 (ESL-01): `needsValidation` null original → true
+- TREF-04-T02 (ESL-02): `needsValidation` not attached → false
+- TREF-04-T03 (ESL-03): `needsValidation` no changes → false
+- TREF-04-T04 (ESL-04): `needsValidation` URL changed → true
+- TREF-04-T05 (ESL-05): `needsValidation` username changed → true
+- TREF-04-T06 (ESL-06): `needsValidation` basePath changed → true
+- TREF-04-T07 (ESL-07): `needsValidation` password provided → true
+- TREF-04-T08 (ESL-08): `needsValidation` only name changed → false
+- TREF-04-T09 (ESL-09): `canSave` no revalidation → true
+- TREF-04-T10 (ESL-10): `canSave` revalidation+idle → false
+- TREF-04-T11 (ESL-11): `canSave` revalidation+loading → false
+- TREF-04-T12 (ESL-12): `canSave` revalidation+success → true
+- TREF-04-T13 (ESL-13): `canSave` revalidation+error → false
+- TREF-04-T14 (ESL-14): `canSave` no revalidation+error → true
 
 **验收标准**：
-- [ ] `settings_provider.dart` 不再内联业务函数
-- [ ] `SettingsService` 被 provider 实际使用
-- [ ] `flutter test` 全量回归通过
+- [ ] 14 个测试用例全部通过
+- [ ] `flutter test test/features/connection/edit_screen_logic_test.dart` 通过
 - [ ] `flutter analyze` 0 issues
 
 ---
 
-### FIX-05 player_provider 内联队列导航逻辑
+### TREF-05 OnboardingPage 重定向逻辑测试
 
-**来源**：refactor-result.md | **优先级**：P1
+**来源**：新功能（测试覆盖空白） | **优先级**：P2
 **涉及文件**：
-- `lib/features/player/player_provider.dart`（修改）
-- `lib/features/player/domain/playback_orchestrator.dart`（扩展）
+- `test/features/home/onboarding_test.dart`（新建）
 
 **依赖**：无
 
-**根因**：
-`player_provider.dart` 中的 `skipToNextProvider`、`skipToPreviousProvider`、`selectQueueIndexProvider`、`removeTrackFromQueueProvider` 内联了队列导航逻辑（`PlayQueue.nextIndex`/`advanceShuffle`/`retreatShuffle`/`withoutIndex`），未完全委托给 `PlaybackOrchestrator`。`startProcessingListenerProvider` 也内联了曲目完成自动切歌逻辑。
+**实现要点**：
+- 使用 `ProviderScope` 的 `overrides` 注入 mock 的 `connectionListProvider` 和 `startupValidationProvider`
+- 测试 3 条重定向路径 + loading + error 共 5 个场景
+- 路由跳转验证使用 `GoRouter` 的 `navigatorKey` 或 mock
+- `addPostFrameCallback` 需要 `await tester.pumpAndSettle()` 等待
 
 **代码锚点**：
-- `player_provider.dart:222-235` — `skipToNextProvider` 内联 `q.advanceShuffle()` / `PlayQueue.nextIndex()`
-- `player_provider.dart:237-250` — `skipToPreviousProvider` 内联 `q.retreatShuffle()` / `PlayQueue.previousIndex()`
-- `player_provider.dart:252-261` — `selectQueueIndexProvider` 内联 `q.withIndex(i)`
-- `player_provider.dart:263-282` — `removeTrackFromQueueProvider` 内联 `q.withoutIndex(i)` + 空队列 stop 逻辑
-- `player_provider.dart:172-205` — `startProcessingListenerProvider` 内联曲目完成自动切歌
+- `lib/app/onboarding.dart:13-77` — `OnboardingPage.build()` 重定向逻辑（需测试）
+  ```dart
+  // 3 条路径：
+  // 1. connections.isEmpty → _onboardingScaffold (CTA)
+  // 2. connections.isNotEmpty + validation success → context.go('/browser')
+  // 3. connections.isNotEmpty + validation failure → context.go('/connection')
+  ```
+- `test/features/home/home_screen_test.dart` — 参考：HomeScreen Widget 测试模式
+- `test/features/connection/con_01_test.dart` — 参考：Provider override 模式
 
-**修复方案**：
-
-1. **扩展 `PlaybackOrchestrator`**：
-   - `skipToNext()` 方法已存在 → 确认包含队列更新 + 进度保存 + loadAndPlay
-   - `skipToPrevious()` 方法已存在 → 确认包含队列更新 + 进度保存 + loadAndPlay
-   - `selectQueueIndex(int)` 方法已存在 → 确认包含队列更新 + loadAndPlay
-   - `removeTrack(int)` 方法已存在 → 确认包含空队列 stop + 当前曲目处理
-   - 添加 `handleTrackCompleted()` 方法 → 封装曲目完成后的自动切歌逻辑
-   - 所有方法需要接收当前队列和播放模式作为参数（或通过接口获取）
-
-2. **修改 `player_provider.dart`**：
-   - `skipToNextProvider` → 委托给 `orchestrator.skipToNext()`
-   - `skipToPreviousProvider` → 委托给 `orchestrator.skipToPrevious()`
-   - `selectQueueIndexProvider` → 委托给 `orchestrator.selectQueueIndex(i)`
-   - `removeTrackFromQueueProvider` → 委托给 `orchestrator.removeTrack(i)`
-   - `startProcessingListenerProvider` → 使用 `orchestrator.handleTrackCompleted()`
-   - 保留 `currentPlayQueueProvider` 的读写（状态管理属于 provider 层）
-
-**测试用例**：FIX-05-T01 ~ FIX-05-T05
-- FIX-05-T01: `skipToNextProvider` → orchestrator 被调用 → 队列更新 + loadAndPlay
-- FIX-05-T02: `skipToPreviousProvider` → orchestrator 被调用
-- FIX-05-T03: `removeTrackFromQueueProvider` 空队列 → orchestrator.stop()
-- FIX-05-T04: 曲目完成 → `handleTrackCompleted()` 自动切歌
-- FIX-05-T05: `flutter test test/features/player/` 全量回归通过
+**测试用例**：TREF-05-T01 ~ TREF-05-T05
+- TREF-05-T01 (ONB-01): 空连接列表 → 显示 CTA "添加第一个 NAS 连接"
+- TREF-05-T02 (ONB-02): 连接存在 + 验证成功 → 路由跳转 /browser
+- TREF-05-T03 (ONB-03): 连接存在 + 验证失败 → 路由跳转 /connection
+- TREF-05-T04 (ONB-04): connectionListProvider loading → 显示 CircularProgressIndicator
+- TREF-05-T05 (ONB-05): connectionListProvider error → 显示 OnboardingErrorView
 
 **验收标准**：
-- [ ] `player_provider.dart` 中 `skipToNextProvider` 等 4 个 provider 不再内联队列逻辑
-- [ ] `startProcessingListenerProvider` 不再内联自动切歌逻辑
-- [ ] 队列导航逻辑只在 `PlaybackOrchestrator` 中存在一份
-- [ ] `flutter test` 全量回归通过
+- [ ] 5 个测试用例全部通过
+- [ ] `flutter test test/features/home/onboarding_test.dart` 通过
 - [ ] `flutter analyze` 0 issues
 
 ---
 
-### FIX-06 background_playback.dart 不是纯 Dart
+### TREF-06 DatabaseHelper 迁移专项测试
 
-**来源**：refactor-result.md | **优先级**：P2
+**来源**：新功能（测试覆盖空白） | **优先级**：P2
 **涉及文件**：
-- `lib/features/player/domain/background_playback.dart`（拆分）
+- `test/features/coverage/db_migration_test.dart`（新建）
 
 **依赖**：无
 
-**根因**：
-`background_playback.dart` import `flutter/material.dart` 和 `flutter_riverpod.dart`，违反"Domain 层零 Flutter 依赖"原则。其中 `BackgroundPlaybackConfig` 纯逻辑与 `StateNotifier`/provider 耦合在同一文件中。
+**实现要点**：
+- 使用 `sqflite_ffi` 创建内存数据库，不依赖 `DatabaseHelper` 单例
+- 手动执行 SQL 模拟 v1 和 v2 schema
+- 通过 `openDatabase` 的 `version`/`onCreate`/`onUpgrade` 参数模拟迁移
+- 查询 `sqlite_master` 验证表/索引存在性
 
 **代码锚点**：
-- `background_playback.dart:16` — `import 'package:flutter/material.dart';`（用于 `@immutable`、`AppLifecycleState`）
-- `background_playback.dart:17` — `import 'package:flutter_riverpod/flutter_riverpod.dart';`（用于 `StateNotifier`、`StateNotifierProvider`）
+- `lib/core/database/database_helper.dart:32-68` — `_onCreate` v2 全量建表（需测试）
+- `lib/core/database/database_helper.dart:70-74` — `_onUpgrade` v1→v2 迁移（需测试）
+- `lib/core/database/database_helper.dart:76-99` — `_createPlaylistTables` 播放单表创建
+- `test/features/playlist/ply_10_test.dart` — 参考：DAO 测试中使用 sqflite_ffi 的模式
 
-**修复方案**：
-
-1. **拆分文件**：
-   - **保留 `background_playback.dart`** 作为纯逻辑层：
-     - `AudioFocusState`、`BackgroundPlaybackState`、`MediaControlAction` 枚举
-     - `BackgroundPlaybackConfig` 值对象（移除 `@immutable` 注解或用 `dart:core` 的等价方式）
-     - `shouldContinueInBackground()` 纯函数
-     - `computePlaybackStateAfterLifecycle()` 纯函数
-     - 用自定义枚举 `AppLifecyclePhase { resumed, inactive, paused, detached }` 替代 `AppLifecycleState`
-   - **新建 `background_playback_notifier.dart`**（在 `player/` 目录，不在 `domain/`）：
-     - `BackgroundPlaybackNotifier extends StateNotifier<BackgroundPlaybackConfig>`
-     - `backgroundPlaybackProvider`
-     - import `flutter_riverpod` 和 `background_playback.dart`
-
-2. **处理 `@immutable` 注解**：
-   - 移除 `@immutable` 注解（来自 `flutter/material.dart`）
-   - 用文档注释说明该类应被视为不可变
-
-3. **处理 `AppLifecycleState`**：
-   - 在纯逻辑层定义 `AppLifecyclePhase` 枚举
-   - `computePlaybackStateAfterLifecycle()` 接收 `AppLifecyclePhase` 参数
-   - 在 notifier 层将 Flutter 的 `AppLifecycleState` 映射到 `AppLifecyclePhase`
-
-**测试用例**：FIX-06-T01 ~ FIX-06-T03
-- FIX-06-T01: `background_playback.dart` 零 Flutter/Riverpod import
-- FIX-06-T02: `BackgroundPlaybackConfig` 状态机测试全部通过（纯 Dart）
-- FIX-06-T03: `flutter test test/features/player/` 全量回归通过
+**测试用例**：TREF-06-T01 ~ TREF-06-T06
+- TREF-06-T01 (DB-MIG-01): v1 schema 有 connections 和 play_progress 表，无 playlists 表
+- TREF-06-T02 (DB-MIG-02): v2 schema 有全部 4 张表
+- TREF-06-T03 (DB-MIG-03): v1→v2 升级后 connections 数据保留
+- TREF-06-T04 (DB-MIG-04): v1→v2 升级后 playlist 索引创建
+- TREF-06-T05 (DB-MIG-05): v2 全新安装包含所有索引
+- TREF-06-T06 (DB-MIG-06): 创建时 foreign_keys 已启用
 
 **验收标准**：
-- [ ] `domain/background_playback.dart` 不 import `flutter` 或 `flutter_riverpod`
-- [ ] `BackgroundPlaybackNotifier` 在独立文件中
-- [ ] 纯逻辑可直接 `test()` 无需 mock
-- [ ] `flutter test` 全量回归通过
-
----
-
-### FIX-07 缺少3个集成测试
-
-**来源**：refactor-result.md | **优先级**：P2
-**涉及文件**：`test/features/coverage/`（新建测试文件）
-**依赖**：FIX-02, FIX-03, FIX-05
-
-**根因**：
-计划 6 个集成测试，实际实现 3 个（TST-02/03/04）。缺少：
-- INT-G01: 连接切换完整影响面
-- INT-G05: 路由完整导航流程
-- INT-G06: App 生命周期完整链路
-
-**修复方案**：
-
-1. **新建 `test/features/coverage/int_g01_connection_switch_test.dart`**
-   - 测试场景：切换连接 → 队列清空 → 缓存清空 → 新连接可浏览
-   - 测试场景：切换连接 → 播放中 → 播放停止 → 新连接可播放
-   - 测试场景：删除活跃连接 → 自动切换 → UI 更新
-
-2. **新建 `test/features/coverage/int_g05_routing_test.dart`**
-   - 测试场景：onboarding → 无连接 → connection 页面
-   - 测试场景：onboarding → 有连接+验证成功 → browser 页面
-   - 测试场景：browser → 点击文件 → player 页面
-   - 测试场景：player → 返回 → browser 页面
-   - 测试场景：browser → 设置 → settings 页面
-
-3. **新建 `test/features/coverage/int_g06_lifecycle_test.dart`**
-   - 测试场景：App 进入后台 → 播放继续（后台播放开启）
-   - 测试场景：App 进入后台 → 播放暂停（后台播放关闭）
-   - 测试场景：App 恢复前台 → 播放状态正确
-   - 测试场景：App 恢复前台 → 定时器检查 → 如果过期则暂停
-
-**测试用例**：FIX-07-T01 ~ FIX-07-T12
-- FIX-07-T01 ~ T04: INT-G01 连接切换场景
-- FIX-07-T05 ~ T09: INT-G05 路由导航场景
-- FIX-07-T10 ~ T12: INT-G06 生命周期场景
-
-**验收标准**：
-- [ ] 3 个新测试文件创建完成
-- [ ] 所有测试用例通过
-- [ ] `flutter test` 全量回归通过
-
----
-
-### FIX-08 lib/app/ 目录未创建
-
-**来源**：refactor-result.md | **优先级**：P3
-**涉及文件**：
-- `lib/main.dart`（拆分）
-- 新建 `lib/app/router.dart`
-- 新建 `lib/app/app.dart`
-- 新建 `lib/app/onboarding.dart`
-
-**依赖**：无
-
-**根因**：
-计划要求将 router/app/onboarding 拆分到 `lib/app/` 目录，实际全部内联在 `main.dart` (341行)。虽然未超 500 行限制，但不符合计划的目录结构，且 `main.dart` 职责过多。
-
-**代码锚点**：
-- `main.dart:87-148` — `_router` GoRouter 定义（~62行）
-- `main.dart:152-176` — `NasAudioPlayerApp` Widget（~25行）
-- `main.dart:183-290` — `_OnboardingPage` Widget（~108行）
-- `main.dart:1-86` — import + `main()` + ProviderScope overrides（~86行）
-
-**修复方案**：
-
-1. **新建 `lib/app/router.dart`**：
-   - 移入 `_router` GoRouter 定义
-   - 改为公开 getter `GoRouter createRouter()`
-   - 包含所有路由定义
-
-2. **新建 `lib/app/app.dart`**：
-   - 移入 `NasAudioPlayerApp`
-   - import `router.dart`
-
-3. **新建 `lib/app/onboarding.dart`**：
-   - 移入 `_OnboardingPage` → `OnboardingPage`
-
-4. **修改 `lib/main.dart`**：
-   - 只保留 `main()` 函数 + ProviderScope overrides
-   - import `app/app.dart`
-   - 预估剩余 ~100 行
-
-**测试用例**：FIX-08-T01 ~ FIX-08-T02
-- FIX-08-T01: `flutter test test/features/home/` 回归通过
-- FIX-08-T02: `flutter analyze` 0 issues
-
-**验收标准**：
-- [ ] `lib/app/` 目录创建，含 3 个文件
-- [ ] `main.dart` ≤ 120 行
-- [ ] `flutter test` 全量回归通过
+- [ ] 6 个测试用例全部通过
+- [ ] `flutter test test/features/coverage/db_migration_test.dart` 通过
 - [ ] `flutter analyze` 0 issues
