@@ -131,10 +131,14 @@ export '../../features/player/player_provider.dart'
 
 // ── 4. Progress ─────────────────────────────────────────────────────────────
 
+export '../../features/progress/domain/progress_service.dart'
+    show ResumeDialogState;
+
 export '../../features/progress/progress_provider.dart'
     show
         // Infrastructure
         progressDaoProvider,
+        progressServiceProvider,
         // Query
         progressForFileProvider,
         recentlyPlayedProvider,
@@ -143,7 +147,6 @@ export '../../features/progress/progress_provider.dart'
         upsertProgressProvider,
         clearProgressProvider,
         // Resume dialog
-        ProgressResumeState,
         ProgressResumeNotifier,
         progressResumeProvider;
 

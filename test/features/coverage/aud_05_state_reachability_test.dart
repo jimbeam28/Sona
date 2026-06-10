@@ -34,6 +34,7 @@ import 'package:nas_audio_player/features/browser/domain/navigation_stack.dart';
 import 'package:nas_audio_player/features/player/domain/background_playback.dart';
 import 'package:nas_audio_player/features/player/domain/play_mode.dart';
 import 'package:nas_audio_player/features/player/domain/request_gate.dart';
+import 'package:nas_audio_player/features/progress/domain/progress_service.dart';
 import 'package:nas_audio_player/features/progress/progress_provider.dart';
 import 'package:nas_audio_player/features/timer/domain/timer_service.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
@@ -470,13 +471,13 @@ void main() {
   group('AUD-05-T08: Progress resume dialog state reachability', () {
     test('Hidden: initial state (null)', () {
       // ProgressResumeNotifier starts with null state
-      final notifier = ProgressResumeNotifier();
+      final notifier = ProgressResumeNotifier(ProgressService());
       expect(notifier.state, isNull);
       notifier.dispose();
     });
 
     test('Hidden -> Showing: show(progress)', () {
-      final notifier = ProgressResumeNotifier();
+      final notifier = ProgressResumeNotifier(ProgressService());
       final progress = PlayProgress(
         connectionId: 1,
         filePath: '/music/test.mp3',
@@ -493,7 +494,7 @@ void main() {
 
     test('Showing -> Showing: countdown decrements', () {
       fakeAsync((async) {
-        final notifier = ProgressResumeNotifier();
+        final notifier = ProgressResumeNotifier(ProgressService());
         final progress = PlayProgress(
           connectionId: 1,
           filePath: '/music/test.mp3',
@@ -516,7 +517,7 @@ void main() {
 
     test('Showing -> Expired: countdown reaches 0', () {
       fakeAsync((async) {
-        final notifier = ProgressResumeNotifier();
+        final notifier = ProgressResumeNotifier(ProgressService());
         final progress = PlayProgress(
           connectionId: 1,
           filePath: '/music/test.mp3',
@@ -535,7 +536,7 @@ void main() {
     });
 
     test('Showing -> Hidden: dismiss()', () {
-      final notifier = ProgressResumeNotifier();
+      final notifier = ProgressResumeNotifier(ProgressService());
       final progress = PlayProgress(
         connectionId: 1,
         filePath: '/music/test.mp3',

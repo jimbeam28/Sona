@@ -982,3 +982,18 @@
 ### 测试结果
 - 通过: 1505 / 总计: 1505
 - 静态分析: 0 errors
+
+---
+
+## 2026-06-10 12:30 FIX-02 - progress provider 未使用 domain service
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/progress/progress_provider.dart` — 委托给 ProgressService，删除重复的 ProgressResumeState
+- `lib/shared/di/providers.dart` — 添加 progressServiceProvider 和 ResumeDialogState 导出
+- `test/features/coverage/aud_05_state_reachability_test.dart` — 更新 ProgressResumeNotifier 构造
+
+### 测试结果
+- 通过: 1505 / 总计: 1505
+- 静态分析: 0 errors
