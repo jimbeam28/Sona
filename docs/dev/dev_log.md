@@ -2,6 +2,18 @@
 
 ---
 
+## [2026-06-10] [TREF-05] - OnboardingPage 重定向逻辑测试
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `test/features/home/onboarding_test.dart` — 新建 5 个 Widget 测试（ONB-01~ONB-05）
+
+### 测试结果
+- 通过: 5 / 总计: 5
+
+---
+
 ## [2026-06-10] [TREF-04] - ConnectionEditScreen 提取逻辑单元测试
 
 **状态**: ✅ 成功
