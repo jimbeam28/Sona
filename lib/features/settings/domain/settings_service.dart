@@ -14,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 const _themeModeKey = 'theme_mode';
 const _defaultSpeedKey = 'default_playback_speed';
 const _seekStepKey = 'seek_step_seconds';
+const _rememberSpeedKey = 'remember_playback_speed';
 
 /// Default values for settings.
 const _defaultSeekStep = 15;
@@ -89,5 +90,35 @@ class SettingsService {
     if (!seekStepOptions.contains(seconds)) return false;
     prefs?.setInt(_seekStepKey, seconds);
     return true;
+  }
+
+  /// Human-readable Chinese label for a [ThemeMode].
+  String labelForThemeMode(ThemeMode mode) {
+    switch (mode) {
+      case ThemeMode.system:
+        return '跟随系统';
+      case ThemeMode.light:
+        return '亮色';
+      case ThemeMode.dark:
+        return '暗色';
+    }
+  }
+
+  /// Human-readable Chinese label for a seek step value.
+  String labelForSeekStep(int seconds) {
+    return '$seconds秒';
+  }
+
+  // ── Remember speed ────────────────────────────────────────────────────
+
+  /// Returns whether the "remember playback speed" setting is enabled.
+  bool getRememberSpeed(SharedPreferences? prefs) {
+    if (prefs == null) return false;
+    return prefs.getBool(_rememberSpeedKey) ?? false;
+  }
+
+  /// Persists the remember-speed preference.
+  void setRememberSpeed(SharedPreferences? prefs, bool value) {
+    prefs?.setBool(_rememberSpeedKey, value);
   }
 }

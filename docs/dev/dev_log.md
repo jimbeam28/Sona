@@ -1010,3 +1010,17 @@
 ### 测试结果
 - 通过: 1505 / 总计: 1505
 - 静态分析: 0 errors
+
+---
+
+## 2026-06-10 13:30 FIX-04 - settings provider 未使用 domain service
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/settings/settings_provider.dart` — 6 个内联函数委托给 SettingsService
+- `lib/features/settings/domain/settings_service.dart` — 添加 4 个缺失方法
+
+### 测试结果
+- 通过: 1505 / 总计: 1505
+- 静态分析: 0 errors
