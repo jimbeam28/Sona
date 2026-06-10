@@ -10,10 +10,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../shared/models/play_queue.dart';
 import '../../shared/models/playlist.dart';
-import '../browser/browser_provider.dart';
-import '../connection/connection_provider.dart';
-import '../progress/progress_dialog.dart';
-import '../progress/progress_provider.dart';
+import '../../shared/di/providers.dart';
+
 import 'playlist_provider.dart';
 import 'widgets/add_tracks_browser.dart';
 import 'widgets/playlist_track_item.dart';

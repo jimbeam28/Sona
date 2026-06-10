@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 
-import '../../settings/settings_provider.dart';
+import '../../../shared/di/providers.dart';
 import '../player_provider.dart';
 
 /// Speed display button with speed selector dialog.

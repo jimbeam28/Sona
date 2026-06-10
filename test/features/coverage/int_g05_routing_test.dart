@@ -60,7 +60,8 @@ void main() {
 
       final active = await container.read(activeConnectionProvider.future);
       expect(active, isNull,
-          reason: 'INT-G05-T01: no connections -> activeConnection should be null');
+          reason:
+              'INT-G05-T01: no connections -> activeConnection should be null');
     });
 
     test('when activeConnection is null, startup validation returns null',
@@ -88,7 +89,8 @@ void main() {
         result = null;
       }
       expect(result, isNull,
-          reason: 'INT-G05-T01: startup validation with no connection should return null');
+          reason:
+              'INT-G05-T01: startup validation with no connection should return null');
     });
   });
 
@@ -141,8 +143,8 @@ void main() {
       expect(activeConn!.id, equals(conn.id));
 
       // Read password from secure storage.
-      final password = await storage.read(
-          key: 'connection_password_${activeConn.id}');
+      final password =
+          await storage.read(key: 'connection_password_${activeConn.id}');
       expect(password, equals('valid_password'),
           reason: 'INT-G05-T02: password should be stored');
 
@@ -154,7 +156,8 @@ void main() {
         basePath: activeConn.basePath,
       );
       expect(result.isSuccess, isTrue,
-          reason: 'INT-G05-T02: validation should succeed with correct credentials');
+          reason:
+              'INT-G05-T02: validation should succeed with correct credentials');
     });
 
     test('startupValidationProvider returns success for valid connection',
@@ -176,8 +179,7 @@ void main() {
       addTearDown(() => container.dispose());
 
       // Read the startupValidationProvider.
-      final result =
-          await container.read(startupValidationProvider.future);
+      final result = await container.read(startupValidationProvider.future);
       expect(result, isNotNull,
           reason: 'INT-G05-T02: startup validation should return a result');
       expect(result!.isSuccess, isTrue,
@@ -229,8 +231,8 @@ void main() {
       final activeConn = await container.read(activeConnectionProvider.future);
       expect(activeConn, isNotNull);
 
-      final password = await storage.read(
-          key: 'connection_password_${activeConn!.id}');
+      final password =
+          await storage.read(key: 'connection_password_${activeConn!.id}');
 
       final result = await webDavClient.validate(
         url: activeConn.url,
@@ -262,8 +264,7 @@ void main() {
       );
       addTearDown(() => container.dispose());
 
-      final result =
-          await container.read(startupValidationProvider.future);
+      final result = await container.read(startupValidationProvider.future);
       expect(result, isNotNull,
           reason: 'INT-G05-T03: startup validation should return a result');
       expect(result!.isSuccess, isFalse,
@@ -289,8 +290,7 @@ void main() {
       );
       addTearDown(() => container.dispose());
 
-      final result =
-          await container.read(startupValidationProvider.future);
+      final result = await container.read(startupValidationProvider.future);
       expect(result, isNotNull);
       expect(result!.isSuccess, isFalse,
           reason: 'INT-G05-T03: network error should fail validation');
@@ -353,8 +353,7 @@ void main() {
       expect(activeConn!.id, equals(id));
 
       // Try to read the password — it should be null.
-      final password =
-          await storage.read(key: 'connection_password_$id');
+      final password = await storage.read(key: 'connection_password_$id');
       expect(password, isNull,
           reason: 'INT-G05-T03: password should be missing from storage');
 

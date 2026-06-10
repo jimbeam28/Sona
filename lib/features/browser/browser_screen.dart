@@ -19,11 +19,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/network/webdav_client.dart';
 import '../../shared/models/nas_file.dart';
 import '../../shared/models/play_queue.dart';
-import '../connection/connection_provider.dart';
-import '../progress/progress_dialog.dart';
-import '../progress/progress_provider.dart';
-import 'browser_provider.dart';
-import 'widgets/breadcrumb_bar.dart';
+import '../../shared/di/providers.dart';
 import 'widgets/file_list_item.dart';
 
 class BrowserScreen extends ConsumerWidget {

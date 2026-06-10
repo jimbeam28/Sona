@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../../../shared/models/play_queue.dart';
-import '../../browser/browser_provider.dart';
+import '../../../shared/di/providers.dart';
 import '../domain/seek_utils.dart';
 import '../player_provider.dart';
 

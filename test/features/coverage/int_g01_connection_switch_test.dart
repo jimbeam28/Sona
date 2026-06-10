@@ -23,7 +23,9 @@ import '../../helpers/test_factories.dart';
 // ═══════════════════════════════════════════════════════════════════════════════
 
 void main() {
-  group('INT-G01-T01: Switch connection -> queue cleared -> new connection browsable', () {
+  group(
+      'INT-G01-T01: Switch connection -> queue cleared -> new connection browsable',
+      () {
     late Database db;
     late FakeSecureStorage storage;
     late ConnectionService service;
@@ -72,7 +74,8 @@ void main() {
       }
 
       expect(currentQueue, isNull,
-          reason: 'INT-G01-T01: queue should be cleared when connection switches');
+          reason:
+              'INT-G01-T01: queue should be cleared when connection switches');
       expect(lastQueueConnectionId, isNull,
           reason: 'INT-G01-T01: lastQueueConnectionId should be cleared');
     });
@@ -99,11 +102,13 @@ void main() {
       }
 
       expect(currentQueue, isNotNull,
-          reason: 'INT-G01-T01: queue should be preserved when connection is the same');
+          reason:
+              'INT-G01-T01: queue should be preserved when connection is the same');
       expect(currentQueue!.current.path, equals('/music/song.mp3'));
     });
 
-    test('after queue cleared, new queue can be set for new connection', () async {
+    test('after queue cleared, new queue can be set for new connection',
+        () async {
       final conn1 = await service.save(
         config: testConfig(name: 'NAS-A', url: 'http://nas-a:5005'),
         password: 'pass1',
@@ -135,7 +140,8 @@ void main() {
       lastQueueConnectionId = conn2.id;
 
       expect(currentQueue, isNotNull,
-          reason: 'INT-G01-T01: new queue should be accepted after connection switch');
+          reason:
+              'INT-G01-T01: new queue should be accepted after connection switch');
       expect(currentQueue.length, equals(2));
       expect(currentQueue.current.path, equals('/music/new_a.mp3'));
       expect(lastQueueConnectionId, equals(conn2.id));
@@ -190,7 +196,8 @@ void main() {
           reason: 'INT-G01-T02: queue should be null after connection switch');
     });
 
-    test('ProviderContainer: clearQueueOnConnectionSwitch nullifies queue state',
+    test(
+        'ProviderContainer: clearQueueOnConnectionSwitch nullifies queue state',
         () async {
       final conn1 = await service.save(
         config: testConfig(name: 'NAS-A', url: 'http://nas-a:5005'),
@@ -232,7 +239,8 @@ void main() {
       expect(container.read(currentPlayQueueProvider), isNull,
           reason: 'INT-G01-T02: queue provider should be null after switch');
       expect(container.read(lastQueueConnectionIdProvider), isNull,
-          reason: 'INT-G01-T02: lastQueueConnectionId should be null after switch');
+          reason:
+              'INT-G01-T02: lastQueueConnectionId should be null after switch');
     });
   });
 
@@ -240,8 +248,7 @@ void main() {
   // INT-G01-T03: Delete active connection -> auto-switch to another connection
   // ═══════════════════════════════════════════════════════════════════════════════
 
-  group('INT-G01-T03: Delete active connection -> auto-switch to another',
-      () {
+  group('INT-G01-T03: Delete active connection -> auto-switch to another', () {
     late Database db;
     late FakeSecureStorage storage;
     late ConnectionService service;
@@ -314,7 +321,8 @@ void main() {
       }
 
       expect(queue, isNull,
-          reason: 'INT-G01-T03: queue should be cleared when active connection is deleted');
+          reason:
+              'INT-G01-T03: queue should be cleared when active connection is deleted');
     });
 
     test('deleting active connection removes its secure storage password',
@@ -329,14 +337,16 @@ void main() {
       );
 
       // Verify passwords are stored.
-      final storedPw = await storage.read(key: 'connection_password_${conn2.id}');
+      final storedPw =
+          await storage.read(key: 'connection_password_${conn2.id}');
       expect(storedPw, equals('pass2'));
 
       // Delete conn2.
       await service.delete(conn2.id!);
 
       // Password for conn2 should be removed from secure storage.
-      final deletedPw = await storage.read(key: 'connection_password_${conn2.id}');
+      final deletedPw =
+          await storage.read(key: 'connection_password_${conn2.id}');
       expect(deletedPw, isNull,
           reason: 'INT-G01-T03: deleted connection password should be removed');
     });

@@ -8,13 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/services/background_service.dart';
-import '../browser/browser_provider.dart';
-import '../browser/browser_screen.dart';
-import '../playlist/playlist_list_screen.dart';
-import '../playlist/playlist_provider.dart';
-import '../player/player_provider.dart';
-import '../player/widgets/mini_player_bar.dart';
-import '../timer/timer_provider.dart';
+import '../../shared/di/providers.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});

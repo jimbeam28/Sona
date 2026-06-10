@@ -17,10 +17,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart';
 
-import '../../timer/domain/timer_service.dart';
+import '../../../shared/di/providers.dart';
 import '../../../shared/models/play_queue.dart';
-import '../../browser/browser_provider.dart';
-import '../../timer/timer_provider.dart';
+
 import '../player_provider.dart';
 import 'queue_sheet.dart';
 

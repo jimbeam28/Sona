@@ -17,7 +17,10 @@ import 'domain/request_gate.dart';
 import 'domain/speed_manager.dart' as sm;
 
 export 'background_playback_notifier.dart'
-    show BackgroundPlaybackNotifier, backgroundPlaybackProvider, mapLifecycleState;
+    show
+        BackgroundPlaybackNotifier,
+        backgroundPlaybackProvider,
+        mapLifecycleState;
 export 'domain/background_playback.dart'
     show
         AppLifecyclePhase,

@@ -10,7 +10,7 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../shared/models/connection_config.dart';
-import '../browser/browser_provider.dart';
+import '../../shared/di/providers.dart';
 import 'connection_provider.dart';
 
 class ConnectionListScreen extends ConsumerWidget {

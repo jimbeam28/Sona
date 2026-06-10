@@ -26,10 +26,13 @@ export '../../features/browser/browser_provider.dart'
         // Infrastructure
         sharedPreferencesProvider,
         sortOptionProvider,
+        SortOption,
+        SortOptionNotifier,
         directoryCacheProvider,
         clearDirectoryCacheProvider,
         directoryContentsProvider,
         navigationStackProvider,
+        NavigationStackNotifier,
         // Queue state
         currentPlayQueueProvider,
         lastQueueConnectionIdProvider,
@@ -175,6 +178,9 @@ export '../../features/timer/timer_provider.dart'
         lastCustomTimerMinutesProvider,
         setLastCustomTimerMinutesProvider;
 
+export '../../features/timer/widgets/timer_button.dart'
+    show TimerButton, TimerBottomSheet;
+
 // ── 6. Settings ─────────────────────────────────────────────────────────────
 
 export '../../features/settings/settings_provider.dart'
@@ -220,3 +226,15 @@ export '../../features/playlist/playlist_provider.dart'
         // Export / Import
         exportPlaylistProvider,
         importPlaylistProvider;
+
+// ── 8. Cross-feature widgets & dialogs ──────────────────────────────────────
+
+export '../../features/progress/progress_dialog.dart'
+    show showProgressResumeDialog;
+export '../../features/browser/browser_screen.dart' show BrowserScreen;
+export '../../features/browser/widgets/breadcrumb_bar.dart' show BreadcrumbBar;
+export '../../features/timer/domain/timer_service.dart'
+    show TimerMode, TimerService;
+export '../../features/playlist/playlist_list_screen.dart'
+    show PlaylistListScreen;
+export '../../features/player/widgets/mini_player_bar.dart' show MiniPlayerBar;

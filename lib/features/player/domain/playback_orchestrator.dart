@@ -244,8 +244,7 @@ class PlaybackOrchestrator {
   /// Advances to the next track in the queue and loads it.
   ///
   /// Saves the current progress before advancing.
-  Future<TrackLoadResult> skipToNext(
-      {bool registerListeners = true}) async {
+  Future<TrackLoadResult> skipToNext({bool registerListeners = true}) async {
     final q = queue;
     if (q == null) return const TrackLoadResult.failed();
 
@@ -320,8 +319,7 @@ class PlaybackOrchestrator {
   /// - If the queue becomes empty, stops playback.
   /// - If the removed track was the current one, loads the next track.
   /// - If the removed track was not the current one, just updates the queue.
-  Future<void> removeTrack(int index,
-      {bool registerListeners = true}) async {
+  Future<void> removeTrack(int index, {bool registerListeners = true}) async {
     final q = queue;
     if (q == null || index < 0 || index >= q.length) return;
 

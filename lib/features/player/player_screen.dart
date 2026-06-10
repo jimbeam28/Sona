@@ -9,9 +9,8 @@ import 'package:just_audio/just_audio.dart';
 
 import '../../core/services/storage_utils.dart';
 import '../../shared/models/play_queue.dart';
-import '../browser/browser_provider.dart';
-import '../connection/connection_provider.dart';
-import '../timer/timer_provider.dart';
+import '../../shared/di/providers.dart';
+
 import 'domain/player_screen_logic.dart';
 import 'player_provider.dart';
 import 'widgets/now_playing_icon.dart';

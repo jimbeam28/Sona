@@ -55,7 +55,8 @@ void main() {
       final expired = service.checkExpired();
 
       expect(expired, isFalse,
-          reason: 'INT-G06-T01: non-expired timer should not trigger on resume');
+          reason:
+              'INT-G06-T01: non-expired timer should not trigger on resume');
       expect(service.isActive, isTrue,
           reason: 'INT-G06-T01: timer should still be active');
 
@@ -77,7 +78,8 @@ void main() {
       final expired = service.checkExpired();
 
       expect(expired, isFalse,
-          reason: 'INT-G06-T01: afterCurrent timer should not trigger via checkExpired');
+          reason:
+              'INT-G06-T01: afterCurrent timer should not trigger via checkExpired');
       expect(service.isActive, isTrue);
 
       if (expired) {
@@ -139,7 +141,8 @@ void main() {
       final result = checkExpired();
 
       expect(result, isTrue,
-          reason: 'INT-G06-T01: checkTimerExpiryProvider should detect expired timer');
+          reason:
+              'INT-G06-T01: checkTimerExpiryProvider should detect expired timer');
 
       // Timer state should be cleared.
       final state = container.read(timerStateProvider);
@@ -147,7 +150,8 @@ void main() {
           reason: 'INT-G06-T01: timer state should be null after expiry check');
     });
 
-    test('ProviderContainer: checkTimerExpiryProvider returns false for active timer',
+    test(
+        'ProviderContainer: checkTimerExpiryProvider returns false for active timer',
         () {
       final service = TimerService();
       service.startDuration(10);
@@ -244,7 +248,8 @@ void main() {
       saveFn();
 
       expect(saveCount, equals(3),
-          reason: 'INT-G06-T02: each background transition should save progress');
+          reason:
+              'INT-G06-T02: each background transition should save progress');
     });
 
     test('progress saved includes current position and duration', () {
@@ -435,7 +440,8 @@ void main() {
       verifyNever(player.pause());
     });
 
-    test('ProviderContainer: onTrackCompletedProvider triggers for afterCurrent',
+    test(
+        'ProviderContainer: onTrackCompletedProvider triggers for afterCurrent',
         () {
       final service = TimerService();
       service.startAfterCurrent();
@@ -451,14 +457,16 @@ void main() {
       final result = onCompleted();
 
       expect(result, isTrue,
-          reason: 'INT-G06-T03: onTrackCompletedProvider should trigger for afterCurrent');
+          reason:
+              'INT-G06-T03: onTrackCompletedProvider should trigger for afterCurrent');
 
       final state = container.read(timerStateProvider);
       expect(state, isNull,
           reason: 'INT-G06-T03: timer state should be cleared after trigger');
     });
 
-    test('ProviderContainer: onTrackCompletedProvider returns false when no timer',
+    test(
+        'ProviderContainer: onTrackCompletedProvider returns false when no timer',
         () {
       final service = TimerService();
 
@@ -473,7 +481,8 @@ void main() {
       final result = onCompleted();
 
       expect(result, isFalse,
-          reason: 'INT-G06-T03: no timer should not trigger completion handler');
+          reason:
+              'INT-G06-T03: no timer should not trigger completion handler');
     });
   });
 }

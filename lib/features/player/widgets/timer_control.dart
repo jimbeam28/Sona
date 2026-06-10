@@ -4,9 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../timer/domain/timer_service.dart';
-import '../../timer/timer_provider.dart';
-import '../../timer/widgets/timer_button.dart';
+import '../../../shared/di/providers.dart';
 
 /// Timer control button that shows remaining time when active.
 class TimerControl extends ConsumerWidget {

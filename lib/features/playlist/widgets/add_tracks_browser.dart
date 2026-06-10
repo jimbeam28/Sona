@@ -8,8 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/webdav_client.dart';
 import '../../../shared/models/nas_file.dart';
-import '../../browser/browser_provider.dart';
-import '../../browser/widgets/breadcrumb_bar.dart';
+import '../../../shared/di/providers.dart';
+
 import '../playlist_provider.dart';
 
 /// Opens the add-tracks browser as a modal bottom sheet.
