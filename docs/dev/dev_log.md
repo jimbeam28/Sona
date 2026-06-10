@@ -2,6 +2,19 @@
 
 ---
 
+## [2026-06-10] [TREF-02] - ConnectionEditScreen 验证门逻辑提取为纯函数
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `lib/features/connection/domain/edit_screen_logic.dart` — 新建纯 Dart：EditFieldChanges 类、ValidationStatus 枚举、needsValidation()、canSave()
+- `lib/features/connection/connection_edit_screen.dart` — 删除 _needsValidation/_canSave，替换为纯函数调用，新增 _mapValidationState 桥接
+
+### 测试结果
+- 通过: 123 / 总计: 123
+
+---
+
 ## [2026-06-10] [TREF-01] - PlayerScreen 嵌入逻辑提取到 Domain 层
 
 **状态**: ✅ 成功

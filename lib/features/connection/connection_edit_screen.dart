@@ -17,6 +17,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/network/webdav_client.dart';
 import '../../shared/models/connection_config.dart';
 import 'connection_provider.dart';
+import 'domain/edit_screen_logic.dart' as logic;
 import 'widgets/connection_form.dart';
 
 class ConnectionEditScreen extends ConsumerStatefulWidget {
@@ -145,7 +146,16 @@ class _ConnectionEditScreenState extends ConsumerState<ConnectionEditScreen> {
 
                   // "保存" button
                   FilledButton.icon(
-                    onPressed: (_canSave(validationState) && !_isSaving)
+                    onPressed: (logic.canSave(
+                              needsRevalidation: logic.needsValidation(
+                                original: _originalConfig,
+                                current: _currentFields,
+                                isAttached: _formController.isAttached,
+                              ),
+                              validationStatus:
+                                  _mapValidationState(validationState),
+                            ) &&
+                            !_isSaving)
                         ? _onSave
                         : null,
                     icon: _isSaving
@@ -185,25 +195,18 @@ class _ConnectionEditScreenState extends ConsumerState<ConnectionEditScreen> {
 
   // ── Validation-gate logic ───────────────────────────────────────────────────
 
-  /// Returns true when the user modified a field that affects connectivity
-  /// (URL, username, basePath, or password) and therefore must re-validate
-  /// before saving.
-  bool _needsValidation() {
-    if (_originalConfig == null) return true; // safety net
-    if (!_formController.isAttached) return false;
-    return _formController.url != _originalConfig!.url ||
-        _formController.username != _originalConfig!.username ||
-        _formController.basePath != _originalConfig!.basePath ||
-        _formController.password.isNotEmpty;
-  }
+  logic.EditFieldChanges get _currentFields => logic.EditFieldChanges(
+        url: _formController.url,
+        username: _formController.username,
+        basePath: _formController.basePath,
+        password: _formController.password,
+      );
 
-  /// Returns true when the save button should be enabled.
-  bool _canSave(ConnectionValidationState validationState) {
-    if (_needsValidation()) {
-      return validationState is ValidationSuccess;
-    }
-    // Only the display name changed — no validation required (CON-T30).
-    return true;
+  logic.ValidationStatus _mapValidationState(ConnectionValidationState state) {
+    if (state is ValidationSuccess) return logic.ValidationStatus.success;
+    if (state is ValidationLoading) return logic.ValidationStatus.loading;
+    if (state is ValidationError) return logic.ValidationStatus.error;
+    return logic.ValidationStatus.idle;
   }
 
   // ── Handlers ────────────────────────────────────────────────────────────────
@@ -224,7 +227,11 @@ class _ConnectionEditScreenState extends ConsumerState<ConnectionEditScreen> {
     if (!_formController.validate()) return;
 
     // CON-T28: block save when credentials changed but not re-validated
-    if (_needsValidation()) {
+    if (logic.needsValidation(
+      original: _originalConfig,
+      current: _currentFields,
+      isAttached: _formController.isAttached,
+    )) {
       final validationState = ref.read(connectionValidatorProvider);
       if (validationState is! ValidationSuccess) {
         if (mounted) {
