@@ -2,6 +2,18 @@
 
 ---
 
+## [2026-06-10] [TREF-04] - ConnectionEditScreen 提取逻辑单元测试
+
+**状态**: ✅ 成功
+
+### 修改文件
+- `test/features/connection/edit_screen_logic_test.dart` — 新建 14 个纯函数测试（ESL-01~ESL-14）
+
+### 测试结果
+- 通过: 14 / 总计: 14
+
+---
+
 ## [2026-06-10] [TREF-03] - PlayerScreen 提取逻辑单元测试
 
 **状态**: ✅ 成功
