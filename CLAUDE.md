@@ -176,3 +176,117 @@ dart format lib test         # 格式化
 - 纯逻辑层（Domain 层全部 service/policy/state machine）可直接单元测试，无 Flutter 依赖
 - 测试 helper 统一放 `test/helpers/`：`fake_secure_storage` / `fake_webdav_client` / `mock_audio_player` / `test_database` / `test_factories` / `widget_helpers`
 - 通过 `core/contracts/` 抽象接口注入 fake 实现，避免平台 channel 依赖
+
+## 开发流程（dev-plan / dev-exe / dev-check skill 链）
+
+新功能与 Bug 修复通过三个 skill 串起来工作，**所有规约锚到代码不脑补**：
+
+```
+用户提需求 / 描述 bug
+  → dev-plan skill
+      读现有代码 → 逆抽现有行为规约 + 增量加新需求 Scenario
+      输出 docs/features/{ID}.md（按 _TEMPLATE.md）
+      输出更新 docs/dev/dev-status.json
+      Bug 修复场景：先写失败复现测试 → 才允分析根因（硬门禁）
+      向用户呈现 §1.2 用户视角 Scenario 表 + 跨模块影响 + 测试盲点 → 用户 ack
+      （ack 后不自动继；用户手动启动 dev-exe）
+      **铁律 4：每条 status: new Scenario 必须带否定断言**（防假阴面 bug）
+  → dev-exe skill
+      启动前检查 check_round：> 0 表明是 dev-check 打回的返工，
+      必读 docs/dev/check_log.md 最末条作为本轮修复靶点清单
+      Agent A 测试先行（只读 docs/features/{ID}.md §3/§4/§6，不读 lib/）
+      Agent B 按 spec 实现（不允许违反任一 INV）
+      Agent C 验证 spec 覆盖率（< 100% = FAIL）
+      5 轮修复循环 + 3 轮失败 → blocked
+      涉及 audio_service / AudioFocus / MethodChannel / 通知栏 → 强制 docs/dev/mqa-{ID}.md 手动 QA
+      终门禁：flutter analyze 0 warnings / dart format 无变更 / 全量回归 PASS / **关键路径覆盖率 90%**
+      第 8 步：标 done，**不自动继**，提示用户手动启动 dev-check
+  → dev-check skill （独立评审，未参与过开发）
+      7 项检查：
+        1. spec vs 原需求贴合度  — 用户最初需求文字与 §1.2 对照，找 dev-plan 漏 / 脑补
+        2. 实现对 spec 忠实度    — §3 每条 Scenario / §4 每个 INV 在代码中真实被实现且不可被违
+        3. 回归测试充分性        — 测试是否真有断言、是否覆盖边界 / 异常
+        4. 跨模块已识别不变量未破坏 — §7 列出的 cross_module_impacts 是否都有回归断言且 PASS
+        5. 跨模块被漏识的破坏    — git show + grep + **跑全量 flutter test** 看是否真没被影响
+        6. 基线覆盖率漂移        — 当前 lcov.info vs docs/dev/baseline-coverage.json，任一下降超容忍 FAIL
+        7. 否定断言未被破坏     — §3 是否每条 status: new 真带否定断言，且测试中真有对应 expect(..., unchanged) 类断言
+      **不亲手修复**——只出问题清单写入 docs/dev/check_log.md
+      PASS  → 标 check_status=passed + **刷新 docs/dev/baseline-coverage.json**（基线持续上推）
+      FAIL  → check_round + 1，impl_status 改回 pending，提示用户手动启动 dev-exe 重做
+      3 轮上限仍 FAIL → 标 check_status=blocked_after_3_rounds，impl_status=blocked，等人工介入
+```
+
+### 关键路径覆盖率守护（新增）
+
+- `docs/dev/baseline-coverage.json` — 基线快照，由 dev-check PASS 后刷新
+- `docs/dev/scripts/coverage-check.sh` — 解析 lcov.info 与基线对比
+  - `check-exe` 子命令：dev-exe 第 7 步用，守 critical_files 各 ≥ 90% / 新增 100%
+  - `check-check` 子命令：dev-check 第 6 项用，against baseline 检测漂移
+  - `refresh` 子命令：dev-check PASS 后刷新基线
+- critical_files 默认清单 = domain 层全部 + PlayQueue 共享模型（baseline 缺时退化用）
+- 漂移容忍阈值：overall 下降 >1% FAIL；critical 单文件下降 >2% FAIL
+
+### 三 skill 的角色分工
+
+| 维度 | dev-plan | dev-exe | dev-check |
+|---|---|---|---|
+| 视角 | 锚到代码逆抽 + 增量加需求 | 按 spec 实现 + 测试 | 独立评审，未参与过开发 |
+| 铁律 1 | 锚到代码不脑补 | 测试 A 只读 spec 不读 lib | 不亲手修复 |
+| 铁律 2 | Bug 修复先写失败复现测试 | 实现 B 不修改测试断言 | 重读原需求推回实现 |
+| 铁律 3 | §1.2 必须呈现给用户审 | Spec 覆盖 < 100% 拒收 | 3 轮上限后强制 blocked |
+| 铁律 4 | **每条新 Scenario 必带否定断言** | 关键路径覆盖率 ≥ 90% | **基线覆盖率漂移守护** |
+| 触发 | "制定计划""分析需求" | "开始开发""实现" | "检查""审查" |
+
+**dev-exe 内部 Agent C 与 dev-check 不重合**：Agent C 在 dev-exe 流程内、被 spec 框住视角，只查"每条 spec 是否被测"；dev-check 是独立视角，质疑 spec 本身对不对、实现对原需求贴不贴。二者互补不替代。
+
+### 文件位置
+
+- 功能详细设计模板：`docs/features/_TEMPLATE.md`
+- 功能文档：`docs/features/{ID}.md`（如 `docs/features/CON-01.md`）
+- 进度跟踪：`docs/dev/dev-status.json`
+- 手动 QA 清单：`docs/dev/mqa-{ID}.md`（涉及平台原生时）
+- Bug 复现测试：`test/features/{feature}/bug_{ID}_repro_test.dart`（修复前必须 FAIL，修复后必须 PASS）
+- 评审报告：`docs/dev/check_log.md`（dev-check 写入，dev-exe 重做时读最末条作为修复靶点）
+- 基线覆盖率快照：`docs/dev/baseline-coverage.json`（dev-check PASS 后刷新，对比漂移用）
+- 覆盖率检查脚本：`docs/dev/scripts/coverage-check.sh`（dev-exe 第 7 步 + dev-check 第 6 项 + 刷新基线三合一）
+
+### dev-status.json 关键字段
+
+```json
+"{ID}": {
+  "spec_file":         "docs/features/{ID}.md",
+  "spec_anchored_files": ["lib/.../x.dart", ...],   // 锚到代码（铁律）
+  "scenarios":          ["{ID}-S1", ..., "{ID}-S{n}"],
+  "invariants":         ["{ID}-INV1", ..., "{ID}-INV{n}"],
+  "algorithms":         ["{ID}-ALG1", ...],
+  "test_coverage_gaps": ["{ID}-S5", ...],           // dev-exe 必补
+  "cross_module_impacts": ["BRW", "PRG", "PLY"],   // 跨模块影响
+  "manual_qa_required": false | true,
+  "manual_qa_file":     null | "docs/dev/mqa-{ID}.md",
+  "user_acceptance_text": "见 docs/features/{ID}.md §1.2",
+  "impl_status":    "pending" | "done" | "failed" | "blocked",
+  "test_status":    "pending" | "passed",
+  "check_status":   "pending" | "passed" | "round_1" | "round_2" | "round_3" | "blocked_after_3_rounds",
+  "check_round":    0,                              // dev-check 打回累计次数
+  "last_check_round_results": "",                   // 指向 check_log.md 最末条
+  "last_checked_at": "",                            // 日期
+  ...
+}
+```
+
+字段生命周期（关键）：
+- **dev-plan 创建**：`impl_status=test_status="pending"`，`check_status="pending"`，`check_round=0`
+- **dev-exe 完成自身门禁**：`impl_status="done"`，`test_status="passed"`——**不动** check_*
+- **dev-check 通过**：`check_status="passed"`，写 `last_checked_at`
+- **dev-check 打回**：`check_status="round_N"`，`check_round=N`，**`impl_status` 改回 "pending"** 触发 dev-exe 重做
+- **dev-exe 重做**：在第 1 步读 `check_round` 决定带 dev-check 上轮问题清单作为修复靶点
+- **dev-check 3 轮上限仍 FAIL**：`check_status="blocked_after_3_rounds"`，`impl_status="blocked"`
+
+### 渐进迁移策略
+
+历史 `docs/design/state.md` 与 `docs/coverage-matrix.md` 等已删除——它们是与代码漂移的脑补规格，不再使用。
+新功能开发流程通过 dev-plan **逆抽现实现**生成 `docs/features/{ID}.md`，仅在该功能下次要改时才写。
+
+不在一开始就倒推全部功能文档。下次需要改 CON-04 时，dev-plan 才会逆抽并写 `docs/features/CON-04.md`。
+
+**任何 LLM 看到代码里某行为不在 `docs/features/{ID}.md` 中**——以代码为准，文档未覆盖就是文档待补，不是代码违规。如果需要在文档补一条 Scenario/Senario，**必须**通过 dev-plan 流程增量补，**严禁**直接修改 features 文档。

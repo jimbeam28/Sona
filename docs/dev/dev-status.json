@@ -1,68 +1,56 @@
 {
   "metadata": {
-    "last_updated": "2026-06-10",
-    "total": 6,
-    "pending": 0,
-    "done": 6
+    "last_updated": "2026-06-28",
+    "total": 1,
+    "pending": 1
   },
   "order": [
-    "TREF-01", "TREF-02", "TREF-03", "TREF-04",
-    "TREF-05", "TREF-06"
+    "BRW-09"
   ],
   "items": {
-    "TREF-01": {
-      "name": "PlayerScreen 嵌入逻辑提取到 Domain 层",
-      "plan_section": "dev-plan.md §TREF-01",
-      "impl_status": "done",
-      "test_status": "passed",
+    "BRW-09": {
+      "name": "文件列表下一曲播放图标",
+      "spec_file": "docs/features/BRW-09.md",
+      "spec_anchored_files": [
+        "lib/features/browser/widgets/file_list_item.dart",
+        "lib/features/browser/browser_screen.dart",
+        "lib/features/browser/browser_provider.dart",
+        "lib/features/player/player_provider.dart",
+        "lib/features/player/domain/playback_orchestrator.dart",
+        "lib/shared/models/play_queue.dart"
+      ],
+      "scenarios": [
+        "BRW-09-S1", "BRW-09-S2", "BRW-09-S3", "BRW-09-S4",
+        "BRW-09-S5", "BRW-09-S6", "BRW-09-S7", "BRW-09-S8", "BRW-09-S9"
+      ],
+      "invariants": [
+        "BRW-09-INV1", "BRW-09-INV2", "BRW-09-INV3", "BRW-09-INV4"
+      ],
+      "algorithms": ["BRW-09-ALG1-insertAfterCurrent"],
+      "test_files": [
+        "test/features/browser/brw_09_test.dart",
+        "test/features/player/ply_insert_after_current_test.dart",
+        "test/shared/play_queue_insert_test.dart"
+      ],
+      "test_coverage_gaps": [
+        "BRW-09-S1", "BRW-09-S2", "BRW-09-S3", "BRW-09-S4", "BRW-09-S5",
+        "BRW-09-S6", "BRW-09-S7", "BRW-09-S8", "BRW-09-S9",
+        "BRW-09-INV1", "BRW-09-INV2", "BRW-09-INV3", "BRW-09-INV4"
+      ],
+      "cross_module_impacts": ["PLY"],
+      "manual_qa_required": false,
+      "manual_qa_file": null,
+      "user_acceptance_text": "见 docs/features/BRW-09.md §1.2",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "check_status": "pending",
+      "check_round": 0,
+      "last_check_round_results": "",
+      "last_checked_at": "",
       "dependencies": [],
       "retry_count": 0,
-      "last_error": ""
-    },
-    "TREF-02": {
-      "name": "ConnectionEditScreen 验证门逻辑提取为纯函数",
-      "plan_section": "dev-plan.md §TREF-02",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": [],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "TREF-03": {
-      "name": "PlayerScreen 提取逻辑单元测试",
-      "plan_section": "dev-plan.md §TREF-03",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": ["TREF-01"],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "TREF-04": {
-      "name": "ConnectionEditScreen 提取逻辑单元测试",
-      "plan_section": "dev-plan.md §TREF-04",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": ["TREF-02"],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "TREF-05": {
-      "name": "OnboardingPage 重定向逻辑测试",
-      "plan_section": "dev-plan.md §TREF-05",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": [],
-      "retry_count": 0,
-      "last_error": ""
-    },
-    "TREF-06": {
-      "name": "DatabaseHelper 迁移专项测试",
-      "plan_section": "dev-plan.md §TREF-06",
-      "impl_status": "done",
-      "test_status": "passed",
-      "dependencies": [],
-      "retry_count": 0,
-      "last_error": ""
+      "last_error": "",
+      "last_updated": "2026-06-28"
     }
   }
 }

@@ -1,0 +1,38 @@
+{
+  "_comment": "基线覆盖率快照——由 dev-check 每次 PASS 后刷新。dev-check 第 6 项基于此对比当前 lcov.info，任一下降幅超容忍阈值即 FAIL。",
+  "_schema": {
+    "last_updated": "YYYY-MM-DD",
+    "last_passed_feature": "{ID}",
+    "baseline_overall": 0.0,
+    "tolerance_overall_drop": 1.0,
+    "tolerance_critical_drop": 2.0,
+    "critical_files_threshold": 90.0,
+    "critical_files": {
+      "_comment": "Path -> coverage% (0-100). 列入此处的文件由 dev-exe 第 7 步守：单文件覆盖率 >= critical_files_threshold；本基线还守护不下降超 tolerance_critical_drop。",
+      "_default_critical_files": [
+        "lib/shared/models/play_queue.dart",
+        "lib/features/player/domain/playback_orchestrator.dart",
+        "lib/features/player/domain/play_mode.dart",
+        "lib/features/player/domain/seek_utils.dart",
+        "lib/features/player/domain/speed_manager.dart",
+        "lib/features/browser/domain/cache_policy.dart",
+        "lib/features/browser/domain/navigation_stack.dart",
+        "lib/features/progress/domain/progress_policy.dart",
+        "lib/features/connection/domain/connection_validator.dart",
+        "lib/features/playlist/domain/playlist_service.dart",
+        "lib/features/timer/domain/timer_service.dart",
+        "lib/features/settings/domain/settings_service.dart"
+      ]
+    },
+    "all_files": {}
+  },
+  "_status": "empty",
+  "last_updated": "2026-06-28",
+  "last_passed_feature": null,
+  "baseline_overall": null,
+  "tolerance_overall_drop": 1.0,
+  "tolerance_critical_drop": 2.0,
+  "critical_files_threshold": 90.0,
+  "critical_files": {},
+  "all_files": {}
+}
