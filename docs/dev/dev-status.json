@@ -2,7 +2,7 @@
   "metadata": {
     "last_updated": "2026-07-05",
     "total": 4,
-    "pending": 2
+    "pending": 1
   },
   "order": [
     "BRW-09",
@@ -101,18 +101,16 @@
       "algorithms": [],
       "test_files": [
         "test/features/playlist/bug_bug02_repro_test.dart",
-        "test/features/playlist/ref_26_test.dart"
+        "test/features/playlist/ref_26_test.dart",
+        "test/features/playlist/bug_bug02_fixed_test.dart"
       ],
-      "test_coverage_gaps": [
-        "BUG-02-S2", "BUG-02-S3",
-        "BUG-02-INV1", "BUG-02-INV2"
-      ],
+      "test_coverage_gaps": [],
       "cross_module_impacts": [],
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/BUG-02.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -120,7 +118,7 @@
       "dependencies": [],
       "retry_count": 0,
       "last_error": "",
-      "last_updated": "2026-06-28"
+      "last_updated": "2026-07-05"
     },
     "BUG-03": {
       "name": "TimerService.resume() 用 ceil() 转分钟精度损失",

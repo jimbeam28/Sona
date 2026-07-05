@@ -63,8 +63,10 @@ class PlaylistService {
   /// before inserting.  Only files not already present are added.
   Future<void> addTracksToPlaylist(int playlistId, List<NasFile> files) async {
     final now = DateTime.now();
+    final seen = <String>{};
     final tracks = <PlaylistTrack>[];
     for (final file in files) {
+      if (file.path.isEmpty || !seen.add(file.path)) continue;
       final exists = await _dao.trackExists(playlistId, file.path);
       if (!exists) {
         tracks.add(PlaylistTrack(

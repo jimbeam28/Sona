@@ -1208,3 +1208,20 @@
 
 ### 跨模块影响
 - §7 PLY/PRG/BRW-09 跨模块影响：BRW-09 实现已使用新 == 语义（不冲突）；PRG/PLY 的 ref.listen(currentPlayQueueProvider) 现可正确检测 shuffle 字段变化触发 listener，无回归
+
+---
+
+## [2026-07-05] [BUG-02] - addTracksToPlaylist 缺内存内去重
+
+**状态**: ✅ 成功
+**§0 manual_qa_required**: false
+
+### 修改文件
+- `lib/features/playlist/domain/playlist_service.dart` — `addTracksToPlaylist` 加 `seen` Set 内存去重 + 空 path 跳过，与 importPlaylist 行为对齐 (@BUG-02-S2/S3/INV1/INV2)
+
+### 测试结果
+- 复现测试: 2/2 PASS (修复前 FAIL → 修复后 PASS)
+- 修复后行为 + INV + ALG 测试: 14/14 PASS (bug_bug02_fixed_test.dart 新增)
+- 全量回归: 仅 BUG-03 复现测试失败（已知）
+- 静态分析: 0 warnings
+- 格式: dart format 同步
