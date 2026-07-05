@@ -54,6 +54,8 @@ class AudioFileListTile extends StatelessWidget {
   final FileItemTapCallback? onTap;
   final VoidCallback? onLongPress;
   final double? progressPercentage;
+  final FileItemTapCallback? onPlayNext;
+  final bool playNextEnabled;
 
   const AudioFileListTile({
     super.key,
@@ -61,6 +63,8 @@ class AudioFileListTile extends StatelessWidget {
     this.onTap,
     this.onLongPress,
     this.progressPercentage,
+    this.onPlayNext,
+    this.playNextEnabled = true,
   });
 
   IconData get _icon {
@@ -95,6 +99,19 @@ class AudioFileListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final playNextActive = playNextEnabled && onPlayNext != null;
+    final nextIcon = IconButton(
+      icon: const Icon(Icons.queue_music),
+      onPressed: playNextActive ? () => onPlayNext!(file) : null,
+      tooltip: playNextActive ? '加入下一曲' : '请先开始播放后再用此功能',
+    );
+    final trailing = playNextActive
+        ? nextIcon
+        : GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {},
+            child: nextIcon,
+          );
     final tile = ListTile(
       leading: Icon(_icon, color: _iconColor),
       title: Text(
@@ -103,6 +120,7 @@ class AudioFileListTile extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
       ),
       subtitle: _sizeLabel != null ? Text(_sizeLabel!) : null,
+      trailing: trailing,
       onTap: onTap != null ? () => onTap!(file) : null,
       onLongPress: onLongPress,
     );

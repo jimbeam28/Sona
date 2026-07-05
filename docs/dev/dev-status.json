@@ -1,8 +1,8 @@
 {
   "metadata": {
-    "last_updated": "2026-06-28",
+    "last_updated": "2026-07-05",
     "total": 4,
-    "pending": 4
+    "pending": 3
   },
   "order": [
     "BRW-09",
@@ -35,17 +35,13 @@
         "test/features/player/ply_insert_after_current_test.dart",
         "test/shared/play_queue_insert_test.dart"
       ],
-      "test_coverage_gaps": [
-        "BRW-09-S1", "BRW-09-S2", "BRW-09-S3", "BRW-09-S4", "BRW-09-S5",
-        "BRW-09-S6", "BRW-09-S7", "BRW-09-S8", "BRW-09-S9",
-        "BRW-09-INV1", "BRW-09-INV2", "BRW-09-INV3", "BRW-09-INV4"
-      ],
+      "test_coverage_gaps": [],
       "cross_module_impacts": ["PLY"],
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/BRW-09.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -53,7 +49,7 @@
       "dependencies": [],
       "retry_count": 0,
       "last_error": "",
-      "last_updated": "2026-06-28"
+      "last_updated": "2026-07-05"
     },
     "BUG-01": {
       "name": "PlayQueue == / hashCode 漏比 shuffle 字段",

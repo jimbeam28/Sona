@@ -81,6 +81,19 @@ class BrowserScreen extends ConsumerWidget {
                   },
                   child: _FileList(
                     files: files,
+                    playNextEnabled: ref.watch(audioPlayerProvider).playing &&
+                        ref.watch(currentPlayQueueProvider) != null,
+                    onPlayNext: (NasFile f) async {
+                      final ok = await ref.read(insertAfterCurrentProvider)(f);
+                      if (ok && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('已加入下一曲：${f.name}'),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    },
                     onDirectoryTap: (dirPath) {
                       ref.read(navigationStackProvider.notifier).push(dirPath);
                     },
@@ -308,12 +321,16 @@ class _FileList extends StatelessWidget {
   final void Function(String dirPath)? onDirectoryTap;
   final void Function(NasFile file) onFileTap;
   final void Function(NasFile file)? onFileLongPress;
+  final void Function(NasFile file)? onPlayNext;
+  final bool playNextEnabled;
 
   const _FileList({
     required this.files,
     this.onDirectoryTap,
     required this.onFileTap,
     this.onFileLongPress,
+    this.onPlayNext,
+    this.playNextEnabled = false,
   });
 
   @override
@@ -340,6 +357,8 @@ class _FileList extends StatelessWidget {
           },
           onLongPress:
               onFileLongPress != null ? () => onFileLongPress!(file) : null,
+          onPlayNext: onPlayNext != null ? (_) => onPlayNext!(file) : null,
+          playNextEnabled: playNextEnabled,
         );
       },
     );

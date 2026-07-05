@@ -1161,3 +1161,29 @@
 ### 测试结果
 - 通过: 1544 / 总计: 1544
 - 静态分析: 0 errors
+
+---
+
+## [2026-07-05] [BRW-09] - 文件列表下一曲播放图标
+
+**状态**: ✅ 成功
+**§0 manual_qa_required**: false
+
+### 修改文件
+- `lib/shared/models/play_queue.dart` — 新增 `insertAfterCurrent(NasFile)` 纯函数方法 (@BRW-09-S3/S5/S6/S7/S8/INV1/INV2/INV3/ALG1)
+- `lib/features/player/domain/playback_orchestrator.dart` — 新增 `bool insertAfterCurrent(NasFile)` 方法 (@BRW-09-S4/ALG 异常/PLY-REG-1)
+- `lib/features/player/player_provider.dart` — 新增 `insertAfterCurrentProvider` (@BRW-09-S4 桥接)
+- `lib/features/browser/widgets/file_list_item.dart` — `AudioFileListTile` 增强 trailing IconButton（queue_music + tooltip + disabled 时 GestureDetector 吞点击）(@S1/S2/S9/INV4)
+- `lib/features/browser/browser_screen.dart` — `BrowserScreen` 注入 playNextEnabled + onPlayNext，SnackBar 提示 (@S2/S4 step4/S7/S9/INV4)
+- `lib/shared/di/providers.dart` — Player export 追加 `insertAfterCurrentProvider`
+
+### 测试结果
+- 通过: 22 / 总计: 22 (BRW-09 三份测试文件 100% PASS)
+- 回归: player/browser/shared 相关 735 测试全 PASS；全量仅 7 个 BUG-01/02/03 复现测试失败（dev-plan 已确认）
+- Spec 覆盖: 100% (9 Scenarios + 4 INV + 3 ALG 档 + 3 PLY-REG)
+- 静态分析: 0 warnings (130 info 可接受)
+- 格式: 已 dart format 通过
+- 关键路径覆盖率: 未跑 lcov.info（用户降级，交 dev-check 处理）
+
+### 手动 QA 项
+- 不涉及（§0 manual_qa_required = false）

@@ -88,6 +88,7 @@ export '../../features/player/player_provider.dart'
         skipToPreviousProvider,
         selectQueueIndexProvider,
         removeTrackFromQueueProvider,
+        insertAfterCurrentProvider,
         saveProgressProvider,
         // Speed
         defaultSpeedProvider,

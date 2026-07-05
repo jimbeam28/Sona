@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../core/services/audio_handler.dart';
 import '../../shared/models/connection_config.dart';
+import '../../shared/models/nas_file.dart';
 import '../../shared/models/play_progress.dart';
 import '../../shared/models/play_queue.dart';
 import '../../shared/di/providers.dart';
@@ -316,6 +317,11 @@ final removeTrackFromQueueProvider =
           // Check if the player is now playing to decide if listeners are needed.
           final player = ref.read(audioPlayerProvider);
           if (player.playing) _startPlaybackListeners(ref);
+        });
+
+final insertAfterCurrentProvider =
+    Provider<Future<bool> Function(NasFile)>((ref) => (NasFile f) async {
+          return ref.read(playbackOrchestratorProvider).insertAfterCurrent(f);
         });
 
 final reconnectPlaybackListenersProvider =

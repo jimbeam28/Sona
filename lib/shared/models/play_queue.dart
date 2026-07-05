@@ -156,6 +156,27 @@ class PlayQueue {
     );
   }
 
+  /// Returns a copy of this queue with [file] inserted immediately after
+  /// the current track (at `currentIndex + 1`).
+  ///
+  /// [currentIndex] is preserved (still points to the same logical track).
+  /// The shuffle order is **not** recomputed — it is carried over as-is so
+  /// the existing Fisher-Yates permutation stays intact (the newly inserted
+  /// file is simply not part of the shuffle sequence until a fresh order is
+  /// generated elsewhere).  No de-duplication is performed: repeated inserts
+  /// of the same [file] produce repeated copies.
+  PlayQueue insertAfterCurrent(NasFile file) {
+    final newFiles = files.toList()..insert(currentIndex + 1, file);
+    return PlayQueue(
+      files: newFiles,
+      currentIndex: currentIndex,
+      startPositionMs: startPositionMs,
+      playMode: playMode,
+      shuffleOrder: _shuffleOrder,
+      shufflePosition: _shufflePosition,
+    );
+  }
+
   // ── Queue navigation (PLY-05) ──────────────────────────────────────────
 
   /// Returns the index of the next track in shuffle order, or `null` when

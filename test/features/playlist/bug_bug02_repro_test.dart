@@ -6,7 +6,6 @@
 // 插入 → 播放单中出现重复曲目。修复前必须 FAIL；修复后必须 PASS。
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nas_audio_player/core/database/dao/playlist_dao.dart';
 import 'package:nas_audio_player/features/playlist/domain/playlist_service.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -54,8 +53,7 @@ void main() {
     await service.addTracksToPlaylist(playlistId, [dup, dup, dup, other]);
 
     final tracks = await service.findTracksForPlaylist(playlistId);
-    expect(tracks.length, 2,
-        reason: '重复 3 次的 a.mp3 应只 1 条，b.mp3 1 条，共 2 条');
+    expect(tracks.length, 2, reason: '重复 3 次的 a.mp3 应只 1 条，b.mp3 1 条，共 2 条');
     expect(tracks.where((t) => t.filePath == '/music/a.mp3').length, 1);
     expect(tracks.where((t) => t.filePath == '/music/b.mp3').length, 1);
   });

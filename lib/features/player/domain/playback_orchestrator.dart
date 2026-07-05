@@ -25,6 +25,7 @@ import 'package:just_audio/just_audio.dart';
 
 import '../../../core/services/audio_source_builder.dart';
 import '../../../shared/models/connection_config.dart';
+import '../../../shared/models/nas_file.dart';
 import '../../../shared/models/play_queue.dart';
 import 'request_gate.dart';
 
@@ -339,6 +340,22 @@ class PlaybackOrchestrator {
       saveProgress();
       await loadAndPlay(registerListeners: registerListeners);
     }
+  }
+
+  // ── insertAfterCurrent ─────────────────────────────────────────────────
+
+  /// Inserts [file] immediately after the current track in the queue.
+  ///
+  /// - The current track keeps playing; the new file becomes the next track.
+  /// - Does **not** call [loadAndPlay] or [saveProgress] (no track switch).
+  /// - Triggers [onQueueChanged] so the Riverpod layer syncs.
+  ///
+  /// Returns `true` on success, `false` when there is no active queue.
+  bool insertAfterCurrent(NasFile file) {
+    final q = queue;
+    if (q == null) return false;
+    queue = q.insertAfterCurrent(file);
+    return true;
   }
 
   // ── saveProgress ────────────────────────────────────────────────────────
