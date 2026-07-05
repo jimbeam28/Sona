@@ -166,7 +166,14 @@ flutter test                 # 全部测试
 flutter test test/features/connection/con_01_test.dart  # 单个测试
 flutter analyze              # 静态分析
 dart format lib test         # 格式化
+bash scripts/install-hooks.sh  # 安装 git pre-push hook（新 clone 后必跑一次）
 ```
+
+## Git Hooks
+
+- `scripts/hooks/pre-push` — push 前本地跑 `dart format --set-exit-if-changed` + `flutter analyze --no-fatal-infos` + `flutter test`，与 `.github/workflows/ci.yml` 一致，任一失败阻止 push。**仅当本次 push 涉及 `lib/` 或 `test/` 下的 `.dart` 文件时才跑**，纯文档/配置 push 自动跳过
+- `scripts/install-hooks.sh` — 在 `.git/hooks/pre-push` 写薄 wrapper 委托到版本控制脚本，clone 后跑一次即可，后续 hook 改动随 `git pull` 自动生效
+- 紧急跳过：`SKIP_PRE_PUSH=1 git push`
 
 ## 测试注意事项
 

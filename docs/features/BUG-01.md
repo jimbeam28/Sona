@@ -17,6 +17,7 @@ last_updated: 2026-06-28
 spec_anchored_files:
   - lib/shared/models/play_queue.dart
 cross_module_impacts: [PLY, PRG]
+parent_feature: null  # 跨模块 bug：锚点为共享模型 PlayQueue，影响 PLY + PRG + BRW-09，无单一归属
 manual_qa_required: false
 ```
 
@@ -208,3 +209,4 @@ ALG PlayQueue.== / hashCode 字段:
 ## §10 changelog
 
 - 2026-06-28: 创建 BUG-01 spec（基于 cr.md B1 + 复现测试已写且 FAIL） (status: new)
+- 2026-07-05: §0 加 `parent_feature: null` 字段（配合 _TEMPLATE.md 新字段 + dev-plan hybrid bug fold 策略；BUG-01 锚点为共享模型，跨模块无单一归属）

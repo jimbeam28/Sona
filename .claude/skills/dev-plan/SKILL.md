@@ -40,13 +40,19 @@ description: |
 
 ### 步骤 0：判断功能 ID 与既有文档
 
-1. 检查 `docs/features/{ID}.md` 是否存在
-   - **存在** → 走"修订模式"（步骤 1B + 3B）
-   - **不存在** → 走"新建模式"（步骤 1A + 3A）
+1. **先扫 `docs/features/INDEX.md`** 找候选文档：
+   - 按模块（CON / BRW / PLY / TMR / PRG / SET）在"功能文档"表找候选
+   - 比对"名称"列与"主锚点文件"列，判断新需求是否落在已有 `{ID}.md` 范围内
 2. 分析用户输入判断是**新功能**还是 **Bug 修复**
-3. 确定功能 ID：
-   - 沿用现有模块编号体系（CON / BRW / PLY / TMR / PRG / SET）
-   - 新功能编号尾号自增（参考 `docs/dev/dev-status.json` 已用编号）
+3. 确定功能 ID 与文档模式：
+   - **新功能**：
+     - 命中已有 `{ID}.md` → 走"修订模式"（步骤 1B + 3B）
+     - 未命中 → 走"新建模式"（步骤 1A + 3A），编号尾号自增（参考 `docs/dev/dev-status.json` 已用编号 + INDEX.md）
+   - **Bug 修复**（hybrid 策略）：
+     - **单特性 bug 且对应 feature 文档已存在** → 走"修订模式"，fold 为 `status: new` Scenario（**不建独立 BUG-NN.md**）；repro 测试文件名用 `bug_{feature_id_lower}_repro_test.dart`（如 `bug_con_01_repro_test.dart`）
+     - **单特性 bug 且对应 feature 文档不存在** → 新建 `BUG-NN.md`，§0 必填 `parent_feature` 字段（标归属模块名，如 `Playlist` / `Timer`）
+     - **跨模块 bug 无单一归属** → 新建 `BUG-NN.md`，§0 `parent_feature: null`
+     - 判断"单特性 vs 跨模块"依据：`spec_anchored_files` 是否集中在单一 feature 目录下 + `cross_module_impacts` 是否为空
 4. 读取 `docs/features/_TEMPLATE.md` 作为本次输出格式基线
 
 ### 步骤 1A：新建模式 — 代码勘察
@@ -128,6 +134,8 @@ description: |
 - §9 dev-status.json 条目对照
 - §10 与历史文档对照（若迁移自 state.md / 其它文档）
 
+**同步更新 `docs/features/INDEX.md`**：在"功能文档"或"Bug 文档"表追加新行，填齐 ID / 名称 / 状态 / 最近更新 / 主锚点文件 / S/INV/ALG 计数 / impl=test=pending / MQA / 主归属 feature（bug 必填）。
+
 ### 步骤 3B：修订模式 — 输出 `docs/features/{ID}.md` 增量更新
 
 1. 保留原本档的全部既有 Scenario / INV，不动它们的 `status`
@@ -138,6 +146,7 @@ description: |
 6. 同步更新 §7 跨模块影响
 7. 同步更新 §8 manual_qa_required
 8. 在文档末尾追加 changelog：`- YYYY-MM-DD: {本次需求摘要} (status: new)`
+9. **同步更新 `docs/features/INDEX.md`**：刷新该 ID 行的"最近更新" / "状态" / "S/INV/ALG" / "impl/test/check" / "在 status.json"等列；若是 bug fold 模式（feature 文档加 `status: new` Scenario），无需在 INDEX 加 BUG-NN 行
 
 ### 步骤 4：更新 `docs/dev/dev-status.json`
 
@@ -245,7 +254,9 @@ dev-plan 流程结束前必须确认：
 - [ ] §7 跨模块影响已用 grep 列真实引用方
 - [ ] §8 manual_qa_required 评估完整
 - [ ] Bug 修复场景：`test/features/.../bug_{ID}_repro_test.dart` 已写、已运行、已 FAIL
+- [ ] Bug 修复场景：若新建 `BUG-NN.md`，§0 含 `parent_feature` 字段（单特性标模块名 / 跨模块标 null）；若 fold 进 feature 文档，相应 feature 文档已加 `status: new` Scenario 且**未**创建独立 `BUG-NN.md`
 - [ ] `docs/dev/dev-status.json` 结构有效，scenarios / invariants 与文档一致
+- [ ] `docs/features/INDEX.md` 已同步更新（新建加行 / 修订刷新列；bug fold 模式只刷新父 feature 行）
 - [ ] 已向用户呈现 §1.2 + 跨模块影响 + 测试盲点，等待 ack
 
 任一条不满足 → 输出无效。

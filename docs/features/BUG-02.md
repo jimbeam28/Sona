@@ -17,6 +17,7 @@ last_updated: 2026-06-28
 spec_anchored_files:
   - lib/features/playlist/domain/playlist_service.dart
 cross_module_impacts: []
+parent_feature: Playlist  # 单特性 bug：锚点 lib/features/playlist/domain/playlist_service.dart
 manual_qa_required: false
 ```
 
@@ -170,3 +171,4 @@ ALG addTracksToPlaylist:
 ## §10 changelog
 
 - 2026-06-28: 创建 BUG-02 spec（基于 cr.md B2 + 复现测试已写且 FAIL） (status: new)
+- 2026-07-05: §0 加 `parent_feature: Playlist` 字段（配合 _TEMPLATE.md 新字段 + dev-plan hybrid bug fold 策略；BUG-02 单特性 bug 锚点 lib/features/playlist/）

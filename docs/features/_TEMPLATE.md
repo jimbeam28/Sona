@@ -21,6 +21,7 @@ spec_anchored_files:
   - lib/path/to/file_a.dart
   - lib/path/to/file_b.dart
 cross_module_impacts: [BRW, PRG, PLY]   # 改本功能会影响的 feature 列表
+parent_feature: null | <模块名>          # 仅 BUG-NN 文档必填：单特性 bug 标归属模块名（如 Playlist / Timer），跨模块 bug 标 null；feature 文档省略此字段
 manual_qa_required: false | true        # 涉及平台原生（audio_service / AudioFocus / MethodChannel / 通知栏）必须 true
 ```
 

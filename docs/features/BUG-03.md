@@ -17,6 +17,7 @@ last_updated: 2026-06-28
 spec_anchored_files:
   - lib/features/timer/domain/timer_service.dart
 cross_module_impacts: [PRG]
+parent_feature: Timer  # 单特性 bug：锚点 lib/features/timer/domain/timer_service.dart
 manual_qa_required: false
 ```
 
@@ -207,3 +208,4 @@ ALG resume:
 ## §10 changelog
 
 - 2026-06-28: 创建 BUG-03 spec（基于 cr.md B3 + 复现测试已写且 FAIL） (status: new)
+- 2026-07-05: §0 加 `parent_feature: Timer` 字段（配合 _TEMPLATE.md 新字段 + dev-plan hybrid bug fold 策略；BUG-03 单特性 bug 锚点 lib/features/timer/）
