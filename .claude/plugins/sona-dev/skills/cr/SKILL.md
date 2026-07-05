@@ -11,6 +11,20 @@ description: |
 
 # 代码走查与复核 (cr)
 
+> **本 skill 属 plugin `sona-dev`，路径 `.claude/plugins/sona-dev/skills/cr/`。**
+> **脚本调用铁律**：凡下表所列动作，**必须**经 plugin 内脚本间接执行，禁止裸跑 bash。
+> 脚本目录相对本 skill base：`../scripts/`；prefix 命令形如 `bash ../scripts/<name>.sh ...`。
+>
+> | 维度 | 原裸命令 | 改用脚本 |
+> |---|---|---|
+> | 范围解析 git 历史 | `git log --since=...` / `--grep=...` / `-N` | `bash ../scripts/git-scope.sh {recent\|since\|grep\|files\|diff} ...` |
+> | 维度 2 Domain 零 Flutter / Feature 隔离 | `rg lib/features/*/domain/ import flutter/` / `lib/features/A/ import features/B/` | `bash ../scripts/cross-imports.sh {domain-flutter\|feature-isolation\|secret-logs\|all}` |
+> | 维度 4 密码泄露日志 | `rg print/debugPrint 附近含 password` | `bash ../scripts/cross-imports.sh secret-logs` |
+> | 维度 7 flutter analyze / dart format | 裸跑 | `bash ../scripts/cov-gate.sh --skip-test` |
+> | 复核模式：派生 BUG spec 后 dev-plan 接力 | — | 复核完依旧由用户手动启动 dev-plan / dev-exe / dev-check |
+>
+> 走查行为（7 维度逐文件人工审视、写报告 `docs/cr/cr-{TS}.md`）属非确定性，仍走 opencode read/edit 工具。
+
 通用代码 review 工具，独立于 dev-plan / dev-exe / dev-check 流程。两种模式互斥，默认走查。
 
 ## 模式判定

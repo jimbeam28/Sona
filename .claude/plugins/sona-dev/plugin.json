@@ -1,0 +1,28 @@
+{
+  "name": "sona-dev",
+  "version": "0.1.0",
+  "description": "Sona 项目 dev 工作链：dev-plan / dev-exe / dev-check / cr 三环 + 通用走查。所有确定性命令收编为 scripts/*.sh，skill 通过脚本间接执行，避免裸 bash 超时/手算 timeout。",
+  "author": "Sona",
+  "license": "MIT",
+  "skills": [
+    "skills/dev-plan",
+    "skills/dev-exe",
+    "skills/dev-check",
+    "skills/cr"
+  ],
+  "scripts": [
+    "scripts/dev-task.sh",
+    "scripts/dev-status.sh",
+    "scripts/repro-test.sh",
+    "scripts/spec-scan.sh",
+    "scripts/cross-imports.sh",
+    "scripts/cov-gate.sh",
+    "scripts/cov-drift.sh",
+    "scripts/git-scope.sh",
+    "scripts/neg-assert.sh"
+  ],
+  "integration": {
+    "auto_load_via_symlink": ".claude/skills/{name} -> ../plugins/sona-dev/skills/{name}",
+    "loader": "opencode 扫描 .claude/skills/*/SKILL.md；本项目通过软链接让 plugin 内 skill 仍被正常发现"
+  }
+}

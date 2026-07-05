@@ -8,6 +8,20 @@ description: |
 
 # 开发计划制定 (dev-plan)
 
+> **本 skill 属 plugin `sona-dev`，路径 `.claude/plugins/sona-dev/skills/dev-plan/`。**
+> **脚本调用铁律**：凡下表所列动作，**必须**经 plugin 内脚本间接执行，禁止裸跑 bash。
+> 脚本目录相对本 skill base：`../scripts/`；prefix 命令形如 `bash ../scripts/<name>.sh ...`。
+>
+> | 动作 | 原裸命令 | 改用脚本 |
+> |---|---|---|
+> | Bug 复现测试必须 FAIL | `flutter test test/.../bug_xxx_repro_test.dart` | `bash ../scripts/repro-test.sh <test_path> fail` |
+> | 写 spec 各 §3/4/6 ID 与 test 命中清单 | 手 grep | `bash ../scripts/spec-scan.sh <ID>` |
+> | 检查 §3 每条 new Scenario 是否带否定断言 | 手 grep | `bash ../scripts/neg-assert.sh <ID>` |
+> | 读 / 改 `docs/dev/dev-status.json` | 手 jq | `bash ../scripts/dev-status.sh {list\|show\|set\|...}` |
+> | 跑带时间预算的临时命令 | `flutter test`、`flutter pub get` | `bash ../scripts/dev-task.sh <sec> <label> <cmd...>` |
+>
+> 其它探索类动作（`grep`/`read` 定位代码）属非确定性，仍走 opencode 工具，不固化。
+
 为每个待开发功能或 Bug 修复产出一份**锚到代码、不脑补**的详细设计文档，并更新 `dev-status.json`。
 产出的文档是 dev-exe 的输入，是**约束 LLM 实现不脑补**的唯一规约源。
 

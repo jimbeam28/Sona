@@ -10,6 +10,22 @@ description: |
 
 # 独立评审 (dev-check)
 
+> **本 skill 属 plugin `sona-dev`，路径 `.claude/plugins/sona-dev/skills/dev-check/`。**
+> **脚本调用铁律**：凡下表所列动作，**必须**经 plugin 内脚本间接执行，禁止裸跑 bash。
+> 脚本目录相对本 skill base：`../scripts/`；prefix 命令形如 `bash ../scripts/<name>.sh ...`。
+>
+> | 检查项 | 原裸命令 | 改用脚本 |
+> |---|---|---|
+> | 检查 1 spec ID → test 命中矩阵 | 手 grep | `bash ../scripts/spec-scan.sh <ID>` |
+> | 检查 3 §3/4/6 spec 覆盖矩阵 | 手 grep | `bash ../scripts/spec-scan.sh <ID>` |
+> | 检查 4 §7 跨模块影响 grep | 手 grep | `bash ../scripts/spec-scan.sh <ID>` + `bash ../scripts/cross-imports.sh feature-isolation` |
+> | 检查 5 git 改动文件 / 全量回归 | `git show HEAD --name-only` / `flutter test` | `bash ../scripts/git-scope.sh diff HEAD~1` + 全量回归走 `bash ../scripts/cov-gate.sh --skip-cov` 或 `--only test` |
+> | 检查 6 基线漂移 / PASS 后刷基线 | 手解析 lcov vs baseline | `bash ../scripts/cov-drift.sh check` / `bash ../scripts/cov-drift.sh refresh` |
+> | 检查 7 §3 否定断言被守护 | 手 grep | `bash ../scripts/neg-assert.sh <ID>` |
+> | 读 / 改 `docs/dev/dev-status.json`（pass / bump-round / block） | 手 jq | `bash ../scripts/dev-status.sh {pass\|bump-round\|block} <ID>` |
+>
+> 评审报告产出（`docs/dev/check_log.md`）属非确定性，仍走 opencode edit 工具。
+
 dev-exe 跑完后，由**未参与过开发的**视角独立评审。不是简单重叠 dev-exe 第 5 步 Agent C 的 spec 覆盖验证——那一步是流程内部、被 spec 框住视角、只检查"每条 spec 是否被测"。dev-check 的工作是**质疑 spec 本身对不对、实现对原需求贴不贴**。
 
 ## 三条铁律

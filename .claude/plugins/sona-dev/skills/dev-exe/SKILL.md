@@ -9,6 +9,21 @@ description: |
 
 # 代码实现 (dev-exe)
 
+> **本 skill 属 plugin `sona-dev`，路径 `.claude/plugins/sona-dev/skills/dev-exe/`。**
+> **脚本调用铁律**：凡下表所列动作，**必须**经 plugin 内脚本间接执行，禁止裸跑 bash。
+> 脚本目录相对本 skill base：`../scripts/`；prefix 命令形如 `bash ../scripts/<name>.sh ...`。
+>
+> | 动作 | 原裸命令 | 改用脚本 |
+> |---|---|---|
+> | 第 4 步 fixture/local 测试跑 | `flutter test test/features/{feature}/` | `bash ../scripts/dev-task.sh 600 "test-local" flutter test test/features/{feature}/` |
+> | 第 7 步 5 项最终门禁（pub-get + format + analyze + 全量 test --coverage + critical_files ≥90% 阈） | 多条裸命令拼接 | `bash ../scripts/cov-gate.sh` (一条龙) |
+> | Bug 复现测试现必须 PASS | `flutter test bug_xxx_repro_test.dart` | `bash ../scripts/repro-test.sh <test_path> pass` |
+> | §3/4/6 spec ID → test 命中矩阵 | 手 grep | `bash ../scripts/spec-scan.sh <ID>` |
+> | 既定 critical_files 覆盖率查询 | 手解析 lcov | 通过 `cov-gate.sh` 自动跑 `coverage-check.sh check-exe` |
+> | 读 / 改 `docs/dev/dev-status.json` | 手 jq | `bash ../scripts/dev-status.sh {list\|show\|set\|...}` |
+>
+> 其它探索类动作（`grep`/`read` 定位代码、Agent A/B 写代码）属非确定性，仍走 opencode 工具，不固化。
+
 按 `docs/features/{ID}.md` 详细设计文档实现代码与测试。
 **核心原则**：测试先行（只读 spec）、实现按 spec、验证对 spec 覆盖——而不是对"是否跑得过"打勾。
 
