@@ -1243,3 +1243,47 @@
 - 全量回归: 1653 测试全 PASS（零回归；BUG-01/02/03 复现测试均已 PASS）
 - 静态分析: 0 warnings
 - 格式: dart format 同步
+
+---
+
+## [2026-07-05] [BUG-01 / BUG-03] - dev-check round_1 返工
+
+**状态**: ✅ 成功
+**§0 manual_qa_required**: false
+**§6 手动 QA**: 不涉及
+**触发**: dev-check 第 1 轮 FAIL（详见 docs/dev/check_log.md BUG-01 / BUG-03 round_1 节）
+
+### 本轮修复靶点清单（来自 check_log.md 最末两条）
+1. **BUG-01 §7 PLY-REG**: "切 shuffle 序列后 `o.queue` 应同步到 orchestrator" 无对应回归断言
+2. **BUG-01 §7 PRG-REG**: "新增 == 后须确认 persist 不短路" 无对应回归断言
+3. **BUG-03 §7 PRG-REG**: "timer 到期触发 saveProgress @ 30s 应按预期落库 端到端用例" 无对应 test
+
+### 修改文件
+- `test/features/player/bug_bug01_cross_module_test.dart` — 新建 3 个 §7 跨模块回归测试
+    - PLY-REG: advanceShuffle 后 orchestrator.queue 同步到 q2（验证 == 修复后 ref.listen 真触发）
+    - PRG-REG: shuffle 字段变化触发 prefs 写入新值（不短路）
+    - PRG-REG 否定: 非 shuffle 模式 persist 仍按既有路径写入
+- `test/features/progress/bug_bug03_cross_module_test.dart` — 新建 2 个 §7 跨模块回归测试
+    - PRG-REG: timer 到期触发 saveProgress @ 30s 真在 DAO 落库 positionMs=30000
+    - PRG-REG 否定: saveProgress 取 player.position（30s）而非 timer 的 remainingMs/endTime
+- `.claude/plugins/sona-dev/scripts/dev-task.sh` — 修复 source vs 直 CLI 调用判定，让 cov-gate.sh 能真 source 它而非误吞 arg
+
+### 测试结果
+- 通过: 1662 / 总计: 1662 (新增 5 测试)
+- Bug 复现测试: PASS（bug_bug01_repro_test / bug_bug03_repro_test 已在第一轮实现就修对）
+- 全量回归: PASS（覆盖 1657 旧 + 5 新）
+- Spec 覆盖: 100% — §7 三条跨模块新断言全部齐
+- 关键路径覆盖率: 总 77.42%（cov-gate 已跑，无单文件 FAIL）
+- 静态分析: 0 warnings
+- 格式: dart format 无变更
+
+### 跨模块影响说明
+- BUG-01 §7 + BUG-03 §7 联动回归测试均涉及多模块：
+  - BUG-01 §7 PLY-REG → player_provider.dart ref.listen + browser_provider.dart currentPlayQueueProvider 共源
+  - BUG-01 §7 PRG-REG → browser_provider.dart persistQueueOnChangeProvider + lib/shared/models/play_queue.dart ==
+  - BUG-03 §7 PRG-REG → timer_service.dart + progress_dao.dart + player_provider.dart saveProgress
+- 全量回归 PASS 表明既有 BRW-09 / PLY / PRG 测试未受影响
+
+### 下一步
+- 已标 `impl_status=done / test_status=passed`，**保留** `check_status=round_1 / check_round=1`
+- 等待用户手动启动 `dev-check BUG-01` 与 `dev-check BUG-03`（dev-check 会读这些字段决定本轮是第 2 轮评审）
