@@ -1083,10 +1083,11 @@ void main() {
       expect(service.state!.mode, equals(TimerMode.duration));
       final endTime2 = service.state!.endTime!;
 
-      // 恢复后的 endTime 基于新的 now() + 剩余分钟数(ceil)，
-      // 不应早于原始 endTime
-      expect(endTime2.isBefore(endTime1), isFalse,
-          reason: '恢复后的 endTime 不应早于原始 endTime');
+      // BUG-03 修复后 resume 用毫秒精度；pause/resume 间微秒级损耗会让
+      // endTime2 比 endTime1 略早 ≤ 10ms（与 spec §4 INV1 一致）。
+      final drift = endTime2.difference(endTime1).inMilliseconds.abs();
+      expect(drift, lessThanOrEqualTo(10),
+          reason: 'BUG-03 修复后 endTime 与原始差距 ≤ 10ms（毫秒精度）');
 
       // endTime2 应在合理范围内（约 now + 10min）
       final now = DateTime.now();

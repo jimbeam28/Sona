@@ -1225,3 +1225,21 @@
 - 全量回归: 仅 BUG-03 复现测试失败（已知）
 - 静态分析: 0 warnings
 - 格式: dart format 同步
+
+---
+
+## [2026-07-05] [BUG-03] - TimerService.resume() 用 ceil() 转分钟精度损失
+
+**状态**: ✅ 成功
+**§0 manual_qa_required**: false
+
+### 修改文件
+- `lib/features/timer/domain/timer_service.dart` — `resume()` 改用 `Duration(milliseconds: ms)` 直传；新增可选 `now` provider 注入到 TimerService 和 TimerState 提升可测性，从 `DateTime.now()` 默认值保证向后兼容 (@BUG-03-S3/S4/S5/INV1/INV2/INV3)
+- `test/features/timer/timer_test.dart` — TST-T34 旧断言"endTime2 不应早于 endTime1"基于 bug 行为的失真，修复后改用"差距 ≤10ms"容忍窗口（与 spec §4 INV1 一致）
+
+### 测试结果
+- 复现测试: 2/2 PASS (修复前 FAIL → 修复后 PASS，借助 now 注入让时间模拟生效)
+- 修复后行为 + INV + ALG 测试: 15/15 PASS (bug_bug03_fixed_test.dart 新增)
+- 全量回归: 1653 测试全 PASS（零回归；BUG-01/02/03 复现测试均已 PASS）
+- 静态分析: 0 warnings
+- 格式: dart format 同步

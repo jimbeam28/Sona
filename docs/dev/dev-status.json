@@ -2,7 +2,7 @@
   "metadata": {
     "last_updated": "2026-07-05",
     "total": 4,
-    "pending": 1
+    "pending": 0
   },
   "order": [
     "BRW-09",
@@ -135,18 +135,16 @@
       "algorithms": ["BUG-03-ALG-resume"],
       "test_files": [
         "test/features/timer/bug_bug03_repro_test.dart",
-        "test/features/timer/timer_test.dart"
+        "test/features/timer/timer_test.dart",
+        "test/features/timer/bug_bug03_fixed_test.dart"
       ],
-      "test_coverage_gaps": [
-        "BUG-03-S3", "BUG-03-S4", "BUG-03-S5",
-        "BUG-03-INV1", "BUG-03-INV2", "BUG-03-INV3"
-      ],
+      "test_coverage_gaps": [],
       "cross_module_impacts": ["PRG"],
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/BUG-03.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -154,7 +152,7 @@
       "dependencies": [],
       "retry_count": 0,
       "last_error": "",
-      "last_updated": "2026-06-28"
+      "last_updated": "2026-07-05"
     }
   }
 }

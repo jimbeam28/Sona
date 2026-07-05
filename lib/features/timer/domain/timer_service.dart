@@ -41,12 +41,17 @@ class TimerState {
   /// same position (TMR-03).
   final int? remainingMs;
 
-  const TimerState({
+  /// Optional injected "now" provider for testability. Defaults to
+  /// [DateTime.now]. Production callers leave this null.
+  final DateTime Function() _now;
+
+  TimerState({
     required this.mode,
     this.endTime,
     required this.startedAt,
     this.remainingMs,
-  });
+    DateTime Function()? now,
+  }) : _now = now ?? DateTime.now;
 
   /// Returns the remaining time until expiry, or `null` for afterCurrent mode.
   ///
@@ -60,7 +65,7 @@ class TimerState {
       return Duration(milliseconds: remainingMs!);
     }
     if (endTime == null) return null;
-    final now = DateTime.now();
+    final now = _now();
     final remaining = endTime!.difference(now);
     return remaining.isNegative ? Duration.zero : remaining;
   }
@@ -72,8 +77,24 @@ class TimerState {
   bool get isExpired {
     if (mode == TimerMode.afterCurrent) return false;
     if (endTime == null) return false;
-    return !endTime!.isAfter(DateTime.now());
+    return !endTime!.isAfter(_now());
   }
+
+  /// Creates a copy of this state with optional field changes. Returns
+  /// a state preserving the [now] provider.
+  TimerState copyWith({
+    TimerMode? mode,
+    DateTime? endTime,
+    DateTime? startedAt,
+    int? remainingMs,
+  }) =>
+      TimerState(
+        mode: mode ?? this.mode,
+        endTime: endTime ?? this.endTime,
+        startedAt: startedAt ?? this.startedAt,
+        remainingMs: remainingMs ?? this.remainingMs,
+        now: _now,
+      );
 
   // I-1: include startedAt so distinct timer instances compare correctly.
   @override
@@ -108,6 +129,12 @@ class TimerState {
 class TimerService {
   TimerState? _state;
 
+  /// Optional injected "now" provider for testability. Defaults to
+  /// [DateTime.now]. Production callers leave this null.
+  final DateTime Function() _now;
+
+  TimerService({DateTime Function()? now}) : _now = now ?? DateTime.now;
+
   /// The current timer state, or `null` if no timer is active.
   TimerState? get state => _state;
 
@@ -126,11 +153,12 @@ class TimerService {
     // G-4: guard against negative input which would set endTime in the past.
     if (minutes < 0)
       throw ArgumentError.value(minutes, 'minutes', 'must not be negative');
-    final now = DateTime.now();
+    final now = _now();
     _state = TimerState(
       mode: TimerMode.duration,
       endTime: now.add(Duration(minutes: minutes)),
       startedAt: now,
+      now: _now,
     );
     return _state!;
   }
@@ -147,7 +175,8 @@ class TimerService {
   TimerState startAfterCurrent() {
     _state = TimerState(
       mode: TimerMode.afterCurrent,
-      startedAt: DateTime.now(),
+      startedAt: _now(),
+      now: _now,
     );
     return _state!;
   }
@@ -202,6 +231,7 @@ class TimerService {
       mode: TimerMode.paused,
       startedAt: _state!.startedAt,
       remainingMs: remaining?.inMilliseconds ?? 0,
+      now: _now,
     );
     return true;
   }
@@ -212,12 +242,12 @@ class TimerService {
   bool resume() {
     if (_state == null || _state!.mode != TimerMode.paused) return false;
     final ms = _state!.remainingMs ?? 0;
-    final minutes = (ms / 60000).ceil();
-    final now = DateTime.now();
+    final now = _now();
     _state = TimerState(
       mode: TimerMode.duration,
-      endTime: now.add(Duration(minutes: minutes)),
+      endTime: now.add(Duration(milliseconds: ms)),
       startedAt: _state!.startedAt,
+      now: _now,
     );
     return true;
   }
