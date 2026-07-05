@@ -216,6 +216,33 @@ dart format lib test         # 格式化
       3 轮上限仍 FAIL → 标 check_status=blocked_after_3_rounds，impl_status=blocked，等人工介入
 ```
 
+### /cr skill（通用代码走查与复核，独立于 dev-plan/dev-exe/dev-check）
+
+`/cr` 是与 spec 流程解耦的日常代码 review 工具，可走查任意区间——不限于 dev-exe 产出。
+
+```
+/cr [走查]              # 默认模式
+  解析范围：
+    - git 记录（按时间 --since/--until 或关键字 --grep 筛 commit，列出改动文件）
+    - 功能模块（lib/features/{name}/ + test/features/{name}/）
+    - 目录（用户指定路径，同步覆盖 lib 与 test）
+    - 默认：lib/ + test/ 全量
+  加载 CLAUDE.md 架构硬约束作为检查项（分层 / Feature 隔离 / 契约层不可绕过 / 密码只进 secure_storage）
+  7 维度走查：正确性 / 架构一致性 / 并发时序 / 安全 / 可测性 / 性能 / 风格
+  输出分级问题清单（Critical / Major / Minor / Info）到 docs/cr/cr-{YYYYMMDD-HHMM}.md
+  铁律：不修代码、不脑补（每条问题必带 file:line 证据）、已检查文件清单要列全
+
+/cr 复核                # 复核模式
+  遍历 docs/cr/cr-*.md，逐条复核问题是否仍存在（按 file:line 重新打开代码判定）
+    - 已修复 → 跳过
+    - 仍存在 → 调 dev-plan 生成 BUG-{N}.md spec + 复现测试（dev-plan 铁律 2 沿用）
+    - 处理完每个 cr 文档后删除之（cr 是一次性走查快照，不长期留存）
+  docs/cr/ 为空 → 提示后退出
+  铁律：不修代码、不跳过 dev-plan、cr 文档必删
+```
+
+与三 skill 链的衔接：`/cr` 走查 → 用户 `/cr 复核` → dev-plan（派生 BUG spec）→ 用户手动启动 dev-exe → 用户手动启动 dev-check。`/cr` 本身不进入 dev-status.json；派生出的 BUG-{N} 才进入 dev 流程。
+
 ### 关键路径覆盖率守护（新增）
 
 - `docs/dev/baseline-coverage.json` — 基线快照，由 dev-check PASS 后刷新
@@ -247,6 +274,7 @@ dart format lib test         # 格式化
 - 手动 QA 清单：`docs/dev/mqa-{ID}.md`（涉及平台原生时）
 - Bug 复现测试：`test/features/{feature}/bug_{ID}_repro_test.dart`（修复前必须 FAIL，修复后必须 PASS）
 - 评审报告：`docs/dev/check_log.md`（dev-check 写入，dev-exe 重做时读最末条作为修复靶点）
+- 代码走查报告：`docs/cr/cr-{YYYYMMDD-HHMM}.md`（`/cr` 走查写入，`/cr 复核` 处理后必删，cr 是一次性快照不长期留存）
 - 基线覆盖率快照：`docs/dev/baseline-coverage.json`（dev-check PASS 后刷新，对比漂移用）
 - 覆盖率检查脚本：`docs/dev/scripts/coverage-check.sh`（dev-exe 第 7 步 + dev-check 第 6 项 + 刷新基线三合一）
 
