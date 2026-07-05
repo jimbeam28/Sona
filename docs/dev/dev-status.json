@@ -2,7 +2,7 @@
   "metadata": {
     "last_updated": "2026-07-05",
     "total": 4,
-    "pending": 3
+    "pending": 2
   },
   "order": [
     "BRW-09",
@@ -67,18 +67,16 @@
       "algorithms": [],
       "test_files": [
         "test/features/player/bug_bug01_repro_test.dart",
-        "test/features/player/ply_05_test.dart"
+        "test/features/player/ply_05_test.dart",
+        "test/features/player/bug_bug01_fixed_test.dart"
       ],
-      "test_coverage_gaps": [
-        "BUG-01-S4", "BUG-01-S5", "BUG-01-S6",
-        "BUG-01-INV1", "BUG-01-INV2", "BUG-01-INV3"
-      ],
+      "test_coverage_gaps": [],
       "cross_module_impacts": ["PLY", "PRG", "BRW-09"],
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/BUG-01.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -86,7 +84,7 @@
       "dependencies": [],
       "retry_count": 0,
       "last_error": "",
-      "last_updated": "2026-06-28"
+      "last_updated": "2026-07-05"
     },
     "BUG-02": {
       "name": "addTracksToPlaylist 缺内存内去重",

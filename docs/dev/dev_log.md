@@ -1187,3 +1187,24 @@
 
 ### 手动 QA 项
 - 不涉及（§0 manual_qa_required = false）
+
+---
+
+## [2026-07-05] [BUG-01] - PlayQueue == / hashCode 漏比 shuffle 字段
+
+**状态**: ✅ 成功
+**§0 manual_qa_required**: false
+**§6 手动 QA**: 不涉及
+
+### 修改文件
+- `lib/shared/models/play_queue.dart` — `==` 与 `hashCode` 加入 `_shuffleOrder` + `_shufflePosition` 比对；`_listEquals` 改为支持 nullable 参数 (@BUG-01-S4/S5/S6/INV1/INV2)
+
+### 测试结果
+- 复现测试: 3/3 PASS (bug_bug01_repro_test.dart) — Bug 修复硬指标满足
+- 修复后行为 + INV 测试: 10/10 PASS (bug_bug01_fixed_test.dart 新增)
+- 全量回归: 仅 BUG-02 / BUG-03 复现测试失败（dev-plan 已知，非本条目引入）
+- 静态分析: 0 warnings
+- 格式: dart format 同步
+
+### 跨模块影响
+- §7 PLY/PRG/BRW-09 跨模块影响：BRW-09 实现已使用新 == 语义（不冲突）；PRG/PLY 的 ref.listen(currentPlayQueueProvider) 现可正确检测 shuffle 字段变化触发 listener，无回归

@@ -312,16 +312,25 @@ class PlayQueue {
           _listEquals(files, other.files) &&
           currentIndex == other.currentIndex &&
           startPositionMs == other.startPositionMs &&
-          playMode == other.playMode;
+          playMode == other.playMode &&
+          _listEquals(_shuffleOrder, other._shuffleOrder) &&
+          _shufflePosition == other._shufflePosition;
 
   @override
   int get hashCode => Object.hash(
-      Object.hashAll(files), currentIndex, startPositionMs, playMode);
+      Object.hashAll(files),
+      currentIndex,
+      startPositionMs,
+      playMode,
+      Object.hashAll(_shuffleOrder ?? const []),
+      _shufflePosition);
 }
 
 /// Shallow list equality helper used by [PlayQueue.==].
-bool _listEquals<T>(List<T> a, List<T> b) {
+/// Both [a] and [b] may be null; two nulls are considered equal.
+bool _listEquals<T>(List<T>? a, List<T>? b) {
   if (identical(a, b)) return true;
+  if (a == null || b == null) return false;
   if (a.length != b.length) return false;
   for (int i = 0; i < a.length; i++) {
     if (a[i] != b[i]) return false;
