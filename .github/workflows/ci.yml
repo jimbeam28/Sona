@@ -40,59 +40,13 @@ jobs:
           echo "Coverage ${COVERAGE}% meets threshold ${THRESHOLD}%"
 
       - name: Check architecture boundaries
+        # 与本地 dev-exe/cr/dev-check 共用同一门禁脚本（单一事实源）：
+        # feature 隔离 + Domain 零平台依赖 + 日志敏感词；legacy debt 在 docs/dev/arch-baseline.txt 登记抑制
         run: |
-          echo "Checking cross-feature imports..."
-          echo "Allowed: shared/di/providers.dart, core/, shared/models/, package:, dart:"
-          VIOLATIONS=0
-          FEATURES=$(find lib/features -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
-          for feature_dir in lib/features/*/; do
-            feature_name=$(basename "$feature_dir")
-            for dart_file in $(find "$feature_dir" -name '*.dart'); do
-              while IFS= read -r import_line; do
-                # Skip comments
-                [[ "$import_line" =~ ^[[:space:]]*// ]] && continue
-                import_path=$(echo "$import_line" | grep -oP "(?<=import ')[^']+(?=')" || true)
-                [[ -z "$import_path" ]] && continue
-                # Allowed: dart:, package:, relative to same feature
-                [[ "$import_path" == dart:* ]] && continue
-                [[ "$import_path" == package:* ]] && continue
-                # Allowed: shared/di/providers.dart (cross-feature bridge)
-                echo "$import_path" | grep -q 'shared/di/providers' && continue
-                # Resolve relative imports to absolute within lib/
-                resolved=""
-                if [[ "$import_path" == ../* ]]; then
-                  file_dir=$(dirname "$dart_file")
-                  resolved=$(cd "$file_dir" && realpath -m "$import_path" 2>/dev/null || true)
-                  # Make it relative to project root
-                  resolved=$(echo "$resolved" | sed "s|$(pwd)/||")
-                fi
-                # Skip imports to core/ or shared/models/ (allowed)
-                [[ "$import_path" == *core/* ]] && continue
-                [[ "$import_path" == *shared/models/* ]] && continue
-                [[ "$resolved" == *core/* ]] && continue
-                [[ "$resolved" == *shared/models/* ]] && continue
-                # Now check: does this import reference another feature?
-                target_feature=""
-                for f in $FEATURES; do
-                  if [[ "$f" != "$feature_name" ]]; then
-                    if echo "$import_path" | grep -q "features/$f\|/$f/" || echo "$resolved" | grep -q "features/$f\|/$f/"; then
-                      target_feature="$f"
-                      break
-                    fi
-                  fi
-                done
-                if [[ -n "$target_feature" ]]; then
-                  echo "::error file=$dart_file::Cross-feature import: '$import_path' (targets feature '$target_feature')"
-                  VIOLATIONS=$((VIOLATIONS + 1))
-                fi
-              done < <(grep "import " "$dart_file" || true)
-            done
-          done
-          if [ "$VIOLATIONS" -gt 0 ]; then
-            echo "::error::Found $VIOLATIONS cross-feature import violation(s). Use shared/di/providers.dart for cross-feature dependencies."
+          bash .claude/plugins/sona-dev/scripts/cross-imports.sh all || {
+            echo "::error::Architecture boundary violation(s) found. Fix the code (do NOT extend docs/dev/arch-baseline.txt)."
             exit 1
-          fi
-          echo "No architecture boundary violations found."
+          }
 
       - name: Check file line count limit
         run: |

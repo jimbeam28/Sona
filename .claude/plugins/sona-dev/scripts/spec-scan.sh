@@ -1,76 +1,99 @@
 #!/usr/bin/env bash
-# spec-scan.sh — 解析 docs/features/{ID}.md §3/§4/§6 锚点 ID 列表 + 在 test/ 下查测试命中
+# spec-scan.sh — docs/features/{ID}.md 的机械结构扫描（三种模式）
 #
 # 用法:
-#   scripts/dev/spec-scan.sh <ID>
+#   spec-scan.sh <ID>            覆盖矩阵：每条 §3/4/6 spec ID 在 test/ 下的命中文件
+#       输出 TSV: kind  id  spec_section  spec_line  test_files(分号分隔或-)   退出码恒 0
+#   spec-scan.sh --neg <ID>      否定断言结构检查：每条 status:new 的 Scenario 是否带 否定断言: 块
+#       输出 TSV: scenario_id  has_neg(yes|no)                                缺失 → 退出码 1
+#   spec-scan.sh --count <ID>    输出 S/INV/ALG 计数（INDEX.md 同步用）: S=n INV=m ALG=k
 #
-# 输出（TSV）：
-#   kind<TAB>id<TAB>anchor_line<TAB>spec_section<TAB>test_files(分号分隔或-)
-#
-#   kind: S | INV | ALG
-#   test_files: 命中 = 文件路径(分号分隔)；未命中 = -
-#
-# 用途：dev-exe Agent C "spec 覆盖门禁" + dev-check 检查 7 "否定断言被破坏" 用本脚本
-#      确认每条 §3/4/6 spec ID 在 test/ 都有对应断言。
+# 边界: 本脚本只做结构/字面量机械扫描，不判断测试是否"真断言了行为"——那是 dev-check 的判断题。
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 cd "$ROOT"
 
-if [[ $# -ne 1 ]]; then
-  echo "usage: $0 <ID>" >&2
-  exit 2
-fi
+MODE="matrix"
+if [[ "${1:-}" == "--neg" ]]; then MODE="neg"; shift; fi
+if [[ "${1:-}" == "--count" ]]; then MODE="count"; shift; fi
+[[ $# -eq 1 ]] || { echo "usage: $0 [--neg|--count] <ID>" >&2; exit 2; }
 ID="$1"
 SPEC="docs/features/${ID}.md"
 [[ -f "$SPEC" ]] || { echo "ERROR: $SPEC 不存在" >&2; exit 2; }
 
-# 1. 扫 spec 内 ID：§3 Scenario "S", §4 INV "INV", §6 ALG "ALG"
-#    匹配形如 "[{ID}-S1]" / "[{ID}-INV2]" / "[{ID}-ALG-foo]" / "{ID}-S1"
-#    在文档第一列或代码块第一列，正则取 `ID-` 前缀后接 S/INV/ALG 的 token
+# 抽取 spec 内锚点 ID（去重，保留首次行号）。两种写法都认：
+#   §3/4 方括号锚点  [ID-S1] / [ID-INV1] / [ID-ALG1-name]
+#   §9 JSON 引号写法 "ID-ALG1-name"（§6 纯函数样例无方括号，ID 仅在 §9 镜像中出现）
 extract_ids() {
   awk -v id="$ID" '
     {
-      # 匹配 [ID-Sxx] 或 [ID-INVxx] 或 [ID-ALGxxx]
       line=$0
-      while (match(line, "\\[" id "-(S[0-9]+|INV[0-9]+|ALG[0-9A-Za-z_-]*)\\]")) {
-        tag = substr(line, RSTART+1, RLENGTH-2)
-        print tag "\t" NR
+      while (match(line, "\\[" id "-(S[0-9]+|INV[0-9]+|ALG[0-9A-Za-z_-]*)\\]") \
+          || match(line, "\"" id "-(S[0-9]+|INV[0-9]+|ALG[0-9A-Za-z_-]*)\"")) {
+        print substr(line, RSTART+1, RLENGTH-2) "\t" NR
         line = substr(line, RSTART+RLENGTH)
       }
-    }
-  ' "$SPEC" | awk '!seen[$1]++'
+    }' "$SPEC" | awk '!seen[$1]++'
 }
 
-# 2. 对每 ID 在 test/ 下找出现该 ID 字面量的 test 文件
-#    兼容无 rg 的环境（fallback 到 grep -rlE）
-find_test_files() {
-  local id="$1"
-  if command -v rg >/dev/null 2>&1; then
-    rg -l --no-heading -F "$id" test/ 2>/dev/null | sort | paste -sd';' || true
-  else
-    grep -rlF -- "$id" test/ 2>/dev/null | sort | paste -sd';' || true
-  fi
+find_test_files() { # 字面量 ID 在 test/ 下出现的文件
+  grep -rlF -- "$1" test/ 2>/dev/null | sort | paste -sd';' || true
 }
 
-# 3. 推 section：S→§3, INV→§4, ALG§6
-#    传入的 id 形如 "BUG-03-S1" / "BUG-03-INV1" / "BUG-03-ALG-resume"
 section_of() {
   case "$1" in
-    *-S[0-9]*)    echo "§3" ;;
-    *-INV[0-9]*)  echo "§4" ;;
-    *-ALG[0-9A-Za-z_-]*) echo "§6" ;;
-    *)            echo "?" ;;
+    *-S[0-9]*)   echo "§3" ;;
+    *-INV[0-9]*) echo "§4" ;;
+    *)           echo "§6" ;;
   esac
 }
 
-printf "kind\tid\tspec_section\tspec_line\ttest_files\n"
-while IFS=$'\t' read -r id line; do
-  kind="S"
-  [[ "$id" == *INV* ]] && kind="INV"
-  [[ "$id" == *ALG* ]] && kind="ALG"
-  section=$(section_of "$id")
-  files=$(find_test_files "$id")
-  [[ -z "$files" ]] && files="-"
-  printf "%s\t%s\t%s\t%s\t%s\n" "$kind" "$id" "$section" "$line" "$files"
-done < <(extract_ids)
+case "$MODE" in
+  matrix)
+    printf "kind\tid\tspec_section\tspec_line\ttest_files\n"
+    while IFS=$'\t' read -r id line; do
+      kind="S"
+      [[ "$id" == *INV* ]] && kind="INV"
+      [[ "$id" == *ALG* ]] && kind="ALG"
+      files=$(find_test_files "$id")
+      [[ -z "$files" ]] && files="-"
+      printf "%s\t%s\t%s\t%s\t%s\n" "$kind" "$id" "$(section_of "$id")" "$line" "$files"
+    done < <(extract_ids)
+    ;;
+
+  neg)
+    # status:new 兼容两种写法：锚点行内联 `status: new` 或行尾 (status: new)。
+    # 否定断言块：同一 Scenario 范围内（至下一锚点前）出现 否定断言: 行即 yes。
+    printf "scenario_id\thas_neg\n"
+    MISSING=0
+    while IFS=$'\t' read -r scn has; do
+      printf "%s\t%s\n" "$scn" "$has"
+      [[ "$has" == "no" ]] && MISSING=$((MISSING + 1))
+    done < <(awk -v id="$ID" '
+      function flush() {
+        if (scn != "" && is_new) print scn "\t" (has_neg ? "yes" : "no")
+        scn=""; is_new=0; has_neg=0
+      }
+      $0 ~ "\\[" id "-S[0-9]+\\]" {
+        flush()
+        line=$0
+        match(line, "\\[" id "-S[0-9]+\\]")
+        scn = substr(line, RSTART+1, RLENGTH-2)
+        if (line ~ /status: new/) is_new=1
+        next
+      }
+      scn != "" && $0 ~ /^[[:space:]]*否定断言:/ { has_neg=1 }
+      END { flush() }
+    ' "$SPEC")
+    [[ $MISSING -gt 0 ]] && { echo "FAIL: $MISSING 条 status:new Scenario 缺否定断言块" >&2; exit 1; }
+    exit 0
+    ;;
+
+  count)
+    s=$(extract_ids | cut -f1 | grep -cE -- "-S[0-9]+$" || true)
+    inv=$(extract_ids | cut -f1 | grep -cE -- "-INV[0-9]+$" || true)
+    alg=$(extract_ids | cut -f1 | grep -cE -- "-ALG" || true)
+    echo "S=$s INV=$inv ALG=$alg"
+    ;;
+esac

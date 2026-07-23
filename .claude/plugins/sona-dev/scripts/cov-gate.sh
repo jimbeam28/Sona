@@ -76,8 +76,9 @@ fi
 
 # Step 2: analyze
 if want analyze && [[ $FAIL -eq 0 ]]; then
+  # 与 CI 对齐：infos 可接受，warnings 必须为 0（阻断）
   run_with_budget "$B_ANALYZE" analyze \
-    flutter analyze --no-fatal-infos --no-fatal-warnings || FAIL=1
+    flutter analyze --no-fatal-infos || FAIL=1
 fi
 
 # Step 3: test (+ coverage)

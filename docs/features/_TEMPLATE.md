@@ -29,6 +29,10 @@ manual_qa_required: false | true        # 涉及平台原生（audio_service / A
 
 ## §1 用户视角（你来扫这一节就够）
 
+### 1.0 原始需求（用户原话逐字记录）
+
+> dev-plan 必填：跨会话 / 跨模型交接的唯一需求源，dev-check 据此核对贴合度。
+
 ### 1.1 这一功能干什么（一句话）
 
 \<用户视角的功能描述\>
@@ -136,7 +140,7 @@ dev-exe 要求：每个未覆盖的 ID 必须产出一条 test 或一项手动 Q
 > 纯函数（URL 校验、状态机转移函数、speed manager 等）使用样例表代替转移表：
 
 ```
-ALG {函数名}:
+ALG [{ID}-ALG1-{函数名}]:                  # 锚点必须带方括号全称，spec-scan 依赖
   输入: <值>     → 期望: <值/副作用>      # 主流程
   输入: <边界>   → 期望: <边界结果>      # 边界
   输入: <异常>   → 期望: <错误/抛出>      # 异常
@@ -157,25 +161,22 @@ ALG {函数名}:
 
 ## §8 平台特性与手动 QA
 
-涉及以下任一项，`§0 manual_qa_required` 必须为 true，并产出 `docs/dev/mqa-{ID}.md`：
-- `audio_service` / `audio_focus` / `background_service`
-- 任何 `MethodChannel` 调用
+设计前**必须**逐条核对 `docs/dev/platform-pitfalls.md`，触及的同类场景在 §3 显式处置。
+
+**真机风险列**（dev-plan 必填）：本功能有哪些 fake 测不到、只有真机会出的问题？逐条写：
+
+| 风险 | 近似测试方案 | 测不了 → 进 mqa-backlog |
+|---|---|---|
+| | | |
+
+涉及以下任一项，`§0 manual_qa_required` 必须为 true：
+- `audio_service` / `audio_focus` / `background_service` / 任何 `MethodChannel`
 - 通知栏、锁屏控件、后台播放
 - 真机时序（网络抖动、快速连点、AudioService ↔ just_audio 边对齐）
 
-若本功能**不涉及**，写：
-> 本功能不涉及平台原生特性，全部可在 `flutter test` 中验证，无需手动 QA。
+不涉及则写："本功能不涉及平台原生特性，全部可在 `flutter test` 中验证。"
 
-若涉及，必须列出手动 QA 步骤（每步骤可勾选）：
-```
-MAN-1: <场景描述与前置条件>
-  步骤 1: ...
-  步骤 2: ...
-  期望: ...
-  □ 已通过 / 实施人: ___ / 时间: ___
-```
-
-dev-exe 严禁在 manual_qa_required=true 且 mqa-{ID}.md 全部步骤未勾选的情况下标 `impl_status=done`。
+**MQA 攒单制**（不阻塞 done）：涉真机的验证项由 dev-exe 追加进 `docs/dev/mqa-backlog.md`（格式见 SCHEMA §3.3），`impl_status` 照常推进；用户下次装真机时批量勾选。
 
 ---
 
@@ -207,13 +208,7 @@ dev-exe 严禁在 manual_qa_required=true 且 mqa-{ID}.md 全部步骤未勾选�
 }
 ```
 
-字段生命周期：
-- **dev-plan 创建**：`impl_status=test_status="pending"`，`check_status="pending"`，`check_round=0`
-- **dev-exe 完成 7 步门禁**：`impl_status="done"`，`test_status="passed"`——不动 check_*
-- **dev-check 通过**：`check_status="passed"`，写 `last_checked_at`
-- **dev-check 打回**：`check_status="round_{N}"`，`check_round=N`，**并把 `impl_status` 改回 "pending"** 触发 dev-exe 重做
-- **dev-exe 重做**：读取 `check_round` 决定带 dev-check 上轮问题清单作为修复靶点
-- **dev-check 3 轮上限**：`check_status="blocked_after_3_rounds"`，`impl_status="blocked"`
+字段定义与生命周期（谁能改什么）：见 `.claude/plugins/sona-dev/reference/SCHEMA.md` §1（唯一源，此处不重复）。
 
 ---
 

@@ -1,124 +1,149 @@
 #!/usr/bin/env bash
-# cross-imports.sh — 扫描架构硬约束违规（Domain 零 Flutter / Feature 隔离 / 密码泄露日志）
+# cross-imports.sh — 架构硬约束机械门禁（CLAUDE.md 架构分层）
 #
 # 用法:
-#   scripts/dev/cross-imports.sh [kind...]
+#   cross-imports.sh [kind...]
 #     kind = domain-flutter | feature-isolation | secret-logs | all(默认)
+#   cross-imports.sh impact <file...>
+#     反查引用方：列出哪些 feature/层 import 了给定文件（dev-plan §7 / dev-check 跨模块检查用）
 #
-# 输出（TSV）→ 退出码 0/1
-#   kind<TAB>severity<TAB>file:line<TAB>现象
+# 输出（TSV，stdout）:
+#   kind 模式: kind<TAB>severity<TAB>file:line<TAB>现象        退出码 0=无违规 1=有违规
+#   impact 模式: target<TAB>importer_area<TAB>file:line       退出码恒 0
 #
-#   severity = Critical | Major | Info
-#
-# 用途：
-#   - cr 走查维度 2/4 自动机械部分
-#   - dev-check 检查 5 "跨模块漏识破坏" 用 feature-isolation 子模式
-#   - dev-check 检查 2 "实现对 spec 忠实度" 中安全性部分
+# 使用者: cr 走查维度 2/4、dev-check 跨模块检查、CI 架构边界检查（.github/workflows/ci.yml）
+# 依赖: bash + GNU grep（本地与 CI 均可用；不依赖 rg——本机 rg 仅是 Claude Code shell 函数，脚本内不可用）
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 cd "$ROOT"
 
-rg_cmd() {
-  # 优先用 ripgrep；无则 fallback 到 grep -rn
-  if command -v rg >/dev/null 2>&1; then
-    rg -n --no-heading "$@" 2>/dev/null || true
-  else
-    # 把 rg 选项翻译为 grep 等价
-    local args=()
-    local pattern=""
-    local paths=()
-    while [[ $# -gt 0 ]]; do
-      case "$1" in
-        -t) shift;;            # -t dart: 跳过类型（简化）
-        --glob) shift;;        # 跳过 glob 限定
-        -e) shift; pattern="$1";;
-        -i) args+=("-i");;
-        -l) args+=("-l");;
-        -n) args+=("-n");;
-        --no-heading) ;;
-        *) if [[ -z "$pattern" ]]; then pattern="$1"; else paths+=("$1"); fi ;;
-      esac
-      shift
-    done
-    grep -rn "${args[@]}" -- "$pattern" "${paths[@]}" 2>/dev/null || true
-  fi
+PKG="$(grep -m1 '^name:' pubspec.yaml | awk '{print $2}')"
+BASELINE="$ROOT/docs/dev/arch-baseline.txt"
+VIOLATIONS=0
+
+# 违规是否已入基线（legacy debt，按 kind+file 抑制；基线只能减不能增）
+baselined() { # kind file
+  [[ -f "$BASELINE" ]] || return 1
+  awk -F'\t' -v k="$1" -v f="$2" '$1 == k && $2 == f { found=1 } END { exit !found }' "$BASELINE"
 }
 
-# ── 维度 1: Domain 层零 Flutter/Riverpod/平台 SDK 依赖 ──
-# 规约来自 cr 维度 2: 任何 import flutter/ | flutter_riverpod | package:flutter_* |
-#                     dart:ui | shared_preferences | just_audio | audio_service | sqflite |
-#                     flutter_secure_storage → Critical
+emit() { # kind severity location detail
+  local file="${3%%:*}"
+  if baselined "$1" "$file"; then
+    echo "BASELINED: $1 $3 (legacy debt, 见 docs/dev/arch-baseline.txt)" >&2
+    return
+  fi
+  printf "%s\t%s\t%s\t%s\n" "$1" "$2" "$3" "$4"
+  VIOLATIONS=$((VIOLATIONS + 1))
+}
+
+# ── 维度 1: Domain 层零 Flutter/Riverpod/平台 SDK 依赖 → Critical ──
 check_domain_flutter() {
-  local pattern='import\s+[''"]?(package:flutter/|package:flutter_riverpod/|package:flutter_[a-z_]+/|dart:ui|package:shared_preferences/|package:just_audio/|package:audio_service/|package:sqflite/|package:flutter_secure_storage/)'
   local out
-  out=$(rg_cmd -t dart "import\s*['\"](package:flutter/|package:flutter_riverpod/|package:flutter_[a-z_]+/|dart:ui|package:shared_preferences/|package:just_audio/|package:audio_service/|package:sqflite/|package:flutter_secure_storage/)" lib/features/*/domain/ 2>/dev/null || true)
-  local cnt=0
+  out=$(grep -rnE --include='*.dart' \
+    "import[[:space:]]*['\"](package:flutter/|package:flutter_riverpod/|package:flutter_[a-z_]+/|dart:ui|package:shared_preferences/|package:just_audio/|package:audio_service/|package:sqflite/|package:flutter_secure_storage/)" \
+    lib/features/*/domain/ 2>/dev/null || true)
   if [[ -n "$out" ]]; then
     while IFS= read -r line; do
-      printf "domain-flutter\tCritical\t%s\n" "$line"
-      cnt=$((cnt+1))
+      emit "domain-flutter" "Critical" "$line" "Domain 层禁止 Flutter/平台 SDK 依赖"
     done <<<"$out"
+  else
+    echo "domain-flutter: clean" >&2
   fi
-  if [[ $cnt -eq 0 ]]; then
-    printf "domain-flutter\tINFO\t-\tDomain 层无 Flutter/平台 SDK 依赖\n" >&2
-  fi
-  return 0
 }
 
-# ── 维度 2: Feature 隔离 — feature 间不得直接 import（除 shared/） ──
-# 规约: lib/features/A/ 不得 import lib/features/B/ 任何文件（除 shared/ 路径）
+# ── 维度 2: Feature 隔离 — feature 间不得直接 import（须经 shared/di 桥接）→ Major ──
+# 实现：取全部 import 语句 → 解析目标路径 → 落在其它 feature 目录下即违规。
+# 不用正则 lookahead（grep/rg 默认引擎不支持，旧版此处永远假 PASS）。
 check_feature_isolation() {
-  local cnt=0
-  for src_dir in lib/features/*/; do
-    local feature; feature=$(basename "$src_dir")
-    # 找 import 'lib/features/<other>' 这种跨 feature 直接 import
-    # 项目内常见通过 package: <pkgname>/features/<other> 或相对 ../../<other>
-    local hits
-    hits=$(rg_cmd -t dart --glob 'lib/features/**' \
-        "import\s+['\"](package:[a-z_]+/features/|../../../features/)(?!$feature)" \
-        "$src_dir" 2>/dev/null || true)
-    if [[ -n "$hits" ]]; then
-      while IFS= read -r line; do
-        printf "feature-isolation\tMajor\t%s\t跨 feature 直接 import\n" "$line"
-        cnt=$((cnt+1))
-      done <<<"$hits"
+  local before=$VIOLATIONS
+  while IFS= read -r hit; do
+    [[ -z "$hit" ]] && continue
+    local file lineno import_path src_feature resolved target
+    file="${hit%%:*}"
+    lineno="${hit#*:}"; lineno="${lineno%%:*}"
+    import_path=$(sed -n "s/.*import[[:space:]]*['\"]\([^'\"]*\)['\"].*/\1/p" <<<"$hit")
+    [[ -z "$import_path" ]] && continue
+    case "$file" in
+      lib/features/*) src_feature=$(cut -d/ -f3 <<<"$file") ;;
+      *) continue ;;
+    esac
+    # 解析 import 目标到 lib/ 相对路径
+    if [[ "$import_path" == dart:* ]]; then
+      continue
+    elif [[ "$import_path" == package:"$PKG"/* ]]; then
+      resolved="lib/${import_path#package:$PKG/}"
+    elif [[ "$import_path" == package:* ]]; then
+      continue   # 外部包
+    else
+      resolved=$(realpath -m "$(dirname "$file")/$import_path" 2>/dev/null || true)
+      resolved="${resolved#"$(pwd)/"}"
     fi
-  done
-  if [[ $cnt -eq 0 ]]; then
-    printf "feature-isolation\tINFO\t-\tFeature 间无直接 import\n" >&2
-  fi
+    case "$resolved" in
+      lib/features/*)
+        target=$(cut -d/ -f3 <<<"$resolved")
+        if [[ "$target" != "$src_feature" ]]; then
+          emit "feature-isolation" "Major" "$file:$lineno" "跨 feature 直接 import $target（须经 shared/di/providers.dart）: $import_path"
+        fi
+        ;;
+    esac
+  done < <(grep -rnE --include='*.dart' "^[[:space:]]*import[[:space:]]+['\"]" lib/features/ 2>/dev/null || true)
+  [[ $VIOLATIONS -eq $before ]] && echo "feature-isolation: clean" >&2
 }
 
-# ── 维度 3: 密码/敏感信息泄露 —— 日志里含 password/pwd/credential/Authorization ──
-# 规约: print(/debugPrint(/console.log( 附近含 password/pwd/credential/Authorization 字样 → Critical
+# ── 维度 3: 日志泄露密码/凭证 → Critical ──
 check_secret_logs() {
   local out
-  # 找 print/debugPrint 后 30 字符内含敏感字样的行（rg multiline 不依赖 -U）
-  out=$(rg_cmd -t dart --glob 'lib/**' \
-      -e '(print|debugPrint|log)\s*\([^)]{0,80}\b(password|pwd|credential|Authorization)\b' \
-      2>/dev/null || true)
+  out=$(grep -rnE --include='*.dart' \
+    '(print|debugPrint|log)[[:space:]]*\([^)]{0,80}(password|pwd|credential|Authorization)' \
+    lib/ 2>/dev/null || true)
   if [[ -n "$out" ]]; then
     while IFS= read -r line; do
-      printf "secret-logs\tCritical\t%s\t日志含敏感字面量\n" "$line"
+      emit "secret-logs" "Critical" "$line" "日志含敏感字面量"
     done <<<"$out"
   else
-    printf "secret-logs\tINFO\t-\t日志中无密码泄露\n" >&2
+    echo "secret-logs: clean" >&2
   fi
+}
+
+# ── impact 模式: 反查引用方 ──
+# 对每个目标文件，找 lib/ 下所有 import 行中引用其 lib 相对路径或文件名的，按来源区域分组。
+cmd_impact() {
+  [[ $# -ge 1 ]] || { echo "usage: $0 impact <file...>" >&2; exit 2; }
+  printf "target\timporter_area\tfile:line\n"
+  local target rel base hit file area
+  for target in "$@"; do
+    rel="${target#lib/}"
+    base="$(basename "$target")"
+    while IFS= read -r hit; do
+      [[ -z "$hit" ]] && continue
+      file="${hit%%:*}"
+      # 区域: features/X → X；其它 → 二级目录名（core / shared）
+      case "$file" in
+        lib/features/*) area=$(cut -d/ -f3 <<<"$file") ;;
+        lib/*)          area=$(cut -d/ -f2 <<<"$file") ;;
+        *)              area="-" ;;
+      esac
+      printf "%s\t%s\t%s\n" "$target" "$area" "$file"
+    done < <(grep -rnE --include='*.dart' "^[[:space:]]*import[[:space:]]+['\"]" lib/ 2>/dev/null \
+             | grep -F -e "$rel" -e "$base" || true)
+  done
 }
 
 main() {
-  local kinds=()
-  if [[ $# -eq 0 ]]; then
-    kinds=(domain-flutter feature-isolation secret-logs)
-  else
-    kinds=("$@")
+  if [[ "${1:-}" == "impact" ]]; then
+    shift
+    cmd_impact "$@"
+    exit 0
   fi
+  local kinds=("$@")
+  [[ ${#kinds[@]} -eq 0 ]] && kinds=(all)
   for k in "${kinds[@]}"; do
     case "$k" in
-      domain-flutter)    check_domain_flutter    ;;
+      domain-flutter)    check_domain_flutter ;;
       feature-isolation) check_feature_isolation ;;
-      secret-logs)       check_secret_logs       ;;
+      secret-logs)       check_secret_logs ;;
       all)
         check_domain_flutter
         check_feature_isolation
@@ -127,6 +152,8 @@ main() {
       *) echo "unknown kind: $k" >&2; exit 2 ;;
     esac
   done
+  [[ $VIOLATIONS -gt 0 ]] && exit 1
+  exit 0
 }
 
 main "$@"

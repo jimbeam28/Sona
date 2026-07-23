@@ -1,0 +1,11 @@
+# 覆盖率债务登记 — critical_files 中暂不达 90% 的文件
+#
+# 格式: <file> <floor%>   （# 开头为注释）
+# 语义: 债务文件豁免 90% 硬阈，改守"不得低于登记底线"——coverage-check.sh check-exe 强制执行。
+# 规则: 底线只能上调（补测试后），文件只能删除（达 90% 后移出）；新增登记须说明理由。
+#
+# 由 2026-07-23 coverage-check.sh load_critical_files 修复后首次真实扫描产出
+# （旧版 eval 数组塌缩 bug 导致 per-file 门禁从未真实执行）：
+
+lib/features/timer/domain/timer_service.dart 79.0    # 暂停/恢复边界与 custom 时长分支测试缺口（BUG-03 后未补齐）
+lib/features/player/domain/playback_orchestrator.dart 87.5  # player bug 高发区；与 arch-baseline 中 just_audio 直接耦合相关，补测试需先理清 fake 边界

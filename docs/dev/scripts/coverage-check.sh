@@ -40,7 +40,7 @@ if [[ ! -f "$LCOV" ]]; then
 fi
 
 # 解析 lcov.info -> per-file coverage%
-# 输出: <file_path>\t<LF>\t<LH>\t<coverage%> 一行一个文件
+# 输出: <file_path>\t<LH>\t<LF>\t<coverage%> 一行一个文件（命中行 / 总行 / 百分比）
 parse_lcov() {
   awk '
     /^SF:/ { cur = substr($0, 4); lf = 0; lh = 0; found = 1 }
@@ -66,26 +66,36 @@ overall_coverage() {
   ' "$LCOV"
 }
 
-# 检查 critical_files 字符串数组（从 JSON 读，否则用 DEFAULT_CRITICAL）
-# param1: bash 数组名
+# 填充 critical_files 数组（从基线读路径键，否则用 DEFAULT_CRITICAL）。
+# param1: bash 数组名。用 nameref 而非 eval——旧版 eval 引号展开会把数组塌成单元素（门禁形同虚设）。
 load_critical_files() {
-  local __name=$1
+  local -n __out=$1
+  __out=()
   if [[ -f "$BASELINE" ]] && command -v jq >/dev/null 2>&1; then
-    # 尝试从 baseline 中读 critical_files 的 keys（若有数据）
-    local keys
-    keys=$(jq -r '.critical_files // {} | keys[]' "$BASELINE" 2>/dev/null || true)
-    if [[ -n "$keys" ]]; then
-      eval "$__name=( $(printf '%q\n' $keys) )"
-      return
-    fi
+    while IFS= read -r f; do
+      [[ -n "$f" && "$f" != _* ]] && __out+=("$f")   # 跳过 _comment 等文档键
+    done < <(jq -r '.critical_files // {} | keys[]' "$BASELINE" 2>/dev/null || true)
   fi
-  eval "$__name=( \"${DEFAULT_CRITICAL[@]}\" )"
+  [[ ${#__out[@]} -gt 0 ]] || __out=("${DEFAULT_CRITICAL[@]}")
+}
+
+# 覆盖率债务登记：docs/dev/coverage-debt.txt，格式 "<file> <floor%>"（# 开头为注释）。
+# 债务文件豁免 90% 硬阈，改守"不得低于登记底线"（只能升不能降）；登记簿只减不增须经评审。
+DEBT_FILE="$ROOT/docs/dev/coverage-debt.txt"
+declare -A COV_DEBT=()
+load_debt() {
+  COV_DEBT=()
+  [[ -f "$DEBT_FILE" ]] || return 0
+  while read -r f v _; do
+    [[ -n "$f" && "$f" != \#* && -n "$v" ]] && COV_DEBT[$f]=$v
+  done < "$DEBT_FILE"
 }
 
 # ---- check-exe 子命令 ----
 cmd_check_exe() {
   local -a critical
   load_critical_files critical
+  load_debt
 
   local fail=0
   local min_perc=100.0
@@ -106,12 +116,15 @@ cmd_check_exe() {
         continue
       fi
     fi
-    local perc
+    local perc floor
     perc=$(echo "$line" | cut -f4)
-    awk -v p="$perc" -v t=90.0 'BEGIN { exit !(p < t) }' && {
-      echo "  [FAIL] $f — $perc% < 90%"
+    floor="${COV_DEBT[$f]:-90.0}"
+    if awk -v p="$perc" -v t="$floor" 'BEGIN { exit !(p < t) }'; then
+      echo "  [FAIL] $f — $perc% < ${floor}%${COV_DEBT[$f]:+（债务底线）}"
       fail=1
-    } || echo "  [ OK ] $f — $perc%"
+    else
+      echo "  [ OK ] $f — $perc%${COV_DEBT[$f]:+（债务底线 ${floor}%）}"
+    fi
     awk -v p="$perc" -v m="$min_perc" 'BEGIN { exit !(p < m) }' && {
       min_perc=$perc
       min_file=$f
@@ -163,7 +176,7 @@ cmd_check_check() {
   } || echo "  [ OK ] 总覆盖率下降 $drop_overall% <= $tol_overall%"
 
   # 单文件 critical 下降
-  while IFS=$'\t' read -r f lf lh perc; do
+  while IFS=$'\t' read -r f lh lf perc; do
     local base_perc
     base_perc=$(jq -r --arg f "$f" '.critical_files[$f] // empty' "$BASELINE")
     if [[ -n "$base_perc" ]]; then
@@ -197,7 +210,7 @@ cmd_refresh() {
   tmp_all=$(mktemp)
   tmp_critical=$(mktemp)
 
-  parse_lcov | while IFS=$'\t' read -r f lh lf perc; do
+  parse_lcov | while IFS=$'\t' read -r f _lh _lf perc; do
     printf ' "%s": %s,\n' "$f" "$perc"
   done > "$tmp_all"
 

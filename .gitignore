@@ -19,3 +19,6 @@ Thumbs.db
 
 # Local agent guidance
 AGENTS.md
+
+# 覆盖率产物（cov-gate.sh 生成）
+coverage/

@@ -186,136 +186,24 @@ bash scripts/install-hooks.sh  # 安装 git pre-push hook（新 clone 后必跑�
 
 ## 开发流程（dev-plan / dev-exe / dev-check skill 链）
 
-新功能与 Bug 修复通过三个 skill 串起来工作，**所有规约锚到代码不脑补**：
+新功能与 Bug 修复走三个 skill，按模型能力分层执行以降成本——**判断权在两头，机械活在中间和脚本**：
 
-```
-用户提需求 / 描述 bug
-  → dev-plan skill
-      读现有代码 → 逆抽现有行为规约 + 增量加新需求 Scenario
-      输出 docs/features/{ID}.md（按 _TEMPLATE.md）
-      输出更新 docs/dev/dev-status.json
-      Bug 修复场景：先写失败复现测试 → 才允分析根因（硬门禁）
-      向用户呈现 §1.2 用户视角 Scenario 表 + 跨模块影响 + 测试盲点 → 用户 ack
-      （ack 后不自动继；用户手动启动 dev-exe）
-      **铁律 4：每条 status: new Scenario 必须带否定断言**（防假阴面 bug）
-  → dev-exe skill
-      启动前检查 check_round：> 0 表明是 dev-check 打回的返工，
-      必读 docs/dev/check_log.md 最末条作为本轮修复靶点清单
-      Agent A 测试先行（只读 docs/features/{ID}.md §3/§4/§6，不读 lib/）
-      Agent B 按 spec 实现（不允许违反任一 INV）
-      Agent C 验证 spec 覆盖率（< 100% = FAIL）
-      5 轮修复循环 + 3 轮失败 → blocked
-      涉及 audio_service / AudioFocus / MethodChannel / 通知栏 → 强制 docs/dev/mqa-{ID}.md 手动 QA
-      终门禁：flutter analyze 0 warnings / dart format 无变更 / 全量回归 PASS / **关键路径覆盖率 90%**
-      第 8 步：标 done，**不自动继**，提示用户手动启动 dev-check
-  → dev-check skill （独立评审，未参与过开发）
-      7 项检查：
-        1. spec vs 原需求贴合度  — 用户最初需求文字与 §1.2 对照，找 dev-plan 漏 / 脑补
-        2. 实现对 spec 忠实度    — §3 每条 Scenario / §4 每个 INV 在代码中真实被实现且不可被违
-        3. 回归测试充分性        — 测试是否真有断言、是否覆盖边界 / 异常
-        4. 跨模块已识别不变量未破坏 — §7 列出的 cross_module_impacts 是否都有回归断言且 PASS
-        5. 跨模块被漏识的破坏    — git show + grep + **跑全量 flutter test** 看是否真没被影响
-        6. 基线覆盖率漂移        — 当前 lcov.info vs docs/dev/baseline-coverage.json，任一下降超容忍 FAIL
-        7. 否定断言未被破坏     — §3 是否每条 status: new 真带否定断言，且测试中真有对应 expect(..., unchanged) 类断言
-      **不亲手修复**——只出问题清单写入 docs/dev/check_log.md
-      PASS  → 标 check_status=passed + **刷新 docs/dev/baseline-coverage.json**（基线持续上推）
-      FAIL  → check_round + 1，impl_status 改回 pending，提示用户手动启动 dev-exe 重做
-      3 轮上限仍 FAIL → 标 check_status=blocked_after_3_rounds，impl_status=blocked，等人工介入
-```
-
-### /cr skill（通用代码走查与复核，独立于 dev-plan/dev-exe/dev-check）
-
-`/cr` 是与 spec 流程解耦的日常代码 review 工具，可走查任意区间——不限于 dev-exe 产出。
-
-```
-/cr [走查]              # 默认模式
-  解析范围：
-    - git 记录（按时间 --since/--until 或关键字 --grep 筛 commit，列出改动文件）
-    - 功能模块（lib/features/{name}/ + test/features/{name}/）
-    - 目录（用户指定路径，同步覆盖 lib 与 test）
-    - 默认：lib/ + test/ 全量
-  加载 CLAUDE.md 架构硬约束作为检查项（分层 / Feature 隔离 / 契约层不可绕过 / 密码只进 secure_storage）
-  7 维度走查：正确性 / 架构一致性 / 并发时序 / 安全 / 可测性 / 性能 / 风格
-  输出分级问题清单（Critical / Major / Minor / Info）到 docs/cr/cr-{YYYYMMDD-HHMM}.md
-  铁律：不修代码、不脑补（每条问题必带 file:line 证据）、已检查文件清单要列全
-
-/cr 复核                # 复核模式
-  遍历 docs/cr/cr-*.md，逐条复核问题是否仍存在（按 file:line 重新打开代码判定）
-    - 已修复 → 跳过
-    - 仍存在 → 调 dev-plan 生成 BUG-{N}.md spec + 复现测试（dev-plan 铁律 2 沿用）
-    - 处理完每个 cr 文档后删除之（cr 是一次性走查快照，不长期留存）
-  docs/cr/ 为空 → 提示后退出
-  铁律：不修代码、不跳过 dev-plan、cr 文档必删
-```
-
-与三 skill 链的衔接：`/cr` 走查 → 用户 `/cr 复核` → dev-plan（派生 BUG spec）→ 用户手动启动 dev-exe → 用户手动启动 dev-check。`/cr` 本身不进入 dev-status.json；派生出的 BUG-{N} 才进入 dev 流程。
-
-### 关键路径覆盖率守护（新增）
-
-- `docs/dev/baseline-coverage.json` — 基线快照，由 dev-check PASS 后刷新
-- `docs/dev/scripts/coverage-check.sh` — 解析 lcov.info 与基线对比
-  - `check-exe` 子命令：dev-exe 第 7 步用，守 critical_files 各 ≥ 90% / 新增 100%
-  - `check-check` 子命令：dev-check 第 6 项用，against baseline 检测漂移
-  - `refresh` 子命令：dev-check PASS 后刷新基线
-- critical_files 默认清单 = domain 层全部 + PlayQueue 共享模型（baseline 缺时退化用）
-- 漂移容忍阈值：overall 下降 >1% FAIL；critical 单文件下降 >2% FAIL
-
-### 三 skill 的角色分工
-
-| 维度 | dev-plan | dev-exe | dev-check |
+| skill | 模型 | 职责 | 铁律 |
 |---|---|---|---|
-| 视角 | 锚到代码逆抽 + 增量加需求 | 按 spec 实现 + 测试 | 独立评审，未参与过开发 |
-| 铁律 1 | 锚到代码不脑补 | 测试 A 只读 spec 不读 lib | 不亲手修复 |
-| 铁律 2 | Bug 修复先写失败复现测试 | 实现 B 不修改测试断言 | 重读原需求推回实现 |
-| 铁律 3 | §1.2 必须呈现给用户审 | Spec 覆盖 < 100% 拒收 | 3 轮上限后强制 blocked |
-| 铁律 4 | **每条新 Scenario 必带否定断言** | 关键路径覆盖率 ≥ 90% | **基线覆盖率漂移守护** |
-| 触发 | "制定计划""分析需求" | "开始开发""实现" | "检查""审查" |
+| **dev-plan** | 强 | 访谈需求 → 锚到代码逆抽 → 输出 `docs/features/{ID}.md` + status 条目；Bug 先写失败复现测试才许分析根因 | 锚到代码不脑补；每条 `status: new` Scenario 必带否定断言 |
+| **dev-exe** | 弱 | 测试先行（Agent A 只读 spec 禁读 lib/）→ 实现（Agent B）→ 脚本门禁 → 标 done | 实现不改测试断言；门禁以脚本退出码为准；2 轮不过升级强模型 |
+| **dev-check** | 强 | 独立审计弱模型产出：测试空壳 / 实现语义忠实 / 跨模块破坏；不亲手修，只写 `docs/dev/check_log.md` 打回 | 从 §1.0 用户原话推回实现；2 轮上限 |
 
-**dev-exe 内部 Agent C 与 dev-check 不重合**：Agent C 在 dev-exe 流程内、被 spec 框住视角，只查"每条 spec 是否被测"；dev-check 是独立视角，质疑 spec 本身对不对、实现对原需求贴不贴。二者互补不替代。
+**细节全部单源化**，不在本文件重复：
 
-### 文件位置
+- 格式与字段生命周期：`.claude/plugins/sona-dev/reference/SCHEMA.md`（dev-status.json 字段、spec 章节要求、check_log / mqa-backlog / INDEX 格式、脚本目录）
+- 真机踩坑库：`docs/dev/platform-pitfalls.md`（本机无法真机测试，dev-plan 设计前逐条核对，dev-exe 修完真机 bug 必须回写）
+- 机械门禁脚本：`.claude/plugins/sona-dev/scripts/`（dev-status / cov-gate / spec-scan / cross-imports / repro-test / dev-task）+ `docs/dev/scripts/coverage-check.sh`（覆盖率三门禁：exe 守 critical ≥90% / check 守基线漂移 / PASS 后 refresh 单调上行）
+- 架构违规基线：`docs/dev/arch-baseline.txt`（legacy debt 登记，cross-imports 只对其外的新违规阻断；只减不增）
 
-- 功能详细设计模板：`docs/features/_TEMPLATE.md`
-- 功能文档：`docs/features/{ID}.md`（如 `docs/features/CON-01.md`）
-- 进度跟踪：`docs/dev/dev-status.json`
-- 手动 QA 清单：`docs/dev/mqa-{ID}.md`（涉及平台原生时）
-- Bug 复现测试：`test/features/{feature}/bug_{ID}_repro_test.dart`（修复前必须 FAIL，修复后必须 PASS）
-- 评审报告：`docs/dev/check_log.md`（dev-check 写入，dev-exe 重做时读最末条作为修复靶点）
-- 代码走查报告：`docs/cr/cr-{YYYYMMDD-HHMM}.md`（`/cr` 走查写入，`/cr 复核` 处理后必删，cr 是一次性快照不长期留存）
-- 基线覆盖率快照：`docs/dev/baseline-coverage.json`（dev-check PASS 后刷新，对比漂移用）
-- 覆盖率检查脚本：`docs/dev/scripts/coverage-check.sh`（dev-exe 第 7 步 + dev-check 第 6 项 + 刷新基线三合一）
+### /cr skill（通用代码走查，独立于三 skill 链）
 
-### dev-status.json 关键字段
-
-```json
-"{ID}": {
-  "spec_file":         "docs/features/{ID}.md",
-  "spec_anchored_files": ["lib/.../x.dart", ...],   // 锚到代码（铁律）
-  "scenarios":          ["{ID}-S1", ..., "{ID}-S{n}"],
-  "invariants":         ["{ID}-INV1", ..., "{ID}-INV{n}"],
-  "algorithms":         ["{ID}-ALG1", ...],
-  "test_coverage_gaps": ["{ID}-S5", ...],           // dev-exe 必补
-  "cross_module_impacts": ["BRW", "PRG", "PLY"],   // 跨模块影响
-  "manual_qa_required": false | true,
-  "manual_qa_file":     null | "docs/dev/mqa-{ID}.md",
-  "user_acceptance_text": "见 docs/features/{ID}.md §1.2",
-  "impl_status":    "pending" | "done" | "failed" | "blocked",
-  "test_status":    "pending" | "passed",
-  "check_status":   "pending" | "passed" | "round_1" | "round_2" | "round_3" | "blocked_after_3_rounds",
-  "check_round":    0,                              // dev-check 打回累计次数
-  "last_check_round_results": "",                   // 指向 check_log.md 最末条
-  "last_checked_at": "",                            // 日期
-  ...
-}
-```
-
-字段生命周期（关键）：
-- **dev-plan 创建**：`impl_status=test_status="pending"`，`check_status="pending"`，`check_round=0`
-- **dev-exe 完成自身门禁**：`impl_status="done"`，`test_status="passed"`——**不动** check_*
-- **dev-check 通过**：`check_status="passed"`，写 `last_checked_at`
-- **dev-check 打回**：`check_status="round_N"`，`check_round=N`，**`impl_status` 改回 "pending"** 触发 dev-exe 重做
-- **dev-exe 重做**：在第 1 步读 `check_round` 决定带 dev-check 上轮问题清单作为修复靶点
-- **dev-check 3 轮上限仍 FAIL**：`check_status="blocked_after_3_rounds"`，`impl_status="blocked"`
+日常任意区间代码 review（git 记录 / 模块 / 目录），7 维度出分级问题清单到 `docs/cr/`；`/cr 复核` 把仍存在的问题派生为 dev-plan BUG spec 后删 cr 文档。铁律：不修代码、每条问题带 file:line 证据。详见 skill 自身文档。衔接：`/cr 复核` → dev-plan → 手动 dev-exe → 手动 dev-check。
 
 ### 渐进迁移策略
 
