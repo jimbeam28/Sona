@@ -2,8 +2,8 @@
 name: cr
 description: |
   代码走查与复核（双模式，二选一，默认走查）。
-  走查模式：扫描用户指定范围（目录 / 功能模块 / git 记录，未指定时默认 lib/ + test/），按 7 维度（正确性 / 架构一致性 / 并发时序 / 安全 / 可测性 / 性能 / 风格）检查，输出分级问题清单到 docs/cr/cr-{YYYYMMDD-HHMM}.md。
-  复核模式：遍历 docs/cr/ 下所有走查报告，逐条复核问题是否仍存在；仍存在则调用 dev-plan 生成修复 spec，然后删除该 cr 文档；如 docs/cr/ 为空则提示后退出。
+  走查模式：扫描用户指定范围（目录 / 功能模块 / git 记录，未指定时默认 lib/ + test/），三层检查——机械层（脚本输出）/ 模式层（checklist）/ 功能层（P 库核对 + spec 符合性 + 测试锚定 + 状态机穷举四种锚定法做语义缺陷分析），输出类型化问题清单到 docs/cr/cr-{YYYYMMDD-HHMM}.md（BUG / FRAGILE / DESIGN / TEST-GAP × 严重度 × 复现路径）。
+  复核模式：遍历 docs/cr/ 下所有走查报告逐条复核；仍存在的问题按类型分流——BUG/FRAGILE 调 dev-plan Bug 流程、DESIGN 调需求流程或用户裁决、TEST-GAP 直接补测或登记——然后删除该 cr 文档；如 docs/cr/ 为空则提示后退出。
   触发场景：用户提到"走查"、"代码走查"、"code review"、"review 代码"、"/cr"、"复核"、"复核走查"——默认走查，用户明说"复核"切复核模式。
   与 dev-check 的区别：dev-check 是 dev-exe 流程内的独立 spec 评审（贴合度 / 忠实度 / 覆盖率漂移）；/cr 是与 spec 流程无关的通用代码 review，用于日常任意代码片段走查。
   不触发：用户提到"检查"、"审查"、"dev-check"、"验证 spec"时归 dev-check；"实现"、"开发"归 dev-exe。
@@ -12,20 +12,21 @@ description: |
 # 代码走查与复核 (cr)
 
 > **本 skill 属 plugin `sona-dev`，路径 `.claude/plugins/sona-dev/skills/cr/`。**
-> **脚本调用铁律**：凡下表所列动作，**必须**经 plugin 内脚本间接执行，禁止裸跑 bash。
-> 脚本目录相对本 skill base：`../scripts/`；prefix 命令形如 `bash ../scripts/<name>.sh ...`。
+> **脚本调用铁律**：凡下表所列动作，**必须**经脚本间接执行，禁止裸跑等价 bash。
+> plugin 脚本相对本 skill base：`../../scripts/`；coverage-check.sh 在 `docs/dev/scripts/`。
 >
-> | 维度 | 原裸命令 | 改用脚本 |
-> |---|---|---|
-> | 范围解析 git 历史 | `git log --since=...` / `--grep=...` / `-N` | `bash ../scripts/git-scope.sh {recent\|since\|grep\|files\|diff} ...` |
-> | 维度 2 Domain 零 Flutter / Feature 隔离 | `rg lib/features/*/domain/ import flutter/` / `lib/features/A/ import features/B/` | `bash ../scripts/cross-imports.sh {domain-flutter\|feature-isolation\|secret-logs\|all}` |
-> | 维度 4 密码泄露日志 | `rg print/debugPrint 附近含 password` | `bash ../scripts/cross-imports.sh secret-logs` |
-> | 维度 7 flutter analyze / dart format | 裸跑 | `bash ../scripts/cov-gate.sh --skip-test` |
-> | 复核模式：派生 BUG spec 后 dev-plan 接力 | — | 复核完依旧由用户手动启动 dev-plan / dev-exe / dev-check |
+> | 动作 | 脚本 |
+> |---|---|
+> | Domain 零 Flutter / Feature 隔离 / 敏感日志 / 层间反向依赖扫描 | `bash ../../scripts/cross-imports.sh {domain-flutter\|feature-isolation\|secret-logs\|all}` |
+> | 反查改动文件的调用方（git 范围扩充） | `bash ../../scripts/cross-imports.sh impact <files...>` |
+> | flutter analyze / dart format | `bash ../../scripts/cov-gate.sh --skip-test` |
+> | 覆盖率基线 / 欠测 critical 文件 | `bash docs/dev/scripts/coverage-check.sh check-check` |
 >
-> 走查行为（7 维度逐文件人工审视、写报告 `docs/cr/cr-{TS}.md`）属非确定性，仍走 opencode read/edit 工具。
+> git 历史查询（`git log --since/--grep/-N`）无脚本封装，直跑即可。
+> 语义判断（模式层 / 功能层 / 写报告）属非确定性，走 read/edit 工具。
 
 通用代码 review 工具，独立于 dev-plan / dev-exe / dev-check 流程。两种模式互斥，默认走查。
+**维度清单、锚定法细则、P 库核对映射表见 `../../reference/cr-dimensions.md`；报告格式见 `../../reference/SCHEMA.md` §3.7。**
 
 ## 模式判定
 
@@ -40,141 +41,67 @@ description: |
 
 ### 第 1 步：解析范围
 
-从用户原话抽取范围参数。四类范围互斥（同一次走查只取其一，若用户给出多个则优先级 git > 功能 > 目录；默认兜底）：
+四类范围互斥（同一次走查只取其一；用户给出多个时优先级 git > 功能 > 目录；默认兜底）：
 
 | 类型 | 用户表达示例 | 解析为 |
 |---|---|---|
-| **git 记录** | "走查上周的提交" / "review 含 'WebDAV' 的提交" / "看最近 3 个 commit" | `git log --since=...` / `--grep=...` / `-<N>` 筛 commit，再用 `git show <sha> --name-only` 列出改动文件作为走查对象 |
-| **功能模块** | "走查 player 模块" / "看 browser" | `lib/features/{name}/` + `test/features/{name}/` |
-| **目录** | "看 lib/shared/" / "走查 lib/core/database/" | 用户指定的目录路径（同时覆盖 lib 与 test 内同路径） |
+| **git 记录** | "走查上周的提交" / "含 'WebDAV' 的提交" / "最近 3 个 commit" | `git log --since=... / --grep=... / -<N> --name-only --pretty=format:"%h %s"` 取改动文件 |
+| **功能模块** | "走查 player 模块" | `lib/features/{name}/` + `test/features/{name}/` |
+| **目录** | "看 lib/core/database/" | 用户指定路径（同时覆盖 lib 与 test 内同路径） |
 | **默认** | 未指定 | `lib/` + `test/` 全量 |
 
-git 范围的执行细节：
-- 时间筛选：`git log --since="2026-06-01" --until="2026-06-28" --name-only --pretty=format:"%h %s"` —— 仅取改动文件清单，每个文件独立走查（不限于 git diff 增量行，整文件都要看）。
-- 关键字筛选：`git log --grep="<关键字>" -i --name-only --pretty=format:"%h %s"` —— 大小写不敏感。
-- 数量限制：`git log -<N>` —— 取最近 N 个 commit。
+**git 范围扩充（强制）**：走查对象 = git 触及文件 + `bash ../../scripts/cross-imports.sh impact <触及文件...>` 反查出的调用方——功能缺陷常发生在改动与未改动的交界面。每个文件整文件走查，不限于 diff 增量行。
 
-### 第 2 步：加载项目硬约束（铁律）
+### 第 2 步：加载硬约束与踩坑库
 
-走查前**必读** `CLAUDE.md` 的"架构分层"与"数据库"两节，把以下硬约束作为检查项：
+走查前**必读**：
 
-1. **分层**：UI → Provider → Domain → Contract → Data。Domain 层零 Flutter 依赖，可独立单元测试。
-2. **Feature 隔离**：跨 feature 依赖必须经 `shared/di/providers.dart` 桥接，**禁止 feature 间直接 import**。
-3. **契约层不可绕过**：数据源访问必须经 `core/contracts/` 抽象接口（`IAudioPlayer` / `IAudioHandler` / `IConnectionDao` / `IProgressDao` / `IPlaylistDao` / `ISecureStorage`），不允许 Domain/Provider 层直接用 `just_audio` / `audio_service` / `sqflite` / `flutter_secure_storage`。
-4. **密码安全**：明文密码只能存 `flutter_secure_storage`，key 格式 `connection_password_{id}`；**严禁**密码明文进 SQLite、日志、`print`/`debugPrint`。
-5. **Basic Auth**：URL 构建时凭证编码不得落日志。
+1. `CLAUDE.md` 的"架构分层"与"数据库"两节 → 5 条硬约束（cr-dimensions.md §0）。
+2. `docs/dev/platform-pitfalls.md` 全文 → 功能层 P 库核对依据（真机 bug 换来的失败模式，只增不删）。
 
-### 第 3 步：7 维度走查
+### 第 3 步：三层走查
 
-对每个文件按以下维度逐项检查，每发现一个问题打 severity（Critical / Major / Minor / Info）+ 证据（`file:line`）+ 现象 + 修复建议。**修不修由用户决定——本 skill 不改代码**。
+**Layer 1 机械层**（只贴脚本输出，不重复判断）：
 
-#### 维度 1：正确性与健壮性
-
-- 空值 / 边界（空列表、null、单元素、越界 index）
-- 异常路径：是否 `try/catch` 静默吞掉错误？是否向用户暴露原始异常栈？
-- 资源释放：`StreamSubscription` / `Timer` / `TextEditingController` / `AnimationController` / `ScrollController` 是否在 `dispose()` 中 cancel / close？
-- 数值边界：`Duration` / `position` 是否经 `clampSeek` 等工具约束？速度档位是否限定 6 档？
-- 异步竞态：`Future.then` 链是否考虑中途被新请求作废？播放编排是否经 `SerializedRequestGate`？
-
-#### 维度 2：架构一致性（CLAUDE.md 硬约束）
-
-- **Domain 零 Flutter**：grep `lib/features/*/domain/` 是否 import `flutter/`、`flutter_riverpod`、`package:flutter_*`、`dart:ui`、`shared_preferences`、`just_audio`、`audio_service`、`sqflite`、`flutter_secure_storage`。任何一条 → Critical。
-- **Feature 隔离**：grep `lib/features/A/` 是否 import `lib/features/B/`（除 `shared/` 外）。任何直接 feature 间 import → Major。
-- **契约层是否被绕过**：在 `lib/features/*/domain/` 或 `*/provider/` 中直接 `import package:just_audio/just_audio.dart` / `package:audio_service/...` / `package:sqflite/sqflite.dart` / `package:flutter_secure_storage/...` → Major（应经 Contract 接口注入）。
-- **Provider 不直连 Data Source**：`Provider` 应调 `Domain Service` 或 `Contract`，不应直接调 WebDAV / SQLite。
-
-#### 维度 3：并发与时序
-
-- **`SerializedRequestGate`**：`playback_orchestrator` 的 load / skip / remove 是否都走门？绕过门直达 `AudioPlayer` → Critical（可能竞态）。
-- **`setState` 后异步回调**：`await` 之后调 `setState` / 读 `widget.` 之前是否检查 `mounted` / `!disposed`？Widget 重建后回调还活着可能崩。
-- **Provider `autoDispose`**：在 `autoDispose` Provider 里持有 `ref` 长生命周期对象是否泄漏？是否用 `ref.onDispose` 清理？
-- **`fake_async` 兼容**：Timer / Future.delayed 用于业务逻辑时是否在测试中可控？
-
-#### 维度 4：安全（CLAUDE.md 硬约束）
-
-- grep `print(` / `debugPrint(` / `log(` 附近是否含 `password` / `pwd` / `credential` / `Authorization` 字样 → Critical。
-- SQLite 表 `connections` 中 `password` 字段应只存 secure_storage 引用 key，而非明文 → 否则 Critical。
-- 连接 URL 中是否泄露 Basic Auth（`https://user:pass@host`）→ Major。
-- WebDAV PROPFIND 验证或列目录时的请求 body / 响应是否被记录到日志？敏感头是否脱敏？
-
-#### 维度 5：可测性
-
-- 纯逻辑是否抽到 Domain 层（widget 内混业务判断 → 难测）。
-- 是否在 Widget / Provider 中直接调 `MethodChannel` 导致难测？（应经 `background_service` 抽象层）。
-- 测试 helper 是否被绕过：直接 new 真实 `AudioPlayer` / 真实 `sqflite` 而非 `mock_audio_player` / `test_database`？
-- `test/` 下是否存在"只构造不调方法"的空骨架测试？是否 `expect(true, isTrue)` 形式通过而不测行为？ → Minor 但要列。
-
-#### 维度 6：性能
-
-- 列表 `Widget` 是否缺 `const` / 缺 `Key` → 不必要 rebuild。
-- 长列表是否用 `ListView.builder` 而非 `Column` + `地图`？
-- `cache_policy` TTL/LRU 是否在 `directory_service` 中被正确引用？目录缓存是否过期才 fetch？
-- 是否在 `build` 方法里做重活（IO、JSON parse、排序）？应 memoize 或挪到 Provider。
-
-#### 维度 7：风格
-
-- 跑 `flutter analyze` —— 任何 warning 计 Minor（应为 0）。
-- 跑 `dart format --set-exit-if-changed lib test` —— 任何未格式化文件计 Info。
-
-### 第 4 步：写走查报告
-
-输出文件 `docs/cr/cr-{YYYYMMDD-HHMM}.md`（时间戳精确到分钟，避免同日多次走查撞名）。模板：
-
-```markdown
-# 代码走查报告
-
-> 生成时间：YYYY-MM-DD HH:MM
-> 走查范围：<范围描述：目录 / 功能 / git commit hash 列表 / 全量>
-> 检查文件数：N
-> 问题总数：N（Critical: X / Major: Y / Minor: Z / Info: W）
-
-## 摘要
-
-<一段话概括总体健康度与主要风险点>
-
-## 问题清单
-
-### Critical
-
-#### C1. <问题标题>
-- 严重度：Critical
-- 维度：<架构一致性 / 安全 / ...>
-- 证据：`lib/.../x.dart:42`
-- 现象：<代码片段 + 为何是问题>
-- 修复建议：<具体改动方向，不给代码>
-
-### Major
-...
-
-### Minor
-...
-
-### Info
-...
-
-## 维度统计
-
-| 维度 | Critical | Major | Minor | Info |
-|---|---|---|---|---|
-| 正确性 | ... | ... | ... | ... |
-| 架构一致性 | ... |
-| 并发时序 | ... |
-| 安全 | ... |
-| 可测性 | ... |
-| 性能 | ... |
-| 风格 | ... |
-
-## 已检查文件清单
-
-<列出本次走查覆盖的文件路径，便于复核追溯>
+```bash
+bash ../../scripts/cross-imports.sh all        # 基线外架构违规
+bash ../../scripts/cov-gate.sh --skip-test     # analyze 0 warning + format
 ```
 
-写完后在终端报告：报告路径 + Critical/Major 数量 + 一句话下一步（"可启动 dev-plan 修复 / 或手动修 / 或 /cr 复核"）。
+非零退出 → 按 cr-dimensions.md §1 的映射计问题。`arch-baseline.txt` 已登记的存量债不计新账。
+
+**Layer 2 模式层**（checklist 快过）：正确性健壮性 / 并发时序 / 可测性 / 性能四套清单（cr-dimensions.md §2），每条问题打严重度 + `file:line` 证据。
+
+**Layer 3 功能层**（主菜，约六成精力）：对范围内每个模块按锚定可靠度依次用四种锚定法（cr-dimensions.md §3）：
+
+1. **踩坑核对**：P1–P16 中与本次范围触及场景相关的条款逐条核对（同 dev-plan 的核对纪律）。
+2. **spec 符合性**：已有 `docs/features/{ID}.md` 的模块 → 借 dev-check 对抗法"给每条 INV 找一条可违反的代码路径"，Scenario 逐条核对实现。
+3. **测试锚定**：无 spec 的模块 → 逐个 domain 公开函数问"现有测试能否区分正确实现与一个貌似合理的错误实现"；欠断言分支 × coverage-check.sh 欠测行 = 缺陷候选区。
+4. **状态机穷举 + 内部一致性**：枚举 (状态 × 事件) 矩阵查漏格；查语义不明 / 双重职责的函数（缺陷前兆）。
+
+**哲学边界**：功能缺陷的锚定源是 P 库 / spec / 测试 / 内部一致性 / 用户域常识。CLAUDE.md 规定"代码为准，文档未覆盖是文档待补，不是代码违规"——**严禁**拿不存在的文档挑代码的刺。
+
+### 第 4 步：对抗自检（防假阳性）
+
+写报告前对每条 BUG / FRAGILE 强制自问：**现有测试为什么没抓住它？** 合法答案仅三种：测试空壳 / 该分支零覆盖 / 测试假设本身就错。一种都答不上 → 降级 DESIGN 或删除。执行细则见 cr-dimensions.md §4。功能断言的假阳性会污染下游 dev-plan，比漏报更伤流程。
+
+### 第 5 步：写走查报告
+
+格式见 `../../reference/SCHEMA.md` §3.7，输出 `docs/cr/cr-{YYYYMMDD-HHMM}.md`（时间戳精确到分钟防撞名）。每条问题 = **类型 × 严重度 × 证据**：
+
+| 类型 | 含义 | 硬性要求 |
+|---|---|---|
+| **BUG** | 有确定复现路径 | 复现路径（操作/输入序列 → 期望 → 实际）+ 自检答案 + `file:line` |
+| **FRAGILE** | 特定条件触发 | 条件化复现路径 + 自检答案 + `file:line` |
+| **DESIGN** | 设计取舍待用户裁决 | 现象 + 取舍分析（写不出复现路径故不列 BUG） |
+| **TEST-GAP** | 缺行为锚定 | 欠测行为描述 + 建议锚定方式 |
+
+写完在终端报告：报告路径 + BUG/FRAGILE 数量 + 一句话下一步（"/cr 复核 分流进 dev 流程 / 手动修小问题 / 按 file:line 查证"）。
 
 **铁律**：
-1. **不修代码**：本 skill 只出清单，修复归用户手动或后续 dev-exe。
-2. **不脑补**：每条问题必须给 `file:line` 证据 + 实际代码片段，不允许只说"可能有"。
-3. **走查范围要列全**：报告末尾"已检查文件清单"必须真实覆盖第 1 步解析的所有文件，便于复核时追溯。
+1. **不修代码**：本 skill 只出清单，修复归复核分流或用户手动。
+2. **不脑补**：写不出复现路径不得列 BUG；每条问题必带 `file:line` + 实际代码片段，不允许只说"可能有"。
+3. **范围列全**：报告末尾"已检查文件清单"必须真实覆盖第 1 步解析的全部文件（含 impact 调用方），便于复核追溯。
 
 ---
 
@@ -186,35 +113,30 @@ git 范围的执行细节：
 ls docs/cr/cr-*.md 2>/dev/null
 ```
 
-- 无文件 → 输出"`docs/cr/` 为空，无可复核的走查报告"并退出。
-- 有文件 → 全部纳入复核清单，按文件名时间戳升序处理。
+无文件 → 输出"`docs/cr/` 为空，无可复核的走查报告"并退出。有 → 按文件名时间戳升序处理。
 
-### 第 2 步：逐报告逐条复核
+### 第 2 步：逐条复核
 
-对每个 `docs/cr/cr-{ts}.md` 中的每条问题：
+对每条问题打开 `证据` 处文件行，**重新判定**是否仍存在：
 
-1. 读问题记录的 `证据：lib/.../x.dart:行号`
-2. 打开该文件该行，**重新判定**问题是否仍存在：
-   - **已修复**（代码已改、文件已删、行已不存在）→ 标"已修复"，跳过。
-   - **仍存在** → 进入第 3 步（调 dev-plan）。
-3. 全报告复核完后进入第 4 步（删 cr 文档）。
+- **已修复**（代码已改 / 文件已删 / 行不存在）→ 标"已修复"。
+- **仍存在** → 进第 3 步。
 
-### 第 3 步：对仍存在的问题调 dev-plan
+旧格式报告（重构前产出，无类型字段）按所在节推断类型：BUG 节 → BUG、FRAGILE 节 → FRAGILE、测试缺口节 → TEST-GAP、其余架构/风格节 → 按严重度直接归入修复清单。
 
-对每条**仍存在**的问题：
+### 第 3 步：按类型分流（不是一律派 Bug 流程）
 
-1. 加载 `dev-plan` skill。
-2. 把该问题作为"Bug 修复场景"输入 dev-plan：
-   - 证据出处 = 本 cr 报告的 `file:line` + 现象描述
-   - 需求描述 = "修复 cr 报告 C1：{现象}"
-   - dev-plan 将按其流程：先写**失败复现测试**（硬门禁） → 再逆抽 + 输出 `docs/features/BUG-{N}.md`（参照现有 BUG-01/02/03 的格式）+ 更新 `docs/dev/dev-status.json`
-3. 等待 dev-plan 完成（向用户呈现 §1.2 用户视角 Scenario 表 → 用户 ack 后**不自动继**，由用户手动决定是否启动 dev-exe）。
+| 类型 | 去向 |
+|---|---|
+| **BUG / FRAGILE** | 加载 dev-plan **Bug 流程**：证据 = 本报告 `file:line` + 复现路径。dev-plan 先写**失败复现测试**（`test/features/{feature}/bug_{ID}_repro_test.dart`，修复前必须 FAIL，硬门禁）→ 逆抽输出 `docs/features/BUG-{N}.md` + `dev-status.json` 条目（参照 BUG-01/02/03 格式） |
+| **DESIGN** | dev-plan **需求流程**（无复现测试，按行为裁决立新需求 Scenario），或向用户呈现取舍直接裁决：修（转需求流程）/ 关（记录裁决理由，不建条目） |
+| **TEST-GAP** | 不建 spec：直接补锚定测试（可作 dev-exe 任务），或登记 `docs/dev/coverage-debt.txt` |
+
+dev-plan 完成后向用户呈现 §1.2 用户视角表 → 用户 ack 后**不自动继**，是否启动 dev-exe 由用户手动决定。
 
 ### 第 4 步：删除已复核的 cr 文档
 
-每个 cr 报告处理完所有问题后（无论全修复、还是已调 dev-plan 派生 spec），**删除**该 `docs/cr/cr-{ts}.md` 文件。
-
-理由：cr 报告是一次性走查快照，问题要么已修复要么已被 dev-plan 派生为正式 spec 进入 dev 流程，cr 文档本身不需长期留存。引用规范参照 BUG-01/02/03 spec 已迁移到 `docs/cr/cr-2026-06-28.md` 路径。
+每个报告的所有问题处理完（修复 / 分流 / 裁决关闭）后，**删除**该 `docs/cr/cr-{ts}.md`。cr 报告是一次性快照：问题要么已修复、要么已进 dev 流程，文档本身不留存。
 
 ### 第 5 步：终端汇报
 
@@ -225,17 +147,19 @@ ls docs/cr/cr-*.md 2>/dev/null
   复核报告数：N
   问题总数：M
     已修复：X
-    仍存在 → 派生 dev-plan spec：
-      - BUG-{K1}（来源 cr-{ts1}.md C1）
-      - BUG-{K2}（来源 cr-{ts2}.md M3）
+    仍存在 → 已分流：
+      - BUG-{K}（来源 cr-{ts}.md B1，dev-plan Bug 流程）
+      - {ID} 新需求（来源 cr-{ts}.md D1，dev-plan 需求流程）
+      - TEST-GAP × n（已补测 / 已登记 coverage-debt）
+    裁决关闭：Y
   已清理 cr 文档：cr-{ts1}.md / cr-{ts2}.md
   下一步：用户可手动启动 dev-exe {BUG-ID} 执行修复
 ═══════════════════════════════════
 ```
 
 **复核模式铁律**：
-1. **不修代码**：复核也只判定"是否仍存在"，修复走 dev-plan / dev-exe 链。
-2. **不跳过 dev-plan**：仍存在的问题必须经 dev-plan 写 spec + 复现测试，不允许直接调 dev-exe。
+1. **不修代码**：复核只判定"是否仍存在"+ 分流，修复走 dev-plan / dev-exe 链。
+2. **不跳过 dev-plan**：仍存在的 BUG/FRAGILE 必须经 dev-plan 写 spec + 复现测试，不允许直接调 dev-exe。
 3. **cr 文档必删**：处理完即删，不留堆积。
 
 ---
@@ -244,29 +168,31 @@ ls docs/cr/cr-*.md 2>/dev/null
 
 | 场景 | 链路 |
 |---|---|
-| `/cr` 走查发现问题 → 用户想修 | 用户手动启动 `/cr 复核` → 调 dev-plan → 用户 ack spec → 用户手动启动 dev-exe → 用户手动启动 dev-check |
-| 一次性 Bug 直接修复 | `/cr` 仅出清单，用户自行编辑代码 |
+| `/cr` 走查发现问题 → 用户想修 | 用户手动 `/cr 复核` → 按类型分流（BUG/FRAGILE→dev-plan Bug 流程 / DESIGN→需求流程或裁决 / TEST-GAP→补测）→ 用户 ack spec → 手动 dev-exe → 手动 dev-check |
+| 一次性小问题直接修 | `/cr` 仅出清单，用户自行编辑代码，下次复核标"已修复" |
+| dev-exe 修出新真机 bug | 必须回写 `docs/dev/platform-pitfalls.md`（dev-exe 铁律）→ 下次 cr 功能层踩坑核对自动纳入新条款，闭环 |
 | 复核发现 docs/cr 空 | 提示后退出，不擅自调 dev-plan |
 
-`dev-plan` 接收到 cr 派来的 bug 修复场景时，必须遵守其铁律 2：先写**失败复现测试**（`test/features/{feature}/bug_{ID}_repro_test.dart`）且该测试必须在修复前 FAIL，才允许分析根因。cr 报告的 `file:line` + 现象描述作为 Bug 输入证据。
+`dev-plan` 接到 cr 派来的 BUG/FRAGILE 时遵守其铁律：先写失败复现测试且修复前必须 FAIL，才允许分析根因。cr 报告的 `file:line` + 复现路径即 Bug 输入证据。
 
 ---
 
 ## 完成后汇报
 
 走查模式：
+
 ```
 ═══════════════════════════════════
   cr 走查完成
 ═══════════════════════════════════
   走查范围：<范围描述>
-  覆盖文件：N
+  覆盖文件：N（含 impact 调用方 K 个）
   报告路径：docs/cr/cr-{ts}.md
-  问题分布：Critical X / Major Y / Minor Z / Info W
+  问题分布：BUG X / FRAGILE Y / DESIGN Z / TEST-GAP W
   下一步：
-    - 想修：手动编辑代码，或 /cr 复核 派生 dev-plan
-    - 想看清单一问题：直接报告里查证据 file:line
+    - 想修：/cr 复核（按类型分流进 dev 流程），或手动编辑代码
+    - 查证据：报告内 file:line + 复现路径
 ═══════════════════════════════════
 ```
 
-复核模式见上文第 5 步格式。
+复核模式见第 5 步格式。

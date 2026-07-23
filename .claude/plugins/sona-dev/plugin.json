@@ -16,10 +16,7 @@
     "scripts/repro-test.sh",
     "scripts/spec-scan.sh",
     "scripts/cross-imports.sh",
-    "scripts/cov-gate.sh",
-    "scripts/cov-drift.sh",
-    "scripts/git-scope.sh",
-    "scripts/neg-assert.sh"
+    "scripts/cov-gate.sh"
   ],
   "integration": {
     "auto_load_via_symlink": ".claude/skills/{name} -> ../plugins/sona-dev/skills/{name}",

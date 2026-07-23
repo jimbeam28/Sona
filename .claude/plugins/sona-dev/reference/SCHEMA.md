@@ -109,6 +109,45 @@ MQA 不阻塞 impl_status=done。每个 manual_qa_required 条目的验证项追
 ### 3.6 docs/dev/coverage-debt.txt — 覆盖率债务登记
 `coverage-check.sh check-exe` 用：critical_files 中暂不达 90% 的文件登记 `<file> <floor%>`，豁免硬阈改守底线（不得低于登记值）。底线只能上调、条目只能删（达标后），新增须说明理由。
 
+### 3.7 docs/cr/cr-{YYYYMMDD-HHMM}.md — 走查报告（cr skill）
+
+时间戳精确到分钟防撞名。每条问题的字段：
+
+| 字段 | 必填 | 说明 |
+|---|---|---|
+| 编号 | ✓ | 按类型前缀：B1（BUG）/ F1（FRAGILE）/ D1（DESIGN）/ T1（TEST-GAP） |
+| 类型 | ✓ | BUG（复现路径确定）/ FRAGILE（条件触发）/ DESIGN（取舍待裁决）/ TEST-GAP（缺行为锚定） |
+| 严重度 | ✓ | Critical / Major / Minor / Info |
+| 维度 | ✓ | 架构一致性 / 正确性 / 并发时序 / 安全 / 可测性 / 性能 / 风格 / 功能-踩坑 / 功能-spec / 功能-测试锚定 / 功能-状态机 |
+| 证据 | ✓ | `file:line` + 实际代码片段 |
+| 复现路径 | BUG/FRAGILE 必填 | 用户操作或输入序列 → 期望行为 → 实际行为（代码推理）；写不出不得列 BUG |
+| 自检答案 | BUG/FRAGILE 必填 | "现有测试为何没抓到"：测试空壳 / 分支零覆盖 / 测试假设错 |
+| 修复建议 | ✓ | 改动方向，不给代码（改码权归 dev-exe） |
+
+报告骨架：
+
+```markdown
+# 代码走查报告
+> 生成时间：YYYY-MM-DD HH:MM
+> 走查范围：<目录 / 功能 / git commit 列表 / 全量>
+> 覆盖文件：N（含 impact 调用方 K 个）
+> 问题总数：BUG X / FRAGILE Y / DESIGN Z / TEST-GAP W
+
+## 摘要
+<一段话概括总体健康度与主要风险点>
+
+## 问题清单
+### BUG
+#### B1. <问题标题>
+- 类型 / 严重度 / 维度 / 证据 / 复现路径 / 自检答案 / 修复建议
+### FRAGILE
+### DESIGN
+### TEST-GAP
+
+## 已检查文件清单
+<必须真实覆盖第 1 步解析的全部文件（含 impact 调用方），便于复核追溯>
+```
+
 ---
 
 ## 4. 脚本目录（确定性操作全在这里，skill 不裸跑等价命令）

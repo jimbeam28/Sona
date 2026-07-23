@@ -14,13 +14,14 @@ Sona 开发工作链：dev-plan / dev-exe / dev-check / cr 四个 skill + 确定
 ├── plugin.json
 ├── README.md
 ├── reference/
-│   └── SCHEMA.md                     # 唯一格式源：dev-status.json 字段生命周期 / spec 章节要求 /
-│                                     #   check_log / mqa-backlog / INDEX 格式 / 脚本目录
+│   ├── SCHEMA.md                     # 唯一格式源：dev-status.json 字段生命周期 / spec 章节要求 /
+│   │                                 #   check_log / mqa-backlog / INDEX / cr 报告 格式 / 脚本目录
+│   └── cr-dimensions.md              # cr 走查执行细则：硬约束 / 三层 checklist / 功能层四锚定法 / 自检细则
 ├── skills/
 │   ├── dev-plan/SKILL.md             # 访谈 → 逆抽 → spec 落地（≤100 行）
 │   ├── dev-exe/SKILL.md              # 测试先行 → 实现 → 脚本门禁（≤110 行）
 │   ├── dev-check/SKILL.md            # 3 项判断审计 + 机械项走脚本（≤80 行）
-│   └── cr/SKILL.md                   # 通用代码走查（独立于三 skill 链）
+│   └── cr/SKILL.md                   # 通用代码走查（三层检查 + 功能缺陷分析，独立于三 skill 链）
 └── scripts/                          # 确定性门禁（skill 相对 `../../scripts/` 调用）
     ├── dev-status.sh                 # dev-status.json 唯一读写入口（create 校验锚点存在 / next-id / 状态流转）
     ├── cov-gate.sh                   # dev-exe 最终门禁一条龙：pubget+format+analyze(0 warning)+test+覆盖率
