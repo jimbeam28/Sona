@@ -32,11 +32,13 @@ final sortOptionProvider =
 final directoryCacheProvider =
     StateProvider<Map<String, CacheEntry<List<NasFile>>>>((ref) => {});
 
-final clearDirectoryCacheProvider =
-    Provider<void Function(String? path)>((ref) {
+final clearDirectoryCacheProvider = Provider<int Function(String? path)>((ref) {
   return (String? path) {
     if (path == null) {
+      final count = ref.read(directoryCacheProvider).length;
       ref.read(directoryCacheProvider.notifier).state = {};
+      ref.invalidate(directoryContentsProvider);
+      return count;
     } else {
       final suffix = ':$path';
       final toRemove = ref
@@ -54,6 +56,7 @@ final clearDirectoryCacheProvider =
         });
       }
       ref.invalidate(directoryContentsProvider(path));
+      return toRemove.length;
     }
   };
 });

@@ -111,3 +111,31 @@
 ### 行动
 - dev-status.json BUG-03 已置 `check_status=round_1 / check_round=1 / impl_status=pending / test_status=pending`
 - 等待用户手动启动 `dev-exe BUG-03` 重做
+---
+
+## [2026-07-23 23:44] SET-01 - 第 1 轮 dev-check
+
+### 总 verdict: PASS
+
+三项判断检查：
+
+| 检查 | verdict | 问题数 | 要点 |
+|---|---|---|---|
+| 1. 测试空壳审计 | PASS | 0 | set_01_test.dart 10 条用例逐条核对：S1 removed==3 + cache isEmpty + spy.listDirectoryCallCount==0（真否定断言）+ queue/conn/nav equals(before)；S2 removed==1 + 键删/留 + audiobookBefore.value/createdAt 原值比对；S3 removed==0 + 空 + spy==0；S4 title/subtitle/SnackBar 逐字文案 + AlertDialog findsNothing + 状态清空；S5 文案逐字 + state 保持空；S6 result equals(cached) 与 spy 网络结果可区分 + lastAccessedAt isAfter；S7 spy==0 反证键格式；INV1 四 provider（含 sortOption）双分支 equals(before)；INV2 首读命中(count==0)→clear(null)→再读 count==1 且取回网络新数据（可证伪，非摆设）；INV3 运行时读源码 contains('features/browser/') isFalse。无 isNotNull 占位/空断言 |
+| 2. 实现语义忠实 | PASS | 0 | INV1：逐分支找违反路径——两分支仅写 directoryCacheProvider + invalidate directoryContentsProvider，无任何监听器把缓存变更桥接到 queue/conn/nav/sort，不可违反。INV2：browser_provider.dart:38-41 count 先记→map 清空→`ref.invalidate(directoryContentsProvider)`（family 全量，同步闭包无插入窗口），不可违反。INV3：settings_screen.dart:15 仅 import shared/di/providers.dart，providers.dart:31-32 导出 directoryCacheProvider/clearDirectoryCacheProvider。返回类型真改 `Provider<int Function(String?)>`（:35），两分支均 return int。SnackBar"已清除 N 条目录缓存"/"没有可清除的缓存"、subtitle"当前缓存 N 条目录"与 §3.2/§1.2 逐字一致。未发现 spec 未说的行为（leading icon/Divider 与既有 section 样式一致，非行为偏离） |
+| 3. 跨模块破坏 | PASS | 0 | cross-imports.sh impact 输出 = browser(15 行)+main.dart，与 §7 声明一致，settings 不在引用方（经 DI 桥消费不构成违规）；cross-imports.sh all exit 0（feature-isolation clean，余下均 arch-baseline 已登记 legacy debt）；browser_screen.dart:78 调用忽略返回值，void→int 兼容（§7 BRW 行落地）；本评审自跑 test/features/settings + test/features/browser 共 225/225 PASS，主控全量 1672/1672 PASS |
+
+settings_test.dart 修改核对（是否掩盖回归）：git diff 仅一个 hunk——SET-T23 头部加视口放大（800×2400 @1x）+ 双 addTearDown reset。四条 section header 断言（播放设置/外观/连接/关于 findsOneWidget）原样保留，断言语义零弱化。"关于被挤出视口"理由成立：SettingsScreen 用 ListView（懒加载，settings_screen.dart:28），SET-01 在"连接"与"关于"间插入"存储" section+Divider（:56-60），默认 800×600@3x 逻辑视口仅 ~200px 高，"关于" header 落在构建范围外；手法与 test/features/player/ply_14_test.dart 既有先例一致（已核实存在）。
+
+机械项：
+- `spec-scan.sh SET-01`：矩阵 S1~S7 + INV1~3 全部映射到 set_01_test.dart，无 - 行，exit 0
+- `spec-scan.sh --neg SET-01`：S1/S3/S4/S5 四条 status:new 均带否定断言块，exit 0
+- `coverage-check.sh check-check`：exit 0。baseline-coverage.json 此前不存在（新流程首轮 dev-check），脚本已按设计建立基线 overall=77.49%（非阻断 WARN）
+
+Minor 观察（不阻断，不计 FAIL，供后续迭代参考）：
+1. S4 否定断言"页面不跳转"以 `find.byType(SettingsScreen), findsOneWidget` 落地——可捕获 pop（home 被移除），但无法区分 push（新路由压栈时底层路由仍留在 widget 树）。实现中 _ClearCacheTile.onTap 无任何 Navigator 调用，行为本身正确，仅断言判别力偏弱。后续可改为断言 ModalRoute 深度或 Navigator 栈。
+2. S2（status: modified）Then 中"directoryContentsProvider('/music') 被 invalidate"一行未在 set_01_test.dart 直接断言；该行为是 spec 修改点明示"不动"的既有逻辑（browser_provider.dart:58 invalidate(path) 原样保留），风险极低。
+
+### 行动
+- `dev-status.sh pass SET-01`：check_status=passed，写 last_checked_at
+- `coverage-check.sh refresh`：PASS 后刷新基线（首轮即本轮建立的 77.49% 基线）

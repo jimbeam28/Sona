@@ -29,6 +29,7 @@
 |---|---|---|---|---|---|---|---|---|
 | BRW-09 | 文件列表"下一曲播放"图标 | draft | 2026-06-28 | `lib/features/browser/widgets/file_list_item.dart` | 9/4/1 | done / passed / pending | no | yes |
 | CON-01 | 添加 WebDAV 连接 | active | 2026-06-28 | `lib/features/connection/connection_screen.dart` | 15/7/0 | done / passed / — | no | no（done 后清出） |
+| SET-01 | 设置页"清除目录缓存" | draft | 2026-07-23 | `lib/features/settings/settings_screen.dart` | 7/3/0 | pending / pending / pending | no | yes |
 
 ## Bug 文档
 
@@ -44,10 +45,11 @@
 
 ## 状态汇总
 
-- 功能文档：2 份（CON-01 active / BRW-09 draft）
+- 功能文档：3 份（CON-01 active / BRW-09 draft / SET-01 draft）
 - Bug 文档：3 份（全部 active）
 - 待 dev-check：4 份（BRW-09 / BUG-01 / BUG-02 / BUG-03，全部 `check_status=pending`）
 - 已清出 `dev-status.json` 但 spec 留存：1 份（CON-01，impl+test 已 done，仅作历史 spec）
+- 进行中：SET-01（新流程 dogfood，impl=pending）
 
 ---
 
@@ -61,3 +63,4 @@
 
 - 2026-07-05: 首版索引创建（5 份文档登记：BRW-09 / CON-01 / BUG-01 / BUG-02 / BUG-03）
 - 2026-07-05: 配套 dev-plan skill 步骤 0 引入 hybrid bug fold 策略 + INDEX 同步门禁；3 份 BUG-NN.md §0 加 `parent_feature` 字段；_TEMPLATE.md 加 `parent_feature` 字段定义；"已知缺口"原 3 项全部解决清空
+- 2026-07-23: 登记 SET-01（新流程重构后首个 dogfood 功能）

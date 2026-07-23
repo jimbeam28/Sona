@@ -374,6 +374,12 @@ void main() {
 
   group('Settings page widget tests', () {
     testWidgets('SET-T23: 设置页面渲染四个 Section', (tester) async {
+      // SET-01 新增"存储" section 后"关于"被挤到默认 800×600@3x 视口的
+      // 懒加载构建范围外；放大视口至整页高度（同 ply_14_test.dart 手法）。
+      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+      addTearDown(() => tester.view.resetDevicePixelRatio());
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
 

@@ -53,6 +53,12 @@ class SettingsScreen extends ConsumerWidget {
 
           const Divider(),
 
+          // ── 存储 ──────────────────────────────────────────────────
+          const _SectionHeader(title: '存储'),
+          _ClearCacheTile(),
+
+          const Divider(),
+
           // ── 关于 ──────────────────────────────────────────────────
           const _SectionHeader(title: '关于'),
           ListTile(
@@ -228,6 +234,27 @@ class _ThemeModeTile extends ConsumerWidget {
             );
           }).toList(),
         );
+      },
+    );
+  }
+}
+
+// ── Clear directory cache tile (SET-01) ──────────────────────────────────────
+
+class _ClearCacheTile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cacheCount = ref.watch(directoryCacheProvider).length;
+
+    return ListTile(
+      leading: const Icon(Icons.cleaning_services),
+      title: const Text('清除目录缓存'),
+      subtitle: Text('当前缓存 $cacheCount 条目录'),
+      onTap: () {
+        final removed = ref.read(clearDirectoryCacheProvider)(null);
+        final message = removed > 0 ? '已清除 $removed 条目录缓存' : '没有可清除的缓存';
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(message)));
       },
     );
   }
