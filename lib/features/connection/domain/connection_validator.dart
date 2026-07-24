@@ -12,11 +12,19 @@ import '../../../core/network/webdav_client.dart';
 ///
 /// Rules:
 /// - Must not be null or empty (after trimming).
+/// - Must not embed credentials (`user:pass@` userinfo) — CON2: credentials
+///   belong in the username/password fields; a userinfo URL would persist the
+///   plaintext password into the `connections.url` column (INV6) and leak it
+///   into logs (NET7).
 /// - After normalisation (auto-prepend `http://` + default port 5005),
 ///   the URL must pass [isValidWebDavUrl].
 String? validateUrl(String? value) {
   if (value == null || value.trim().isEmpty) return '请输入服务器地址';
   final normalised = normaliseWebDavUrl(value.trim());
+  final parsed = Uri.tryParse(normalised);
+  if (parsed != null && parsed.userInfo.isNotEmpty) {
+    return '服务器地址不能包含账号密码（user:pass@），请在用户名和密码栏分别填写';
+  }
   if (!isValidWebDavUrl(normalised)) {
     return '请输入有效的服务器地址（如 http://192.168.1.100:5005 或 http://nas.example.com）';
   }

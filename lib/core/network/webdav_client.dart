@@ -70,6 +70,24 @@ bool isValidWebDavUrl(String url) {
   }
 }
 
+/// Matches the `user:password@` userinfo segment between a URL scheme (`://`)
+/// and its host. Userinfo can never contain `/`, `?`, `#` or `@`, so an `@`
+/// appearing later (e.g. in a path like `/music/a@b.mp3`) is never mistaken
+/// for userinfo.
+final _urlUserInfoPattern = RegExp(r'(://)[^/?#@]+@');
+
+/// Returns [raw] with any embedded `…://user:password@` userinfo stripped,
+/// for safe use in log messages and error text (CON2/NET7).
+///
+/// Defence in depth: [validateUrl] rejects userinfo URLs at the form gate,
+/// but log sites must never leak credentials even if a URL carrying userinfo
+/// reaches them anyway — e.g. a legacy DB row read back at startup, a direct
+/// client call bypassing the form, or an exception message echoing the
+/// request uri. Strings without userinfo are returned unchanged, so normal
+/// URL storage/display behaviour is unaffected.
+String redactUrlForLog(String raw) =>
+    raw.replaceAllMapped(_urlUserInfoPattern, (m) => m[1]!);
+
 // ── Abstract interface ────────────────────────────────────────────────────────
 
 /// Base-path convention (NET1) — shared by [validate] and [listDirectory]:
@@ -152,7 +170,10 @@ class WebDavClient implements WebDavClientInterface {
     required String password,
     String basePath = '/',
   }) async {
-    debugPrint('[WebDAV] validate: url=$url basePath=$basePath');
+    // CON2/NET7: redact any embedded user:pass@ before it reaches
+    // debugPrint (mirrored into LogBuffer by installLogBufferHook).
+    debugPrint(
+        '[WebDAV] validate: url=${redactUrlForLog(url)} basePath=$basePath');
     // 1. Normalise and validate URL format
     final normalisedUrl = normaliseWebDavUrl(url);
     if (!isValidWebDavUrl(normalisedUrl)) {
@@ -213,7 +234,9 @@ class WebDavClient implements WebDavClientInterface {
       debugPrint('[WebDAV] validate: timeout');
       return WebDavValidationResult.networkError();
     } catch (e) {
-      debugPrint('[WebDAV] validate error: $e');
+      // ClientException messages can echo the request uri — redact before
+      // printing so userinfo credentials never leak (NET7 second-order leak).
+      debugPrint('[WebDAV] validate error: ${redactUrlForLog(e.toString())}');
       return WebDavValidationResult.networkError();
     }
   }
@@ -300,7 +323,10 @@ class WebDavClient implements WebDavClientInterface {
       debugPrint('[WebDAV] listDirectory: timeout');
       throw const WebDavException('连接超时');
     } catch (e) {
-      debugPrint('[WebDAV] listDirectory error: $e');
+      // Same second-order leak as validate(): exception text can carry the
+      // request uri with userinfo — redact the logged copy (NET7/CON2).
+      debugPrint(
+          '[WebDAV] listDirectory error: ${redactUrlForLog(e.toString())}');
       throw WebDavException('无法连接到服务器：$e');
     }
   }

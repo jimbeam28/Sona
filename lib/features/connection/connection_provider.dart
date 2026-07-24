@@ -95,7 +95,9 @@ class ConnectionValidatorNotifier
   }) async {
     if (state is ValidationLoading) return; // re-entry guard
     state = const ValidationLoading();
-    debugPrint('[Conn] validating: url=$url basePath=$basePath');
+    // CON2/NET7: strip any user:pass@ before logging (LogBuffer mirror).
+    debugPrint(
+        '[Conn] validating: url=${redactUrlForLog(url)} basePath=$basePath');
     final normalisedUrl = normaliseWebDavUrl(url);
     final result = await _client.validate(
       url: normalisedUrl,
@@ -145,8 +147,10 @@ final startupValidationProvider =
     return WebDavValidationResult.authError();
   }
 
-  debugPrint(
-      '[Conn] startupValidation: checking id=${activeConn.id} url=${activeConn.url}');
+  // CON2/NET7: legacy rows may still carry user:pass@ in the url column —
+  // redact before logging so the per-boot check never leaks credentials.
+  debugPrint('[Conn] startupValidation: checking id=${activeConn.id} '
+      'url=${redactUrlForLog(activeConn.url)}');
 
   // Read the password from secure storage
   final storage = ref.watch(secureStorageProvider);
