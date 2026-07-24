@@ -147,11 +147,7 @@ class _ConnectionEditScreenState extends ConsumerState<ConnectionEditScreen> {
                   // "保存" button
                   FilledButton.icon(
                     onPressed: (logic.canSave(
-                              needsRevalidation: logic.needsValidation(
-                                original: _originalConfig,
-                                current: _currentFields,
-                                isAttached: _formController.isAttached,
-                              ),
+                              needsRevalidation: _needsRevalidation,
                               validationStatus:
                                   _mapValidationState(validationState),
                             ) &&
@@ -194,6 +190,25 @@ class _ConnectionEditScreenState extends ConsumerState<ConnectionEditScreen> {
   }
 
   // ── Validation-gate logic ───────────────────────────────────────────────────
+
+  /// Whether the save button must gate on a successful re-validation.
+  ///
+  /// Laziness is load-bearing (A-5, lost in the TREF-02 refactor and restored
+  /// here): `_currentFields` reads the form controllers, which do not exist
+  /// until [ConnectionForm]'s initState attaches them — and the first
+  /// data-branch build runs before that. Evaluating `_currentFields` eagerly
+  /// as a call argument would throw LateInitializationError; the short
+  /// circuits below keep the access lazy, exactly like the pre-refactor
+  /// `_needsValidation()`.
+  bool get _needsRevalidation {
+    if (_originalConfig == null) return true; // safety net
+    if (!_formController.isAttached) return false;
+    return logic.needsValidation(
+      original: _originalConfig,
+      current: _currentFields,
+      isAttached: true,
+    );
+  }
 
   logic.EditFieldChanges get _currentFields => logic.EditFieldChanges(
         url: _formController.url,
@@ -273,10 +288,10 @@ class _ConnectionEditScreenState extends ConsumerState<ConnectionEditScreen> {
             : null,
       );
 
-      // Invalidate dependent providers so they reload
-      ref.invalidate(activeConnectionProvider);
-      ref.invalidate(connectionListProvider);
-
+      // CON1: dependent providers are refreshed by connectionUpdaterProvider
+      // itself (provider layer), never here — a widget-level ref.invalidate
+      // after this await would throw a swallowed StateError when the user
+      // leaves the page mid-update, leaving stale UI with a fresh DB.
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

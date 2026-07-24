@@ -211,8 +211,33 @@ class ConnectionSaver {
       _service.save(config: config, password: password);
 }
 
+/// [ConnectionSaver] that refreshes derived providers after a successful save.
+///
+/// CON1: the refresh duty lives in the provider layer — NOT in the widget —
+/// so `ref.invalidate` can never run against a disposed widget element when
+/// the user leaves the page while the save is in flight (pre-fix the
+/// widget-level invalidate threw a swallowed StateError and both providers
+/// stayed stale for the rest of the session). Mirrors the invalidation
+/// pattern of [switchActiveConnectionProvider] / [deleteConnectionProvider].
+class _SaveAndRefreshSaver extends ConnectionSaver {
+  final Ref _ref;
+
+  _SaveAndRefreshSaver(super.daoOrService, this._ref);
+
+  @override
+  Future<ConnectionConfig> save({
+    required ConnectionConfig config,
+    required String password,
+  }) async {
+    final saved = await super.save(config: config, password: password);
+    _ref.invalidate(activeConnectionProvider);
+    _ref.invalidate(connectionListProvider);
+    return saved;
+  }
+}
+
 final connectionSaverProvider = Provider<ConnectionSaver>((ref) {
-  return ConnectionSaver(ref.watch(connectionServiceProvider));
+  return _SaveAndRefreshSaver(ref.watch(connectionServiceProvider), ref);
 });
 
 // ── Update connection use-case ──────────────────────────────────────────────────
@@ -238,8 +263,28 @@ class ConnectionUpdater {
       _service.update(config: config, password: password);
 }
 
+/// [ConnectionUpdater] that refreshes derived providers after a successful
+/// update — see [_SaveAndRefreshSaver] for the CON1 rationale (editing the
+/// active connection mid-flight must not leave stale provider state when the
+/// user leaves the edit page before the update resolves).
+class _UpdateAndRefreshUpdater extends ConnectionUpdater {
+  final Ref _ref;
+
+  _UpdateAndRefreshUpdater(super.daoOrService, this._ref);
+
+  @override
+  Future<void> update({
+    required ConnectionConfig config,
+    String? password,
+  }) async {
+    await super.update(config: config, password: password);
+    _ref.invalidate(activeConnectionProvider);
+    _ref.invalidate(connectionListProvider);
+  }
+}
+
 final connectionUpdaterProvider = Provider<ConnectionUpdater>((ref) {
-  return ConnectionUpdater(ref.watch(connectionServiceProvider));
+  return _UpdateAndRefreshUpdater(ref.watch(connectionServiceProvider), ref);
 });
 
 // ── Delete connection use-case ──────────────────────────────────────────────────

@@ -199,10 +199,10 @@ class _ConnectionScreenState extends ConsumerState<ConnectionScreen> {
         password: _formController.password,
       );
 
-      // Invalidate dependent providers so they reload
-      ref.invalidate(activeConnectionProvider);
-      ref.invalidate(connectionListProvider);
-
+      // CON1: dependent providers are refreshed by connectionSaverProvider
+      // itself (provider layer), never here — a widget-level ref.invalidate
+      // after this await would throw a swallowed StateError when the user
+      // leaves the page mid-save, leaving the providers permanently stale.
       if (mounted) {
         // Navigate to Browser page
         context.go('/browser');
