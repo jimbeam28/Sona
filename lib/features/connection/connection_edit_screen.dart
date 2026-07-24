@@ -292,6 +292,10 @@ class _ConnectionEditScreenState extends ConsumerState<ConnectionEditScreen> {
       // itself (provider layer), never here — a widget-level ref.invalidate
       // after this await would throw a swallowed StateError when the user
       // leaves the page mid-update, leaving stale UI with a fresh DB.
+      // CON3: the same provider-layer hook also resets browser state
+      // (directory cache + navigation stack) via
+      // resetBrowserStateOnActiveConnectionChange, so the browser tab never
+      // keeps showing the old server's listings within the 5-minute TTL.
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

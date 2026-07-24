@@ -13,6 +13,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../core/database/dao/connection_dao.dart';
 import '../../core/network/webdav_client.dart';
 import '../../core/services/storage_utils.dart';
+import '../../shared/di/providers.dart'
+    show directoryCacheProvider, navigationStackProvider;
 import '../../shared/models/connection_config.dart';
 import 'domain/connection_service.dart';
 
@@ -263,10 +265,37 @@ class ConnectionUpdater {
       _service.update(config: config, password: password);
 }
 
+/// CON3: unified "active connection config changed → reset browser state"
+/// hook — the single place that clears browser-side state when a mutation
+/// changes what the active connection resolves to.
+///
+/// Callers (must run AFTER the underlying DB write succeeds):
+/// - edit/update — [_UpdateAndRefreshUpdater] below (CON3)
+/// - delete — CON4 will extend this same hook in [deleteConnectionProvider]
+///
+/// (The switch path performs the identical two invalidates from
+/// connection_list_screen.dart's widget layer; converging it onto this hook
+/// is deliberately out of CON3's scope.)
+///
+/// Both browser providers must go: the directory cache is keyed
+/// `'${conn.id}:$path'` — id-only — so an edit that keeps the id would hit
+/// the 5-minute TTL with listings fetched from the old server / old basePath,
+/// and a deep navigationStack path may not exist under the new basePath
+/// (PROPFIND 404), so the stack must reset to root (invalidating the
+/// StateNotifierProvider rebuilds NavigationStackNotifier to `['/']`).
+///
+/// Browser providers are reached exclusively through the shared/di bridge
+/// (REF-31) — features never import each other directly.
+void resetBrowserStateOnActiveConnectionChange(Ref ref) {
+  ref.invalidate(directoryCacheProvider);
+  ref.invalidate(navigationStackProvider);
+}
+
 /// [ConnectionUpdater] that refreshes derived providers after a successful
 /// update — see [_SaveAndRefreshSaver] for the CON1 rationale (editing the
 /// active connection mid-flight must not leave stale provider state when the
-/// user leaves the edit page before the update resolves).
+/// user leaves the edit page before the update resolves). CON3 adds the
+/// browser-state reset via [resetBrowserStateOnActiveConnectionChange].
 class _UpdateAndRefreshUpdater extends ConnectionUpdater {
   final Ref _ref;
 
@@ -280,6 +309,11 @@ class _UpdateAndRefreshUpdater extends ConnectionUpdater {
     await super.update(config: config, password: password);
     _ref.invalidate(activeConnectionProvider);
     _ref.invalidate(connectionListProvider);
+    // CON3: the active connection's effective config (url / basePath / …)
+    // may have changed — reset browser state through the unified hook so the
+    // 5-minute directory TTL never serves stale listings from the old
+    // server/path. Success path only: failures rethrow above this line.
+    resetBrowserStateOnActiveConnectionChange(_ref);
   }
 }
 
