@@ -27,6 +27,7 @@ import '../../../core/services/audio_source_builder.dart';
 import '../../../shared/models/connection_config.dart';
 import '../../../shared/models/nas_file.dart';
 import '../../../shared/models/play_queue.dart';
+import '../../../shared/webdav_paths.dart';
 import 'request_gate.dart';
 
 // ── Dependency interfaces ────────────────────────────────────────────────────
@@ -172,9 +173,12 @@ class PlaybackOrchestrator {
             return const TrackLoadResult.superseded();
           }
 
-          // Build audio source.
+          // Build audio source. NET1: use the effective base URL so the
+          // connection base (url.path joined with basePath) is applied exactly
+          // once to the relative filePath returned by listDirectory.
           final source = AudioSourceBuilder.buildWithBasePath(
-            baseUrl: activeConn.url,
+            baseUrl:
+                webDavEffectiveBaseUrl(activeConn.url, activeConn.basePath),
             filePath: q.current.path,
             username: activeConn.username,
             password: password,

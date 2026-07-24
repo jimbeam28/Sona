@@ -9,6 +9,7 @@ import '../../core/services/audio_source_builder.dart';
 import '../../core/services/storage_utils.dart';
 import '../../shared/models/nas_file.dart';
 import '../../shared/models/play_queue.dart';
+import '../../shared/webdav_paths.dart';
 import '../../shared/di/providers.dart';
 import 'domain/cache_policy.dart';
 import 'domain/directory_service.dart';
@@ -80,8 +81,13 @@ final directoryContentsProvider =
   final pw =
       await safeStorageRead(storage, key: 'connection_password_${conn.id}');
   if (pw == null || pw.isEmpty) throw const WebDavException('密码未保存');
+  // NET1: pass the effective base URL so listDirectory applies the connection
+  // base (url.path joined with basePath) exactly once.
   final entries = await ref.watch(webDavClientProvider).listDirectory(
-      url: conn.url, username: conn.username, password: pw, path: path);
+      url: webDavEffectiveBaseUrl(conn.url, conn.basePath),
+      username: conn.username,
+      password: pw,
+      path: path);
   final reqPath = path.endsWith('/') ? path : '$path/';
   final filtered = entries.where((e) {
     if (e.path == path || e.path == reqPath || '${e.path}/' == reqPath)
@@ -166,7 +172,7 @@ final restoreQueueFromPrefsProvider = FutureProvider<void>((ref) async {
         await preloadAudioSource(
             storage: ref.read(secureStorageProvider),
             connectionId: conn.id!,
-            baseUrl: conn.url,
+            baseUrl: webDavEffectiveBaseUrl(conn.url, conn.basePath),
             filePath: files[idx].path,
             username: conn.username,
             player: ref.read(audioPlayerProvider),

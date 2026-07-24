@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../../shared/models/nas_file.dart';
+import '../../shared/webdav_paths.dart';
 
 // ── Validation result ─────────────────────────────────────────────────────────
 
@@ -71,8 +72,27 @@ bool isValidWebDavUrl(String url) {
 
 // ── Abstract interface ────────────────────────────────────────────────────────
 
+/// Base-path convention (NET1) — shared by [validate] and [listDirectory]:
+///
+/// The connection root on the server is `url.path` joined with `basePath`
+/// (see `resolveWebDavBasePath` in `shared/webdav_paths.dart`). The mount
+/// point may live in the URL field or in [validate]'s `basePath` — both are
+/// honoured and combined, so [validate] and [listDirectory] always resolve the
+/// same location.
+///
+/// * [validate] probes exactly that joined path.
+/// * [listDirectory] is a *path-concatenating* consumer: it prepends `url`'s
+///   own path to [listDirectory]'s `path` argument. Callers must therefore
+///   pass the *effective* base URL (`webDavEffectiveBaseUrl(url, basePath)`)
+///   so the base is applied exactly once. `path` is RELATIVE to the connection
+///   root (`/` = root), and the returned `NasFile.path` values are likewise
+///   relative (the client strips the base from server hrefs) — so navigation
+///   and audio filePaths never re-apply the base.
 abstract class WebDavClientInterface {
   /// Validates the WebDAV endpoint by sending a PROPFIND request.
+  ///
+  /// Probes `url.path` joined with [basePath] (the connection root), so the
+  /// location validated is the same one [listDirectory] lists from.
   Future<WebDavValidationResult> validate({
     required String url,
     required String username,
@@ -82,9 +102,15 @@ abstract class WebDavClientInterface {
 
   /// Lists directory contents via PROPFIND (Depth: 1).
   ///
+  /// [url] must be the *effective* base URL
+  /// (`webDavEffectiveBaseUrl(conn.url, conn.basePath)`); its path component is
+  /// the connection root and is prepended to [path]. [path] is RELATIVE to the
+  /// connection root (`/` = root).
+  ///
   /// Throws [WebDavException] on auth failures (401) or network errors.
-  /// Returns all entries (including the directory self-reference) — the
-  /// caller is responsible for filtering and sorting.
+  /// Returns all entries (including the directory self-reference) with
+  /// `NasFile.path` RELATIVE to the connection root (the base is stripped from
+  /// server hrefs) — the caller is responsible for filtering and sorting.
   Future<List<NasFile>> listDirectory({
     required String url,
     required String username,
@@ -134,13 +160,13 @@ class WebDavClient implements WebDavClientInterface {
       return WebDavValidationResult.networkError();
     }
 
-    // 2. Build the target URI (base path)
+    // 2. Build the target URI — probe the connection root, i.e. the URL's own
+    //    path joined with basePath (NET1: same location listDirectory uses,
+    //    instead of replacing the URL path with basePath).
     Uri targetUri;
     try {
       final base = Uri.parse(normalisedUrl);
-      final effectivePath = basePath.isEmpty
-          ? '/'
-          : (basePath.startsWith('/') ? basePath : '/$basePath');
+      final effectivePath = resolveWebDavBasePath(base.path, basePath);
       targetUri = base.replace(path: effectivePath);
     } catch (_) {
       return WebDavValidationResult.networkError();
@@ -205,10 +231,14 @@ class WebDavClient implements WebDavClientInterface {
     // 1. Build the target URI
     final normalisedUrl = normaliseWebDavUrl(url);
     Uri targetUri;
+    // The connection root carried by the (effective) base URL — prepended to
+    // the requested path, and later stripped from returned hrefs so NasFile
+    // paths come back relative to the connection root (NET1).
+    String basePath = '';
     try {
       final base = Uri.parse(normalisedUrl);
       // Combine base path with the requested directory path
-      final basePath = base.path.endsWith('/')
+      basePath = base.path.endsWith('/')
           ? base.path.substring(0, base.path.length - 1)
           : base.path;
       final dirPath = path.startsWith('/') ? path : '/$path';
@@ -254,7 +284,14 @@ class WebDavClient implements WebDavClientInterface {
         );
       }
 
-      final result = _parsePropfindResponse(body);
+      final parsed = _parsePropfindResponse(body);
+      // NET1: server hrefs are absolute; strip the connection root so callers
+      // receive paths relative to the connection root (avoids the self-ref
+      // ghost entry and the /dav/dav double-prefix on navigation / playback).
+      final decodedBase = basePath.isEmpty ? '' : Uri.decodeFull(basePath);
+      final result = decodedBase.isEmpty
+          ? parsed
+          : parsed.map((f) => _relativisePath(f, decodedBase)).toList();
       debugPrint('[WebDAV] listDirectory: got ${result.length} entries');
       return result;
     } on WebDavException {
@@ -311,6 +348,32 @@ class WebDavClient implements WebDavClientInterface {
     }
 
     return files;
+  }
+
+  /// Returns [file] with its absolute server path rebased relative to the
+  /// connection root by stripping the (URL-decoded) [decodedBase] prefix.
+  ///
+  /// The directory self-reference (path == base) becomes `/`. Paths not under
+  /// the base are returned unchanged (defensive — should not happen for a
+  /// well-formed PROPFIND response).
+  static NasFile _relativisePath(NasFile file, String decodedBase) {
+    final p = file.path;
+    String rel;
+    if (p == decodedBase) {
+      rel = '/';
+    } else if (p.startsWith('$decodedBase/')) {
+      rel = p.substring(decodedBase.length);
+    } else {
+      rel = p;
+    }
+    return NasFile(
+      name: file.name,
+      path: rel,
+      isDirectory: file.isDirectory,
+      size: file.size,
+      modifiedAt: file.modifiedAt,
+      audioType: file.audioType,
+    );
   }
 
   /// Extracts the text content of the first XML element matching [tagName]

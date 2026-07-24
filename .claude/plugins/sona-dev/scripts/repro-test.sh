@@ -33,8 +33,11 @@ LOG=$(mktemp -t repro-test.XXXXXX)
 trap 'rm -f "$LOG"' EXIT
 
 # flutter test 单文件通常 < 60s，留宽松预算到 180s
-if ! timeout 180 flutter test "$TEST_PATH" >"$LOG" 2>&1; then
-  rc=$?
+# 注意：不能用 `if ! cmd; then rc=$?` —— `!` 会把 $? 覆盖为 0，读不到 flutter test
+# 的真实退出码（NET1/bug_13 修复时实测：测试 FAIL 却被误判为 rc=0 编译错）。
+rc=0
+timeout 180 flutter test "$TEST_PATH" >"$LOG" 2>&1 || rc=$?
+if [[ $rc -ne 0 ]]; then
   if [[ $rc -ne 1 && $rc -ne 124 ]]; then
     echo "==> [$TEST_PATH] 编译或运行错误（rc=$rc）："
     tail -30 "$LOG"
