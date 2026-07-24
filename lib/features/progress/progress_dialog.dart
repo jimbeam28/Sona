@@ -55,18 +55,35 @@ class _ProgressResumeDialog extends ConsumerWidget {
 
     // If the state was cleared externally or the dialog is no longer
     // relevant, pop with null.
+    //
+    // BUG-10: the isCurrent guard is essential.  When the dialog was closed
+    // by a user action (button tap / expiry pop), showDialog's future
+    // completes synchronously in didPop — before the exit animation — so the
+    // caller's `.then(dismiss)` lands while this route is still mounted and
+    // animating out.  Without the guard the rebuild would pop again, and
+    // since the popping dialog route is skipped by Navigator.pop's
+    // isPresent scan, the second pop would hit the route underneath
+    // (/player or /browser).  Only pop when this dialog route is still the
+    // current route (i.e. an external dismiss while the dialog is on top).
     if (resumeState == null) {
       // Schedule pop after build to avoid build-during-build errors
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (context.mounted) Navigator.of(context).pop(null);
+        if (context.mounted && ModalRoute.of(context)?.isCurrent == true) {
+          Navigator.of(context).pop(null);
+        }
       });
       return const SizedBox.shrink();
     }
 
-    // Auto-select "继续播放" when the countdown expires (PRG-T21)
+    // Auto-select "继续播放" when the countdown expires (PRG-T21).
+    // BUG-10: same isCurrent guard — a rebuild during the exit animation
+    // (e.g. after the expiry pop already started) must not register a
+    // second pop.
     if (resumeState.isExpired && resumeState.countdownSeconds <= 0) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (context.mounted) Navigator.of(context).pop(true);
+        if (context.mounted && ModalRoute.of(context)?.isCurrent == true) {
+          Navigator.of(context).pop(true);
+        }
       });
     }
 

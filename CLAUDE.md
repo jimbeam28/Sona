@@ -152,7 +152,7 @@ test/
 ## 数据库（SQLite v2）
 
 - `connections` — 连接配置（password 字段存 secure_storage 引用 key）
-- `play_progress` — 播放进度（单条活跃记录模式，UPSERT 语义）
+- `play_progress` — 播放进度（按文件记录模式：每 (connection_id, file_path) 一条，UPSERT 语义；findLatest 纯查询无副作用，BUG-11 裁决 2026-07-24）
 - `playlists` / `playlist_tracks` — 播放单与曲目（v2 迁移新增，CASCADE 删除）
 
 密码明文仅存储在 `flutter_secure_storage`，key 格式：`connection_password_{id}`。

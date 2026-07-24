@@ -6,13 +6,14 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nas_audio_player/features/browser/browser_provider.dart';
+import 'package:nas_audio_player/features/progress/progress_provider.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:nas_audio_player/shared/models/play_queue.dart';
 import 'package:nas_audio_player/core/database/database_helper.dart';
 import 'package:nas_audio_player/core/database/dao/progress_dao.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import '../../helpers/test_database.dart';
 import '../../helpers/test_factories.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────────
@@ -154,18 +155,28 @@ void main() {
   group('BRW-T27~T28 progress', () {
     // ── BRW-T27: No progress history — default provider returns null ───────────
 
-    test('BRW-T27: playProgressProvider returns null for any file path', () {
+    test(
+        'BRW-T27: progressForFileProvider returns null for files without progress',
+        () async {
+      // BUG-12: browser progress queries read progressForFileProvider
+      // directly (the old playProgressProvider registry was removed).
+      sqfliteFfiInit();
+      final db = await openTestDatabase(TestSchema.progress);
+      addTearDown(db.close);
       final container = ProviderContainer();
+      addTearDown(container.dispose);
 
-      // Default behaviour: no progress saved for any file path
-      final result = container.read(playProgressProvider('/some/file.mp3'));
+      final result = await container.read(progressForFileProvider((
+        connectionId: 1,
+        filePath: '/some/file.mp3',
+      )).future);
       expect(result, isNull, reason: '未保存进度的文件应返回 null（直接播放）');
 
-      // Also verify for another path
-      final result2 = container.read(playProgressProvider('/other/file.flac'));
+      final result2 = await container.read(progressForFileProvider((
+        connectionId: 1,
+        filePath: '/other/file.flac',
+      )).future);
       expect(result2, isNull, reason: '所有文件默认都无进度记录');
-
-      container.dispose();
     });
 
     // ── BRW-T28: Has progress history — dialog would be shown ─────────────────
@@ -208,32 +219,37 @@ void main() {
       expect(progress.percentage, equals(0.0), reason: 'duration 为 0 时百分比应为 0');
     });
 
-    test('BRW-T28: progress provider can be overridden to simulate saved state',
-        () {
-      final savedProgress = testProgress(
+    test('BRW-T28: progressForFileProvider returns saved progress from DB',
+        () async {
+      // BUG-12: seed a real DB row and read through the production provider.
+      sqfliteFfiInit();
+      final db = await openTestDatabase(TestSchema.progress);
+      addTearDown(db.close);
+      await db.insert('play_progress', {
+        'connection_id': 1,
+        'file_path': '/music/track.mp3',
+        'position_ms': 180000, // 3:00
+        'duration_ms': 300000,
+        'last_played_at': 1000,
+      });
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final result = await container.read(progressForFileProvider((
+        connectionId: 1,
         filePath: '/music/track.mp3',
-        positionMs: 180000, // 3:00
-      );
-
-      final container = ProviderContainer(
-        overrides: [
-          playProgressProvider('/music/track.mp3')
-              .overrideWith((ref) => savedProgress),
-        ],
-      );
-
-      // Overridden provider returns the saved progress
-      final result = container.read(playProgressProvider('/music/track.mp3'));
+      )).future);
       expect(result, isNotNull, reason: '有保存进度的文件应返回 PlayProgress');
       expect(result!.filePath, equals('/music/track.mp3'));
       expect(result.positionMs, equals(180000));
       expect(result.formattedPosition, equals('3:00'));
 
       // Other files still return null
-      final other = container.read(playProgressProvider('/music/other.mp3'));
-      expect(other, isNull, reason: '未覆盖的其他文件路径仍应返回 null');
-
-      container.dispose();
+      final other = await container.read(progressForFileProvider((
+        connectionId: 1,
+        filePath: '/music/other.mp3',
+      )).future);
+      expect(other, isNull, reason: '未保存进度的其他文件仍应返回 null');
     });
   });
 

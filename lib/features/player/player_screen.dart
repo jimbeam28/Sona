@@ -102,13 +102,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   @override
   void dispose() {
     _saveProgressWithContainer(_container);
-    final queue = _container.read(currentPlayQueueProvider);
-    if (queue != null) {
-      final dir = parentDir(queue.current.path);
-      if (dir.isNotEmpty) {
-        _container.invalidate(loadProgressForDirectoryProvider(dir));
-      }
-    }
+    // BUG-12: the old loadProgressForDirectoryProvider invalidate here was
+    // removed with the progress registry — browser progress queries now read
+    // progressForFileProvider, invalidated by the write paths themselves.
     _timerExpiryChecker?.cancel();
     _container.read(cancelPlaybackSubscriptionsProvider)();
     WidgetsBinding.instance.removeObserver(this);

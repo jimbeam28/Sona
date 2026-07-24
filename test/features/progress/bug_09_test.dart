@@ -59,19 +59,7 @@ class _MockProgressDao implements ProgressDao {
   @override
   Future<int> count() async => 0;
   @override
-  Future<void> clearLatest() async {}
-  @override
-  Future<void> migrateLegacyToLatest() async {}
-  @override
   Future<void> rawInsert(PlayProgress progress) async {}
-  @override
-  Future<bool?> upsertLatest({
-    required int connectionId,
-    required String filePath,
-    required int positionMs,
-    int? durationMs,
-  }) async =>
-      null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

@@ -37,13 +37,6 @@ class BrowserScreen extends ConsumerWidget {
 
     final contentsAsync = ref.watch(directoryContentsProvider(currentPath));
 
-    // When directory contents load, trigger progress loading in background
-    ref.listen(directoryContentsProvider(currentPath), (prev, next) {
-      if (next.hasValue) {
-        ref.invalidate(loadProgressForDirectoryProvider(currentPath));
-      }
-    });
-
     return PopScope(
       canPop: navStack.length <= 1,
       onPopInvokedWithResult: (didPop, _) {
@@ -110,16 +103,27 @@ class BrowserScreen extends ConsumerWidget {
                           .indexWhere((f) => f.path == tappedFile.path);
                       if (startIndex < 0) return;
 
-                      // PRG-01: check for saved playback progress before playing
+                      // PRG-01: check for saved playback progress before playing.
+                      // BUG-12: read progressForFileProvider directly (same
+                      // pattern as playlist_detail_screen) — the old registry
+                      // was never populated.
                       int? startPositionMs;
-                      final progress =
-                          ref.read(playProgressProvider(tappedFile.path));
-                      if (progress != null && progress.positionMs >= 5000) {
-                        final container = ProviderScope.containerOf(context);
-                        final resume = await showProgressResumeDialog(
-                            context, container, progress);
-                        if (resume == true) {
-                          startPositionMs = progress.positionMs;
+                      final conn =
+                          ref.read(activeConnectionProvider).valueOrNull;
+                      if (conn != null && conn.id != null) {
+                        final progress =
+                            await ref.read(progressForFileProvider((
+                          connectionId: conn.id!,
+                          filePath: tappedFile.path,
+                        )).future);
+                        if (!context.mounted) return;
+                        if (progress != null && progress.positionMs >= 5000) {
+                          final container = ProviderScope.containerOf(context);
+                          final resume = await showProgressResumeDialog(
+                              context, container, progress);
+                          if (resume == true) {
+                            startPositionMs = progress.positionMs;
+                          }
                         }
                       }
 
@@ -140,10 +144,16 @@ class BrowserScreen extends ConsumerWidget {
                           connId;
                       await goRouter.push('/player');
                     },
-                    onFileLongPress: (tappedFile) {
-                      final progress =
-                          ref.read(playProgressProvider(tappedFile.path));
-                      if (progress == null) return;
+                    onFileLongPress: (tappedFile) async {
+                      // BUG-12: read progressForFileProvider directly.
+                      final conn =
+                          ref.read(activeConnectionProvider).valueOrNull;
+                      if (conn == null || conn.id == null) return;
+                      final progress = await ref.read(progressForFileProvider((
+                        connectionId: conn.id!,
+                        filePath: tappedFile.path,
+                      )).future);
+                      if (progress == null || !context.mounted) return;
 
                       showModalBottomSheet(
                         context: context,

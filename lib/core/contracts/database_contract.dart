@@ -63,14 +63,6 @@ abstract class IProgressDao {
     int? durationMs,
   });
 
-  /// Saves only the currently active playback progress, replacing older records.
-  Future<bool?> upsertLatest({
-    required int connectionId,
-    required String filePath,
-    required int positionMs,
-    int? durationMs,
-  });
-
   /// Inserts a progress record directly without policy checks.
   Future<void> rawInsert(PlayProgress progress);
 
@@ -80,7 +72,8 @@ abstract class IProgressDao {
   /// Returns recently played files ordered by lastPlayedAt descending.
   Future<List<PlayProgress>> getRecentlyPlayed({int limit = 20});
 
-  /// Returns the single active progress record after pruning legacy rows.
+  /// Returns the most recently played progress record.
+  /// Pure query — no side effects (per-file multi-record model, BUG-11).
   Future<PlayProgress?> findLatest();
 
   /// Returns all progress records for a specific connection.
@@ -94,9 +87,6 @@ abstract class IProgressDao {
 
   /// Returns the total number of progress records.
   Future<int> count();
-
-  /// Clears the current active progress record.
-  Future<void> clearLatest();
 }
 
 // ── PlaylistDao ────────────────────────────────────────────────────────────

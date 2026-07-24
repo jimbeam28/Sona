@@ -258,8 +258,9 @@ void main() {
     testWidgets('BRW-T48: audio file without progress shows no progress bar',
         (WidgetTester tester) async {
       // The BrowserScreen with a simple audio file and no progress.
-      // We override directoryContentsProvider to return one audio file,
-      // and override playProgressProvider to return null (no saved progress).
+      // We override directoryContentsProvider to return one audio file;
+      // no progress record is seeded, so progressForFileProvider resolves
+      // to null (no saved progress) and no progress bar is rendered.
       // BrowserScreen returns body content only (no Scaffold), so wrap in one.
       await tester.pumpWidget(
         ProviderScope(

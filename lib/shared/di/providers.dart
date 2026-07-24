@@ -39,9 +39,6 @@ export '../../features/browser/browser_provider.dart'
         clearQueueOnConnectionSwitchProvider,
         persistQueueOnChangeProvider,
         restoreQueueFromPrefsProvider,
-        // Progress bridge
-        loadProgressForDirectoryProvider,
-        playProgressProvider,
         // Re-exports
         preloadAudioSource,
         sortFiles;

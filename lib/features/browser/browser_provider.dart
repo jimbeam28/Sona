@@ -8,7 +8,6 @@ import '../../core/network/webdav_client.dart';
 import '../../core/services/audio_source_builder.dart';
 import '../../core/services/storage_utils.dart';
 import '../../shared/models/nas_file.dart';
-import '../../shared/models/play_progress.dart';
 import '../../shared/models/play_queue.dart';
 import '../../shared/di/providers.dart';
 import 'domain/cache_policy.dart';
@@ -181,27 +180,10 @@ final restoreQueueFromPrefsProvider = FutureProvider<void>((ref) async {
   }
 });
 
-final _progressRegistry =
-    StateProvider<Map<String, PlayProgress?>>((ref) => {});
-
-final loadProgressForDirectoryProvider =
-    FutureProvider.family<void, String>((ref, path) async {
-  final dao = ref.watch(progressDaoProvider);
-  final conn = ref.read(activeConnectionProvider).valueOrNull;
-  if (conn == null || conn.id == null) return;
-  final contents = ref.read(directoryContentsProvider(path)).valueOrNull;
-  if (contents == null) return;
-  final reg = <String, PlayProgress?>{};
-  for (final f in contents) {
-    if (f.isDirectory) continue;
-    try {
-      reg[f.path] = await dao.find(conn.id!, f.path);
-    } catch (_) {
-      reg[f.path] = null;
-    }
-  }
-  ref.read(_progressRegistry.notifier).state = reg;
-});
-
-final playProgressProvider = Provider.family<PlayProgress?, String>(
-    (ref, filePath) => ref.watch(_progressRegistry)[filePath]);
+// BUG-12 (2026-07-24): the _progressRegistry / loadProgressForDirectoryProvider
+// / playProgressProvider trio was removed.  The registry was never populated:
+// its only trigger sites were invalidates, and Riverpod 2.6.1 invalidate on a
+// never-created family element is a no-op — so browser-side resume dialogs and
+// the long-press clear entry never fired.  Browser progress queries now read
+// progressForFileProvider directly (progress feature), which the upsert/clear
+// write paths already invalidate (P10 single subscription source).

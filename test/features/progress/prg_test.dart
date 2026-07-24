@@ -508,7 +508,12 @@ void main() {
       expect(latest, isNull);
     });
 
-    test('findLatest prunes legacy multi-row history to a single latest row',
+    // BUG-11（2026-07-24 用户裁决：按文件多记录模型）：
+    // 原 'findLatest prunes legacy multi-row history' 与
+    // 'upsertLatest replaces previous active progress record' 两条用例锚定
+    // 已废弃的单活跃记录模型（findLatest 读前物理剪枝 / upsertLatest 全表替换），
+    // 改为锚定纯查询语义——findLatest 返回最近一条且不得删除其它文件进度。
+    test('findLatest is a pure query: latest record, no deletion side effect',
         () async {
       await dao.rawInsert(
         testProgress(
@@ -530,30 +535,10 @@ void main() {
       final latest = await dao.findLatest();
       expect(latest, isNotNull);
       expect(latest!.filePath, equals('/music/newer.mp3'));
-      expect(await dao.count(), equals(1), reason: '迁移到单活跃记录模型后应只保留最近一条进度');
-    });
-
-    test('upsertLatest replaces previous active progress record', () async {
-      await dao.upsertLatest(
-        connectionId: 1,
-        filePath: '/music/first.mp3',
-        positionMs: 15000,
-        durationMs: 180000,
-      );
-      await dao.upsertLatest(
-        connectionId: 1,
-        filePath: '/music/second.mp3',
-        positionMs: 25000,
-        durationMs: 200000,
-      );
-
-      expect(await dao.count(), equals(1), reason: '单活跃模型下再次保存应替换旧记录而不是累积');
-      expect(await dao.find(1, '/music/first.mp3'), isNull);
-
-      final latest = await dao.findLatest();
-      expect(latest, isNotNull);
-      expect(latest!.filePath, equals('/music/second.mp3'));
-      expect(latest.positionMs, equals(25000));
+      expect(await dao.count(), equals(2),
+          reason: '按文件多记录模型：findLatest 是纯查询，不得删除其它记录');
+      expect(await dao.find(1, '/music/older.mp3'), isNotNull,
+          reason: '历史文件进度必须在 findLatest 后存活（BUG-11 回归锚点）');
     });
   });
 
@@ -617,11 +602,11 @@ void main() {
 
     test('PRG-T18: null progress does not show resume dialog', () {
       // Verify: the design says "无进度记录时直接开始播放，不显示对话框"
-      // This is driven by logic in browser_screen.dart:
-      //   final progress = ref.read(playProgressProvider(path));
+      // This is driven by logic in browser_screen.dart (BUG-12 后):
+      //   final progress = await ref.read(progressForFileProvider(...).future);
       //   if (progress != null) { showDialog... } else { play... }
       //
-      // The playProgressProvider returns null when no progress exists,
+      // progressForFileProvider resolves to null when no progress exists,
       // so the dialog is never triggered.  We verify that the provider
       // returns null by default (no DB setup needed).
       final container = ProviderContainer(
@@ -1727,79 +1712,9 @@ void main() {
           reason: '超过时长归零');
     });
 
-    // ── TST-T13: upsertLatest physical delete ────────────────────────────
-
-    test('TST-T13: upsertLatest旧记录被物理删除 — count始终为1非累积', () async {
-      // Insert first record via rawInsert
-      await dao.rawInsert(testProgress(
-        connectionId: 1,
-        filePath: '/music/first.mp3',
-        positionMs: 10000,
-        durationMs: 120000,
-      ));
-      expect(await dao.count(), equals(1), reason: '初始应有一条记录');
-
-      // upsertLatest should DELETE ALL old records and insert one new
-      await dao.upsertLatest(
-        connectionId: 1,
-        filePath: '/music/second.mp3',
-        positionMs: 25000,
-        durationMs: 180000,
-      );
-      expect(await dao.count(), equals(1),
-          reason: 'upsertLatest后应只有1条记录(旧记录被物理删除)');
-
-      // Verify old record is physically gone
-      final oldRecord = await dao.find(1, '/music/first.mp3');
-      expect(oldRecord, isNull, reason: '第一次upsert的记录应被物理删除');
-
-      // Verify new record exists
-      final newRecord = await dao.find(1, '/music/second.mp3');
-      expect(newRecord, isNotNull, reason: '新记录应存在');
-      expect(newRecord!.positionMs, equals(25000));
-
-      // Third call: still count=1, old "second.mp3" deleted
-      await dao.upsertLatest(
-        connectionId: 2,
-        filePath: '/music/third.mp3',
-        positionMs: 50000,
-        durationMs: 240000,
-      );
-      expect(await dao.count(), equals(1),
-          reason: '第三次upsertLatest后仍只有1条记录(非累积)');
-
-      final secondRecord = await dao.find(1, '/music/second.mp3');
-      expect(secondRecord, isNull, reason: '第二次记录也被物理删除');
-
-      final thirdRecord = await dao.find(2, '/music/third.mp3');
-      expect(thirdRecord, isNotNull, reason: '第三次记录存在');
-      expect(thirdRecord!.positionMs, equals(50000));
-
-      // Multiple consecutive calls — never accumulate
-      await dao.upsertLatest(
-        connectionId: 1,
-        filePath: '/music/a.mp3',
-        positionMs: 10000,
-        durationMs: 100000,
-      );
-      await dao.upsertLatest(
-        connectionId: 1,
-        filePath: '/music/b.mp3',
-        positionMs: 20000,
-        durationMs: 100000,
-      );
-      await dao.upsertLatest(
-        connectionId: 1,
-        filePath: '/music/c.mp3',
-        positionMs: 30000,
-        durationMs: 100000,
-      );
-      expect(await dao.count(), equals(1),
-          reason: '连续多次upsertLatest count始终为1,永不累积');
-      final finalRecord = await dao.findLatest();
-      expect(finalRecord, isNotNull);
-      expect(finalRecord!.filePath, equals('/music/c.mp3'));
-    });
+    // TST-T13（upsertLatest 物理删除）已于 2026-07-24 随 BUG-11 修复删除：
+    // upsertLatest 属已废弃的单活跃记录模型死代码（生产零调用），
+    // 用户裁决 play_progress 归属按文件多记录模型。
   });
 
   // ═════════════════════════════════════════════════════════════════════════════
