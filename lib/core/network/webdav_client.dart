@@ -52,11 +52,15 @@ String normaliseWebDavUrl(String raw) {
   } else {
     url = 'http://$trimmed';
   }
-  final uri = Uri.parse(url);
-  if (!uri.hasPort && uri.host.isNotEmpty) {
-    return uri.replace(port: 5005).toString();
+  try {
+    final uri = Uri.parse(url);
+    if (!uri.hasPort && uri.host.isNotEmpty) {
+      return uri.replace(port: 5005).toString();
+    }
+    return url;
+  } catch (_) {
+    return url;
   }
-  return url;
 }
 
 /// Returns true when [url] is a syntactically valid http/https URL with a host.
@@ -414,7 +418,7 @@ class WebDavClient implements WebDavClientInterface {
       caseSensitive: false,
     );
     final match = regex.firstMatch(xml);
-    if (match != null) return match.group(1)?.trim();
+    if (match != null) return _unescapeXmlEntities(match.group(1)?.trim());
 
     // Also try self-closing tag — return empty string to signal presence
     final selfClosingRegex = RegExp(
@@ -424,5 +428,15 @@ class WebDavClient implements WebDavClientInterface {
     if (selfClosingRegex.hasMatch(xml)) return '';
 
     return null;
+  }
+
+  static String? _unescapeXmlEntities(String? text) {
+    if (text == null) return null;
+    return text
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&apos;', "'")
+        .replaceAll('&quot;', '"')
+        .replaceAll('&amp;', '&');
   }
 }
