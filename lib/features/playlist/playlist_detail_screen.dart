@@ -56,6 +56,11 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
           );
           if (resume == true) {
             startPositionMs = progress.positionMs;
+          } else if (resume == false) {
+            ref.read(clearProgressProvider)(
+              connectionId: conn.id!,
+              filePath: filePath,
+            );
           }
         }
       } catch (_) {
