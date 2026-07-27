@@ -274,12 +274,20 @@ class _ConnectionEditScreenState extends ConsumerState<ConnectionEditScreen> {
       // Normalise URL before saving
       final normalisedUrl = normaliseWebDavUrl(_formController.url);
 
-      final config = _originalConfig!.copyWith(
+      final config = _originalConfig?.copyWith(
         name: effectiveName,
         url: normalisedUrl,
         username: _formController.username,
         basePath: _formController.basePath,
       );
+      if (config == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('无法获取连接配置，请返回重试')),
+          );
+        }
+        return;
+      }
 
       await updater.update(
         config: config,

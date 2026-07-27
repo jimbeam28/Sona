@@ -48,6 +48,7 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
       try {
         final progress = await ref.read(progressForFileProvider(
             (connectionId: conn.id!, filePath: filePath)).future);
+        if (!context.mounted) return;
         if (progress != null && progress.positionMs >= 5000) {
           final resume = await showProgressResumeDialog(
             context,
@@ -301,7 +302,7 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
                 ref.read(playlistTracksProvider(playlistId)).valueOrNull;
             if (tracks != null) {
               setState(() {
-                _selectedIds.addAll(tracks.map((t) => t.id!));
+                _selectedIds.addAll(tracks.map((t) => t.id).whereType<int>());
               });
             }
           },
