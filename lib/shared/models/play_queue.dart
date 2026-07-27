@@ -98,14 +98,21 @@ class PlayQueue {
       );
 
   /// Returns a copy of this queue with a different [currentIndex].
-  PlayQueue withIndex(int newIndex) => PlayQueue(
-        files: files,
-        currentIndex: newIndex,
-        startPositionMs: startPositionMs,
-        playMode: playMode,
-        shuffleOrder: _shuffleOrder,
-        shufflePosition: _shufflePosition,
-      );
+  PlayQueue withIndex(int newIndex) {
+    int? newPos = _shufflePosition;
+    if (_shuffleOrder != null) {
+      final idx = _shuffleOrder.indexOf(newIndex);
+      if (idx >= 0) newPos = idx;
+    }
+    return PlayQueue(
+      files: files,
+      currentIndex: newIndex,
+      startPositionMs: startPositionMs,
+      playMode: playMode,
+      shuffleOrder: _shuffleOrder,
+      shufflePosition: newPos,
+    );
+  }
 
   /// Returns a copy of this queue with a different [startPositionMs].
   PlayQueue withStartPosition(int? ms) => PlayQueue(
@@ -167,12 +174,16 @@ class PlayQueue {
   /// of the same [file] produce repeated copies.
   PlayQueue insertAfterCurrent(NasFile file) {
     final newFiles = files.toList()..insert(currentIndex + 1, file);
+    List<int>? newOrder = _shuffleOrder;
+    if (newOrder != null) {
+      newOrder = newOrder.map((i) => i > currentIndex ? i + 1 : i).toList();
+    }
     return PlayQueue(
       files: newFiles,
       currentIndex: currentIndex,
       startPositionMs: startPositionMs,
       playMode: playMode,
-      shuffleOrder: _shuffleOrder,
+      shuffleOrder: newOrder,
       shufflePosition: _shufflePosition,
     );
   }
@@ -287,8 +298,10 @@ class PlayQueue {
             orElse: () => PlayMode.sequential)
         : PlayMode.sequential;
     final shuffleOrderRaw = map['shuffleOrder'] as List<dynamic>?;
-    final shuffleOrder =
-        shuffleOrderRaw?.map((e) => (e as num).toInt()).toList();
+    final shuffleOrder = shuffleOrderRaw
+        ?.map((e) => (e as num).toInt())
+        .where((e) => e >= 0 && e < files.length)
+        .toList();
     final shufflePosition = map['shufflePosition'] as int?;
     return PlayQueue(
       files: files,

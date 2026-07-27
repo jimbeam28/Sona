@@ -154,16 +154,8 @@ final restoreQueueFromPrefsProvider = FutureProvider<void>((ref) async {
     final idx = (m['currentIndex'] as int?) ?? 0;
     if (idx >= files.length) return;
     final posMs = m['startPositionMs'] as int?;
-    final modeName = m['playMode'] as String?;
-    final mode = modeName != null
-        ? PlayMode.values.firstWhere((m) => m.name == modeName,
-            orElse: () => PlayMode.sequential)
-        : PlayMode.sequential;
-    ref.read(currentPlayQueueProvider.notifier).state = PlayQueue(
-        files: files,
-        currentIndex: idx,
-        startPositionMs: posMs,
-        playMode: mode);
+    ref.read(currentPlayQueueProvider.notifier).state =
+        PlayQueue.fromMap(m, files);
     final savedConnId = prefs.getInt(_qConnKey);
     final conn = ref.read(activeConnectionProvider).valueOrNull;
     if (savedConnId != null && conn?.id != savedConnId) return;

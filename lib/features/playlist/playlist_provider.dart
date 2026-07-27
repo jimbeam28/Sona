@@ -48,7 +48,8 @@ int _playlistSortCompare(Playlist a, Playlist b, PlaylistSortOption sort) {
 int _trackSortCompare(PlaylistTrack a, PlaylistTrack b, TrackSortOption sort) {
   switch (sort) {
     case TrackSortOption.addedAsc:
-      return a.addedAt.compareTo(b.addedAt);
+      final cmp = a.addedAt.compareTo(b.addedAt);
+      return cmp != 0 ? cmp : (a.id ?? 0).compareTo(b.id ?? 0);
     case TrackSortOption.nameAsc:
       return a.fileName.compareTo(b.fileName);
     case TrackSortOption.nameDesc:

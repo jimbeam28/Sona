@@ -333,8 +333,9 @@ final deleteConnectionProvider =
   final service = ref.watch(connectionServiceProvider);
 
   debugPrint('[Conn] delete: id=$id');
+  bool wasActive = false;
   try {
-    await service.delete(id);
+    wasActive = await service.delete(id);
   } on LastConnectionException {
     debugPrint('[Conn] delete: blocked — last connection');
     throw const LastConnectionException('无法删除最后一个连接');
@@ -343,4 +344,8 @@ final deleteConnectionProvider =
 
   ref.invalidate(activeConnectionProvider);
   ref.invalidate(connectionListProvider);
+
+  if (wasActive) {
+    resetBrowserStateOnActiveConnectionChange(ref);
+  }
 });

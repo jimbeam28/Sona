@@ -62,7 +62,7 @@ class PlaylistService {
   /// Deduplicates by checking [PlaylistDao.trackExists] for each file's path
   /// before inserting.  Only files not already present are added.
   Future<void> addTracksToPlaylist(int playlistId, List<NasFile> files) async {
-    final now = DateTime.now();
+    var baseTime = DateTime.now();
     final seen = <String>{};
     final tracks = <PlaylistTrack>[];
     for (final file in files) {
@@ -73,7 +73,7 @@ class PlaylistService {
           playlistId: playlistId,
           filePath: file.path,
           fileName: file.name,
-          addedAt: now,
+          addedAt: baseTime.add(Duration(milliseconds: tracks.length)),
         ));
       }
     }
@@ -140,27 +140,53 @@ class PlaylistService {
   ///
   /// Throws [FormatException] if [jsonString] is not valid JSON.
   Future<int> importPlaylist(String jsonString) async {
-    final data = jsonDecode(jsonString) as Map<String, dynamic>;
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(jsonString);
+    } catch (e) {
+      throw const FormatException('Invalid JSON');
+    }
+    if (decoded is! Map<String, dynamic>) {
+      throw const FormatException('Expected JSON object');
+    }
+    final data = decoded;
     final name = (data['name'] as String?) ?? '导入的播放单';
-    final trackList = (data['tracks'] as List<dynamic>?) ?? [];
+    final rawTracks = data['tracks'];
+    if (rawTracks != null && rawTracks is! List) {
+      throw const FormatException('tracks must be an array');
+    }
+    final trackList = (rawTracks as List<dynamic>?) ?? [];
 
     final now = DateTime.now();
+
+    final seen = <String>{};
+    final tracks = <PlaylistTrack>[];
+    for (final t in trackList) {
+      if (t is! Map<String, dynamic>) continue;
+      final fp = t['filePath'] as String? ?? '';
+      if (fp.isEmpty || !seen.add(fp)) continue;
+      tracks.add(PlaylistTrack(
+        playlistId: 0,
+        filePath: fp,
+        fileName: t['fileName'] as String? ?? '',
+        addedAt: now.add(Duration(milliseconds: tracks.length)),
+      ));
+    }
+
     final playlistId = await _dao.insertPlaylist(Playlist(
       name: name,
       createdAt: now,
       updatedAt: now,
     ));
 
-    final seen = <String>{};
-    final tracks = trackList
-        .map((t) => PlaylistTrack(
-              playlistId: playlistId,
-              filePath: t['filePath'] as String? ?? '',
-              fileName: t['fileName'] as String? ?? '',
-              addedAt: now,
-            ))
-        .where((t) => t.filePath.isNotEmpty && seen.add(t.filePath))
-        .toList();
+    for (var i = 0; i < tracks.length; i++) {
+      tracks[i] = PlaylistTrack(
+        playlistId: playlistId,
+        filePath: tracks[i].filePath,
+        fileName: tracks[i].fileName,
+        addedAt: tracks[i].addedAt,
+      );
+    }
 
     if (tracks.isNotEmpty) {
       await _dao.addTracks(tracks);

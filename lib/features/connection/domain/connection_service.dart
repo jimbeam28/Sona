@@ -94,9 +94,12 @@ class ConnectionService {
   /// - secure-storage password entry.
   ///
   /// If the deleted connection was active, the DAO auto-activates another.
-  Future<void> delete(int id) async {
-    await _dao.delete(id);
-    await safeStorageDelete(_storage, key: 'connection_password_$id');
+  Future<bool> delete(int id) async {
+    final wasActive = await _dao.delete(id);
+    try {
+      await safeStorageDelete(_storage, key: 'connection_password_$id');
+    } catch (_) {}
+    return wasActive;
   }
 
   // ── Switch active connection ──────────────────────────────────────────────
