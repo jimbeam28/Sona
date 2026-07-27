@@ -113,9 +113,9 @@ final seekStepSettingProvider = Provider<int>((ref) {
 final setSeekStepSettingProvider = Provider<void Function(int)>((ref) {
   return (int seconds) {
     debugPrint('[Settings] seekStep: ${seconds}s');
-    _service.setSeekStep(ref.read(sharedPreferencesProvider), seconds);
+    if (!_service.setSeekStep(ref.read(sharedPreferencesProvider), seconds))
+      return;
     ref.invalidate(seekStepSettingProvider);
-    // Also update the runtime seek step used by the player.
     ref.read(seekStepProvider.notifier).state = seconds;
   };
 });
