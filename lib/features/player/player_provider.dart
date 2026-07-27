@@ -201,25 +201,30 @@ final _completingProvider = StateProvider<bool>((ref) => false);
 final saveProgressProvider = Provider<void Function()>(
     (ref) => () => ref.read(playbackOrchestratorProvider).saveProgress());
 
-final _startAutoSaveProvider = Provider<void Function()>((ref) => () {
-      ref.read(_autoSaveTimerProvider)?.cancel();
-      ref.read(_autoSaveTimerProvider.notifier).state = Timer.periodic(
-          const Duration(seconds: 10), (_) => ref.read(saveProgressProvider)());
-    });
+final _startAutoSaveProvider = Provider<void Function()>((ref) {
+  ref.onDispose(() => ref.read(_autoSaveTimerProvider)?.cancel());
+  return () {
+    ref.read(_autoSaveTimerProvider)?.cancel();
+    ref.read(_autoSaveTimerProvider.notifier).state = Timer.periodic(
+        const Duration(seconds: 10), (_) => ref.read(saveProgressProvider)());
+  };
+});
 final _cancelAutoSaveProvider = Provider<void Function()>((ref) => () {
       ref.read(_autoSaveTimerProvider)?.cancel();
       ref.read(_autoSaveTimerProvider.notifier).state = null;
     });
-final _startPauseSaveProvider =
-    Provider<void Function(AudioPlayer)>((ref) => (p) {
-          ref.read(_pauseSaveSubProvider)?.cancel();
-          var was = p.playing;
-          ref.read(_pauseSaveSubProvider.notifier).state =
-              p.playerStateStream.listen((s) {
-            if (was && !s.playing) ref.read(saveProgressProvider)();
-            was = s.playing;
-          });
-        });
+final _startPauseSaveProvider = Provider<void Function(AudioPlayer)>((ref) {
+  ref.onDispose(() => ref.read(_pauseSaveSubProvider)?.cancel());
+  return (p) {
+    ref.read(_pauseSaveSubProvider)?.cancel();
+    var was = p.playing;
+    ref.read(_pauseSaveSubProvider.notifier).state =
+        p.playerStateStream.listen((s) {
+      if (was && !s.playing) ref.read(saveProgressProvider)();
+      was = s.playing;
+    });
+  };
+});
 final _cancelPauseSaveProvider = Provider<void Function()>((ref) => () {
       ref.read(_pauseSaveSubProvider)?.cancel();
       ref.read(_pauseSaveSubProvider.notifier).state = null;
