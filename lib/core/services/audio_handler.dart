@@ -53,6 +53,7 @@ class NasAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   // ── Background-playback state ──────────────────────────────────────────
 
   BackgroundPlaybackConfig _config = BackgroundPlaybackConfig.initial;
+  ProcessingState _lastProcessingState = ProcessingState.idle;
 
   /// The current background-playback configuration, driven by the pure-logic
   /// state machine in [BackgroundPlaybackConfig].
@@ -73,7 +74,7 @@ class NasAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   // ── State sync ─────────────────────────────────────────────────────────
 
   void _onPlayerStateChanged(PlayerState state) {
-    // Sync the background-playback config with the actual player state.
+    _lastProcessingState = state.processingState;
     _syncConfigFromPlayerState(state.playing);
 
     final controls = _buildControls();
@@ -197,10 +198,11 @@ class NasAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     final next = _config.handleMediaControl(MediaControlAction.play);
     _updateConfig(next);
     try {
+      if (_lastProcessingState == ProcessingState.completed) {
+        await _player.seek(Duration.zero).timeout(const Duration(seconds: 5));
+      }
       await _player.play().timeout(const Duration(seconds: 5));
-    } catch (_) {
-      // Timeout or platform error — silently ignore
-    }
+    } catch (_) {}
   }
 
   @override
@@ -226,10 +228,18 @@ class NasAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   }
 
   @override
-  Future<void> seek(Duration position) => _player.seek(position);
+  Future<void> seek(Duration position) async {
+    try {
+      await _player.seek(position).timeout(const Duration(seconds: 5));
+    } catch (_) {}
+  }
 
   @override
-  Future<void> setSpeed(double speed) => _player.setSpeed(speed);
+  Future<void> setSpeed(double speed) async {
+    try {
+      await _player.setSpeed(speed).timeout(const Duration(seconds: 5));
+    } catch (_) {}
+  }
 
   @override
   Future<void> skipToNext() {
