@@ -332,6 +332,7 @@ class PlaybackOrchestrator {
     final newQueue = q.withoutIndex(index);
 
     if (newQueue.length == 0) {
+      _gate.beginRequest();
       await player.stop();
       queue = null;
       _cancelAutoSave();
@@ -375,12 +376,14 @@ class PlaybackOrchestrator {
     final connId = connectionProvider.currentConnection?.id;
     if (q == null || connId == null) return;
 
-    progressSaver.upsertProgress(
-      connectionId: connId,
-      filePath: q.current.path,
-      positionMs: player.position.inMilliseconds,
-      durationMs: player.duration?.inMilliseconds,
-    );
+    unawaited(progressSaver
+        .upsertProgress(
+          connectionId: connId,
+          filePath: q.current.path,
+          positionMs: player.position.inMilliseconds,
+          durationMs: player.duration?.inMilliseconds,
+        )
+        .catchError((_) {}));
   }
 
   // ── Processing listener (track completion) ──────────────────────────────
