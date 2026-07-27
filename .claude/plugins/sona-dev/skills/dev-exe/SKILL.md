@@ -3,6 +3,7 @@ name: dev-exe
 description: |
   按 docs/features/{ID}.md 实施：测试先行 → 实现 → 脚本门禁。为弱模型设计——判断权在 spec，门禁权在脚本退出码。
   触发：用户提到"开始开发""实现""执行计划""dev-exe"。
+  模式：单 ID 模式（`dev-exe {ID}`）；批量模式（`dev-exe 批量` / `dev-exe all`）——从 dev-status.json 按顺序读取 pending 项逐个执行。
   不触发：用户提到"分析/规划/制定计划"→ dev-plan。给出的 ID 无 spec 或无 status 条目 → 提示先 dev-plan。
 ---
 
@@ -17,7 +18,18 @@ description: |
 
 ## 输入与前置
 
-单个功能 ID。`bash ../../scripts/dev-status.sh show <ID>` 确认：spec_file 存在、dependencies 全 done、impl_status 非 blocked。
+**单 ID 模式**：`dev-exe {ID}`。
+
+**批量模式**：`dev-exe 批量` / `dev-exe all`。读取 `docs/dev/dev-status.json`，按顺序处理每项：
+
+```bash
+# 获取 pending 列表（dependencies 全 done、impl_status 为 null/new/failed）
+bash ../../scripts/dev-status.sh list-pending
+```
+
+对每项执行完整流程（§1-§6），任一项 `impl_status=failed` 或 `impl_status=blocked` 时**跳过该项继续下一项**，不中断批量。批量完成后汇总：成功 ID 列表、失败 ID 列表、跳过原因。
+
+**前置检查**（两种模式通用）：`bash ../../scripts/dev-status.sh show <ID>` 确认：spec_file 存在、dependencies 全 done、impl_status 非 blocked。
 
 **返工检测**：`check_round > 0` → **必读** `docs/dev/check_log.md` 最末条作为本轮修复靶点，逐条修复（靶点的"修复指令"已精确到函数，照单执行）。
 
@@ -61,7 +73,17 @@ bash ../../scripts/dev-status.sh set <ID> test_status '"passed"'
 bash ../../scripts/dev-status.sh set <ID> test_files '[...]'
 ```
 
-**不动 check_\* 字段**（dev-check 还没跑）。报告：门禁结果 + critical 覆盖率摘要 + 一句"下一步：手动启动 dev-check {ID}"。**不自动链 dev-check**——审查独立性来自与开发上下文隔离。
+**不动 check_\* 字段**（dev-check 还没跑）。
+
+提交并推送：
+
+```bash
+git add lib/ test/ docs/
+git commit -m "dev-exe(<ID>): implement + tests passed"
+git push
+```
+
+报告：门禁结果 + critical 覆盖率摘要 + 一句"下一步：手动启动 dev-check {ID}"。**不自动链 dev-check**——审查独立性来自与开发上下文隔离。
 
 ### 6. 真机 bug 回写
 

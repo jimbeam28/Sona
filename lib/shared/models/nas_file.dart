@@ -207,8 +207,9 @@ class NasFile {
           path == other.path &&
           isDirectory == other.isDirectory &&
           size == other.size &&
+          modifiedAt == other.modifiedAt &&
           audioType == other.audioType;
 
   @override
-  int get hashCode => Object.hash(name, path, isDirectory, size, audioType);
+  int get hashCode => Object.hash(name, path, isDirectory, size, modifiedAt, audioType);
 }

@@ -7,6 +7,7 @@
 #   dev-status.sh field <ID> <field>            读单字段
 #   dev-status.sh pending                       列 impl=done 且 check≠passed（dev-check 输入）
 #   dev-status.sh impl-ready                    列 impl=pending 且依赖全 done（dev-exe 输入）
+#   dev-status.sh list-pending                  按 .order 顺序列待执行项（批量 dev-exe 输入）
 #   dev-status.sh next-id <PREFIX>              按 status.json + docs/features/*.md 算下一个空闲编号（如 SET-03）
 #   dev-status.sh create <ID> <name> <spec_file> <anchored_file>...
 #       创建完整骨架条目（全部必填字段初始化 pending）；
@@ -57,6 +58,24 @@ cmd_impl_ready() {
       | all(.impl_status == "done")
     | select(.)
     | $e.key + "\t" + $e.value.name
+  ' "$STATUS"
+}
+
+cmd_list_pending() {
+  # 按 .order 顺序列出待执行项（impl_status 为 null/pending/failed，且 dependencies 全 done）
+  jq -r '
+    .items as $items
+    | .order[]
+    | . as $id
+    | $items[$id] as $item
+    | select($item.impl_status == null or $item.impl_status == "pending" or $item.impl_status == "failed")
+    | select($item.impl_status != "blocked" and $item.impl_status != "done")
+    | . as $id
+    | ($item.dependencies // [])
+      | map($items[.] // {impl_status:"missing"})
+      | all(.impl_status == "done")
+    | select(.)
+    | $id + "\t" + $items[$id].name + "\t" + ($items[$id].impl_status // "null")
   ' "$STATUS"
 }
 
@@ -173,16 +192,17 @@ cmd_block() {
 }
 
 case "${1:-}" in
-  list)        cmd_list ;;
-  show)        cmd_show "${2:?missing ID}" ;;
-  field)       cmd_field "${2:?missing ID}" "${3:?missing field}" ;;
-  pending)     cmd_pending ;;
-  impl-ready)  cmd_impl_ready ;;
-  next-id)     cmd_next_id "${2:?missing PREFIX}" ;;
-  create)      cmd_create "${2:?missing ID}" "${3:?missing name}" "${4:?missing spec_file}" "${@:5}" ;;
-  set)         cmd_set "${2:?missing ID}" "${3:?missing field}" "${4:?missing value}" ;;
-  bump-round)  cmd_bump_round "${2:?missing ID}" ;;
-  pass)        cmd_pass "${2:?missing ID}" ;;
-  block)       cmd_block "${2:?missing ID}" ;;
-  *) echo "usage: $0 {list|show|field|pending|impl-ready|next-id|create|set|bump-round|pass|block} ..." >&2; exit 2 ;;
+  list)         cmd_list ;;
+  show)         cmd_show "${2:?missing ID}" ;;
+  field)        cmd_field "${2:?missing ID}" "${3:?missing field}" ;;
+  pending)      cmd_pending ;;
+  impl-ready)   cmd_impl_ready ;;
+  list-pending) cmd_list_pending ;;
+  next-id)      cmd_next_id "${2:?missing PREFIX}" ;;
+  create)       cmd_create "${2:?missing ID}" "${3:?missing name}" "${4:?missing spec_file}" "${@:5}" ;;
+  set)          cmd_set "${2:?missing ID}" "${3:?missing field}" "${4:?missing value}" ;;
+  bump-round)   cmd_bump_round "${2:?missing ID}" ;;
+  pass)         cmd_pass "${2:?missing ID}" ;;
+  block)        cmd_block "${2:?missing ID}" ;;
+  *) echo "usage: $0 {list|show|field|pending|impl-ready|list-pending|next-id|create|set|bump-round|pass|block} ..." >&2; exit 2 ;;
 esac
