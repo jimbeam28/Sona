@@ -17,6 +17,7 @@
 import 'dart:async';
 
 import 'package:audio_service/audio_service.dart';
+import 'package:audio_session/audio_session.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../../features/player/background_playback.dart';
@@ -64,11 +65,32 @@ class NasAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   StreamSubscription<PlayerState>? _stateSub;
   StreamSubscription<Duration>? _positionSub;
   StreamSubscription<Duration?>? _durationSub;
+  StreamSubscription<AudioInterruptionEvent>? _interruptionSub;
+  StreamSubscription<dynamic>? _becomingNoisySub;
 
   NasAudioHandler(this._player) {
     _stateSub = _player.playerStateStream.listen(_onPlayerStateChanged);
     _positionSub = _player.positionStream.listen(_onPositionChanged);
     _durationSub = _player.durationStream.listen(_onDurationChanged);
+    _initAudioSession();
+  }
+
+  Future<void> _initAudioSession() async {
+    try {
+      final session = await AudioSession.instance;
+      _interruptionSub = session.interruptionEventStream.listen((event) {
+        switch (event.type) {
+          case AudioInterruptionType.duck:
+            onAudioFocusChange(AudioFocusState.transient);
+          case AudioInterruptionType.pause:
+          case AudioInterruptionType.unknown:
+            onAudioFocusChange(AudioFocusState.lost);
+        }
+      });
+      _becomingNoisySub = session.becomingNoisyEventStream.listen((_) {
+        onAudioFocusChange(AudioFocusState.lost);
+      });
+    } catch (_) {}
   }
 
   // ── State sync ─────────────────────────────────────────────────────────
@@ -176,17 +198,14 @@ class NasAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     final next = _config.updateAudioFocus(focus);
     _updateConfig(next);
 
-    // Act on the focus change.
     switch (focus) {
       case AudioFocusState.lost:
-        _player.pause();
+        pause();
       case AudioFocusState.transient:
-        // Ducking handled by platform — no explicit action needed here.
         break;
       case AudioFocusState.gained:
-        // Resume if the state machine says audio should be active.
         if (_config.isAudioActive && !_player.playing) {
-          _player.play();
+          play();
         }
     }
   }
@@ -271,5 +290,7 @@ class NasAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     _stateSub?.cancel();
     _positionSub?.cancel();
     _durationSub?.cancel();
+    _interruptionSub?.cancel();
+    _becomingNoisySub?.cancel();
   }
 }

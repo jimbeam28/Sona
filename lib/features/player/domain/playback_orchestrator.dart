@@ -206,16 +206,22 @@ class PlaybackOrchestrator {
 
           // Start playback (don't await — may never complete).
           unawaited(player.play());
-          var playStarted = false;
-          for (int i = 0; i < 60; i++) {
-            await Future<void>.delayed(const Duration(milliseconds: 200));
-            if (player.playing) {
-              playStarted = true;
-              break;
+          var playStarted = player.playing;
+          if (!playStarted) {
+            final completer = Completer<bool>();
+            StreamSubscription<PlayerState>? sub;
+            sub = player.playerStateStream.listen((state) {
+              if (state.playing && !completer.isCompleted) {
+                completer.complete(true);
+                sub?.cancel();
+              }
+            });
+            try {
+              playStarted = await completer.future
+                  .timeout(const Duration(seconds: 15), onTimeout: () => false);
+            } finally {
+              sub.cancel();
             }
-          }
-          if (!playStarted && player.playing) {
-            playStarted = true;
           }
           if (!playStarted) {
             await player.stop();

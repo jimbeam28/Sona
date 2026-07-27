@@ -360,6 +360,7 @@ class _FileList extends StatelessWidget {
         final file = files[index];
         if (file.isDirectory) {
           return DirectoryListTile(
+            key: ValueKey(file.path),
             file: file,
             onTap: onDirectoryTap != null
                 ? (_) => onDirectoryTap!(file.path)
@@ -367,6 +368,7 @@ class _FileList extends StatelessWidget {
           );
         }
         return AudioFileListTile(
+          key: ValueKey(file.path),
           file: file,
           onTap: (_) {
             // ignore: discarded_futures

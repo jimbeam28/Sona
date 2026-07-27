@@ -148,8 +148,8 @@ void main() {
   // player.playing 60 times at 200ms intervals (12s total).
   // ═══════════════════════════════════════════════════════════════════════════
 
-  group('AUD-02-T06: play() polling 11.8s success -> loaded', () {
-    test('player becomes playing at 11.6s (iteration 58) -> loaded', () {
+  group('AUD-02-T06: play() stream wait 11.8s success -> loaded', () {
+    test('playerStateStream emits playing at 11.6s -> loaded', () {
       FakeAsync().run((async) {
         final player = _LenientMockPlayer();
         final connectionProvider = _MockActiveConnectionProvider();
@@ -164,13 +164,10 @@ void main() {
         speedProvider._speed = 1.0;
         queueConnIdProvider._lastId = 1;
 
-        // Simulate: player.playing returns false for first 58 iterations
-        // (11.6s), then true on the 59th check (11.8s).
-        int playCheckCount = 0;
-        when(player.playing).thenAnswer((_) {
-          playCheckCount++;
-          return playCheckCount >= 59;
-        });
+        when(player.playing).thenReturn(false);
+        final stateController = StreamController<PlayerState>.broadcast();
+        when(player.playerStateStream)
+            .thenAnswer((_) => stateController.stream);
 
         final orchestrator = PlaybackOrchestrator(
           player: player,
@@ -191,20 +188,19 @@ void main() {
           result = r.status;
         });
 
-        // Advance 12 seconds to let the polling loop complete.
-        // Iterations fire at 0ms, 200ms, 400ms, ... 11600ms (59th).
-        // At the 59th check (11.8s), playing returns true.
-        async.elapse(const Duration(seconds: 12));
+        async.elapse(const Duration(milliseconds: 11600));
+        stateController.add(PlayerState(true, ProcessingState.ready));
+        async.elapse(const Duration(seconds: 1));
 
         expect(result, equals(TrackLoadStatus.loaded),
             reason:
-                'play() succeeding at 11.8s (iteration 59) should yield loaded');
+                'playerStateStream emitting playing at 11.6s should yield loaded');
       });
     });
   });
 
-  group('AUD-02-T07: play() polling 12.0s not started -> failed', () {
-    test('player never becomes playing in 12s -> failed', () {
+  group('AUD-02-T07: play() stream wait 30s not started -> failed', () {
+    test('player never emits playing in 30s -> failed', () {
       FakeAsync().run((async) {
         final player = _LenientMockPlayer();
         final connectionProvider = _MockActiveConnectionProvider();
@@ -219,8 +215,9 @@ void main() {
         speedProvider._speed = 1.0;
         queueConnIdProvider._lastId = 1;
 
-        // player.playing always returns false — play never starts.
         when(player.playing).thenReturn(false);
+        when(player.playerStateStream)
+            .thenAnswer((_) => const Stream<PlayerState>.empty());
 
         final orchestrator = PlaybackOrchestrator(
           player: player,
@@ -241,11 +238,11 @@ void main() {
           result = r.status;
         });
 
-        // Advance past the 12-second polling window (60 * 200ms).
-        async.elapse(const Duration(seconds: 13));
+        // Advance past the 15-second stream wait timeout.
+        async.elapse(const Duration(seconds: 16));
 
         expect(result, equals(TrackLoadStatus.failed),
-            reason: 'play() never starting within 12s should yield failed');
+            reason: 'play() never starting within 15s should yield failed');
         verify(player.stop()).called(1);
       });
     });
