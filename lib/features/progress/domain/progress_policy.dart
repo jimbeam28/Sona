@@ -21,8 +21,7 @@ bool shouldSave(int positionMs) => positionMs >= 5000;
 /// Returns `false` when [durationMs] <= 10 000 ms (short file protection, G-3).
 bool shouldClear(int positionMs, int? durationMs) {
   if (durationMs == null) return false;
-  // G-3: files shorter than 10 s should never auto-clear — the 10-second
-  // window is meaningless when the file itself is shorter than that.
   if (durationMs <= 10000) return false;
-  return positionMs > durationMs - 10000;
+  final window = (durationMs * 0.1).ceil().clamp(1000, 10000);
+  return positionMs > durationMs - window;
 }

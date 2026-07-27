@@ -87,10 +87,14 @@ void main() {
           reason: 'REF-24-T03: 0s duration → should NOT clear');
     });
 
-    test('durationMs = 10001 → normal clear logic applies', () {
-      // 10001 - 10000 = 1; position=2 > 1 → true
-      expect(policy.shouldClear(2, 10001), isTrue,
-          reason: 'REF-24-T03: 10.001s file → normal logic applies');
+    test(
+        'durationMs = 10001 → BUG-20: dynamic window prevents aggressive clear',
+        () {
+      // BUG-20: window = max(1000, min(10000, 10001*0.1)) = 1001
+      // position=2 > 10001-1001=9000 → false (no longer aggressively clears short files)
+      expect(policy.shouldClear(2, 10001), isFalse,
+          reason:
+              'BUG-20: 10.001s file → dynamic window prevents aggressive clear');
     });
   });
 

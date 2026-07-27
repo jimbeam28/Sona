@@ -860,10 +860,11 @@ void main() {
       expect(ProgressDao.shouldClear(10000, 10000), isFalse);
     });
 
-    test('durationMs == 11s: shouldClear can return true', () {
-      // durationMs - 10000 = 1000; positionMs > 1000 should clear
-      expect(ProgressDao.shouldClear(1001, 11000), isTrue);
-      expect(ProgressDao.shouldClear(1000, 11000), isFalse);
+    test('durationMs == 11s: BUG-20 dynamic window — clear only near end', () {
+      // BUG-20: window = max(1000, min(10000, 11000*0.1)) = 1100
+      // clear when positionMs > 11000-1100 = 9900
+      expect(ProgressDao.shouldClear(9901, 11000), isTrue);
+      expect(ProgressDao.shouldClear(9900, 11000), isFalse);
     });
 
     test('durationMs == null: shouldClear always false', () {
