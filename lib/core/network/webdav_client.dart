@@ -231,8 +231,7 @@ class WebDavClient implements WebDavClientInterface {
       }();
       debugPrint('[WebDAV] validate result: ${result.status}'
           ' (HTTP ${streamedResponse.statusCode})');
-      // G-5: drain the response body so the HTTP connection can be reused.
-      await streamedResponse.stream.drain<void>();
+      unawaited(streamedResponse.stream.drain<void>().catchError((_) {}));
       return result;
     } on TimeoutException {
       debugPrint('[WebDAV] validate: timeout');
@@ -290,7 +289,8 @@ class WebDavClient implements WebDavClientInterface {
       final streamedResponse =
           await _httpClient.send(request).timeout(_timeout);
 
-      final body = await streamedResponse.stream.bytesToString();
+      final body =
+          await streamedResponse.stream.bytesToString().timeout(_timeout);
 
       if (streamedResponse.statusCode == 401 ||
           streamedResponse.statusCode == 403) {
@@ -331,7 +331,7 @@ class WebDavClient implements WebDavClientInterface {
       // request uri with userinfo — redact the logged copy (NET7/CON2).
       debugPrint(
           '[WebDAV] listDirectory error: ${redactUrlForLog(e.toString())}');
-      throw WebDavException('无法连接到服务器：$e');
+      throw WebDavException('无法连接到服务器，请检查地址和网络');
     }
   }
 
@@ -351,8 +351,10 @@ class WebDavClient implements WebDavClientInterface {
     final files = <NasFile>[];
 
     // Extract each <response> block (namespace-prefix agnostic)
-    final responseRegex =
-        RegExp(r'<[^>]*response[^>]*>(.*?)</[^>]*response[^>]*>', dotAll: true);
+    final responseRegex = RegExp(
+        r'<[^>]*response[^>]*>(.*?)</[^>]*response[^>]*>',
+        dotAll: true,
+        caseSensitive: false);
 
     for (final match in responseRegex.allMatches(xmlBody)) {
       final responseXml = match.group(1)!;
