@@ -157,7 +157,12 @@ final startupValidationProvider =
   // Read the password from secure storage
   final storage = ref.watch(secureStorageProvider);
   final passwordKey = 'connection_password_${activeConn.id}';
-  final password = await safeStorageRead(storage, key: passwordKey);
+  String? password;
+  try {
+    password = await safeStorageRead(storage, key: passwordKey);
+  } on SecureStorageTimeoutException {
+    return WebDavValidationResult.networkError();
+  }
   if (password == null || password.isEmpty) {
     debugPrint('[Conn] startupValidation: no password');
     return WebDavValidationResult.authError();

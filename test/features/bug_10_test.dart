@@ -22,16 +22,19 @@ void main() {
   group('BUG-10: SecureStorage timeout protection', () {
     // ── BUG-10-T01: storage.read hangs -> 5 seconds later returns null ──────
 
-    test('BUG-10-T01: storage.read hangs -> returns null after 5s timeout', () {
+    test(
+        'BUG-10-T01: storage.read hangs -> throws SecureStorageTimeoutException after 5s',
+        () {
       FakeAsync().run((async) {
         final storage = _HangingSecureStorage();
 
-        // safeStorageRead should complete (not hang) after 5 seconds.
-        String? result;
+        Object? caughtError;
         var completed = false;
 
         safeStorageRead(storage, key: 'test_key').then((value) {
-          result = value;
+          completed = true;
+        }).catchError((e) {
+          caughtError = e;
           completed = true;
         });
 
@@ -43,8 +46,9 @@ void main() {
         // Elapse past the 5-second timeout.
         async.elapse(const Duration(seconds: 2));
         expect(completed, isTrue, reason: 'Should complete after 5s timeout');
-        expect(result, isNull,
-            reason: 'safeStorageRead should return null on timeout');
+        expect(caughtError, isA<SecureStorageTimeoutException>(),
+            reason:
+                'safeStorageRead should throw SecureStorageTimeoutException on timeout');
       });
     });
 

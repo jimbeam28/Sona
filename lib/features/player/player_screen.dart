@@ -194,8 +194,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         bool hasPassword = false;
         if (activeConn != null) {
           final storage = ref.read(secureStorageProvider);
-          final pw = await safeStorageRead(storage,
-              key: 'connection_password_${activeConn.id}');
+          String? pw;
+          try {
+            pw = await safeStorageRead(storage,
+                key: 'connection_password_${activeConn.id}');
+          } on SecureStorageTimeoutException {
+            pw = null;
+          }
           hasPassword = pw != null && pw.isNotEmpty;
         }
         final reason = classifyLoadFailure(

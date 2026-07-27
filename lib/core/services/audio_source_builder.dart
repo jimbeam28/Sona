@@ -147,8 +147,13 @@ Future<void> preloadAudioSource({
   required AudioPlayer player,
   int? startPositionMs,
 }) async {
-  final pw =
-      await safeStorageRead(storage, key: 'connection_password_$connectionId');
+  String? pw;
+  try {
+    pw = await safeStorageRead(storage,
+        key: 'connection_password_$connectionId');
+  } on SecureStorageTimeoutException {
+    rethrow;
+  }
   if (pw == null || pw.isEmpty) return;
   final src = AudioSourceBuilder.buildWithBasePath(
       baseUrl: baseUrl, filePath: filePath, username: username, password: pw);

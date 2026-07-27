@@ -14,6 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
+import 'package:nas_audio_player/core/services/storage_utils.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
 
 import 'bug_07_test.mocks.dart';
@@ -160,23 +161,25 @@ void main() {
 
     test(
         'BUG-07-T03: NAS unreachable -> storage.read hangs -> '
-        'pre-load skipped silently', () async {
+        'SecureStorageTimeoutException propagated', () async {
       final storage = hangingStorage();
       final player = workingPlayer();
 
-      // preloadAudioSource should complete without error because
-      // safeStorageRead returns null after 5s timeout, and null password
-      // means pre-load is skipped.
-      await preloadAudioSource(
-        storage: storage,
-        connectionId: 1,
-        baseUrl: 'http://192.168.1.1:8080',
-        filePath: '/music/song.mp3',
-        username: 'admin',
-        player: player,
+      // preloadAudioSource should throw SecureStorageTimeoutException
+      // because safeStorageRead throws on timeout.
+      expect(
+        () => preloadAudioSource(
+          storage: storage,
+          connectionId: 1,
+          baseUrl: 'http://192.168.1.1:8080',
+          filePath: '/music/song.mp3',
+          username: 'admin',
+          player: player,
+        ),
+        throwsA(isA<SecureStorageTimeoutException>()),
       );
 
-      // Player was never touched because storage.read returned null.
+      // Player was never touched because storage.read threw.
       verifyNever(player.setAudioSource(
         any,
         preload: anyNamed('preload'),

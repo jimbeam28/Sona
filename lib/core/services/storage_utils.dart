@@ -2,14 +2,22 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-/// Reads from [storage] with a 5-second timeout.
-/// Returns null on timeout or error.
+class SecureStorageTimeoutException implements Exception {
+  final String key;
+  const SecureStorageTimeoutException(this.key);
+  @override
+  String toString() => 'SecureStorageTimeoutException: key=$key';
+}
+
 Future<String?> safeStorageRead(
   FlutterSecureStorage storage, {
   required String key,
 }) async {
   try {
     return await storage.read(key: key).timeout(const Duration(seconds: 5));
+  } on TimeoutException {
+    debugPrint('[Storage] safeRead timeout: key=$key');
+    throw SecureStorageTimeoutException(key);
   } catch (e) {
     debugPrint('[Storage] safeRead failed: $e');
     return null;

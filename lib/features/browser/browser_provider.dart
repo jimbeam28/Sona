@@ -78,8 +78,14 @@ final directoryContentsProvider =
     return sortFiles(cached.value, sortOption);
   }
   final storage = ref.watch(secureStorageProvider);
-  final pw =
-      await safeStorageRead(storage, key: 'connection_password_${conn.id}');
+  final pw = await () async {
+    try {
+      return await safeStorageRead(storage,
+          key: 'connection_password_${conn.id}');
+    } on SecureStorageTimeoutException {
+      throw const WebDavException('读取密码超时，请重试');
+    }
+  }();
   if (pw == null || pw.isEmpty) throw const WebDavException('密码未保存');
   // NET1: pass the effective base URL so listDirectory applies the connection
   // base (url.path joined with basePath) exactly once.
