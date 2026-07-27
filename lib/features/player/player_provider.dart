@@ -48,6 +48,10 @@ final audioPlayerProvider = Provider<AudioPlayer>((ref) {
   ref.onDispose(() => p.dispose());
   return p;
 });
+final audioPlayingProvider = StreamProvider<bool>((ref) {
+  final player = ref.watch(audioPlayerProvider);
+  return player.playingStream;
+});
 final audioHandlerProvider = Provider<NasAudioHandler?>((ref) => null);
 
 class _Deps

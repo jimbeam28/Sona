@@ -32,7 +32,8 @@ void main() {
       when(mockPlayer.processingState).thenReturn(ProcessingState.ready);
       when(mockPlayer.processingStateStream)
           .thenAnswer((_) => Stream<ProcessingState>.empty());
-      when(mockPlayer.playingStream).thenAnswer((_) => Stream<bool>.empty());
+      when(mockPlayer.playingStream)
+          .thenAnswer((_) => Stream<bool>.value(true));
 
       queue = PlayQueue(
         files: [
@@ -91,6 +92,8 @@ void main() {
     testWidgets('BRW-09-S2: playing=false 时"下一曲"图标 disabled 且 tooltip 显示提示',
         (WidgetTester tester) async {
       when(mockPlayer.playing).thenReturn(false);
+      when(mockPlayer.playingStream)
+          .thenAnswer((_) => Stream<bool>.value(false));
 
       await pumpBrowser(
         tester,
@@ -218,6 +221,8 @@ void main() {
         'BRW-09-S9: player.playing=false 时点击"下一曲"图表不触发 insertAfterCurrent 且 currentPlayQueueProvider 不变',
         (WidgetTester tester) async {
       when(mockPlayer.playing).thenReturn(false);
+      when(mockPlayer.playingStream)
+          .thenAnswer((_) => Stream<bool>.value(false));
 
       // 用一个独立的 state holder 监听 currentPlayQueueProvider 是否变化
       PlayQueue? emittedQueue = queue;

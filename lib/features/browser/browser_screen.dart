@@ -74,8 +74,10 @@ class BrowserScreen extends ConsumerWidget {
                   },
                   child: _FileList(
                     files: files,
-                    playNextEnabled: ref.watch(audioPlayerProvider).playing &&
-                        ref.watch(currentPlayQueueProvider) != null,
+                    playNextEnabled:
+                        (ref.watch(audioPlayingProvider).valueOrNull ??
+                                false) &&
+                            ref.watch(currentPlayQueueProvider) != null,
                     onPlayNext: (NasFile f) async {
                       final ok = await ref.read(insertAfterCurrentProvider)(f);
                       if (ok && context.mounted) {
@@ -123,6 +125,11 @@ class BrowserScreen extends ConsumerWidget {
                               context, container, progress);
                           if (resume == true) {
                             startPositionMs = progress.positionMs;
+                          } else if (resume == false) {
+                            ref.read(clearProgressProvider)(
+                              connectionId: conn.id!,
+                              filePath: tappedFile.path,
+                            );
                           }
                         }
                       }

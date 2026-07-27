@@ -77,6 +77,7 @@ export '../../features/player/player_provider.dart'
     show
         // Infrastructure
         audioPlayerProvider,
+        audioPlayingProvider,
         audioHandlerProvider,
         playbackOrchestratorProvider,
         // Queue navigation
