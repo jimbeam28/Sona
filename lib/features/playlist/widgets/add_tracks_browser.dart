@@ -74,9 +74,9 @@ class _AddTracksBrowserSheetState
                   TextButton(
                     onPressed: () {
                       final allPaths = _allAudioPaths(contentsAsync);
-                      if (_selectedPaths.length == allPaths.length &&
+                      if (allPaths.every(_selectedPaths.contains) &&
                           allPaths.isNotEmpty) {
-                        setState(() => _selectedPaths.clear());
+                        setState(() => _selectedPaths.removeAll(allPaths));
                       } else {
                         setState(() => _selectedPaths.addAll(allPaths));
                       }
@@ -207,7 +207,7 @@ class _AddTracksBrowserSheetState
 
   String _selectAllLabel(AsyncValue<List<NasFile>> contentsAsync) {
     final allPaths = _allAudioPaths(contentsAsync);
-    if (_selectedPaths.length == allPaths.length && allPaths.isNotEmpty) {
+    if (allPaths.every(_selectedPaths.contains) && allPaths.isNotEmpty) {
       return '取消全选';
     }
     return '全选';
