@@ -113,9 +113,10 @@ class NasFile {
       modifiedAt = _parseRfc1123(dateStr);
     }
 
-    // Classify audio type
-    final audioType =
-        (!isDirectory && isAudioFile(name)) ? classifyType(name) : null;
+    final hrefFilename = cleanHref.split('/').last;
+    final audioType = (!isDirectory && isAudioFile(hrefFilename))
+        ? classifyType(hrefFilename)
+        : null;
 
     return NasFile(
       name: name,
@@ -211,5 +212,6 @@ class NasFile {
           audioType == other.audioType;
 
   @override
-  int get hashCode => Object.hash(name, path, isDirectory, size, modifiedAt, audioType);
+  int get hashCode =>
+      Object.hash(name, path, isDirectory, size, modifiedAt, audioType);
 }
