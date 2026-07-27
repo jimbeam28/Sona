@@ -42,6 +42,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {
         prefs?.setInt(_tabIndexKey, _tabController.index);
+        if (mounted) setState(() {});
       }
     });
 
