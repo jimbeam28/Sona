@@ -127,8 +127,8 @@ class ConnectionDao implements IConnectionDao {
       try {
         await txn.delete('play_progress',
             where: 'connection_id = ?', whereArgs: [id]);
-      } catch (_) {
-        // play_progress table not yet created — safe to ignore
+      } on DatabaseException catch (e) {
+        if (!e.toString().contains('no such table')) rethrow;
       }
 
       // Delete the connection row itself

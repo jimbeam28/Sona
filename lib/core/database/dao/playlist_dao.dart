@@ -73,6 +73,7 @@ class PlaylistDao implements IPlaylistDao {
   }
 
   Future<void> removeTracks(List<int> trackIds) async {
+    if (trackIds.isEmpty) return;
     final db = await _db;
     final placeholders = List.filled(trackIds.length, '?').join(',');
     await db.delete(
@@ -104,6 +105,8 @@ class PlaylistDao implements IPlaylistDao {
     );
     if (tracks.length < 2) return;
     if (oldIndex == newIndex) return;
+    if (oldIndex < 0 || oldIndex >= tracks.length) return;
+    if (newIndex < 0 || newIndex >= tracks.length) return;
 
     final moved = List<Map<String, dynamic>>.from(tracks);
     moved.removeAt(oldIndex);
