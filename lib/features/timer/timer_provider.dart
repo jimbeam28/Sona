@@ -152,15 +152,18 @@ final setLastCustomTimerMinutesProvider = Provider<void Function(int)>((ref) {
 final remainingTimeProvider = StreamProvider<Duration?>((ref) {
   final state = ref.watch(timerStateProvider);
 
-  if (state == null || state.mode != TimerMode.duration) {
+  if (state == null || state.mode == TimerMode.afterCurrent) {
     return Stream.value(null);
   }
 
-  // Emit the remaining time every second.  Stop the stream (by emitting
-  // null which takeWhile discards) when the timer is cancelled or reaches
-  // zero.
+  if (state.mode == TimerMode.paused) {
+    return Stream.value(state.remainingTime);
+  }
+
   var didEmitZero = false;
-  return Stream.periodic(const Duration(seconds: 1), (_) {
+  final controller = StreamController<Duration?>();
+  controller.add(state.remainingTime);
+  final sub = Stream.periodic(const Duration(seconds: 1), (_) {
     final currentState = ref.read(timerStateProvider);
     if (currentState == null || currentState.mode != TimerMode.duration) {
       return null;
@@ -174,7 +177,9 @@ final remainingTimeProvider = StreamProvider<Duration?>((ref) {
       return true;
     }
     return true;
-  });
+  }).listen(controller.add, onDone: controller.close);
+  controller.onCancel = () => sub.cancel();
+  return controller.stream;
 });
 
 // ── Formatted remaining display (TMR-03) ──────────────────────────────────────
