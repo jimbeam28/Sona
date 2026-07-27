@@ -26,12 +26,15 @@ class DatabaseHelper {
       version: _dbVersion,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
+      onConfigure: _onConfigure,
     );
   }
 
-  Future<void> _onCreate(Database db, int version) async {
+  Future<void> _onConfigure(Database db) async {
     await db.execute('PRAGMA foreign_keys = ON');
+  }
 
+  Future<void> _onCreate(Database db, int version) async {
     await db.execute('''
       CREATE TABLE connections (
         id          INTEGER PRIMARY KEY AUTOINCREMENT,
