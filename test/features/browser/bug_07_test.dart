@@ -14,7 +14,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
-import 'package:nas_audio_player/core/services/storage_utils.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
 
 import 'bug_07_test.mocks.dart';
@@ -153,33 +152,33 @@ void main() {
     });
 
     // ── BUG-07-T03: NAS unreachable -> storage.read hangs -> safeStorageRead
-    //    returns null after 5s -> pre-load skipped silently
+    //    throws SecureStorageTimeoutException after 5s -> preloadAudioSource
+    //    catches it, logs, and skips the pre-load (BUG-32-S1)
     //
     // Scenario: storage.read itself hangs (NAS infrastructure unreachable).
-    // safeStorageRead has a 5-second timeout that returns null, so
-    // preloadAudioSource sees null password and returns without error.
+    // safeStorageRead has a 5-second timeout that throws
+    // SecureStorageTimeoutException; preloadAudioSource catches the timeout,
+    // logs it, and returns without error so queue restoration continues.
 
     test(
         'BUG-07-T03: NAS unreachable -> storage.read hangs -> '
-        'SecureStorageTimeoutException propagated', () async {
+        'pre-load skipped after timeout', () async {
       final storage = hangingStorage();
       final player = workingPlayer();
 
-      // preloadAudioSource should throw SecureStorageTimeoutException
-      // because safeStorageRead throws on timeout.
-      expect(
-        () => preloadAudioSource(
-          storage: storage,
-          connectionId: 1,
-          baseUrl: 'http://192.168.1.1:8080',
-          filePath: '/music/song.mp3',
-          username: 'admin',
-          player: player,
-        ),
-        throwsA(isA<SecureStorageTimeoutException>()),
+      // preloadAudioSource should complete without error because the
+      // SecureStorageTimeoutException raised by safeStorageRead is caught
+      // inside preloadAudioSource (logged, then pre-load skipped).
+      await preloadAudioSource(
+        storage: storage,
+        connectionId: 1,
+        baseUrl: 'http://192.168.1.1:8080',
+        filePath: '/music/song.mp3',
+        username: 'admin',
+        player: player,
       );
 
-      // Player was never touched because storage.read threw.
+      // Player was never touched because storage.read timed out.
       verifyNever(player.setAudioSource(
         any,
         preload: anyNamed('preload'),

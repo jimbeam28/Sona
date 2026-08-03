@@ -152,7 +152,8 @@ Future<void> preloadAudioSource({
     pw = await safeStorageRead(storage,
         key: 'connection_password_$connectionId');
   } on SecureStorageTimeoutException {
-    rethrow;
+    debugPrint('[AudioSource] preload: password read timeout');
+    return;
   }
   if (pw == null || pw.isEmpty) return;
   final src = AudioSourceBuilder.buildWithBasePath(

@@ -161,7 +161,8 @@ final startupValidationProvider =
   try {
     password = await safeStorageRead(storage, key: passwordKey);
   } on SecureStorageTimeoutException {
-    return WebDavValidationResult.networkError();
+    debugPrint('[Conn] startupValidation: password read timeout');
+    return WebDavValidationResult.error('读取密码超时，请重试');
   }
   if (password == null || password.isEmpty) {
     debugPrint('[Conn] startupValidation: no password');

@@ -12,7 +12,13 @@ import '../../shared/webdav_paths.dart';
 
 // ── Validation result ─────────────────────────────────────────────────────────
 
-enum WebDavValidationStatus { success, authError, pathNotFound, networkError }
+enum WebDavValidationStatus {
+  success,
+  authError,
+  pathNotFound,
+  networkError,
+  error,
+}
 
 class WebDavValidationResult {
   final WebDavValidationStatus status;
@@ -33,6 +39,11 @@ class WebDavValidationResult {
   factory WebDavValidationResult.networkError() =>
       const WebDavValidationResult._(
           WebDavValidationStatus.networkError, '无法连接到服务器，请检查地址和网络');
+
+  /// Generic failure carrying a custom user-facing [message] (e.g. the
+  /// secure-storage read timeout during startup validation, BUG-32).
+  factory WebDavValidationResult.error(String message) =>
+      WebDavValidationResult._(WebDavValidationStatus.error, message);
 
   bool get isSuccess => status == WebDavValidationStatus.success;
 }
