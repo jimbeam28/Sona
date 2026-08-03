@@ -218,10 +218,16 @@ class NasAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     _updateConfig(next);
     try {
       if (_lastProcessingState == ProcessingState.completed) {
-        await _player.seek(Duration.zero).timeout(const Duration(seconds: 5));
+        try {
+          await _player.seek(Duration.zero).timeout(const Duration(seconds: 5));
+        } catch (_) {
+          // Recovery seek failed or timed out (P4) — still attempt play.
+        }
       }
       await _player.play().timeout(const Duration(seconds: 5));
-    } catch (_) {}
+    } catch (_) {
+      // Timeout or platform error — silently ignore
+    }
   }
 
   @override
