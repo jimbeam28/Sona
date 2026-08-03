@@ -73,6 +73,13 @@ class PlayQueue {
     return order;
   }
 
+  /// Public Fisher-Yates permutation generator (BUG-04-S2/S3).
+  ///
+  /// Lets the orchestration layer reshuffle a fresh round when the current
+  /// permutation is exhausted, without reaching into private state.
+  static List<int> generateShuffleOrder(int n, Random rng) =>
+      _generateShuffleOrder(n, rng);
+
   /// The file currently being played.
   NasFile get current => files[currentIndex];
 
@@ -98,11 +105,23 @@ class PlayQueue {
       );
 
   /// Returns a copy of this queue with a different [currentIndex].
+  ///
+  /// BUG-04-S4 (cr-20260724-0110 MDL4): in shuffle mode [_shufflePosition]
+  /// is relocated to the position of [newIndex] within the shuffle order, so
+  /// a manual track selection can never desynchronise [currentIndex] from
+  /// the shuffle pointer (the pre-fix behaviour replayed the just-selected
+  /// track on "next").  When [newIndex] is not part of the current
+  /// permutation (e.g. a track inserted via [insertAfterCurrent], which is
+  /// deliberately excluded from the running round), the pointer degrades to
+  /// the END of the order — the next [advanceShuffle] then reports the round
+  /// as exhausted and the orchestration layer reshuffles a fresh round.
   PlayQueue withIndex(int newIndex) {
     int? newPos = _shufflePosition;
-    if (_shuffleOrder != null) {
-      final idx = _shuffleOrder.indexOf(newIndex);
-      if (idx >= 0) newPos = idx;
+    final order = _shuffleOrder;
+    if (order != null) {
+      final idx = order.indexOf(newIndex);
+      newPos = idx >= 0 ? idx : order.length - 1;
+      if (newPos < 0) newPos = null;
     }
     return PlayQueue(
       files: files,
@@ -167,11 +186,12 @@ class PlayQueue {
   /// the current track (at `currentIndex + 1`).
   ///
   /// [currentIndex] is preserved (still points to the same logical track).
-  /// The shuffle order is **not** recomputed — it is carried over as-is so
-  /// the existing Fisher-Yates permutation stays intact (the newly inserted
-  /// file is simply not part of the shuffle sequence until a fresh order is
-  /// generated elsewhere).  No de-duplication is performed: repeated inserts
-  /// of the same [file] produce repeated copies.
+  /// BUG-04-S1: the shuffle order is remapped — every entry greater than
+  /// [currentIndex] is shifted by one, so the permutation keeps pointing at
+  /// the same logical tracks and nothing is skipped or duplicated.  The
+  /// newly inserted file is NOT added to the running shuffle round (it
+  /// joins the next reshuffled round).  No de-duplication is performed:
+  /// repeated inserts of the same [file] produce repeated copies.
   PlayQueue insertAfterCurrent(NasFile file) {
     final newFiles = files.toList()..insert(currentIndex + 1, file);
     List<int>? newOrder = _shuffleOrder;
@@ -297,15 +317,34 @@ class PlayQueue {
         ? PlayMode.values.firstWhere((m) => m.name == modeName,
             orElse: () => PlayMode.sequential)
         : PlayMode.sequential;
+    final currentIndex = map['currentIndex'] as int? ?? 0;
     final shuffleOrderRaw = map['shuffleOrder'] as List<dynamic>?;
     final shuffleOrder = shuffleOrderRaw
         ?.map((e) => (e as num).toInt())
         .where((e) => e >= 0 && e < files.length)
         .toList();
-    final shufflePosition = map['shufflePosition'] as int?;
+    // BUG-14 robustness: normalise the restored position so it can never
+    // point outside the (possibly filtered) permutation.  The OOB filter
+    // above may shrink the order when files were deleted from the NAS
+    // between persist and restore; an out-of-bounds position would make
+    // advanceShuffle/retreatShuffle index outside the list (RangeError).
+    // Degradation: relocate to the current track's slot when it is still in
+    // the order, otherwise to the end of the order (no crash, sequence
+    // continues from a consistent state).
+    var shufflePosition = map['shufflePosition'] as int?;
+    if (shuffleOrder == null) {
+      shufflePosition = null;
+    } else if (shuffleOrder.isEmpty) {
+      shufflePosition = 0;
+    } else if (shufflePosition == null ||
+        shufflePosition < 0 ||
+        shufflePosition >= shuffleOrder.length) {
+      final relocated = shuffleOrder.indexOf(currentIndex);
+      shufflePosition = relocated >= 0 ? relocated : shuffleOrder.length - 1;
+    }
     return PlayQueue(
       files: files,
-      currentIndex: map['currentIndex'] as int? ?? 0,
+      currentIndex: currentIndex,
       startPositionMs: map['startPositionMs'] as int?,
       playMode: mode,
       shuffleOrder: shuffleOrder,

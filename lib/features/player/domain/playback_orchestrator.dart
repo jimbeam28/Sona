@@ -20,6 +20,7 @@
 //   - Processing listener    — handles track completion / auto-advance
 
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
@@ -116,6 +117,10 @@ class PlaybackOrchestrator {
   StreamSubscription<PlayerState>? _pauseSaveSub;
   bool _completing = false;
 
+  /// RNG for shuffle-round regeneration (BUG-04-S2/S3).  Tests inject a
+  /// seeded instance for determinism.
+  final Random _rng;
+
   PlaybackOrchestrator({
     required this.player,
     required this.connectionProvider,
@@ -123,7 +128,8 @@ class PlaybackOrchestrator {
     required this.progressSaver,
     required this.defaultSpeedProvider,
     required this.queueConnectionIdProvider,
-  });
+    Random? random,
+  }) : _rng = random ?? Random();
 
   /// The connection ID that was active when the queue was last loaded.
   int? get activeConnectionId => _activeConnectionId;
@@ -263,6 +269,12 @@ class PlaybackOrchestrator {
     PlayQueue? nextQueue;
     if (playMode == PlayMode.shuffle) {
       nextQueue = q.advanceShuffle();
+      if (nextQueue == null && q.length > 0) {
+        // BUG-04-S2 (user adjudication 2026-07-24): the permutation is
+        // exhausted → reshuffle a fresh round instead of degrading to a
+        // random blind pick (cr-20260724-0110 PLY3).
+        nextQueue = _regenerateShuffleQueue(q, excludeIndex: q.currentIndex);
+      }
     }
     nextQueue ??= () {
       final ni = PlayQueue.nextIndex(q.currentIndex, q.length, playMode);
@@ -291,6 +303,13 @@ class PlaybackOrchestrator {
     PlayQueue? prevQueue;
     if (playMode == PlayMode.shuffle) {
       prevQueue = q.retreatShuffle();
+      if (prevQueue == null && q.length > 0) {
+        // BUG-04-S3: at the head of the permutation → reshuffle a fresh
+        // round and land on its LAST entry (pointer at the end), never a
+        // random previousIndex pick.
+        prevQueue = _regenerateShuffleQueue(q,
+            excludeIndex: q.currentIndex, forPrevious: true);
+      }
     }
     prevQueue ??= () {
       final pi = PlayQueue.previousIndex(q.currentIndex, q.length, playMode);
@@ -433,11 +452,49 @@ class PlaybackOrchestrator {
     if (playMode == PlayMode.shuffle) {
       final advanced = q.advanceShuffle();
       if (advanced != null) return advanced;
+      // BUG-04-S2 (user adjudication 2026-07-24): permutation exhausted →
+      // reshuffle a fresh round; never degrade to a random blind pick
+      // (cr-20260724-0110 PLY3).
+      if (q.length > 0) {
+        return _regenerateShuffleQueue(q, excludeIndex: q.currentIndex);
+      }
+      return null;
     }
 
     final ni = PlayQueue.nextIndex(q.currentIndex, q.length, playMode);
     if (ni == null) return null;
     return q.withIndex(ni);
+  }
+
+  // ── Shuffle regeneration (BUG-04-S2/S3) ─────────────────────────────────
+
+  /// Generates a fresh Fisher-Yates round when the current permutation is
+  /// exhausted — user adjudication 2026-07-24「重洗新一轮」.
+  ///
+  /// [excludeIndex] (the track that just finished / is playing) is kept out
+  /// of the first slot so the same track never replays right after a round
+  /// completes (BUG-04-S2 negative assertion).  With [forPrevious]
+  /// (BUG-04-S3) the pointer is placed at the LAST slot instead, so a
+  /// reshuffle triggered by skipToPrevious lands on the new round's final
+  /// track and retreatShuffle can walk backwards through the round.
+  ///
+  /// Single-track queues degenerate to replaying that one track (spec §3.2
+  /// 边界裁决: `files.length == 1` → 仍播同一首).
+  PlayQueue _regenerateShuffleQueue(PlayQueue q,
+      {required int excludeIndex, bool forPrevious = false}) {
+    List<int> order;
+    do {
+      order = PlayQueue.generateShuffleOrder(q.length, _rng);
+    } while (q.length > 1 && order[0] == excludeIndex);
+    final position = forPrevious ? order.length - 1 : 0;
+    return PlayQueue(
+      files: q.files,
+      currentIndex: order[position],
+      startPositionMs: null,
+      playMode: q.playMode,
+      shuffleOrder: order,
+      shufflePosition: position,
+    );
   }
 
   // ── Auto-save timer ─────────────────────────────────────────────────────

@@ -145,6 +145,14 @@ final persistQueueOnChangeProvider = Provider<void>((ref) {
 });
 
 final restoreQueueFromPrefsProvider = FutureProvider<void>((ref) async {
+  // Yield before mutating any other provider: the synchronous prefix of a
+  // FutureProvider body runs during its own build, and Riverpod forbids
+  // modifying other providers while an element is building (P11).  Without
+  // this yield the `currentPlayQueueProvider.state = ...` below trips the
+  // debug assertion and the whole restore degrades to AsyncError — i.e. the
+  // persisted queue (incl. BUG-14's shuffle state) would never load in
+  // debug builds.
+  await null;
   final prefs = ref.read(sharedPreferencesProvider);
   if (prefs == null) return;
   final raw = prefs.getString(_qKey);
