@@ -202,11 +202,16 @@ final saveProgressProvider = Provider<void Function()>(
     (ref) => () => ref.read(playbackOrchestratorProvider).saveProgress());
 
 final _startAutoSaveProvider = Provider<void Function()>((ref) {
-  ref.onDispose(() => ref.read(_autoSaveTimerProvider)?.cancel());
+  // BUG-21: cancel via the locally captured handle. ref.read() inside
+  // onDispose throws during ProviderContainer.dispose (the container is
+  // already marked disposed) and the timer would leak.
+  Timer? timer;
+  ref.onDispose(() => timer?.cancel());
   return () {
     ref.read(_autoSaveTimerProvider)?.cancel();
-    ref.read(_autoSaveTimerProvider.notifier).state = Timer.periodic(
+    timer = Timer.periodic(
         const Duration(seconds: 10), (_) => ref.read(saveProgressProvider)());
+    ref.read(_autoSaveTimerProvider.notifier).state = timer;
   };
 });
 final _cancelAutoSaveProvider = Provider<void Function()>((ref) => () {
@@ -214,15 +219,17 @@ final _cancelAutoSaveProvider = Provider<void Function()>((ref) => () {
       ref.read(_autoSaveTimerProvider.notifier).state = null;
     });
 final _startPauseSaveProvider = Provider<void Function(AudioPlayer)>((ref) {
-  ref.onDispose(() => ref.read(_pauseSaveSubProvider)?.cancel());
+  // BUG-21: cancel via the locally captured handle (see _startAutoSaveProvider).
+  StreamSubscription<void>? sub;
+  ref.onDispose(() => sub?.cancel());
   return (p) {
     ref.read(_pauseSaveSubProvider)?.cancel();
     var was = p.playing;
-    ref.read(_pauseSaveSubProvider.notifier).state =
-        p.playerStateStream.listen((s) {
+    sub = p.playerStateStream.listen((s) {
       if (was && !s.playing) ref.read(saveProgressProvider)();
       was = s.playing;
     });
+    ref.read(_pauseSaveSubProvider.notifier).state = sub;
   };
 });
 final _cancelPauseSaveProvider = Provider<void Function()>((ref) => () {
@@ -236,12 +243,13 @@ final cancelProcessingListenerProvider = Provider<void Function()>((ref) => () {
     });
 
 final startProcessingListenerProvider = Provider<void Function()>((ref) {
-  ref.onDispose(() => ref.read(_processingSubProvider)?.cancel());
+  // BUG-21: cancel via the locally captured handle (see _startAutoSaveProvider).
+  StreamSubscription<void>? sub;
+  ref.onDispose(() => sub?.cancel());
   return () {
     final player = ref.read(audioPlayerProvider);
     ref.read(cancelProcessingListenerProvider)();
-    ref.read(_processingSubProvider.notifier).state =
-        player.processingStateStream.listen((state) {
+    sub = player.processingStateStream.listen((state) {
       if (state != ProcessingState.completed) return;
       if (ref.read(_completingProvider)) return;
       ref.read(_completingProvider.notifier).state = true;
@@ -261,6 +269,7 @@ final startProcessingListenerProvider = Provider<void Function()>((ref) {
       ref.read(currentPlayQueueProvider.notifier).state = nq;
       unawaited(ref.read(loadAndPlayProvider)());
     });
+    ref.read(_processingSubProvider.notifier).state = sub;
   };
 });
 
