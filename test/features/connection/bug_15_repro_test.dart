@@ -34,6 +34,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nas_audio_player/core/database/dao/connection_dao.dart';
@@ -131,6 +132,28 @@ class _GateableDao extends ConnectionDao {
 
   @override
   Future<int> count() async => rows.length;
+}
+
+/// [FakeSecureStorage] whose [write] suspends on [writeGate] and then throws
+/// — opens a failure window AFTER the user has been able to leave the page
+/// (edit path: [ConnectionService.update] writes storage before the DAO).
+class _GateableThrowingStorage extends FakeSecureStorage {
+  Completer<void>? writeGate;
+
+  @override
+  Future<void> write({
+    required String key,
+    required String? value,
+    IOSOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WindowsOptions? wOptions,
+    WebOptions? webOptions,
+    MacOsOptions? mOptions,
+  }) async {
+    if (writeGate != null) await writeGate!.future;
+    throw Exception('Simulated secure storage write failure');
+  }
 }
 
 // ── Shared widget scaffolding ───────────────────────────────────────────────
@@ -399,5 +422,182 @@ void main() {
         reason: 'secure storage 写入失败必须仍有错误提示，不能被 CON1 修复吞掉');
     // …and the service-level rollback removed the half-written row.
     expect(dao.rows, isEmpty, reason: 'storage 写入失败应回滚已插入的连接行');
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CON1-C / CON1-D: 失败发生在页面 dispose "之后" — 错误到不了 UI，但不得
+  //                   静默丢失：必须落日志（复核补强，审计判据"可接受须有日志"）
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  testWidgets('CON1-C: dispose 后保存失败 → 错误写入日志，不静默吞错，DB 无残留行', (tester) async {
+    final dao = _GateableDao()..insertGate = Completer<void>();
+    final storage = ThrowingFakeSecureStorage();
+    final client = MockWebDavClient()
+      ..returnResult(WebDavValidationResult.success());
+
+    final container = ProviderContainer(
+      overrides: _overrides(dao: dao, storage: storage, client: client),
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(_buildApp(
+      container: container,
+      extraRoutes: [
+        GoRoute(
+            path: '/connection', builder: (_, __) => const ConnectionScreen()),
+      ],
+    ));
+    await tester.pumpAndSettle();
+
+    // Pre-warm so the derived providers hold a cached value that a wrongful
+    // failure-path invalidate would disturb.
+    expect(await container.read(activeConnectionProvider.future), isNull);
+    expect(await container.read(connectionListProvider.future), isEmpty);
+
+    await tester.tap(find.text('进入页面'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.widgetWithText(TextFormField, '服务器地址 *'),
+        'http://192.168.1.200:5005');
+    await tester.enterText(
+        find.widgetWithText(TextFormField, '用户名 *'), 'admin');
+    await tester.enterText(
+        find.widgetWithText(TextFormField, '密码 *'), 'secret');
+    await tester.tap(find.text('测试连接'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('保存'));
+    await tester.pump();
+    expect(find.text('保存中…'), findsOneWidget);
+
+    // Leave the page inside the save window; the failure lands AFTER dispose.
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(find.byType(ConnectionScreen), findsNothing,
+        reason: '页面应已退出并 dispose');
+
+    // The failure completes after the page is gone: insert lands, storage
+    // write throws, service rolls the row back. Capture debugPrint around
+    // the gate completion so the post-dispose error path is assertable
+    // (restored in finally — flutter_test verifies foundation debug vars).
+    final logs = <String>[];
+    final originalDebugPrint = debugPrint;
+    debugPrint = (message, {wrapWidth}) => logs.add(message ?? '');
+    try {
+      dao.insertGate!.complete();
+      await tester.pump();
+      await tester.pumpAndSettle();
+    } finally {
+      debugPrint = originalDebugPrint;
+    }
+
+    // The error must not vanish silently just because the UI is gone.
+    expect(
+      logs.where((l) => l.contains('save failed after page disposed')),
+      isNotEmpty,
+      reason: 'dispose 后保存失败必须有日志，不得静默吞错',
+    );
+    // …the rollback still ran — no half-written row lingers.
+    expect(dao.rows, isEmpty, reason: 'storage 写入失败应回滚已插入的连接行');
+    // …and the failure path must not have refreshed derived providers to
+    // phantom state (no invalidate on failure).
+    expect(await container.read(activeConnectionProvider.future), isNull);
+    expect(await container.read(connectionListProvider.future), isEmpty);
+  });
+
+  testWidgets('CON1-D: dispose 后更新失败 → 错误写入日志，DB 保持旧值', (tester) async {
+    final now = DateTime(2026, 7, 24);
+    final dao = _GateableDao()
+      ..seed(ConnectionConfig(
+        id: 1,
+        name: 'Home NAS',
+        url: 'http://192.168.1.100:5005',
+        username: 'admin',
+        basePath: '/',
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      ));
+    // ConnectionService.update writes storage BEFORE the DAO, so the
+    // suspension window + failure point must both sit on the storage write.
+    final storage = _GateableThrowingStorage()..writeGate = Completer<void>();
+    final client = MockWebDavClient()
+      ..returnResult(WebDavValidationResult.success());
+
+    final container = ProviderContainer(
+      overrides: _overrides(dao: dao, storage: storage, client: client),
+    );
+    addTearDown(container.dispose);
+
+    // Pre-warm so the edit screen pre-fills from data on its first frame.
+    final activeBefore = await container.read(activeConnectionProvider.future);
+    expect(activeBefore!.url, equals('http://192.168.1.100:5005'));
+    await container.read(connectionListProvider.future);
+
+    await tester.pumpWidget(_buildApp(
+      container: container,
+      extraRoutes: [
+        GoRoute(
+            path: '/edit',
+            builder: (_, __) => const ConnectionEditScreen(connectionId: 1)),
+      ],
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('进入页面'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ConnectionEditScreen), findsOneWidget);
+
+    // Change the URL and provide a new password so the update path performs
+    // a secure-storage write (the injected failure point).
+    await tester.enterText(
+        find.widgetWithText(TextFormField, 'http://192.168.1.100:5005'),
+        'http://192.168.1.150:5005');
+    await tester.enterText(
+        find.widgetWithText(TextFormField, '密码（留空保持不变）'), 'new-pass');
+    await tester.pump();
+
+    await tester.tap(find.text('测试连接'));
+    await tester.pumpAndSettle();
+    expect(find.text('连接成功！'), findsOneWidget);
+
+    await tester.tap(find.text('保存'));
+    await tester.pump();
+    expect(find.text('保存中…'), findsOneWidget);
+
+    // Leave the page inside the update window.
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(find.byType(ConnectionEditScreen), findsNothing,
+        reason: '页面应已退出并 dispose');
+
+    // The failure completes after the page is gone: the storage gate opens
+    // and the write throws before any DB update runs. Capture debugPrint
+    // around the gate completion (restored in finally — flutter_test
+    // verifies foundation debug vars).
+    final logs = <String>[];
+    final originalDebugPrint = debugPrint;
+    debugPrint = (message, {wrapWidth}) => logs.add(message ?? '');
+    try {
+      storage.writeGate!.complete();
+      await tester.pump();
+      await tester.pumpAndSettle();
+    } finally {
+      debugPrint = originalDebugPrint;
+    }
+
+    // The error must not vanish silently just because the UI is gone.
+    expect(
+      logs.where((l) => l.contains('update failed after page disposed')),
+      isNotEmpty,
+      reason: 'dispose 后更新失败必须有日志，不得静默吞错',
+    );
+    // …the DB row kept the OLD url (update never ran).
+    expect(dao.rows.single.url, equals('http://192.168.1.100:5005'),
+        reason: 'storage 写入失败前不得改库');
+    // …and derived providers still resolve to the old config (no phantom
+    // refresh on the failure path).
+    final active = await container.read(activeConnectionProvider.future);
+    expect(active!.url, equals('http://192.168.1.100:5005'));
   });
 }

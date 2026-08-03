@@ -215,6 +215,12 @@ class _ConnectionScreenState extends ConsumerState<ConnectionScreen> {
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
+      } else {
+        // CON1: the user left the page mid-save, so the error can no longer
+        // reach any UI — but it must not vanish silently either. State stays
+        // consistent here (save() rolled back, no invalidate runs on the
+        // failure path), so observability via log is sufficient.
+        debugPrint('[Conn] save failed after page disposed: $e');
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);

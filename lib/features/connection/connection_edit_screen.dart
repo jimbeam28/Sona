@@ -322,6 +322,11 @@ class _ConnectionEditScreenState extends ConsumerState<ConnectionEditScreen> {
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
+      } else {
+        // CON1: the user left the page mid-update — same rationale as in
+        // connection_screen.dart: no UI left to show the error, but no
+        // silent swallowing either (log observability).
+        debugPrint('[Conn] update failed after page disposed: $e');
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
