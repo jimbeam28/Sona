@@ -225,6 +225,8 @@ void main() {
       sqfliteFfiInit();
       final db = await openTestDatabase(TestSchema.progress);
       addTearDown(db.close);
+      // FK 约束现对所有 schema 生效（BUG-16-S2）：progress 行须引用已存在的连接
+      await seedConnection(db);
       await db.insert('play_progress', {
         'connection_id': 1,
         'file_path': '/music/track.mp3',

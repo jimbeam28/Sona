@@ -83,12 +83,23 @@ void initSqfliteFfi() {
 /// Opens a fresh in-memory database with the requested [schema], injects it
 /// into [DatabaseHelper], and returns the handle so the test can close it.
 ///
+/// `PRAGMA foreign_keys = ON` runs in `onConfigure` on every open — the same
+/// mechanism as the production [DatabaseHelper] open path (BUG-16-S2). FK
+/// enforcement therefore applies to every schema, matching production.
+///
 /// [TestSchema.connections] — connections table only.
 /// [TestSchema.progress] — connections + play_progress + index.
-/// [TestSchema.playlist] — playlists + playlist_tracks + index, with FK pragma.
+/// [TestSchema.playlist] — playlists + playlist_tracks + index.
 /// [TestSchema.full] — all of the above.
 Future<Database> openTestDatabase(TestSchema schema) async {
-  final db = await databaseFactoryFfi.openDatabase(inMemoryDatabasePath);
+  final db = await databaseFactoryFfi.openDatabase(
+    inMemoryDatabasePath,
+    options: OpenDatabaseOptions(
+      onConfigure: (db) async {
+        await db.execute('PRAGMA foreign_keys = ON');
+      },
+    ),
+  );
 
   switch (schema) {
     case TestSchema.connections:
@@ -102,12 +113,10 @@ Future<Database> openTestDatabase(TestSchema schema) async {
       break;
 
     case TestSchema.playlist:
-      await db.execute('PRAGMA foreign_keys = ON');
       await db.execute(_createPlaylistTables);
       break;
 
     case TestSchema.full:
-      await db.execute('PRAGMA foreign_keys = ON');
       await db.execute(_createConnectionsTable);
       await db.execute(_createPlayProgressTable);
       await db.execute(_createProgressIndex);
@@ -117,4 +126,22 @@ Future<Database> openTestDatabase(TestSchema schema) async {
 
   DatabaseHelper.instance.overrideDatabase(db);
   return db;
+}
+
+/// Seeds a `connections` row (default id 1) so FK-enforcing schemas
+/// (play_progress / playlist_tracks) accept child rows referencing it.
+/// Required since BUG-16-S2: FK constraints are now ON in every test schema,
+/// matching production.
+Future<void> seedConnection(Database db, {int id = 1}) async {
+  await db.insert('connections', {
+    'id': id,
+    'name': 'Test NAS',
+    'url': 'http://nas.local:5005',
+    'username': 'admin',
+    'password': 'pw-ref-key',
+    'base_path': '/',
+    'is_active': 0,
+    'created_at': 0,
+    'updated_at': 0,
+  });
 }

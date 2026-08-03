@@ -538,6 +538,8 @@ void main() {
     setUp(() async {
       db = await openTestDatabase(TestSchema.progress);
       dao = ProgressDao();
+      // FK 约束现对所有 schema 生效（BUG-16-S2）：progress 行须引用已存在的连接
+      await seedConnection(db);
     });
 
     tearDown(() async {

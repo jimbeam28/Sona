@@ -30,17 +30,27 @@
 // navigationStackProvider still pointed at the deep path, and re-reading
 // directoryContentsProvider('/music') hit the TTL cache — no new PROPFIND,
 // old server's listing returned.
+//
+// Also hosts the BUG-16 gate (docs/features/BUG-16.md, cr-20260724-0110
+// DB2 = CTR8): FK PRAGMA 只在 _onCreate 置位 → 重启后失效 → deletePlaylist
+// 级联失败、孤儿 playlist_tracks 永久泄漏。修复把 PRAGMA 移到 onConfigure
+// （每次 open 执行），并让 test_database 复用同一机制（见文件末尾 BUG-16 组）。
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nas_audio_player/core/database/dao/connection_dao.dart';
+import 'package:nas_audio_player/core/database/dao/playlist_dao.dart';
+import 'package:nas_audio_player/core/database/database_helper.dart';
 import 'package:nas_audio_player/core/network/webdav_client.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/features/connection/connection_edit_screen.dart';
 import 'package:nas_audio_player/features/connection/connection_provider.dart';
 import 'package:nas_audio_player/shared/models/connection_config.dart';
+import 'package:nas_audio_player/shared/models/playlist.dart';
+import 'package:path/path.dart' as p;
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../../helpers/fake_secure_storage.dart';
 import '../../helpers/fake_webdav_client.dart';
@@ -370,5 +380,135 @@ void main() {
         reason: '更新失败时不得清缓存（复位只发生在成功路径）');
     expect(container.read(navigationStackProvider), equals(['/', '/music']),
         reason: '更新失败时不得复位导航栈');
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BUG-16 (docs/features/BUG-16.md): FK PRAGMA 只在 _onCreate 置位 → 重启后
+  // FK 回默认 OFF → deletePlaylist 只删 playlists 行，孤儿 playlist_tracks
+  // 永久泄漏（修复前测试假绿：helper 每次 open 硬编码 FK=ON 掩盖生产行为）。
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  group('BUG-16: FK PRAGMA onConfigure', () {
+    // 镜像 DatabaseHelper._dbName（私有常量）。
+    const dbFileName = 'nas_audio_player.db';
+
+    setUpAll(() {
+      // 让生产代码里的全局 openDatabase / getDatabasesPath 走 ffi，
+      // 从而端到端执行 DatabaseHelper._openDatabase 真实打开路径。
+      databaseFactory = databaseFactoryFfi;
+    });
+
+    Playlist makePlaylist() => Playlist(
+          name: 'BUG-16',
+          createdAt: DateTime(2026, 7, 28),
+          updatedAt: DateTime(2026, 7, 28),
+        );
+
+    PlaylistTrack makeTrack(int playlistId, String fileName) => PlaylistTrack(
+          playlistId: playlistId,
+          filePath: '/music/$fileName',
+          fileName: fileName,
+          addedAt: DateTime(2026, 7, 28),
+        );
+
+    test('BUG-16-S1: 重启（重开同一库文件）后 FK 仍生效，删播放单仍级联、无孤儿行', () async {
+      // 前置：清掉同文件其它测试注入的句柄，确保走真实 open 路径
+      DatabaseHelper.instance.resetForTest();
+      final dbPath = p.join(await getDatabasesPath(), dbFileName);
+      await deleteDatabase(dbPath); // 卫生：保证第一阶段是干净的"首次安装"
+
+      // ── 第一次 open：首次安装（触发 onCreate）──────────────────────────
+      final db1 = await DatabaseHelper.instance.database;
+      final dao = PlaylistDao();
+
+      final pid = await dao.insertPlaylist(makePlaylist());
+      await dao.addTracks([makeTrack(pid, 'a.mp3'), makeTrack(pid, 'b.mp3')]);
+      expect(await dao.findTracksForPlaylist(pid), hasLength(2),
+          reason: '前置：曲目应已落库');
+      await dao.deletePlaylist(pid);
+      final orphansFirstOpen =
+          await db1.rawQuery('SELECT COUNT(*) AS cnt FROM playlist_tracks');
+      expect(orphansFirstOpen.first['cnt'], 0, reason: '首次 open 内级联删除应生效');
+
+      // 哨兵行：证明第二阶段是"重开同一文件"而非新建库
+      await db1.insert('connections', {
+        'id': 900001,
+        'name': 'BUG-16 sentinel',
+        'url': 'http://sentinel.local',
+        'username': 'sentinel',
+        'password': 'sentinel-key',
+        'base_path': '/',
+        'is_active': 0,
+        'created_at': 0,
+        'updated_at': 0,
+      });
+
+      await db1.close();
+      DatabaseHelper.instance.resetForTest(); // 模拟进程退出
+
+      // ── 第二次 open：重启（版本匹配 → 不触发 onCreate，只走 onConfigure）
+      final db2 = await DatabaseHelper.instance.database;
+      final sentinel = await db2.query('connections',
+          where: 'name = ?', whereArgs: ['BUG-16 sentinel']);
+      expect(sentinel, hasLength(1), reason: '应是重开同一库文件（重启），而不是新建库');
+
+      // 核心锚定：重启后 FK 仍必须是 ON（BUG：修复前回默认 OFF）
+      final fk = await db2.rawQuery('PRAGMA foreign_keys');
+      expect(fk.first.values.first, 1,
+          reason: 'BUG-16：PRAGMA foreign_keys 必须在每次 open（onConfigure）置位');
+
+      // 行为级：重启后删播放单，子行仍被级联删除
+      final pid2 = await dao.insertPlaylist(makePlaylist());
+      await dao.addTracks([makeTrack(pid2, 'c.mp3'), makeTrack(pid2, 'd.mp3')]);
+      expect(await dao.findTracksForPlaylist(pid2), hasLength(2),
+          reason: '前置：重启后曲目应已落库');
+      await dao.deletePlaylist(pid2);
+
+      // 否定断言：无孤儿 playlist_tracks 行、无残留 playlists 行
+      expect(await dao.findAllPlaylists(), isEmpty, reason: '删除后播放单行应不存在');
+      final orphansAfterRestart =
+          await db2.rawQuery('SELECT COUNT(*) AS cnt FROM playlist_tracks');
+      expect(orphansAfterRestart.first['cnt'], 0,
+          reason: 'BUG-16：重启后 FK 失效会留下孤儿 playlist_tracks 行（永久泄漏）');
+
+      // 清场：删哨兵、关库、复位单例，避免影响后续运行
+      await db2.delete('connections', where: 'id = ?', whereArgs: [900001]);
+      await db2.close();
+      DatabaseHelper.instance.resetForTest();
+    });
+
+    test('BUG-16-S2: test_database 与生产同路径 —— FK 经 onConfigure 覆盖所有 schema',
+        () async {
+      final db = await openTestDatabase(TestSchema.progress);
+      addTearDown(db.close);
+
+      // PRAGMA 在 open 时经 onConfigure 生效（不再靠 schema 分支内硬编码）
+      final fk = await db.rawQuery('PRAGMA foreign_keys');
+      expect(fk.first.values.first, 1,
+          reason: 'BUG-16-S2：测试库应经 onConfigure 开 FK，与生产一致');
+
+      // 行为锚定：孤儿 progress 行被 FK 拒绝（修复前 progress schema 不置
+      // PRAGMA，孤儿行可插入 → 掩盖生产行为）
+      expect(
+        db.insert('play_progress', {
+          'connection_id': 999999,
+          'file_path': '/orphan.mp3',
+          'position_ms': 10000,
+          'last_played_at': 1,
+        }),
+        throwsA(isA<DatabaseException>()),
+        reason: 'BUG-16-S2：无父连接的 progress 行必须被 FK 拒绝',
+      );
+
+      // 正向对照：父连接存在时可插入
+      await seedConnection(db);
+      final id = await db.insert('play_progress', {
+        'connection_id': 1,
+        'file_path': '/ok.mp3',
+        'position_ms': 10000,
+        'last_played_at': 1,
+      });
+      expect(id, greaterThan(0), reason: '父连接存在时插入应成功');
+    });
   });
 }

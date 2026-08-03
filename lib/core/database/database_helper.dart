@@ -105,4 +105,11 @@ class DatabaseHelper {
   void overrideDatabase(Database db) {
     _db = db;
   }
+
+  // Exposed for testing: drops the cached handle so the next [database] read
+  // re-runs the full open path (onConfigure/onCreate/onUpgrade) against the
+  // same database file — simulates an app restart (BUG-16).
+  void resetForTest() {
+    _db = null;
+  }
 }
