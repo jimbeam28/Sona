@@ -241,6 +241,22 @@ class WebDavClient implements WebDavClientInterface {
                 streamedResponse.statusCode < 300) {
               return WebDavValidationResult.success();
             }
+            // NET6/BUG-23-S4: 3xx (http.Client.send does not follow
+            // redirects) and 5xx are reachable-server errors — reporting them
+            // as "cannot connect" points the user at the wrong fix.
+            if (streamedResponse.statusCode >= 300 &&
+                streamedResponse.statusCode < 400) {
+              return const WebDavValidationResult._(
+                WebDavValidationStatus.networkError,
+                '服务器重定向，请检查地址是否应为 https',
+              );
+            }
+            if (streamedResponse.statusCode >= 500) {
+              return const WebDavValidationResult._(
+                WebDavValidationStatus.networkError,
+                '服务器内部错误，请稍后重试',
+              );
+            }
             return WebDavValidationResult.networkError();
         }
       }();
@@ -320,8 +336,15 @@ class WebDavClient implements WebDavClientInterface {
       if (streamedResponse.statusCode != 207) {
         debugPrint(
             '[WebDAV] listDirectory: bad status ${streamedResponse.statusCode}');
+        // NET6/BUG-23-S4: 3xx/5xx get actionable messages; other non-207
+        // statuses keep the bare-code fallback.
+        final message = switch (streamedResponse.statusCode) {
+          >= 300 && < 400 => '服务器重定向，请检查地址是否应为 https',
+          >= 500 => '服务器内部错误，请稍后重试',
+          _ => '服务器返回异常状态码 ${streamedResponse.statusCode}',
+        };
         throw WebDavException(
-          '服务器返回异常状态码 ${streamedResponse.statusCode}',
+          message,
           statusCode: streamedResponse.statusCode,
         );
       }
@@ -428,9 +451,13 @@ class WebDavClient implements WebDavClientInterface {
   ///
   /// Returns `null` when the element is not found.
   static String? _extractXmlContent(String xml, String tagName) {
-    // Match both self-closing and paired tags with any namespace prefix
+    // Match both self-closing and paired tags with any namespace prefix.
+    // NET5/BUG-23-S3: `\b` word boundaries stop substring false-positives
+    // (`prop` must not match `<propstat>`, `href` must not match `<xhref>`),
+    // and RegExp.escape guards against regex metacharacters in [tagName].
+    final escapedTag = RegExp.escape(tagName);
     final regex = RegExp(
-      '<[^>]*$tagName[^>]*>(.*?)</[^>]*$tagName[^>]*>',
+      '<[^>]*\\b$escapedTag\\b[^>]*>(.*?)</[^>]*\\b$escapedTag\\b[^>]*>',
       dotAll: true,
       caseSensitive: false,
     );
@@ -439,7 +466,7 @@ class WebDavClient implements WebDavClientInterface {
 
     // Also try self-closing tag — return empty string to signal presence
     final selfClosingRegex = RegExp(
-      '<[^>]*$tagName[^>]*/>',
+      '<[^>]*\\b$escapedTag\\b[^>]*/>',
       caseSensitive: false,
     );
     if (selfClosingRegex.hasMatch(xml)) return '';
