@@ -13,7 +13,10 @@ bool shouldSave(int positionMs) => positionMs >= 5000;
 /// Returns `true` when the position is past the "finished" threshold.
 ///
 /// A file is considered finished when its position exceeds
-/// `duration - 10 000` ms (10 seconds before the end).
+/// `duration - window`, where window = `clamp(ceil(duration * 10%), 1000, 10000)`
+/// (BUG-20: dynamic window — a fixed 10 s window aggressively cleared
+/// 10-15 s short files whose save threshold is only 5 s; long files
+/// (duration >= 100 000 ms) keep the original 10 s window).
 /// In this case the progress record should be cleared rather than saved
 /// (PRG-T04, PRG-T06).
 ///
