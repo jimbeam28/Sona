@@ -22,7 +22,13 @@ String? validateUrl(String? value) {
   if (value == null || value.trim().isEmpty) return '请输入服务器地址';
   final normalised = normaliseWebDavUrl(value.trim());
   final parsed = Uri.tryParse(normalised);
-  if (parsed != null && parsed.userInfo.isNotEmpty) {
+  // Dart's Uri parser rejects multi-`@` authorities outright (tryParse
+  // returns null — e.g. a password typed with a raw `@`), so userinfo is
+  // also detected via [redactUrlForLog]: if redaction changes the string,
+  // credentials are embedded (single-sourced on the same pattern the log
+  // redaction uses, 复核修正).
+  if ((parsed != null && parsed.userInfo.isNotEmpty) ||
+      redactUrlForLog(normalised) != normalised) {
     return '服务器地址不能包含账号密码（user:pass@），请在用户名和密码栏分别填写';
   }
   if (!isValidWebDavUrl(normalised)) {

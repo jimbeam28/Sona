@@ -81,6 +81,20 @@ void main() {
       expect(validateUrl('http://admin@nas.example.com'), isNotNull);
     });
 
+    test(
+        'password containing @ (multi-@ authority) is rejected with the '
+        'userinfo-specific message', () {
+      // Dart's Uri parser refuses multi-@ authorities outright (tryParse
+      // returns null), so the explicit userInfo check cannot see them — the
+      // validator must still reject with the credentials-specific message,
+      // not fall back to the generic "invalid URL" text (复核修正).
+      final error = validateUrl('http://admin:p@ss@nas.example.com');
+      expect(error, isNotNull);
+      expect(error, contains('用户名'), reason: '多 @ 变体也应提示把凭证填到用户名/密码栏');
+      expect(error, contains('密码'));
+      expect(error, isNot(contains('p@ss')), reason: '错误文案不得回显凭证');
+    });
+
     test('error message guides user to the username/password fields', () {
       final error = validateUrl('http://admin:secret@nas.example.com');
       expect(error, contains('用户名'));
@@ -122,6 +136,24 @@ void main() {
           equals('https://nas.example.com/music/a@b.mp3'));
     });
 
+    test('strips userinfo fully when the password itself contains @', () {
+      // Multi-@ authority: the strip must reach the LAST @ before the host.
+      // Pre-复核修正 the regex stopped at the first @ and leaked the
+      // password tail (`http://ss@nas.example.com…`).
+      final redacted =
+          redactUrlForLog('http://admin:p@ss@nas.example.com:5005/dav');
+      expect(redacted, equals('http://nas.example.com:5005/dav'));
+      expect(redacted, isNot(contains('ss@')), reason: '密码尾部不得残留在脱敏结果中');
+    });
+
+    test('multi-@ userinfo inside exception text is fully redacted', () {
+      const text = 'ClientException: uri=http://admin:p@ss@nas.example.com';
+      final redacted = redactUrlForLog(text);
+      expect(redacted, isNot(contains('ss@')), reason: '首 @ 截断会残留密码尾部 ss@');
+      expect(redacted, isNot(contains('admin')));
+      expect(redacted, contains('nas.example.com'));
+    });
+
     test('redacts userinfo embedded inside exception text', () {
       const text = 'ClientException: Connection failed, '
           'uri=http://admin:secret@nas.example.com:5005/dav';
@@ -153,6 +185,23 @@ void main() {
             reason: 'url 中的密码不得落 debugPrint/LogBuffer');
         expect(all, isNot(contains('form-password')), reason: '表单密码同样不得落日志');
         expect(all, contains('nas.example.com'), reason: 'host 仍应可见以便调试');
+      });
+    });
+
+    test('entry debugPrint fully redacts multi-@ userinfo (password with @)',
+        () async {
+      final client = WebDavClient(
+        httpClient: MockClient((request) async => http.Response('', 207)),
+      );
+      await captureDebugPrint((logs) async {
+        await client.validate(
+          url: 'http://admin:p@ss@nas.example.com',
+          username: 'admin',
+          password: 'x',
+        );
+        final all = logs.join('\n');
+        expect(all, isNot(contains('ss@')), reason: '密码尾部不得残留（首 @ 截断型脱敏不彻底）');
+        expect(all, isNot(contains('admin:p')));
       });
     });
 

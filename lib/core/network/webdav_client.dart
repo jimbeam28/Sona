@@ -75,10 +75,14 @@ bool isValidWebDavUrl(String url) {
 }
 
 /// Matches the `user:password@` userinfo segment between a URL scheme (`://`)
-/// and its host. Userinfo can never contain `/`, `?`, `#` or `@`, so an `@`
-/// appearing later (e.g. in a path like `/music/a@b.mp3`) is never mistaken
-/// for userinfo.
-final _urlUserInfoPattern = RegExp(r'(://)[^/?#@]+@');
+/// and its host. The authority ends at the first `/`, `?` or `#`, so an `@`
+/// appearing later (e.g. in a path like `/music/a@b.mp3` or a query string)
+/// is never mistaken for userinfo. The match is greedy up to the LAST `@`
+/// inside the authority: RFC 3986 userinfo cannot contain a literal `@`, but
+/// malformed input (e.g. a password typed with a raw `@`,
+/// `http://admin:p@ss@host`) must still be stripped completely — a
+/// first-`@` match would leak the password tail (复核修正).
+final _urlUserInfoPattern = RegExp(r'(://)[^/?#]*@');
 
 /// Returns [raw] with any embedded `…://user:password@` userinfo stripped,
 /// for safe use in log messages and error text (CON2/NET7).
