@@ -19,8 +19,13 @@ class LastConnectionException implements Exception {
 class ConnectionDao implements IConnectionDao {
   final DatabaseHelper _helper;
 
-  ConnectionDao({DatabaseHelper? helper})
-      : _helper = helper ?? DatabaseHelper.instance;
+  /// Injectable "now" provider (BUG-26-S4). Defaults to [DateTime.now] so
+  /// production behaviour is unchanged; tests may inject a fixed clock.
+  final DateTime Function() _clock;
+
+  ConnectionDao({DatabaseHelper? helper, DateTime Function()? clock})
+      : _helper = helper ?? DatabaseHelper.instance,
+        _clock = clock ?? DateTime.now;
 
   Future<Database> get _db async => _helper.database;
 
@@ -79,7 +84,7 @@ class ConnectionDao implements IConnectionDao {
       {required String passwordKey}) async {
     final db = await _db;
     final map = config.toMap(passwordKey: passwordKey);
-    map['updated_at'] = DateTime.now().millisecondsSinceEpoch;
+    map['updated_at'] = _clock().millisecondsSinceEpoch;
     return db
         .update('connections', map, where: 'id = ?', whereArgs: [config.id]);
   }
@@ -91,7 +96,7 @@ class ConnectionDao implements IConnectionDao {
       await txn.update('connections', {'is_active': 0});
       await txn.update(
         'connections',
-        {'is_active': 1, 'updated_at': DateTime.now().millisecondsSinceEpoch},
+        {'is_active': 1, 'updated_at': _clock().millisecondsSinceEpoch},
         where: 'id = ?',
         whereArgs: [id],
       );
@@ -128,7 +133,7 @@ class ConnectionDao implements IConnectionDao {
         await txn.delete('play_progress',
             where: 'connection_id = ?', whereArgs: [id]);
       } on DatabaseException catch (e) {
-        if (!e.toString().contains('no such table')) rethrow;
+        if (!e.isNoSuchTableError()) rethrow;
       }
 
       // Delete the connection row itself

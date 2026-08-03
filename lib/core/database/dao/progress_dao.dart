@@ -16,8 +16,13 @@ import '../../../features/progress/domain/progress_policy.dart'
 class ProgressDao implements IProgressDao {
   final DatabaseHelper _helper;
 
-  ProgressDao({DatabaseHelper? helper})
-      : _helper = helper ?? DatabaseHelper.instance;
+  /// Injectable "now" provider (BUG-26-S4). Defaults to [DateTime.now] so
+  /// production behaviour is unchanged; tests may inject a fixed clock.
+  final DateTime Function() _clock;
+
+  ProgressDao({DatabaseHelper? helper, DateTime Function()? clock})
+      : _helper = helper ?? DatabaseHelper.instance,
+        _clock = clock ?? DateTime.now;
 
   Future<Database> get _db async => _helper.database;
 
@@ -53,7 +58,7 @@ class ProgressDao implements IProgressDao {
     }
 
     final db = await _db;
-    final now = DateTime.now().millisecondsSinceEpoch;
+    final now = _clock().millisecondsSinceEpoch;
 
     await db.insert(
       'play_progress',

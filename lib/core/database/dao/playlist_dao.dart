@@ -9,8 +9,13 @@ import '../../../shared/models/playlist.dart';
 class PlaylistDao implements IPlaylistDao {
   final DatabaseHelper _helper;
 
-  PlaylistDao({DatabaseHelper? helper})
-      : _helper = helper ?? DatabaseHelper.instance;
+  /// Injectable "now" provider (BUG-26-S4). Defaults to [DateTime.now] so
+  /// production behaviour is unchanged; tests may inject a fixed clock.
+  final DateTime Function() _clock;
+
+  PlaylistDao({DatabaseHelper? helper, DateTime Function()? clock})
+      : _helper = helper ?? DatabaseHelper.instance,
+        _clock = clock ?? DateTime.now;
 
   Future<Database> get _db async => _helper.database;
 
@@ -38,7 +43,7 @@ class PlaylistDao implements IPlaylistDao {
   Future<void> updatePlaylist(Playlist playlist) async {
     final db = await _db;
     final map = playlist.toMap();
-    map['updated_at'] = DateTime.now().millisecondsSinceEpoch;
+    map['updated_at'] = _clock().millisecondsSinceEpoch;
     await db
         .update('playlists', map, where: 'id = ?', whereArgs: [playlist.id]);
   }
@@ -112,7 +117,7 @@ class PlaylistDao implements IPlaylistDao {
     moved.removeAt(oldIndex);
     moved.insert(newIndex, tracks[oldIndex]);
 
-    final base = DateTime.now().millisecondsSinceEpoch;
+    final base = _clock().millisecondsSinceEpoch;
     final batch = db.batch();
     for (int i = 0; i < moved.length; i++) {
       batch.update(
