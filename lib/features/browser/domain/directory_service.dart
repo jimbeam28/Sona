@@ -71,6 +71,10 @@ class DirectoryService {
   final ISecurePasswordReader _storage;
   final CachePolicy<List<NasFile>> _cachePolicy;
 
+  /// Clock used for TTL checks (BUG-31-S2: injectable for deterministic
+  /// tests; defaults to [DateTime.now] so production behaviour is unchanged).
+  final DateTime Function() _clock;
+
   /// In-memory cache keyed by `connectionId:path`.
   final Map<String, CacheEntry<List<NasFile>>> _cache = {};
 
@@ -78,9 +82,11 @@ class DirectoryService {
     required WebDavClientInterface client,
     required ISecurePasswordReader storage,
     CachePolicy<List<NasFile>>? cachePolicy,
+    DateTime Function()? clock,
   })  : _client = client,
         _storage = storage,
-        _cachePolicy = cachePolicy ?? const CachePolicy<List<NasFile>>();
+        _cachePolicy = cachePolicy ?? const CachePolicy<List<NasFile>>(),
+        _clock = clock ?? DateTime.now;
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
@@ -100,7 +106,7 @@ class DirectoryService {
     required SortOption sortOption,
   }) async {
     final cacheKey = '$connectionId:$path';
-    final now = DateTime.now();
+    final now = _clock();
 
     // 1. Check cache
     final cachedEntry = _cache[cacheKey];
@@ -168,7 +174,7 @@ class DirectoryService {
     final cacheKey = '$connectionId:$path';
     final entry = _cache[cacheKey];
     if (entry == null) return null;
-    if (!_cachePolicy.isAlive(entry, DateTime.now())) return null;
+    if (!_cachePolicy.isAlive(entry, _clock())) return null;
     return sortFiles(entry.value, sortOption);
   }
 

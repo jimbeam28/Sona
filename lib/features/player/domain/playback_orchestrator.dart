@@ -224,8 +224,10 @@ class PlaybackOrchestrator {
               }
             });
             try {
+              // BUG-18: timeout must not be shorter than the original 12s
+              // polling window (spec BUG-18-S1/INV2 fixes it at 30s).
               playStarted = await completer.future
-                  .timeout(const Duration(seconds: 15), onTimeout: () => false);
+                  .timeout(const Duration(seconds: 30), onTimeout: () => false);
             } finally {
               sub.cancel();
             }

@@ -7,8 +7,8 @@
 //   AUD-02-T03: cache 49 entries -> no eviction
 //   AUD-02-T04: cache 50 entries -> no eviction
 //   AUD-02-T05: cache 51 entries -> evicts 1
-//   AUD-02-T06: play() polling 11.8s success -> loaded
-//   AUD-02-T07: play() polling 12.0s not started -> failed
+//   AUD-02-T06: play() stream wait 11.6s success -> loaded
+//   AUD-02-T07: play() stream wait never started -> gate 20s timeout + inner 30s stop
 //   AUD-02-T08: screen timeout 14.9s complete -> loaded
 //   AUD-02-T09: screen timeout 15.0s -> TimeoutException
 //   AUD-02-T10: startDuration(0) -> immediately expired
@@ -141,11 +141,11 @@ void main() {
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // AUD-02-T06: play() polling 11.8s success -> loaded
-  // AUD-02-T07: play() polling 12.0s not started -> failed
+  // AUD-02-T06: play() stream wait 11.6s success -> loaded
+  // AUD-02-T07: play() stream wait 30s not started -> failed
   //
-  // The polling loop in PlaybackOrchestrator.loadAndPlay() checks
-  // player.playing 60 times at 200ms intervals (12s total).
+  // PlaybackOrchestrator.loadAndPlay() waits on player.playerStateStream
+  // until playing==true (BUG-18), with a 30s timeout fallback.
   // ═══════════════════════════════════════════════════════════════════════════
 
   group('AUD-02-T06: play() stream wait 11.8s success -> loaded', () {
@@ -199,8 +199,8 @@ void main() {
     });
   });
 
-  group('AUD-02-T07: play() stream wait 30s not started -> failed', () {
-    test('player never emits playing in 30s -> failed', () {
+  group('AUD-02-T07: play() stream wait never started -> timeouts fire', () {
+    test('player never emits playing -> gate 20s timeout, inner 30s stop', () {
       FakeAsync().run((async) {
         final player = _LenientMockPlayer();
         final connectionProvider = _MockActiveConnectionProvider();
@@ -233,16 +233,28 @@ void main() {
         ];
         orchestrator.queue = PlayQueue(files: files, currentIndex: 0);
 
-        var result = TrackLoadStatus.loaded;
-        orchestrator.loadAndPlay().then((r) {
-          result = r.status;
-        });
+        TrackLoadStatus? result;
+        Object? error;
+        orchestrator.loadAndPlay().then<void>(
+          (r) {
+            result = r.status;
+          },
+          onError: (Object e) {
+            error = e;
+          },
+        );
 
-        // Advance past the 15-second stream wait timeout.
-        async.elapse(const Duration(seconds: 16));
+        // Timeout layering: the BUG-05 SerializedRequestGate task timeout
+        // (20s) fires before the BUG-18 inner 30s stream-wait timeout, so
+        // the caller-visible outcome is the gate's TimeoutException.
+        async.elapse(const Duration(seconds: 21));
+        expect(result, isNull, reason: '任务不得在超时前产生结果');
+        expect(error, isA<TimeoutException>(),
+            reason: 'BUG-05 gate 20s 任务超时先于内层 30s 兜底结束请求');
 
-        expect(result, equals(TrackLoadStatus.failed),
-            reason: 'play() never starting within 15s should yield failed');
+        // Past 30s the inner stream wait times out and the abandoned task
+        // still stops the player (BUG-18-S1 stop semantics).
+        async.elapse(const Duration(seconds: 10));
         verify(player.stop()).called(1);
       });
     });

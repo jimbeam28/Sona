@@ -66,7 +66,7 @@ class NasAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   StreamSubscription<Duration>? _positionSub;
   StreamSubscription<Duration?>? _durationSub;
   StreamSubscription<AudioInterruptionEvent>? _interruptionSub;
-  StreamSubscription<dynamic>? _becomingNoisySub;
+  StreamSubscription<void>? _becomingNoisySub;
 
   NasAudioHandler(this._player) {
     _stateSub = _player.playerStateStream.listen(_onPlayerStateChanged);
@@ -79,10 +79,18 @@ class NasAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     try {
       final session = await AudioSession.instance;
       _interruptionSub = session.interruptionEventStream.listen((event) {
+        // BUG-22 (spec §3.1): pause/duck are transient interruptions —
+        // playback resumes when the interruption ends (audio_session emits
+        // the matching end event with the same type, and just_audio's
+        // default interruption handling performs the actual pause/resume).
+        // Mapping them to `lost` would treat the post-call focus regain
+        // (AudioInterruptionEvent(begin:false, type:pause)) as a permanent
+        // loss and pause again, breaking resume-after-call.  Only `unknown`
+        // is a permanent loss.
         switch (event.type) {
+          case AudioInterruptionType.pause:
           case AudioInterruptionType.duck:
             onAudioFocusChange(AudioFocusState.transient);
-          case AudioInterruptionType.pause:
           case AudioInterruptionType.unknown:
             onAudioFocusChange(AudioFocusState.lost);
         }

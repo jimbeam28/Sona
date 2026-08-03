@@ -13,6 +13,10 @@ dependencies:
     sdk: flutter
   just_audio: ^0.9.40
   audio_service: ^0.18.15
+  # BUG-22: imported by lib/core/services/audio_handler.dart for the audio
+  # focus streams (interruptionEventStream / becomingNoisyEventStream) —
+  # must be a main dependency (was misplaced under dev_dependencies).
+  audio_session: any
   webdav_client: ^1.2.0
   sqflite: ^2.3.3
   path: ^1.9.0
@@ -34,8 +38,6 @@ dev_dependencies:
   build_runner: ^2.4.11
   flutter_lints: ^3.0.0
   flutter_launcher_icons: ^0.13.1
-
-  audio_session: any
 
 flutter_launcher_icons:
   android: true

@@ -32,6 +32,13 @@ final sortOptionProvider =
 final directoryCacheProvider =
     StateProvider<Map<String, CacheEntry<List<NasFile>>>>((ref) => {});
 
+/// Clock used for directory-cache TTL checks (BUG-31-S3).
+///
+/// Production uses [DateTime.now]; tests override this provider with a
+/// fixed/mutable clock to verify TTL expiry deterministically (P16).
+final browserClockProvider =
+    Provider<DateTime Function()>((ref) => DateTime.now);
+
 final clearDirectoryCacheProvider = Provider<int Function(String? path)>((ref) {
   return (String? path) {
     if (path == null) {
@@ -67,12 +74,13 @@ final directoryContentsProvider =
   final conn = await ref.watch(activeConnectionProvider.future);
   if (conn == null) throw const WebDavException('没有活跃的连接');
   final cacheKey = '${conn.id}:$path';
+  final clock = ref.read(browserClockProvider);
   final cached = ref.read(directoryCacheProvider)[cacheKey];
   if (cached != null &&
-      const CachePolicy<List<NasFile>>().isAlive(cached, DateTime.now())) {
+      const CachePolicy<List<NasFile>>().isAlive(cached, clock())) {
     ref.read(directoryCacheProvider.notifier).update((s) {
       final u = Map<String, CacheEntry<List<NasFile>>>.from(s);
-      u[cacheKey] = cached.accessedAt(DateTime.now());
+      u[cacheKey] = cached.accessedAt(clock());
       return u;
     });
     return sortFiles(cached.value, sortOption);
@@ -103,7 +111,7 @@ final directoryContentsProvider =
   final sorted = sortFiles(filtered, sortOption);
   ref.read(directoryCacheProvider.notifier).update((s) =>
       const CachePolicy<List<NasFile>>().put(s, cacheKey,
-          CacheEntry<List<NasFile>>(value: sorted, createdAt: DateTime.now())));
+          CacheEntry<List<NasFile>>(value: sorted, createdAt: clock())));
   return sorted;
 });
 
