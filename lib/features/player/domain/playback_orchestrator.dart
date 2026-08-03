@@ -21,6 +21,7 @@
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../../../core/services/audio_source_builder.dart';
@@ -384,12 +385,18 @@ class PlaybackOrchestrator {
 
     unawaited(progressSaver
         .upsertProgress(
-          connectionId: connId,
-          filePath: q.current.path,
-          positionMs: player.position.inMilliseconds,
-          durationMs: player.duration?.inMilliseconds,
-        )
-        .catchError((_) {}));
+      connectionId: connId,
+      filePath: q.current.path,
+      positionMs: player.position.inMilliseconds,
+      durationMs: player.duration?.inMilliseconds,
+    )
+        .catchError((Object e) {
+      // BUG-19: DB lock / disk full / disposed — log and swallow. The save
+      // is fire-and-forget, so the error must never surface as an unhandled
+      // async error, but it must not vanish silently either (observability
+      // via log — never swallow without logging).
+      debugPrint('[Player] saveProgress failed: $e');
+    }));
   }
 
   // ── Processing listener (track completion) ──────────────────────────────
