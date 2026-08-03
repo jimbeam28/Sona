@@ -150,12 +150,13 @@ class PlaylistService {
       throw const FormatException('Expected JSON object');
     }
     final data = decoded;
-    final name = (data['name'] as String?) ?? '导入的播放单';
+    // BUG-25-S1: `is` checks instead of `as` casts — structurally wrong but
+    // valid JSON (non-string name / filePath / fileName, non-array tracks,
+    // non-map track elements) must never surface as TypeError /
+    // NoSuchMethodError (BUG-25-INV1).
+    final name = data['name'] is String ? data['name'] as String : '导入的播放单';
     final rawTracks = data['tracks'];
-    if (rawTracks != null && rawTracks is! List) {
-      throw const FormatException('tracks must be an array');
-    }
-    final trackList = (rawTracks as List<dynamic>?) ?? [];
+    final trackList = rawTracks is List ? rawTracks : <dynamic>[];
 
     final now = DateTime.now();
 
@@ -163,12 +164,12 @@ class PlaylistService {
     final tracks = <PlaylistTrack>[];
     for (final t in trackList) {
       if (t is! Map<String, dynamic>) continue;
-      final fp = t['filePath'] as String? ?? '';
+      final fp = t['filePath'] is String ? t['filePath'] as String : '';
       if (fp.isEmpty || !seen.add(fp)) continue;
       tracks.add(PlaylistTrack(
         playlistId: 0,
         filePath: fp,
-        fileName: t['fileName'] as String? ?? '',
+        fileName: t['fileName'] is String ? t['fileName'] as String : '',
         addedAt: now.add(Duration(milliseconds: tracks.length)),
       ));
     }

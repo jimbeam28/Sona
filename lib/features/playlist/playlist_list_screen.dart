@@ -70,7 +70,22 @@ class PlaylistListScreen extends ConsumerWidget {
                           );
                           if (confirmed == true) {
                             final del = ref.read(deletePlaylistProvider);
-                            del(playlist.id!);
+                            try {
+                              await del(playlist.id!);
+                            } catch (e) {
+                              // BUG-25-S3: a DB failure must not vanish
+                              // silently — log it and show an error SnackBar.
+                              debugPrint('[Playlist] delete failed: $e');
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('删除失败：$e'),
+                                    backgroundColor:
+                                        Theme.of(context).colorScheme.error,
+                                  ),
+                                );
+                              }
+                            }
                           }
                         },
                         backgroundColor: Colors.red,
@@ -102,33 +117,61 @@ class PlaylistListScreen extends ConsumerWidget {
   }
 
   void _showCreateDialog(BuildContext context, WidgetRef ref) {
-    final controller = TextEditingController();
-    showDialog(
+    // BUG-25-S5: the dialog content is a ConsumerStatefulWidget that owns its
+    // TextEditingController — disposing the controller from a `.then` on the
+    // showDialog future would race the dialog's exit animation (the content is
+    // still mounted and listening while the route animates out).
+    showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('新建播放单'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(hintText: '播放单名称'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () {
-              final name = controller.text.trim();
-              if (name.isEmpty) return;
-              final create = ref.read(createPlaylistProvider);
-              create(name);
-              Navigator.of(ctx).pop();
-            },
-            child: const Text('创建'),
-          ),
-        ],
+      builder: (_) => const _CreatePlaylistDialog(),
+    );
+  }
+}
+
+/// BUG-25-S5: create-dialog content as a ConsumerStatefulWidget so the
+/// dialog-local [TextEditingController] is disposed together with the dialog
+/// element (no leak on repeated open/close — LIST8).
+class _CreatePlaylistDialog extends ConsumerStatefulWidget {
+  const _CreatePlaylistDialog();
+
+  @override
+  ConsumerState<_CreatePlaylistDialog> createState() =>
+      _CreatePlaylistDialogState();
+}
+
+class _CreatePlaylistDialogState extends ConsumerState<_CreatePlaylistDialog> {
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('新建播放单'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        decoration: const InputDecoration(hintText: '播放单名称'),
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        TextButton(
+          onPressed: () {
+            final name = _controller.text.trim();
+            if (name.isEmpty) return;
+            ref.read(createPlaylistProvider)(name);
+            Navigator.of(context).pop();
+          },
+          child: const Text('创建'),
+        ),
+      ],
     );
   }
 }

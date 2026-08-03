@@ -70,6 +70,12 @@ class ConnectionService {
   ///
   /// If [password] is non-null and non-empty, it is written to secure storage;
   /// otherwise the existing stored password is left untouched.
+  ///
+  /// BUG-24-S2: mirrors [save]'s atomicity strategy — when the password is
+  /// rotated, the previous password is read first and restored if the DAO
+  /// update fails after the storage write succeeded. Without the rollback the
+  /// new password would already be effective while the DB still referenced the
+  /// old config, leaving the connection permanently broken (401).
   Future<void> update({
     required ConnectionConfig config,
     String? password,
@@ -77,10 +83,25 @@ class ConnectionService {
     final permanentKey = 'connection_password_${config.id}';
 
     if (password != null && password.isNotEmpty) {
+      String? oldPassword;
+      try {
+        oldPassword = await safeStorageRead(_storage, key: permanentKey);
+      } catch (_) {
+        // Read failure (e.g. timeout) degrades to null: the rollback below
+        // then clears the key. Losing the password is acceptable here since
+        // the DAO update also failed and the user must retry anyway.
+        oldPassword = null;
+      }
       await safeStorageWrite(_storage, key: permanentKey, value: password);
+      try {
+        await _dao.update(config, passwordKey: permanentKey);
+      } catch (_) {
+        await safeStorageWrite(_storage, key: permanentKey, value: oldPassword);
+        rethrow;
+      }
+    } else {
+      await _dao.update(config, passwordKey: permanentKey);
     }
-
-    await _dao.update(config, passwordKey: permanentKey);
   }
 
   // ── Delete ────────────────────────────────────────────────────────────────

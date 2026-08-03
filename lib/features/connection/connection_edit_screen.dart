@@ -15,6 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/network/webdav_client.dart';
+import '../../core/services/storage_utils.dart';
 import '../../shared/models/connection_config.dart';
 import 'connection_provider.dart';
 import 'domain/edit_screen_logic.dart' as logic;
@@ -46,13 +47,18 @@ class _ConnectionEditScreenState extends ConsumerState<ConnectionEditScreen> {
   }
 
   void _captureOriginalIfNeeded() {
-    if (_originalConfig != null) return;
+    if (!mounted || _originalConfig != null) return;
     final connections = ref.read(connectionListProvider).valueOrNull;
     if (connections == null) return;
     final match =
         connections.where((c) => c.id == widget.connectionId).firstOrNull;
     if (match != null) {
-      _originalConfig = match;
+      // BUG-24-S1: setState is load-bearing — the save button's enabled state
+      // derives from _originalConfig via _needsRevalidation; the first build
+      // always runs before this postFrame capture, so without a rebuild the
+      // button would stay frozen at the first-frame value (original == null →
+      // gate closed) and a display-name-only change (S10) could never save.
+      setState(() => _originalConfig = match);
     }
   }
 
@@ -229,11 +235,34 @@ class _ConnectionEditScreenState extends ConsumerState<ConnectionEditScreen> {
   Future<void> _onTestConnection() async {
     if (!_formController.validate()) return;
 
+    // BUG-24-S4: an empty password field means "keep the stored password"
+    // (same semantics as _onSave, which passes null to preserve it). Read the
+    // stored password back so the probe does not go out with an empty password
+    // — pre-fix the test request used '' while save used the stored value, a
+    // self-contradiction that produced a spurious 401 when only the URL changed.
+    var password = _formController.password;
+    if (password.isEmpty) {
+      String? storedPassword;
+      try {
+        storedPassword = await safeStorageRead(
+          ref.read(secureStorageProvider),
+          key: 'connection_password_${widget.connectionId}',
+        );
+      } on SecureStorageTimeoutException {
+        // BUG-32 semantics: a read timeout now throws instead of returning
+        // null. BUG-24-S4 explicitly adjudicated timeout → degrade to empty
+        // password (a likely-401 surfaces the inconsistency to the user).
+        storedPassword = null;
+      }
+      password = storedPassword ?? '';
+      if (!mounted) return;
+    }
+
     final validator = ref.read(connectionValidatorProvider.notifier);
     await validator.validate(
       url: _formController.url,
       username: _formController.username,
-      password: _formController.password,
+      password: password,
       basePath: _formController.basePath,
     );
   }
@@ -274,20 +303,33 @@ class _ConnectionEditScreenState extends ConsumerState<ConnectionEditScreen> {
       // Normalise URL before saving
       final normalisedUrl = normaliseWebDavUrl(_formController.url);
 
-      final config = _originalConfig?.copyWith(
+      // BUG-24-S1: _originalConfig is captured best-effort on the first frame;
+      // if that failed (list not yet resolved) look the connection up by id in
+      // the current list instead of force-unwrapping (pre-fix crash path).
+      final original = _originalConfig ??
+          ref
+              .read(connectionListProvider)
+              .valueOrNull
+              ?.where((c) => c.id == widget.connectionId)
+              .firstOrNull;
+      if (original == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('无法获取连接信息，请重试'),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+          );
+        }
+        return;
+      }
+
+      final config = original.copyWith(
         name: effectiveName,
         url: normalisedUrl,
         username: _formController.username,
         basePath: _formController.basePath,
       );
-      if (config == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('无法获取连接配置，请返回重试')),
-          );
-        }
-        return;
-      }
 
       await updater.update(
         config: config,

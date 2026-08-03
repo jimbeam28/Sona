@@ -99,6 +99,20 @@ class _AddTracksBrowserSheetState
                                 (widget.playlistId, files)
                                 .then((_) {
                               if (mounted) Navigator.of(context).pop();
+                            }).catchError((Object e) {
+                              // BUG-25-S3: a DB failure must neither surface as
+                              // an unhandled Future rejection nor vanish
+                              // silently — log it and show an error SnackBar.
+                              debugPrint('[Playlist] addTracks failed: $e');
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('添加失败：$e'),
+                                    backgroundColor:
+                                        Theme.of(context).colorScheme.error,
+                                  ),
+                                );
+                              }
                             });
                           },
                     child: Text('确认 (${_selectedPaths.length})'),

@@ -48,7 +48,10 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
       try {
         final progress = await ref.read(progressForFileProvider(
             (connectionId: conn.id!, filePath: filePath)).future);
-        if (!context.mounted) return;
+        // BUG-25-S4: State-level `mounted`, NOT `context.mounted` — the
+        // `context` getter itself throws once the State is defunct, so a
+        // context-based check cannot guard the very case it exists for.
+        if (!mounted) return;
         if (progress != null && progress.positionMs >= 5000) {
           final resume = await showProgressResumeDialog(
             context,
@@ -69,7 +72,8 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
       }
     }
 
-    if (!context.mounted) return;
+    // BUG-25-S4: same rationale as above — `mounted`, not `context.mounted`.
+    if (!mounted) return;
 
     final nasFiles = tracks.map((t) => t.toNasFile()).toList();
     final queue = PlayQueue(
@@ -246,30 +250,13 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
   }
 
   Future<void> _showRenameDialog(int playlistId, String currentName) async {
-    final controller = TextEditingController(text: currentName);
+    // BUG-25-S5: the dialog content is a StatefulWidget that owns its
+    // TextEditingController — disposing the controller here after
+    // `await showDialog` would race the dialog's exit animation (the content
+    // is still mounted and listening while the route animates out).
     final newName = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('重命名播放单'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: '名称',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
-            child: const Text('保存'),
-          ),
-        ],
-      ),
+      builder: (_) => _RenamePlaylistDialog(initialText: currentName),
     );
 
     if (newName != null && newName.isNotEmpty && newName != currentName) {
@@ -367,6 +354,54 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
           Text(title),
         ],
       ),
+    );
+  }
+}
+
+/// BUG-25-S5: rename-dialog content as a StatefulWidget so the dialog-local
+/// [TextEditingController] is disposed together with the dialog element
+/// (no leak on repeated open/close — LIST8).
+class _RenamePlaylistDialog extends StatefulWidget {
+  final String initialText;
+
+  const _RenamePlaylistDialog({required this.initialText});
+
+  @override
+  State<_RenamePlaylistDialog> createState() => _RenamePlaylistDialogState();
+}
+
+class _RenamePlaylistDialogState extends State<_RenamePlaylistDialog> {
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.initialText);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('重命名播放单'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        decoration: const InputDecoration(
+          labelText: '名称',
+          border: OutlineInputBorder(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_controller.text.trim()),
+          child: const Text('保存'),
+        ),
+      ],
     );
   }
 }
