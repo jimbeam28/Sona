@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-07-27",
+    "last_updated": "2026-08-04",
     "total": 20,
     "pending": 20,
     "total_items": 49
@@ -94,8 +94,8 @@
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/BUG-04.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -103,7 +103,7 @@
       "dependencies": [],
       "retry_count": 0,
       "last_error": "",
-      "last_updated": "2026-07-27"
+      "last_updated": "2026-08-05"
     },
     "BUG-05": {
       "name": "通知/锁屏 play() 缺 completed 态 seek(0) 恢复",
@@ -120,7 +120,9 @@
         "BUG-05-INV1"
       ],
       "algorithms": [],
-      "test_files": [],
+      "test_files": [
+        "test/features/player/bug_05_handler_play_test.dart"
+      ],
       "test_coverage_gaps": [
         "BUG-05-S1"
       ],
@@ -128,8 +130,8 @@
       "manual_qa_required": true,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/BUG-05.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -137,7 +139,7 @@
       "dependencies": [],
       "retry_count": 0,
       "last_error": "",
-      "last_updated": "2026-07-27"
+      "last_updated": "2026-08-05"
     },
     "BUG-06": {
       "name": "\"下一曲\"图标启用态不响应播放状态",
@@ -154,7 +156,9 @@
         "BUG-06-INV1"
       ],
       "algorithms": [],
-      "test_files": [],
+      "test_files": [
+        "test/features/browser/bug_06_playing_stream_test.dart"
+      ],
       "test_coverage_gaps": [
         "BUG-06-S1",
         "BUG-06-S2"
@@ -165,8 +169,8 @@
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/BUG-06.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -174,7 +178,7 @@
       "dependencies": [],
       "retry_count": 0,
       "last_error": "",
-      "last_updated": "2026-07-27"
+      "last_updated": "2026-08-05"
     },
     "BUG-07": {
       "name": "AppBar 排序菜单不随 Tab 切换刷新",
@@ -189,7 +193,9 @@
         "BUG-07-INV1"
       ],
       "algorithms": [],
-      "test_files": [],
+      "test_files": [
+        "test/features/home/bug_07_tab_sort_test.dart"
+      ],
       "test_coverage_gaps": [
         "BUG-07-S1"
       ],
@@ -197,8 +203,8 @@
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/BUG-07.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -206,7 +212,7 @@
       "dependencies": [],
       "retry_count": 0,
       "last_error": "",
-      "last_updated": "2026-07-27"
+      "last_updated": "2026-08-05"
     },
     "BUG-08": {
       "name": "播放单批添加 ≥40 曲目显示乱序 + 拖拽移错",
@@ -224,7 +230,9 @@
         "BUG-08-INV1"
       ],
       "algorithms": [],
-      "test_files": [],
+      "test_files": [
+        "test/features/playlist/bug_08_sort_timestamp_test.dart"
+      ],
       "test_coverage_gaps": [
         "BUG-08-S1",
         "BUG-08-S2"
@@ -233,8 +241,8 @@
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/BUG-08.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -242,7 +250,7 @@
       "dependencies": [],
       "retry_count": 0,
       "last_error": "",
-      "last_updated": "2026-07-27"
+      "last_updated": "2026-08-05"
     },
     "BUG-09": {
       "name": "添加曲目弹窗跨目录全选判定错误",
@@ -257,7 +265,9 @@
         "BUG-09-INV1"
       ],
       "algorithms": [],
-      "test_files": [],
+      "test_files": [
+        "test/features/playlist/bug_09_test.dart"
+      ],
       "test_coverage_gaps": [
         "BUG-09-S1"
       ],
@@ -265,8 +275,8 @@
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/BUG-09.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -274,7 +284,7 @@
       "dependencies": [],
       "retry_count": 0,
       "last_error": "",
-      "last_updated": "2026-07-27"
+      "last_updated": "2026-08-05"
     },
     "BUG-10": {
       "name": "删除活跃连接后不复位导航栈",
@@ -300,8 +310,8 @@
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/BUG-10.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -309,7 +319,7 @@
       "dependencies": [],
       "retry_count": 0,
       "last_error": "",
-      "last_updated": "2026-07-27"
+      "last_updated": "2026-08-05"
     },
     "BUG-11": {
       "name": "WebDAV XML 解析不做实体反转义",
@@ -324,7 +334,9 @@
         "BUG-11-INV1"
       ],
       "algorithms": [],
-      "test_files": [],
+      "test_files": [
+        "test/features/browser/bug_11_test.dart"
+      ],
       "test_coverage_gaps": [
         "BUG-11-S1"
       ],
@@ -334,8 +346,8 @@
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/BUG-11.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -343,7 +355,7 @@
       "dependencies": [],
       "retry_count": 0,
       "last_error": "",
-      "last_updated": "2026-07-27"
+      "last_updated": "2026-08-05"
     },
     "BUG-12": {
       "name": "normaliseWebDavUrl 无 try/catch",
@@ -359,7 +371,9 @@
         "BUG-12-INV1"
       ],
       "algorithms": [],
-      "test_files": [],
+      "test_files": [
+        "test/features/browser/bug_12_test.dart"
+      ],
       "test_coverage_gaps": [
         "BUG-12-S1"
       ],
@@ -369,8 +383,8 @@
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/BUG-12.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -378,7 +392,7 @@
       "dependencies": [],
       "retry_count": 0,
       "last_error": "",
-      "last_updated": "2026-07-27"
+      "last_updated": "2026-08-05"
     },
     "BUG-13": {
       "name": "\"从头播放\"不删进度记录",
@@ -395,7 +409,9 @@
         "BUG-13-INV1"
       ],
       "algorithms": [],
-      "test_files": [],
+      "test_files": [
+        "test/features/progress/bug_13_repro_test.dart"
+      ],
       "test_coverage_gaps": [
         "BUG-13-S1"
       ],
@@ -403,8 +419,8 @@
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/BUG-13.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -412,7 +428,7 @@
       "dependencies": [],
       "retry_count": 0,
       "last_error": "",
-      "last_updated": "2026-07-27"
+      "last_updated": "2026-08-05"
     },
     "BUG-14": {
       "name": "PlayQueue shuffle 状态只写不读",
@@ -430,7 +446,9 @@
         "BUG-14-INV2"
       ],
       "algorithms": [],
-      "test_files": [],
+      "test_files": [
+        "test/features/browser/bug_14_repro_test.dart"
+      ],
       "test_coverage_gaps": [
         "BUG-14-S1",
         "BUG-14-S2"
@@ -441,8 +459,8 @@
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/BUG-14.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -450,7 +468,7 @@
       "dependencies": [],
       "retry_count": 0,
       "last_error": "",
-      "last_updated": "2026-07-27"
+      "last_updated": "2026-08-05"
     },
     "BUG-15": {
       "name": "音频识别基于 displayname 而非 href",
@@ -466,7 +484,9 @@
         "BUG-15-INV1"
       ],
       "algorithms": [],
-      "test_files": [],
+      "test_files": [
+        "test/features/browser/bug_15_repro_test.dart"
+      ],
       "test_coverage_gaps": [
         "BUG-15-S1"
       ],
@@ -476,8 +496,8 @@
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/BUG-15.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -485,7 +505,7 @@
       "dependencies": [],
       "retry_count": 0,
       "last_error": "",
-      "last_updated": "2026-07-27"
+      "last_updated": "2026-08-05"
     },
     "BUG-16": {
       "name": "FK PRAGMA 只在 onCreate 置位",
@@ -504,7 +524,9 @@
         "BUG-16-INV2"
       ],
       "algorithms": [],
-      "test_files": [],
+      "test_files": [
+        "test/features/connection/bug_16_repro_test.dart"
+      ],
       "test_coverage_gaps": [
         "BUG-16-S1",
         "BUG-16-S2"
@@ -515,8 +537,8 @@
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/BUG-16.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -524,7 +546,7 @@
       "dependencies": [],
       "retry_count": 0,
       "last_error": "",
-      "last_updated": "2026-07-27"
+      "last_updated": "2026-08-05"
     },
     "BUG-17": {
       "name": "seek/setSpeed 无超时保护",
@@ -540,7 +562,9 @@
         "BUG-17-INV1"
       ],
       "algorithms": [],
-      "test_files": [],
+      "test_files": [
+        "test/features/player/bug_17_repro_test.dart"
+      ],
       "test_coverage_gaps": [
         "BUG-17-S1",
         "BUG-17-S2"
@@ -549,8 +573,8 @@
       "manual_qa_required": true,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/BUG-17.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -558,7 +582,7 @@
       "dependencies": [],
       "retry_count": 0,
       "last_error": "",
-      "last_updated": "2026-07-27"
+      "last_updated": "2026-08-05"
     },
     "BUG-29": {
       "name": "定时器显示一致性（TMR1+TMR3）",
@@ -591,8 +615,8 @@
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/BUG-29.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -600,7 +624,7 @@
       "dependencies": [],
       "retry_count": 0,
       "last_error": "",
-      "last_updated": "2026-07-27"
+      "last_updated": "2026-08-05"
     },
     "BUG-30": {
       "name": "NasFile ==/hashCode 漏 modifiedAt（MDL3）",
@@ -632,8 +656,8 @@
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/BUG-30.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -641,7 +665,7 @@
       "dependencies": [],
       "retry_count": 0,
       "last_error": "",
-      "last_updated": "2026-07-27"
+      "last_updated": "2026-08-05"
     },
     "BUG-31": {
       "name": "浏览器 UI 与可测性（BRW5+BRW8）",
@@ -677,8 +701,8 @@
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/BUG-31.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -686,7 +710,7 @@
       "dependencies": [],
       "retry_count": 0,
       "last_error": "",
-      "last_updated": "2026-07-27"
+      "last_updated": "2026-08-05"
     },
     "BUG-32": {
       "name": "服务层健壮性（SVC4+SVC5）",
@@ -723,8 +747,8 @@
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/BUG-32.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -732,7 +756,7 @@
       "dependencies": [],
       "retry_count": 0,
       "last_error": "",
-      "last_updated": "2026-07-27"
+      "last_updated": "2026-08-05"
     },
     "BUG-27": {
       "name": "播放器健壮性（PLY4+PLY5）",
@@ -750,7 +774,9 @@
         "BUG-27-INV3"
       ],
       "algorithms": [],
-      "test_files": [],
+      "test_files": [
+        "test/features/player/bug_bug27_repro_test.dart"
+      ],
       "test_coverage_gaps": [
         "BUG-27-S1",
         "BUG-27-S2",
@@ -764,8 +790,8 @@
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/BUG-27.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -773,7 +799,7 @@
       "dependencies": [],
       "retry_count": 0,
       "last_error": "",
-      "last_updated": "2026-07-27"
+      "last_updated": "2026-08-05"
     },
     "BUG-28": {
       "name": "setSeekStepSettingProvider 忽略校验返回值（SET1）",
@@ -789,7 +815,9 @@
         "BUG-28-INV2"
       ],
       "algorithms": [],
-      "test_files": [],
+      "test_files": [
+        "test/features/settings/bug_bug28_repro_test.dart"
+      ],
       "test_coverage_gaps": [
         "BUG-28-S1",
         "BUG-28-INV1",
@@ -802,8 +830,8 @@
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/BUG-28.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -811,7 +839,7 @@
       "dependencies": [],
       "retry_count": 0,
       "last_error": "",
-      "last_updated": "2026-07-27"
+      "last_updated": "2026-08-05"
     },
     "BUG-18": {
       "id": "BUG-18",
@@ -832,6 +860,12 @@
       "test_coverage_gaps": [],
       "cross_module_impacts": [
         "PLY"
+      ],
+      "impl_status": "done",
+      "test_status": "passed",
+      "last_updated": "2026-08-05",
+      "test_files": [
+        "test/features/player/bug_18_stream_wait_test.dart"
       ]
     },
     "BUG-19": {
@@ -853,6 +887,12 @@
       "cross_module_impacts": [
         "PLY",
         "PRG"
+      ],
+      "impl_status": "done",
+      "test_status": "passed",
+      "last_updated": "2026-08-05",
+      "test_files": [
+        "test/features/player/bug_bug19_repro_test.dart"
       ]
     },
     "BUG-20": {
@@ -876,6 +916,12 @@
       "test_coverage_gaps": [],
       "cross_module_impacts": [
         "PRG"
+      ],
+      "impl_status": "done",
+      "test_status": "passed",
+      "last_updated": "2026-08-05",
+      "test_files": [
+        "test/features/progress/bug_bug20_repro_test.dart"
       ]
     },
     "BUG-21": {
@@ -898,6 +944,12 @@
       "test_coverage_gaps": [],
       "cross_module_impacts": [
         "PLY"
+      ],
+      "impl_status": "done",
+      "test_status": "passed",
+      "last_updated": "2026-08-05",
+      "test_files": [
+        "test/features/player/bug_bug21_repro_test.dart"
       ]
     },
     "BUG-22": {
@@ -922,6 +974,12 @@
       "test_coverage_gaps": [],
       "cross_module_impacts": [
         "PLY"
+      ],
+      "impl_status": "done",
+      "test_status": "passed",
+      "last_updated": "2026-08-05",
+      "test_files": [
+        "test/features/player/bug_bug22_repro_test.dart"
       ]
     },
     "BUG-23": {
@@ -949,6 +1007,12 @@
       "cross_module_impacts": [
         "BRW",
         "CON"
+      ],
+      "impl_status": "done",
+      "test_status": "passed",
+      "last_updated": "2026-08-05",
+      "test_files": [
+        "test/features/browser/bug_bug23_repro_test.dart"
       ]
     },
     "BUG-24": {
@@ -976,6 +1040,12 @@
       "test_coverage_gaps": [],
       "cross_module_impacts": [
         "CON"
+      ],
+      "impl_status": "done",
+      "test_status": "passed",
+      "last_updated": "2026-08-05",
+      "test_files": [
+        "test/features/connection/bug_bug24_repro_test.dart"
       ]
     },
     "BUG-25": {
@@ -1008,6 +1078,12 @@
       "test_coverage_gaps": [],
       "cross_module_impacts": [
         "PLY"
+      ],
+      "impl_status": "done",
+      "test_status": "passed",
+      "last_updated": "2026-08-05",
+      "test_files": [
+        "test/features/playlist/bug_bug25_repro_test.dart"
       ]
     },
     "BUG-26": {
@@ -1038,6 +1114,12 @@
         "PLY",
         "CON",
         "PRG"
+      ],
+      "impl_status": "done",
+      "test_status": "passed",
+      "last_updated": "2026-08-05",
+      "test_files": [
+        "test/features/coverage/bug_bug26_repro_test.dart"
       ]
     },
     "REF-01": {

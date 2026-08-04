@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# spec-scan.sh — docs/features/{ID}.md 的机械结构扫描（三种模式）
+# spec-scan.sh — docs/features/{ID}.md 的机械结构扫描（四种模式）
 #
 # 用法:
 #   spec-scan.sh <ID>            覆盖矩阵：每条 §3/4/6 spec ID 在 test/ 下的命中文件
@@ -7,6 +7,10 @@
 #   spec-scan.sh --neg <ID>      否定断言结构检查：每条 status:new 的 Scenario 是否带 否定断言: 块
 #       输出 TSV: scenario_id  has_neg(yes|no)                                缺失 → 退出码 1
 #   spec-scan.sh --count <ID>    输出 S/INV/ALG 计数（INDEX.md 同步用）: S=n INV=m ALG=k
+#   spec-scan.sh --gate <ID>     门禁文件存在性硬校验：解析 §5.4「测试文件位置」内全部 test/*.dart
+#       路径（表格行与「新建：」列表均认，去反引号，去重），逐个检查磁盘存在性。
+#       全部存在 → 退出码 0 + stdout 输出去重清单（一行一个，供回填 dev-status test_files）；
+#       §5.4 不存在/无 test 路径（spec 缺门禁定义）或任一文件缺失（stderr 列缺失清单）→ 退出码 1
 #
 # 边界: 本脚本只做结构/字面量机械扫描，不判断测试是否"真断言了行为"——那是 dev-check 的判断题。
 set -euo pipefail
@@ -17,7 +21,8 @@ cd "$ROOT"
 MODE="matrix"
 if [[ "${1:-}" == "--neg" ]]; then MODE="neg"; shift; fi
 if [[ "${1:-}" == "--count" ]]; then MODE="count"; shift; fi
-[[ $# -eq 1 ]] || { echo "usage: $0 [--neg|--count] <ID>" >&2; exit 2; }
+if [[ "${1:-}" == "--gate" ]]; then MODE="gate"; shift; fi
+[[ $# -eq 1 ]] || { echo "usage: $0 [--neg|--count|--gate] <ID>" >&2; exit 2; }
 ID="$1"
 SPEC="docs/features/${ID}.md"
 [[ -f "$SPEC" ]] || { echo "ERROR: $SPEC 不存在" >&2; exit 2; }
@@ -95,5 +100,32 @@ case "$MODE" in
     inv=$(extract_ids | cut -f1 | grep -cE -- "-INV[0-9]+$" || true)
     alg=$(extract_ids | cut -f1 | grep -cE -- "-ALG" || true)
     echo "S=$s INV=$inv ALG=$alg"
+    ;;
+
+  gate)
+    # §5.4「测试文件位置」门禁文件存在性硬校验（dev-exe 标 done 前置 + test_files 回填源）。
+    # 解析兼容两种写法：markdown 表格行（跳过表头/分隔行）与「新建：`path`」列表行——
+    # 统一抽取反引号内/裸写的 test/*.dart 路径，不依赖行格式。
+    grep -qE '^#+ *5\.4' "$SPEC" || {
+      echo "FAIL: $SPEC 无 §5.4「测试文件位置」（spec 缺门禁定义）" >&2; exit 1; }
+    GATE_FILES=$(awk '
+      /^#+ *5\.4/ { in54=1; next }
+      in54 && /^#/ { exit }
+      in54 && /^---/ { exit }
+      in54 { print }
+    ' "$SPEC" | grep -oE 'test/[A-Za-z0-9_./-]+\.dart' | sort -u || true)
+    [[ -n "$GATE_FILES" ]] || {
+      echo "FAIL: $SPEC §5.4 无 test 路径（spec 缺门禁定义）" >&2; exit 1; }
+    MISSING=0
+    while IFS= read -r f; do
+      if [[ ! -f "$f" ]]; then
+        echo "缺失: $f" >&2
+        MISSING=$((MISSING + 1))
+      fi
+    done <<< "$GATE_FILES"
+    [[ $MISSING -eq 0 ]] || {
+      echo "FAIL: §5.4 指定门禁文件 $MISSING 个不存在" >&2; exit 1; }
+    # 全部存在：输出去重清单（一行一个），供 dev-status test_files 回填
+    printf '%s\n' "$GATE_FILES"
     ;;
 esac

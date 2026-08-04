@@ -52,8 +52,9 @@ Agent 输入：spec 全文（§2 锚点定位修改处）+ Agent A 的测试清�
 ### 3. 脚本门禁（本会话执行，退出码为准）
 
 ```bash
-bash ../../scripts/repro-test.sh <repro 测试> pass   # 仅 Bug 项：修复前 FAIL 的现在必须 PASS
-bash ../../scripts/cov-gate.sh                       # format + analyze(0 warning) + 全量 test + critical 覆盖率 ≥90%
+bash ../../scripts/spec-scan.sh --gate <ID>          # 硬门禁（Bug 项与非 Bug 项都跑）：spec §5.4「测试文件位置」指定的每个测试文件必须已存在于磁盘，缺一即退出码 1
+bash ../../scripts/repro-test.sh <§5.4 复现文件> pass # Bug 项：§5.4 门禁文件中凡复现测试（spec 标注"复现测试/修复前 FAIL"，通常 bug_*_repro_test.dart）必须逐一跑 pass——一个文件一次调用，不得笼统代过
+bash ../../scripts/cov-gate.sh                       # format + analyze(0 warning) + 全量 test + critical 覆盖率 ≥90%；非 Bug 项的 §5.4 门禁文件同样必须被全量 test 覆盖
 bash ../../scripts/spec-scan.sh <ID>                 # 覆盖矩阵：每条 S/INV/ALG 在 test/ 有命中
 bash ../../scripts/cross-imports.sh all              # 架构门禁：基线外零新违规
 ```
@@ -67,10 +68,13 @@ bash ../../scripts/cross-imports.sh all              # 架构门禁：基线外�
 
 ### 5. 标 done
 
+**完成判定（验收位）**：标 done 前按 spec §3 行为规约（含每条修改指令）逐条核对落地——多 Scenario 的 spec 不许只挑容易的做；"编译过/测试绿"不等于完成，缺条回 §2 实现。
+
 ```bash
 bash ../../scripts/dev-status.sh set <ID> impl_status '"done"'
 bash ../../scripts/dev-status.sh set <ID> test_status '"passed"'
-bash ../../scripts/dev-status.sh set <ID> test_files '[...]'
+# test_files 一律用 --gate 输出回填（脚本解析），禁止手拼
+bash ../../scripts/dev-status.sh set <ID> test_files "$(bash ../../scripts/spec-scan.sh --gate <ID> | jq -R . | jq -s -c .)"
 ```
 
 **不动 check_\* 字段**（dev-check 还没跑）。
