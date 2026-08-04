@@ -131,6 +131,19 @@ final nextPlayModeProvider = Provider<PlayMode Function()>((ref) => () {
       final c = ref.read(playModeProvider);
       final n = PlayMode.values[(c.index + 1) % PlayMode.values.length];
       ref.read(playModeProvider.notifier).state = n;
+      // O3 follow-up (cr-20260804-1922 §5 O3): sync the queue's playMode
+      // field with the new mode.  Without this the persisted queue
+      // (persistQueueOnChange → PlayQueue.toMap) keeps the mode from queue
+      // creation forever, so a restart restores the stale mode via
+      // restoreQueueFromPrefsProvider and the user's selection is lost.
+      // No queue (pure mode toggle without playback) → nothing to write.
+      // Equal-mode guard keeps repeated toggles side-effect free.  The queue
+      // write is captured naturally by persistQueueOnChange; no cycle — a
+      // queue change never writes playModeProvider.
+      final q = ref.read(currentPlayQueueProvider);
+      if (q != null && q.playMode != n) {
+        ref.read(currentPlayQueueProvider.notifier).state = q.withMode(n);
+      }
       return n;
     });
 IconData iconForPlayMode(PlayMode mode) => switch (mode) {

@@ -93,16 +93,47 @@ class PlayQueue {
   int get length => files.length;
 
   /// Returns a copy of this queue with a different [playMode].
-  /// Entering shuffle mode generates a fresh Fisher-Yates permutation.
-  PlayQueue withMode(PlayMode mode) => PlayQueue(
+  ///
+  /// Entering [PlayMode.shuffle] generates a fresh Fisher-Yates permutation
+  /// and locates [_shufflePosition] on the current track's slot within it
+  /// (`order[pos] == currentIndex`) — the same invariant maintained by
+  /// [withIndex] (BUG-04-S4), [fromMap] (BUG-14 normalisation) and the
+  /// orchestration-layer round regeneration, so the pointer can never
+  /// desynchronise from the current track.  [currentIndex] is structurally
+  /// part of a fresh permutation (it covers `0 .. files.length-1`), hence no
+  /// BUG-04-S4-style end-of-order degradation is needed here.
+  ///
+  /// Leaving shuffle clears the permutation and pointer, keeping the model
+  /// invariant `_shuffleOrder != null ⟺ playMode == PlayMode.shuffle`: a
+  /// persisted non-shuffle queue never carries a stale order, and switching
+  /// back to shuffle later always starts a fresh round (new-queue semantics).
+  ///
+  /// Idempotent: returns `this` when [mode] == [playMode], so repeated mode
+  /// toggles never reshuffle a running round.
+  PlayQueue withMode(PlayMode mode, {Random? random}) {
+    if (mode == playMode) return this;
+    if (mode == PlayMode.shuffle && files.length > 1) {
+      final order = generateShuffleOrder(files.length, random ?? Random());
+      return PlayQueue(
         files: files,
         currentIndex: currentIndex,
         startPositionMs: startPositionMs,
         playMode: mode,
-        // Preserve existing shuffle order only if staying in shuffle mode
-        shuffleOrder: mode == PlayMode.shuffle ? _shuffleOrder : null,
-        shufflePosition: mode == PlayMode.shuffle ? _shufflePosition : null,
+        shuffleOrder: order,
+        shufflePosition: order.indexOf(currentIndex),
       );
+    }
+    return PlayQueue(
+      files: files,
+      currentIndex: currentIndex,
+      startPositionMs: startPositionMs,
+      playMode: mode,
+      // Non-shuffle target (or single-track shuffle): null order/position so
+      // the constructor keeps them cleared.
+      shuffleOrder: null,
+      shufflePosition: null,
+    );
+  }
 
   /// Returns a copy of this queue with a different [currentIndex].
   ///
