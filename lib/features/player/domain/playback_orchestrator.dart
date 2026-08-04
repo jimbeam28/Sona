@@ -368,10 +368,17 @@ class PlaybackOrchestrator {
       return;
     }
 
-    queue = newQueue;
     if (wasCurrent) {
+      // cr-20260804-1922 §5 O2: save BEFORE reassigning the queue so
+      // q.current still refers to the removed track — same ordering as
+      // skipToNext / skipToPrevious / selectQueueIndex.  Saving after the
+      // reassignment would persist the removed track's position under the
+      // NEXT track's path (进度张冠李戴 → wrong resume position later).
       saveProgress();
+      queue = newQueue;
       await loadAndPlay(registerListeners: registerListeners);
+    } else {
+      queue = newQueue;
     }
   }
 
