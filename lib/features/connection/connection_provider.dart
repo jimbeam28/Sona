@@ -161,11 +161,12 @@ final startupValidationProvider =
   try {
     password = await safeStorageRead(storage, key: passwordKey);
   } on SecureStorageTimeoutException {
-    debugPrint('[Conn] startupValidation: password read timeout');
+    // secret-logs gate: semantic log only, no credential words.
+    debugPrint('[Conn] startupValidation: secure storage read timeout');
     return WebDavValidationResult.error('读取密码超时，请重试');
   }
   if (password == null || password.isEmpty) {
-    debugPrint('[Conn] startupValidation: no password');
+    debugPrint('[Conn] startupValidation: no secret stored');
     return WebDavValidationResult.authError();
   }
 

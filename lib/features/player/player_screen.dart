@@ -199,7 +199,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                 key: 'connection_password_${activeConn.id}');
             hasPassword = pw != null && pw.isNotEmpty;
           } on SecureStorageTimeoutException {
-            debugPrint('[Player] password read timeout');
+            // secret-logs gate: semantic log only, no credential words.
+            debugPrint('[Player] secure storage read timeout');
             hasPassword = false;
           }
         }

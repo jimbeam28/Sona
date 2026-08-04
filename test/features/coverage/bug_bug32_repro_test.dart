@@ -16,21 +16,27 @@
 import 'dart:async';
 
 import 'package:fake_async/fake_async.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:mockito/mockito.dart';
 import 'package:nas_audio_player/core/network/webdav_client.dart';
 import 'package:nas_audio_player/core/services/audio_source_builder.dart';
 import 'package:nas_audio_player/core/services/background_service.dart';
 import 'package:nas_audio_player/core/services/storage_utils.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/features/connection/connection_provider.dart';
+import 'package:nas_audio_player/features/player/player_provider.dart';
+import 'package:nas_audio_player/features/player/player_screen.dart';
 import 'package:nas_audio_player/shared/models/connection_config.dart';
+import 'package:nas_audio_player/shared/models/play_queue.dart';
 
 import '../../helpers/fake_webdav_client.dart';
 import '../../helpers/mock_audio_player.dart';
+import '../../helpers/test_factories.dart';
 
 // ── Fakes ────────────────────────────────────────────────────────────────────
 
@@ -149,6 +155,48 @@ final _conn = ConnectionConfig(
   updatedAt: DateTime(2026, 1, 1),
 );
 
+// ── secret-logs regression helpers ───────────────────────────────────────────
+
+/// Credential keywords that must never appear in a debug log line. Mirrors
+/// the secret-logs gate in `.claude/plugins/sona-dev/scripts/cross-imports.sh`
+/// (password|pwd|credential|Authorization inside print/debugPrint/log calls).
+const _credentialKeywords = ['password', 'pwd', 'credential', 'authorization'];
+
+/// Asserts no line in [lines] carries a credential keyword (case-insensitive).
+///
+/// BUG-32 catch + log + degrade handlers must keep their semantic log line,
+/// but the wording must stay credential-free: neither a secret value nor a
+/// secret marker may reach LogBuffer / the console (project iron rule —
+/// secrets live only in flutter_secure_storage, never in logs).
+void expectNoCredentialKeywords(
+  Iterable<String> lines, {
+  required String context,
+}) {
+  for (final line in lines) {
+    final lower = line.toLowerCase();
+    for (final kw in _credentialKeywords) {
+      expect(lower, isNot(contains(kw)),
+          reason: '$context: log line carries credential keyword "$kw": '
+              '"$line"');
+    }
+  }
+}
+
+/// Runs [body] with [debugPrint] swapped for a recorder; restores afterwards.
+List<String> captureDebugPrintSync(void Function() body) {
+  final logs = <String>[];
+  final original = debugPrint;
+  debugPrint = (String? message, {int? wrapWidth}) {
+    if (message != null) logs.add(message);
+  };
+  try {
+    body();
+  } finally {
+    debugPrint = original;
+  }
+  return logs;
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -252,34 +300,44 @@ void main() {
     test(
         'INV2-T01 preloadAudioSource: timeout -> caught, logged, skipped '
         '(no propagation, player untouched)', () {
-      FakeAsync().run((async) {
-        final player = _SpyAudioPlayer();
-        Object? error;
-        var done = false;
+      final logs = captureDebugPrintSync(() {
+        FakeAsync().run((async) {
+          final player = _SpyAudioPlayer();
+          Object? error;
+          var done = false;
 
-        preloadAudioSource(
-          storage: _HangingReadStorage(),
-          connectionId: 1,
-          baseUrl: 'http://nas.example.com',
-          filePath: '/music/song.mp3',
-          username: 'admin',
-          player: player,
-        ).then((_) {
-          done = true;
-        }).catchError((e) {
-          error = e;
-          done = true;
+          preloadAudioSource(
+            storage: _HangingReadStorage(),
+            connectionId: 1,
+            baseUrl: 'http://nas.example.com',
+            filePath: '/music/song.mp3',
+            username: 'admin',
+            player: player,
+          ).then((_) {
+            done = true;
+          }).catchError((e) {
+            error = e;
+            done = true;
+          });
+
+          async.elapse(const Duration(seconds: 6));
+          expect(done, isTrue);
+          expect(error, isNull,
+              reason: 'timeout must be handled inside preloadAudioSource '
+                  '(log + skip), not propagated to the caller');
+          // 否定断言：超时跳过预加载 → player 完全不被触碰。
+          expect(player.setAudioSourceCalls, 0);
+          expect(player.seekCalls, 0);
         });
-
-        async.elapse(const Duration(seconds: 6));
-        expect(done, isTrue);
-        expect(error, isNull,
-            reason: 'timeout must be handled inside preloadAudioSource '
-                '(log + skip), not propagated to the caller');
-        // 否定断言：超时跳过预加载 → player 完全不被触碰。
-        expect(player.setAudioSourceCalls, 0);
-        expect(player.seekCalls, 0);
       });
+
+      // secret-logs 门禁：catch+log+skip 的 log 一环必须保留，
+      // 且日志文案不得携带凭证关键字（旧文案 'password read timeout' 违规）。
+      final sourceLogs = logs.where((l) => l.startsWith('[AudioSource]'));
+      expect(sourceLogs, isNotEmpty,
+          reason: 'timeout handling must still emit the semantic log line');
+      expectNoCredentialKeywords(sourceLogs,
+          context: 'preloadAudioSource timeout log');
     });
 
     test(
@@ -347,57 +405,157 @@ void main() {
     test(
         'INV2-T04 startupValidationProvider: timeout -> error result with '
         "'读取密码超时，请重试', NOT authError/networkError", () {
-      FakeAsync().run((async) {
-        final container = ProviderContainer(overrides: [
-          activeConnectionProvider.overrideWith((ref) async => _conn),
-          secureStorageProvider.overrideWithValue(_HangingReadStorage()),
-          webDavClientProvider.overrideWithValue(MockWebDavClient()),
-        ]);
+      final logs = captureDebugPrintSync(() {
+        FakeAsync().run((async) {
+          final container = ProviderContainer(overrides: [
+            activeConnectionProvider.overrideWith((ref) async => _conn),
+            secureStorageProvider.overrideWithValue(_HangingReadStorage()),
+            webDavClientProvider.overrideWithValue(MockWebDavClient()),
+          ]);
 
-        WebDavValidationResult? result;
-        var done = false;
-        container.read(startupValidationProvider.future).then((r) {
-          result = r;
-          done = true;
+          WebDavValidationResult? result;
+          var done = false;
+          container.read(startupValidationProvider.future).then((r) {
+            result = r;
+            done = true;
+          });
+
+          async.elapse(const Duration(seconds: 6));
+          expect(done, isTrue);
+          expect(result, isNotNull);
+          // 否定断言：超时不得再被当成 authError（无密码）或 networkError。
+          expect(result!.status, WebDavValidationStatus.error);
+          expect(result!.status, isNot(WebDavValidationStatus.authError));
+          expect(result!.status, isNot(WebDavValidationStatus.networkError));
+          expect(result!.message, '读取密码超时，请重试');
+          expect(result!.isSuccess, isFalse);
+          container.dispose();
         });
-
-        async.elapse(const Duration(seconds: 6));
-        expect(done, isTrue);
-        expect(result, isNotNull);
-        // 否定断言：超时不得再被当成 authError（无密码）或 networkError。
-        expect(result!.status, WebDavValidationStatus.error);
-        expect(result!.status, isNot(WebDavValidationStatus.authError));
-        expect(result!.status, isNot(WebDavValidationStatus.networkError));
-        expect(result!.message, '读取密码超时，请重试');
-        expect(result!.isSuccess, isFalse);
-        container.dispose();
       });
+
+      // secret-logs 门禁：startupValidation 各日志行不得携带凭证关键字
+      // （旧文案 'password read timeout' 违规）。
+      final connLogs = logs.where((l) => l.startsWith('[Conn]'));
+      expect(connLogs, isNotEmpty,
+          reason: 'startupValidation must still emit semantic log lines');
+      expectNoCredentialKeywords(connLogs,
+          context: 'startupValidation timeout log');
     });
 
     test(
         'INV2-T05 startupValidationProvider: no value -> authError '
         '(unchanged)', () {
-      FakeAsync().run((async) {
-        final container = ProviderContainer(overrides: [
-          activeConnectionProvider.overrideWith((ref) async => _conn),
-          secureStorageProvider.overrideWithValue(_MapStorage({})),
-          webDavClientProvider.overrideWithValue(MockWebDavClient()),
-        ]);
+      final logs = captureDebugPrintSync(() {
+        FakeAsync().run((async) {
+          final container = ProviderContainer(overrides: [
+            activeConnectionProvider.overrideWith((ref) async => _conn),
+            secureStorageProvider.overrideWithValue(_MapStorage({})),
+            webDavClientProvider.overrideWithValue(MockWebDavClient()),
+          ]);
 
-        WebDavValidationResult? result;
-        var done = false;
-        container.read(startupValidationProvider.future).then((r) {
-          result = r;
-          done = true;
+          WebDavValidationResult? result;
+          var done = false;
+          container.read(startupValidationProvider.future).then((r) {
+            result = r;
+            done = true;
+          });
+
+          async.flushMicrotasks();
+          expect(done, isTrue);
+          expect(result, isNotNull);
+          expect(result!.status, WebDavValidationStatus.authError,
+              reason: 'genuinely missing password keeps the authError path');
+          container.dispose();
         });
-
-        async.flushMicrotasks();
-        expect(done, isTrue);
-        expect(result, isNotNull);
-        expect(result!.status, WebDavValidationStatus.authError,
-            reason: 'genuinely missing password keeps the authError path');
-        container.dispose();
       });
+
+      // secret-logs 门禁：无值分支日志同样不得携带凭证关键字
+      // （旧文案 'no password' 违规）。
+      final connLogs = logs.where((l) => l.startsWith('[Conn]'));
+      expect(connLogs, isNotEmpty,
+          reason: 'startupValidation must still emit semantic log lines');
+      expectNoCredentialKeywords(connLogs,
+          context: 'startupValidation no-value log');
+    });
+
+    testWidgets(
+        'INV2-T06 PlayerScreen: load failed + secure storage read timeout -> '
+        'degraded log carries no credential keywords (secret-logs gate)',
+        (tester) async {
+      final player = MockAudioPlayer();
+      when(player.positionStream)
+          .thenAnswer((_) => Stream.value(const Duration(seconds: 90)));
+      when(player.durationStream)
+          .thenAnswer((_) => Stream.value(const Duration(minutes: 4)));
+      when(player.playerStateStream).thenAnswer(
+          (_) => Stream.value(PlayerState(false, ProcessingState.idle)));
+      when(player.speedStream).thenAnswer((_) => Stream.value(1.0));
+      when(player.processingStateStream)
+          .thenAnswer((_) => const Stream<ProcessingState>.empty());
+      when(player.playing).thenReturn(false);
+      when(player.processingState).thenReturn(ProcessingState.idle);
+      when(player.position).thenReturn(const Duration(seconds: 90));
+      when(player.duration).thenReturn(const Duration(minutes: 4));
+      when(player.sequenceState).thenReturn(null);
+
+      final queue = PlayQueue(
+        files: [testAudio('song.mp3', '/music/song.mp3')],
+        currentIndex: 0,
+      );
+
+      // Pre-resolve activeConnectionProvider in a parent container so that
+      // ref.read(activeConnectionProvider).valueOrNull is synchronously
+      // non-null when _runSerializedLoad classifies the failure.
+      final parentContainer = ProviderContainer(overrides: [
+        activeConnectionProvider.overrideWith((ref) async => _conn),
+      ]);
+      addTearDown(parentContainer.dispose);
+      await parentContainer.read(activeConnectionProvider.future);
+
+      final logs = <String>[];
+      final originalPrint = debugPrint;
+      debugPrint = (String? message, {int? wrapWidth}) {
+        if (message != null) logs.add(message);
+      };
+      try {
+        await tester.pumpWidget(
+          ProviderScope(
+            parent: parentContainer,
+            overrides: [
+              audioPlayerProvider.overrideWith((ref) => player),
+              audioHandlerProvider.overrideWith((ref) => null),
+              currentPlayQueueProvider.overrideWith((ref) => queue),
+              loadAndPlayProvider.overrideWith(
+                (ref) => () async => const TrackLoadResult.failed(),
+              ),
+              secureStorageProvider.overrideWithValue(_HangingReadStorage()),
+            ],
+            child: const MaterialApp(home: PlayerScreen()),
+          ),
+        );
+        await tester.pump(); // post-frame callback → _loadAndPlay()
+        // Advance the fake clock past the 5s secure-storage read timeout so
+        // the SecureStorageTimeoutException catch branch in
+        // _runSerializedLoad runs.
+        await tester.pump(const Duration(seconds: 6));
+        await tester.pump(const Duration(milliseconds: 100));
+
+        // BUG-32 行为语义不变：超时降级为 hasPassword=false →
+        // noPassword 分类 → 用户可见提示。
+        expect(find.text('密码未保存'), findsOneWidget);
+      } finally {
+        debugPrint = originalPrint;
+      }
+
+      final playerLogs = logs.where((l) => l.startsWith('[Player]')).toList();
+      // '[Player] error: LoadFailureReason.noPassword' 携带的是枚举标识符
+      // （代码符号而非密码值），不在凭证关键字检查范围。
+      final checked =
+          playerLogs.where((l) => !l.startsWith('[Player] error: ')).toList();
+      expect(checked.where((l) => l.contains('timeout')), isNotEmpty,
+          reason: 'timeout catch branch must keep its semantic log line');
+      expectNoCredentialKeywords(checked,
+          context: 'PlayerScreen load-timeout log');
     });
   });
 

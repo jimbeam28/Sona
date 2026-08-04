@@ -152,7 +152,8 @@ Future<void> preloadAudioSource({
     pw = await safeStorageRead(storage,
         key: 'connection_password_$connectionId');
   } on SecureStorageTimeoutException {
-    debugPrint('[AudioSource] preload: password read timeout');
+    // secret-logs gate: keep the log semantic — never carry credential words.
+    debugPrint('[AudioSource] preload: secure storage read timeout, skip');
     return;
   }
   if (pw == null || pw.isEmpty) return;
