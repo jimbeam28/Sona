@@ -11,6 +11,7 @@ import '../../shared/models/connection_config.dart';
 import '../../shared/models/nas_file.dart';
 import '../../shared/models/play_progress.dart';
 import '../../shared/models/play_queue.dart';
+import '../../shared/webdav_paths.dart';
 import '../../shared/di/providers.dart';
 import 'background_playback_notifier.dart';
 import 'domain/playback_orchestrator.dart';
@@ -155,15 +156,32 @@ int sanitizeResumePosition(int pos, int? dur) => pos < 0
         ? 0
         : pos;
 
+/// Applies the latest saved progress to [queue] when it refers to the same
+/// connection and the same current track.
+///
+/// [connectionRoot] (cr-20260804-1922 O1) — when supplied, both the stored
+/// progress path and the queue's current path are normalised with it before
+/// comparison. This makes startup resume work for pre-NET1 progress rows
+/// that hold server-absolute paths while the restored queue carries
+/// connection-root-relative paths (or vice versa). When omitted the paths are
+/// compared verbatim (legacy behaviour, kept for callers without a connection
+/// context).
 PlayQueue? applyLatestProgressToQueue({
   required PlayQueue? queue,
   required int? activeConnectionId,
   required PlayProgress? latestProgress,
+  String? connectionRoot,
 }) {
   if (queue == null || activeConnectionId == null || latestProgress == null)
     return queue;
   if (latestProgress.connectionId != activeConnectionId) return queue;
-  if (latestProgress.filePath != queue.current.path) return queue;
+  final progressPath = connectionRoot == null
+      ? latestProgress.filePath
+      : normalizeStoredPath(latestProgress.filePath, basePath: connectionRoot);
+  final queuePath = connectionRoot == null
+      ? queue.current.path
+      : normalizeStoredPath(queue.current.path, basePath: connectionRoot);
+  if (progressPath != queuePath) return queue;
   return queue.withStartPosition(sanitizeResumePosition(
       latestProgress.positionMs, latestProgress.durationMs));
 }
@@ -175,7 +193,13 @@ final restoreStartupProgressProvider = FutureProvider<void>((ref) async {
   final c = ref.read(activeConnectionProvider).valueOrNull;
   final p = await ref.read(latestPlayedProgressProvider.future);
   final r = applyLatestProgressToQueue(
-      queue: q, activeConnectionId: c?.id, latestProgress: p);
+      queue: q,
+      activeConnectionId: c?.id,
+      latestProgress: p,
+      // O1: normalise both sides of the path comparison so pre-NET1
+      // server-absolute progress rows still align with the restored queue.
+      connectionRoot:
+          c == null ? null : webDavConnectionRoot(c.url, c.basePath));
   if (r != null && r != q) {
     ref.read(currentPlayQueueProvider.notifier).state = r;
     final pl = ref.read(audioPlayerProvider);

@@ -68,3 +68,76 @@ String webDavEffectiveBaseUrl(String url, String basePath) {
   final effective = resolveWebDavBasePath(uri.path, basePath);
   return uri.replace(path: effective).toString();
 }
+
+/// Returns the server-absolute connection root for a stored connection
+/// config pair, in the same (URL-decoded) form that persisted file paths
+/// carry.
+///
+/// This is [resolveWebDavBasePath] applied to `Uri.parse(url).path` and
+/// [basePath], then URL-decoded — mirroring how
+/// `WebDavClient.listDirectory` decodes the base before stripping it from
+/// server hrefs. Never throws: a malformed [url] degrades to an empty
+/// `url.path`, and an undecodable result falls back to the encoded form.
+///
+/// Use the return value as the `basePath` argument of
+/// [normalizeStoredPath] (cr-20260804-1922 O1).
+String webDavConnectionRoot(String url, String basePath) {
+  String root;
+  try {
+    root = resolveWebDavBasePath(Uri.parse(url).path, basePath);
+  } catch (_) {
+    root = resolveWebDavBasePath('', basePath);
+  }
+  try {
+    return Uri.decodeFull(root);
+  } catch (_) {
+    return root;
+  }
+}
+
+/// Normalises a persisted file path read back from legacy storage
+/// (cr-20260804-1922 §5 O1).
+///
+/// Background: before NET1 (commit 431d444) `WebDavClient.listDirectory`
+/// returned server-ABSOLUTE hrefs, so queues persisted to prefs,
+/// `play_progress.file_path` and `playlist_tracks.file_path` rows written by
+/// pre-NET1 builds carry the connection root as a prefix
+/// (e.g. `/dav/music/a.mp3`). NET1 made every HTTP-boundary consumer apply
+/// the base exactly once via [webDavEffectiveBaseUrl], so feeding those
+/// legacy paths back into `listDirectory` / `buildWithBasePath` doubles the
+/// prefix (`/dav/dav/music/a.mp3` → 404).
+///
+/// [basePath] is the server-absolute connection root of the connection the
+/// stored path belongs to — compute it with [webDavConnectionRoot]. It is
+/// normalised here (leading `/` ensured, trailing `/` stripped), so callers
+/// may pass either form.
+///
+/// Semantics (identical to `WebDavClient._relativisePath`, so normalised
+/// values are indistinguishable from current `listDirectory` output):
+/// * root empty or `/` (server-root mount) → [stored] returned unchanged —
+///   the legacy absolute form already equals the connection-root-relative
+///   form;
+/// * `stored == root` (a directory self-reference) → `/`;
+/// * `stored` starts with `root + '/'` → the root prefix is stripped,
+///   keeping the leading `/` (boundary-safe: root `/mus` never matches
+///   `/music/...`);
+/// * otherwise → [stored] returned unchanged (correct data is never
+///   corrupted).
+///
+/// Idempotent for every unambiguous path: normalising twice equals
+/// normalising once. The single remaining ambiguity is inherent to
+/// read-time normalisation — a *relative* path whose first segment equals
+/// the root's last segment (root `/dav`, relative `/dav/x.mp3`) is
+/// indistinguishable from a legacy path without a server round-trip; no
+/// stored data produced by this app is known to hit that case.
+String normalizeStoredPath(String stored, {required String basePath}) {
+  var root = basePath.trim();
+  if (!root.startsWith('/')) root = '/$root';
+  while (root.length > 1 && root.endsWith('/')) {
+    root = root.substring(0, root.length - 1);
+  }
+  if (root == '/') return stored;
+  if (stored == root) return '/';
+  if (stored.startsWith('$root/')) return stored.substring(root.length);
+  return stored;
+}

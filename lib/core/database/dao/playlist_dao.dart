@@ -5,6 +5,7 @@ import 'package:sqflite/sqflite.dart';
 import '../../contracts/database_contract.dart';
 import '../../database/database_helper.dart';
 import '../../../shared/models/playlist.dart';
+import '../../../shared/webdav_paths.dart';
 
 class PlaylistDao implements IPlaylistDao {
   final DatabaseHelper _helper;
@@ -18,6 +19,40 @@ class PlaylistDao implements IPlaylistDao {
         _clock = clock ?? DateTime.now;
 
   Future<Database> get _db async => _helper.database;
+
+  // ── NET1 legacy stored-path normalisation (cr-20260804-1922 O1) ──────────────
+  //
+  // Pre-NET1 builds stored server-ABSOLUTE file paths (connection root
+  // prefixed) in `playlist_tracks.file_path`. `playlists` / `playlist_tracks`
+  // carry NO connection attribution (no connection_id column), so the
+  // read-time normalisation context is the ACTIVE connection; when it cannot
+  // be resolved the paths are returned unchanged (never throw).
+
+  /// Returns the server-absolute connection root of the active connection, or
+  /// `null` when there is no active connection or the `connections` table is
+  /// unavailable (e.g. a playlist-only test schema).
+  Future<String?> _activeConnectionRoot() async {
+    final db = await _db;
+    List<Map<String, dynamic>> rows;
+    try {
+      rows = await db.query(
+        'connections',
+        columns: ['url', 'base_path'],
+        where: 'is_active = 1',
+        limit: 1,
+      );
+    } on DatabaseException catch (e) {
+      // Playlist-only schema (no connections table) — nothing to normalise
+      // by. Same narrow-guard pattern as ConnectionDao.delete (BUG-26-S4).
+      if (!e.isNoSuchTableError()) rethrow;
+      return null;
+    }
+    if (rows.isEmpty) return null;
+    return webDavConnectionRoot(
+      rows.first['url'] as String,
+      (rows.first['base_path'] as String?) ?? '/',
+    );
+  }
 
   // ── Playlist CRUD ─────────────────────────────────────────────────────────
 
@@ -66,15 +101,35 @@ class PlaylistDao implements IPlaylistDao {
     });
   }
 
+  /// Returns the tracks of a playlist ordered by `added_at ASC`.
+  ///
+  /// Each track's `filePath` is normalised to the connection-root-relative
+  /// form (O1) using the active connection's root, so rows persisted by
+  /// pre-NET1 builds feed queue building / playback without a double base
+  /// prefix. There is no natural rewrite point for `playlist_tracks`, so this
+  /// is a pure read-time normalisation (no write-back).
   Future<List<PlaylistTrack>> findTracksForPlaylist(int playlistId) async {
     final db = await _db;
+    final root = await _activeConnectionRoot();
     final rows = await db.query(
       'playlist_tracks',
       where: 'playlist_id = ?',
       whereArgs: [playlistId],
       orderBy: 'added_at ASC',
     );
-    return rows.map(PlaylistTrack.fromMap).toList();
+    final tracks = rows.map(PlaylistTrack.fromMap).toList();
+    if (root == null || root == '/') return tracks;
+    return tracks.map((t) {
+      final normalized = normalizeStoredPath(t.filePath, basePath: root);
+      if (normalized == t.filePath) return t;
+      return PlaylistTrack(
+        id: t.id,
+        playlistId: t.playlistId,
+        filePath: normalized,
+        fileName: t.fileName,
+        addedAt: t.addedAt,
+      );
+    }).toList();
   }
 
   Future<void> removeTracks(List<int> trackIds) async {
@@ -88,12 +143,26 @@ class PlaylistDao implements IPlaylistDao {
     );
   }
 
+  /// Returns whether [filePath] is already present in the playlist.
+  ///
+  /// Matches both the canonical and the NET1-legacy server-absolute stored
+  /// form (O1), so dedup still recognises a file whose row was persisted by
+  /// a pre-NET1 build even though the caller now passes the canonical path.
   Future<bool> trackExists(int playlistId, String filePath) async {
     final db = await _db;
+    final root = await _activeConnectionRoot();
+    final variants = <String>{filePath};
+    if (root != null && root != '/') {
+      final canonical = normalizeStoredPath(filePath, basePath: root);
+      variants
+        ..add(canonical)
+        ..add('$root$canonical');
+    }
+    final placeholders = List.filled(variants.length, '?').join(', ');
     final result = await db.rawQuery(
       'SELECT COUNT(*) as cnt FROM playlist_tracks '
-      'WHERE playlist_id = ? AND file_path = ?',
-      [playlistId, filePath],
+      'WHERE playlist_id = ? AND file_path IN ($placeholders)',
+      [playlistId, ...variants],
     );
     return (result.first['cnt'] as int) > 0;
   }

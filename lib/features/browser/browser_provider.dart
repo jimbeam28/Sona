@@ -152,6 +152,22 @@ final persistQueueOnChangeProvider = Provider<void>((ref) {
   });
 });
 
+/// Connection root used to normalise legacy persisted queue filePaths
+/// (cr-20260804-1922 O1): the queue's OWN stored connection first (the
+/// queue belongs to that connection even when another one is active), the
+/// active connection as fallback when no connectionId was stored. Returns
+/// `null` when unavailable → paths are restored unchanged (never throw).
+Future<String?> _restoredQueueRoot(Ref ref, int? savedConnId) async {
+  if (savedConnId != null) {
+    final conn = await ref.read(connectionDaoProvider).findById(savedConnId);
+    if (conn == null) return null;
+    return webDavConnectionRoot(conn.url, conn.basePath);
+  }
+  final conn = ref.read(activeConnectionProvider).valueOrNull;
+  if (conn == null) return null;
+  return webDavConnectionRoot(conn.url, conn.basePath);
+}
+
 final restoreQueueFromPrefsProvider = FutureProvider<void>((ref) async {
   // Yield before mutating any other provider: the synchronous prefix of a
   // FutureProvider body runs during its own build, and Riverpod forbids
@@ -169,7 +185,17 @@ final restoreQueueFromPrefsProvider = FutureProvider<void>((ref) async {
     final m = jsonDecode(raw) as Map<String, dynamic>;
     final paths = (m['filePaths'] as List<dynamic>?)?.cast<String>();
     if (paths == null || paths.isEmpty) return;
-    final files = paths
+    // NET1 legacy (O1): pre-NET1 builds persisted server-absolute filePaths.
+    // Strip the owning connection's root so the restored paths match current
+    // listDirectory output and buildWithBasePath applies the base exactly
+    // once (no /dav/dav double prefix). The next persistQueueOnChange write
+    // stores the normalised values back naturally.
+    final savedConnId = prefs.getInt(_qConnKey);
+    final root = await _restoredQueueRoot(ref, savedConnId);
+    final normalized = root == null
+        ? paths
+        : paths.map((p) => normalizeStoredPath(p, basePath: root)).toList();
+    final files = normalized
         .map((p) =>
             NasFile(path: p, name: p.split('/').last, isDirectory: false))
         .toList();
@@ -178,7 +204,6 @@ final restoreQueueFromPrefsProvider = FutureProvider<void>((ref) async {
     final posMs = m['startPositionMs'] as int?;
     ref.read(currentPlayQueueProvider.notifier).state =
         PlayQueue.fromMap(m, files);
-    final savedConnId = prefs.getInt(_qConnKey);
     final conn = ref.read(activeConnectionProvider).valueOrNull;
     if (savedConnId != null && conn?.id != savedConnId) return;
     if (conn != null) {
