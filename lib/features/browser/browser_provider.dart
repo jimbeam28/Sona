@@ -202,8 +202,19 @@ final restoreQueueFromPrefsProvider = FutureProvider<void>((ref) async {
     final idx = (m['currentIndex'] as int?) ?? 0;
     if (idx >= files.length) return;
     final posMs = m['startPositionMs'] as int?;
-    ref.read(currentPlayQueueProvider.notifier).state =
-        PlayQueue.fromMap(m, files);
+    final restoredQueue = PlayQueue.fromMap(m, files);
+    ref.read(currentPlayQueueProvider.notifier).state = restoredQueue;
+    // O3 (cr-20260804-1922 §5): restore the persisted playMode as well —
+    // playModeProvider's initial value is always sequential, so without this
+    // write a persisted shuffle/repeat queue comes back dormant (the shuffle
+    // permutation is restored but behaviour stays sequential until the user
+    // manually cycles the mode). Idempotent: equal-value writes are no-ops,
+    // and this runs after the `await null` yield above, outside any provider
+    // build phase (BUG-14/P11). orchestrator.playMode follows via the
+    // existing ref.listen sync in playbackOrchestratorProvider — no second
+    // sync channel. Queues persisted before playMode existed lack the field
+    // → fromMap defaults to sequential → this write is a no-op.
+    ref.read(playModeProvider.notifier).state = restoredQueue.playMode;
     final conn = ref.read(activeConnectionProvider).valueOrNull;
     if (savedConnId != null && conn?.id != savedConnId) return;
     if (conn != null) {
