@@ -17,13 +17,18 @@
 //   BUG-22-INV3:  audio_session 初始化失败不阻塞核心播放（测试环境冒烟）
 //   BUG-22-S2a:   焦点 lost → 走带超时的 pause() 路径（SVC3）
 //   BUG-22-S2b:   焦点 transient → 不触发任何 play/pause
-//   BUG-22-S2c:   焦点 gained 且音频应活跃 → 走带超时的 play() 路径
+//   BUG-22-S2c:   焦点 gained → 仅状态机更新，无 play/pause 副作用
+//                 （cr-20260728-1700 D1 裁决删除 gained 死分支后的否定锚）
 //   BUG-22-S1:    中断事件映射 pause/duck→transient、unknown→lost（源码守卫）
-//   BUG-22-INV1:  onAudioFocusChange 内无 _player.play/_player.pause 直调
+//   BUG-22-INV1:  onAudioFocusChange 内无 _player.play/_player.pause 直调，
+//                 且不得含 play()（gained 死分支不得复活）
 //   BUG-22-INV2:  dispose 取消 audio_session 两个订阅
 //
 // 修复前 FAIL：SVC3 直调版本在 S2a/S2b 的 config 同步与超时断言失败；
 // ee7d1e0 的映射偏差（pause→lost）在 S1 映射守卫下 FAIL。
+//
+// 事件流级测试（interruption 事件 → 映射 → config/暂停链路）见
+// bug_bug22_interruption_stream_test.dart（cr-20260728-1700 T1 补齐）。
 
 import 'dart:async';
 import 'dart:io';
@@ -45,7 +50,8 @@ void main() {
         when(player.play()).thenAnswer((_) async {});
 
         // flutter test 中 AudioSession.instance 的平台 channel 缺失，
-        // _initAudioSession 必须 catch 静默降级（spec 边界裁决）。
+        // _initAudioSession 必须 catch 并记录日志后降级
+        // （spec 边界裁决；项目判据「catch 必有日志」）。
         final handler = NasAudioHandler(player);
 
         var completed = false;
@@ -141,23 +147,32 @@ void main() {
       });
     });
 
-    test('焦点 gained 且音频应活跃 → play() 被调用（恢复路径）', () {
+    test('焦点 gained → 仅更新状态机，不触发任何 play/pause（D1 删死分支）', () {
       FakeAsync().run((async) {
         final player = _MockPlayer();
         when(player.play()).thenAnswer((_) async {});
-        // gained 分支条件：_config.isAudioActive && !_player.playing
+        when(player.pause()).thenAnswer((_) async {});
         when(player.playing).thenReturn(false);
 
         final handler = NasAudioHandler(player);
-        handler.play(); // 状态机置 playing（isAudioActive 前提）
+        handler.play(); // 状态机置 playing
         async.elapse(Duration.zero);
         expect(handler.config.isAudioActive, isTrue);
 
+        // 焦点 lost → paused，随后 gained 恢复（模拟焦点失去-恢复全周期）。
+        handler.onAudioFocusChange(AudioFocusState.lost);
+        async.elapse(Duration.zero);
         handler.onAudioFocusChange(AudioFocusState.gained);
+        async.elapse(Duration.zero);
 
-        // 第 1 次来自 handler.play()，第 2 次来自焦点恢复分支
-        //（恢复分支走 this.play() 由下方 INV1 源码守卫保证）。
-        verify(player.play()).called(2);
+        // gained 只转移状态机 audioFocus；playbackState 保持 paused，
+        // 不产生任何播放器副作用（cr-20260728-1700 D1：gained 全库无投递方，
+        // 自动恢复分支已删除——恢复由 transient 语义 + just_audio 自身
+        // 中断处理覆盖，U2 通话结束恢复语义不变）。
+        expect(handler.config.audioFocus, AudioFocusState.gained);
+        expect(handler.config.playbackState, BackgroundPlaybackState.paused);
+        verify(player.play()).called(1); // 仅前面的 handler.play()
+        verify(player.pause()).called(1); // 仅 lost 触发的一次
 
         handler.dispose();
       });
@@ -182,8 +197,10 @@ void main() {
     }
 
     test('BUG-22-S1: 构造时订阅 interruption/becomingNoisy 两条焦点流', () {
+      // 构造签名含可注入 audioSessionProvider 参数（T1 测试性注入），
+      // 标记只锚定构造函数起点。
       final ctor = between(
-          'NasAudioHandler(this._player) {', 'Future<void> _initAudioSession');
+          'NasAudioHandler(this._player', 'Future<void> _initAudioSession');
       expect(ctor, contains('_initAudioSession();'),
           reason: 'S1：构造函数必须发起 audio_session 订阅（启动时接入焦点流）');
       expect(src, contains('interruptionEventStream.listen'),
@@ -228,7 +245,9 @@ void main() {
           reason: '否定断言（INV1/SVC3）：不得直调 _player.pause()，'
               '必须走带 5s 超时的 this.pause()');
       expect(body, contains('pause();'), reason: '焦点 lost 必须经 this.pause()');
-      expect(body, contains('play();'), reason: '焦点 gained 恢复必须经 this.play()');
+      expect(body.contains('play();'), isFalse,
+          reason: '否定断言（D1）：gained 无投递方，焦点路径不得含 play()——'
+              '死分支已删除，防止自动恢复分支复活');
     });
 
     test('BUG-22-INV2: dispose 取消全部 audio_session 订阅', () {

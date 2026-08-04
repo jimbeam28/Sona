@@ -18,6 +18,7 @@ import 'dart:async';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
+import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../../features/player/background_playback.dart';
@@ -34,6 +35,15 @@ typedef PreviousTrackCallback = void Function();
 /// handler, so that the Riverpod [BackgroundPlaybackNotifier] can stay in sync.
 typedef ConfigChangeCallback = void Function(BackgroundPlaybackConfig config);
 
+/// Supplies the [AudioSession] used to subscribe to audio-focus event
+/// streams.
+///
+/// Production code uses the default ([AudioSession.instance]); tests may
+/// inject a fake session to drive interruption events deterministically —
+/// the same testability-injection style as the DAO `clock` parameters
+/// (BUG-26/BUG-31 precedent).
+typedef AudioSessionProvider = Future<AudioSession> Function();
+
 /// The [BaseAudioHandler] implementation for NAS Audio Player.
 ///
 /// Holds a reference to the app-level [AudioPlayer] and translates
@@ -42,6 +52,11 @@ typedef ConfigChangeCallback = void Function(BackgroundPlaybackConfig config);
 /// streams.
 class NasAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   final AudioPlayer _player;
+
+  /// Injectable audio-session supplier (testability injection, same style as
+  /// the DAO `clock` parameters).  Defaults to [AudioSession.instance];
+  /// production behaviour is unchanged.
+  final AudioSessionProvider _audioSessionProvider;
 
   /// Callbacks for queue navigation — set by the app after initialisation.
   NextTrackCallback? onSkipToNextRequested;
@@ -68,7 +83,9 @@ class NasAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   StreamSubscription<AudioInterruptionEvent>? _interruptionSub;
   StreamSubscription<void>? _becomingNoisySub;
 
-  NasAudioHandler(this._player) {
+  NasAudioHandler(this._player, {AudioSessionProvider? audioSessionProvider})
+      : _audioSessionProvider =
+            audioSessionProvider ?? (() => AudioSession.instance) {
     _stateSub = _player.playerStateStream.listen(_onPlayerStateChanged);
     _positionSub = _player.positionStream.listen(_onPositionChanged);
     _durationSub = _player.durationStream.listen(_onDurationChanged);
@@ -77,7 +94,7 @@ class NasAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
 
   Future<void> _initAudioSession() async {
     try {
-      final session = await AudioSession.instance;
+      final session = await _audioSessionProvider();
       _interruptionSub = session.interruptionEventStream.listen((event) {
         // BUG-22 (spec §3.1): pause/duck are transient interruptions —
         // playback resumes when the interruption ends (audio_session emits
@@ -98,7 +115,12 @@ class NasAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       _becomingNoisySub = session.becomingNoisyEventStream.listen((_) {
         onAudioFocusChange(AudioFocusState.lost);
       });
-    } catch (_) {}
+    } catch (e) {
+      // Degrade gracefully when the audio session is unavailable (e.g. no
+      // platform channels in flutter test): focus handling is disabled but
+      // core playback still works (BUG-22-INV3).
+      debugPrint('[AudioHandler] audio session init failed: $e');
+    }
   }
 
   // ── State sync ─────────────────────────────────────────────────────────
@@ -197,11 +219,18 @@ class NasAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
 
   /// Drives the background-playback state machine with an audio-focus change.
   ///
-  /// Called by the app layer when the system audio focus changes (e.g.
-  /// another app starts playing, a phone call begins/ends).
+  /// Fed by the audio-session streams subscribed in [_initAudioSession]:
+  /// pause/duck interruptions map to [AudioFocusState.transient], `unknown`
+  /// interruptions and becoming-noisy events map to [AudioFocusState.lost].
   ///
-  /// When focus is permanently [lost], playback is paused.  When focus is
-  /// [gained] back, playback may resume if the config state allows it.
+  /// When focus is permanently [AudioFocusState.lost], playback is paused.
+  /// [AudioFocusState.transient] only updates the state machine — resuming
+  /// after the interruption ends is covered by the transient semantics plus
+  /// just_audio's own interruption handling.  [AudioFocusState.gained] has
+  /// no emitter in this app; the state machine still accepts it for the
+  /// notifier path, but the handler performs no playback side effect (the
+  /// former gained auto-resume branch was dead code, removed per
+  /// cr-20260728-1700 D1).
   void onAudioFocusChange(AudioFocusState focus) {
     final next = _config.updateAudioFocus(focus);
     _updateConfig(next);
@@ -210,11 +239,8 @@ class NasAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       case AudioFocusState.lost:
         pause();
       case AudioFocusState.transient:
-        break;
       case AudioFocusState.gained:
-        if (_config.isAudioActive && !_player.playing) {
-          play();
-        }
+        break;
     }
   }
 
