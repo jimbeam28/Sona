@@ -112,6 +112,30 @@
 - 来源：e5858a9（BUG-03）
 - 规避：时间计算全程毫秒；需要"当前时刻"的逻辑注入 now provider（可测），不直接 DateTime.now()
 
+## F. 超时分层（留档基线，改超时前必读）
+
+### P17. 播放/网络超时分层表——外层先结束请求，内层负责 stop 收尾
+- 现象：（历史）just_audio 平台调用挂起无超时 → 播放页卡 8 秒、"正在加载音频"卡死（P4）；加载请求 gate 挂在 unresolved await 上永不释放（BUG-05）；loadAndPlay 只等 12s 误报慢 NAS 加载失败（BUG-18）
+- 根因：平台调用与网络流可能永不返回，每层都要有超时兜底；各层数值必须显式分层，外层超时后内层仍能完成清理
+- 来源：BUG-05 / BUG-17 / BUG-18 / BUG-23；2f946ff、cbb3098（分层断言显式化）
+- 规避：**分层表（2026-08-05 留档，以代码为准）**
+
+  | 层 | 数值 | 位置 | 来源 |
+  |---|---|---|---|
+  | 平台调用 gate | **5s** | `lib/core/services/audio_handler.dart` — play/pause/stop/seek/setSpeed/onTaskRemoved 六方法对 just_audio 调用逐一 `.timeout(5s)` | BUG-05/BUG-17（P4），cbb3098 |
+  | 加载请求 gate | **20s** | `lib/features/player/domain/request_gate.dart` — SerializedRequestGate 对 task 整体 `.timeout(20s)` | BUG-05 |
+  | 内层 stream 等待 | **30s** | `lib/features/player/domain/playback_orchestrator.dart` — loadAndPlay 等待 playing 的 completer `.timeout(30s)`，超时后 `player.stop()` 收尾 | BUG-18-S1，2f946ff |
+
+  分层语义：**内层 30s > 加载 gate 20s > 平台调用 5s** —— 外层 gate 20s 到期先把 TimeoutException 抛给调用方（请求结束、UI 不永久挂起），内层 30s 等待仍在跑、到期后负责 stop 收尾；平台调用 5s 是最短层，不阻塞任何上层。该语义已在 `test/features/player/bug_18_stream_wait_test.dart`（外层 20s 先结束 / 内层 30s 触发 stop）与 cbb3098 门禁（handler 六方法超时扫描）显式断言。
+
+  独立的网络/存储超时（不属播放分层，改动不触发上述断言）：
+  - WebDAV validate / listDirectory 一律 **5s**（`webdav_client.dart` `_timeout` 默认值；validate 罩 send，listDirectory 连 body 读取也罩——BUG-23，193ef56）
+  - flutter_secure_storage 读/写/删 **5s**（`core/services/storage_utils.dart`，BUG-32）
+  - PlayerScreen UI 层加载超时 **15s**（`player_screen.dart` `_runSerializedLoad`，到期提示"加载超时，请重试"）
+  - preload setAudioSource / seek **10s**（`audio_source_builder.dart`，BUG-32）
+
+  改任一层数值前：核对层间关系（内层不得短于其保护的真实最慢场景，BUG-18-INV2 ≥ 原 12s 判例），并回归对应门禁测试。
+
 ---
 
 ## 回写格式（dev-exe 修完新真机 bug 时追加）

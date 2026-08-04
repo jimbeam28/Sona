@@ -20,5 +20,5 @@ Thumbs.db
 # Local agent guidance
 AGENTS.md
 
-# 覆盖率产物（cov-gate.sh 生成）
-coverage/
+# 覆盖率产物（cov-gate.sh 生成）——锚定根目录，避免误伤 test/features/coverage/
+/coverage/

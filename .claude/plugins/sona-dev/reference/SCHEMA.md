@@ -165,3 +165,16 @@ MQA 不阻塞 impl_status=done。每个 manual_qa_required 条目的验证项追
 | `dev-task.sh` | 超时预算运行器（cov-gate 内部库） | 124=超时 |
 
 脚本路径：`.claude/plugins/sona-dev/scripts/`（coverage-check.sh 在 `docs/dev/scripts/`）。
+
+---
+
+## 5. 全局裁决：错误处理纪律（catch-log）
+
+> cr-20260804-1922 §4 S6 单源化：复核判据「catch 可接受的前提是有日志」（CON1/BUG-19/LIST6/O7 同标准）升格为全局裁决。spec 不再逐条重复本裁决，引用本节即可。
+
+- **静默吞错禁止**：任何 `catch` / `catchError` 必须先留日志（`debugPrint` 或 LogBuffer）才允许吞掉异常。dev-check / cr 复核遇无日志的静默 catch 一律按问题列出。
+- **日志不得含凭证**：catch 日志遵守 secret-logs 门禁（`cross-imports.sh secret-logs`）——不打印密码明文；异常文本可能回显含 userinfo 的 URL 时先脱敏（参照 `redactUrlForLog` 用法）。
+- **例外——spec 显式裁决的沉默**：spec 明文裁决允许静默的 catch 不受本条约束，但 spec 必须注明依据。现有清单：
+  - `lib/core/services/audio_handler.dart` 六方法对平台调用超时/错误的静默 catch——BUG-17 spec 裁决「timeout 触发 → catch 静默处理，与 play/pause/stop 行为一致」（P4 平台坑：平台调用失败不向用户冒泡）；其中 play() 内层 completed 恢复 seek 的静默 catch 另见 BUG-05-S1 裁决「seek 失败不阻塞 play 调用」。
+  - `lib/features/connection/domain/connection_service.dart` delete 的密码清理失败——BUG-24-S3 best-effort 裁决（DAO 已成功，存储清理失败仍吞，但**日志照留**，c8c0314）。
+- **裁决冲突处理**：spec 文字与本裁决冲突时（如 BUG-32-S1 曾出现的表述张力），dev-plan 修订 spec 显式对齐本节；实现侧不得自行在「吞」与「日志」之间来回改。
