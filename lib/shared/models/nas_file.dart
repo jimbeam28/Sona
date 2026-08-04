@@ -58,6 +58,20 @@ class NasFile {
     return AudioFileType.music;
   }
 
+  /// Classifies the audio file at [path] by its **last path segment** (the
+  /// real filesystem name) and returns its [AudioFileType], or `null` when
+  /// the last segment is not a supported audio filename.
+  ///
+  /// Single source for path-derived classification (BUG-15 / cr-20260804 O8):
+  /// audio recognition must never use a display label (displayname /
+  /// fileName), which may lack an extension or diverge from the real file.
+  /// Only the last segment is examined — directory-name keywords do not
+  /// affect classification.
+  static AudioFileType? classifyPath(String path) {
+    final filename = path.split('/').last;
+    return isAudioFile(filename) ? classifyType(filename) : null;
+  }
+
   // ── Factory: build from raw PROPFIND properties ───────────────────────────────
 
   /// Creates a [NasFile] from a parsed PROPFIND `<response>` entry.
@@ -113,10 +127,8 @@ class NasFile {
       modifiedAt = _parseRfc1123(dateStr);
     }
 
-    final hrefFilename = cleanHref.split('/').last;
-    final audioType = (!isDirectory && isAudioFile(hrefFilename))
-        ? classifyType(hrefFilename)
-        : null;
+    // Classify from the real path (href), never from displayname (BUG-15).
+    final audioType = !isDirectory ? classifyPath(cleanHref) : null;
 
     return NasFile(
       name: name,

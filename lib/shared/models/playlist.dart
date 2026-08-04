@@ -109,8 +109,10 @@ class PlaylistTrack {
       name: fileName,
       path: filePath,
       isDirectory: false,
-      audioType:
-          NasFile.isAudioFile(fileName) ? NasFile.classifyType(fileName) : null,
+      // audioType derives from the real path, not the display name (fileName
+      // may lack an extension or diverge from the real file) — same
+      // single-source rule as the browse chain (BUG-15 / cr-20260804 O8).
+      audioType: NasFile.classifyPath(filePath),
     );
   }
 
