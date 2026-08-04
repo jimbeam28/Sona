@@ -9,6 +9,7 @@
 // - delete: last-connection protection + secure-storage cleanup + auto-activate
 // - setActive: transactional switch (single active connection)
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../../core/database/dao/connection_dao.dart';
@@ -119,7 +120,15 @@ class ConnectionService {
     final wasActive = await _dao.delete(id);
     try {
       await safeStorageDelete(_storage, key: 'connection_password_$id');
-    } catch (_) {}
+    } catch (e) {
+      // Best-effort cleanup: the DB row is already gone and ids are
+      // AUTOINCREMENT (never reused), so an orphaned password key is
+      // acceptable (BUG-24-S3 ruling — delete must not fail on cleanup
+      // failure). But the error must not vanish silently either: catch-log
+      // discipline (same criterion as CON1/BUG-19/LIST6). Only the key name
+      // and the exception are logged — never a secret value.
+      debugPrint('[Conn] delete: secure storage cleanup failed for id=$id: $e');
+    }
     return wasActive;
   }
 

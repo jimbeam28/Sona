@@ -67,8 +67,11 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
             );
           }
         }
-      } catch (_) {
-        // On error, play from beginning
+      } catch (e) {
+        // On error, play from beginning — but do not swallow silently
+        // (catch-log criterion, same as CON1/BUG-19/LIST6).
+        debugPrint('[Playlist] play: progress resume lookup failed, '
+            'playing from beginning: $e');
       }
     }
 

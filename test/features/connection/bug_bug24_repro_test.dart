@@ -18,6 +18,9 @@
 // BUG-24-S2-T04: 边界 — 旧密码读取失败 → 回滚写 null（可接受降级）
 // BUG-24-S3-T01: DAO 删除成功 + storage 删除失败 → delete() 不 rethrow
 // BUG-24-S3-T02: 正常删除路径不变 — DB 行与密码 key 均移除
+// BUG-24-S3-T03: storage 删除失败 → 清理失败必须落日志（O7 复核：禁止静默
+//                吞错，同 CON1/BUG-19/LIST6 判据），日志不含密码明文
+// BUG-24-S3-T04: 清理失败日志含连接 id 与异常信息（可诊断性）
 //
 // 否定断言（对应 spec §3.1）：
 //   - S1: _originalConfig 为 null 不抛 Null check operator error
@@ -165,6 +168,23 @@ class _RecordingDao extends ConnectionDao {
     deleteCalls.add(id);
     return deleteReturnsWasActive;
   }
+}
+
+/// Captures everything written through [debugPrint] during [body].
+///
+/// Mirrors the capture helper in bug_bug19_repro_test.dart (BUG-19 gate).
+/// Restores the original printer in `finally` (flutter_test verifies
+/// foundation debug variables between tests).
+Future<List<String>> captureLogs(Future<void> Function() body) async {
+  final logs = <String>[];
+  final originalDebugPrint = debugPrint;
+  debugPrint = (message, {wrapWidth}) => logs.add(message ?? '');
+  try {
+    await body();
+  } finally {
+    debugPrint = originalDebugPrint;
+  }
+  return logs;
 }
 
 // ── Widget scaffolding (mirrors bug_15_repro_test.dart) ─────────────────────
@@ -504,6 +524,60 @@ void main() {
       expect(dao.deleteCalls, equals([5]));
       expect(await storage.read(key: 'connection_password_5'), isNull,
           reason: '正常路径密码 key 必须被清理');
+    });
+
+    // ── O7 复核（cr-20260804-1922 §5）：catch-log 判据 ─────────────────────
+    // 禁止静默吞错：密码清理失败必须落日志（同 CON1 复核修正 d0f43c4 /
+    // BUG-19 复核修正 0607ee3 / LIST6 判据「catch 可接受的前提是有日志」）。
+    // 行为不变：delete() 仍不 rethrow（BUG-24-S3 既有裁决，见 S3-T01）。
+
+    test(
+        'S3-T03: storage 删除失败 → 清理失败落日志且 delete() 仍成功；'
+        '日志不含密码明文', () async {
+      final dao = _RecordingDao()..deleteReturnsWasActive = true;
+      const secret = 'sup3r-s3cret-p@ssw0rd';
+      final storage = DeleteThrowingFakeSecureStorage()..setPassword(9, secret);
+      final service = ConnectionService(dao, storage);
+
+      var wasActive = false;
+      final logs = await captureLogs(() async {
+        wasActive = await service.delete(9);
+      });
+
+      // 行为不变：删连接主流程不因密码清理失败而失败（既有裁决）。
+      expect(wasActive, isTrue);
+      expect(dao.deleteCalls, equals([9]));
+
+      // catch-log 判据：catch 必须留下能定位到连接的日志。
+      expect(
+        logs.where((l) => l.contains('id=9')),
+        isNotEmpty,
+        reason: 'storage 清理失败必须落日志，禁止静默吞错'
+            '（同 CON1/BUG-19/LIST6 判据）',
+      );
+
+      // 否定断言：日志不得泄漏密码明文。
+      for (final log in logs) {
+        expect(log.contains(secret), isFalse, reason: '日志不得包含密码明文');
+      }
+    });
+
+    test('S3-T04: 清理失败日志同时含连接 id 与异常信息（可诊断性）', () async {
+      final dao = _RecordingDao()..deleteReturnsWasActive = false;
+      final storage = DeleteThrowingFakeSecureStorage();
+      final service = ConnectionService(dao, storage);
+
+      final logs = await captureLogs(() async {
+        await service.delete(4);
+      });
+
+      expect(
+        logs.where((l) =>
+            l.contains('id=4') &&
+            l.contains('Simulated secure storage delete failure')),
+        isNotEmpty,
+        reason: '日志须同时定位连接（id）与携带异常信息，否则无法诊断',
+      );
     });
   });
 }

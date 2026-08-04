@@ -262,7 +262,14 @@ class WebDavClient implements WebDavClientInterface {
       }();
       debugPrint('[WebDAV] validate result: ${result.status}'
           ' (HTTP ${streamedResponse.statusCode})');
-      unawaited(streamedResponse.stream.drain<void>().catchError((_) {}));
+      unawaited(streamedResponse.stream.drain<void>().catchError((Object e) {
+        // Connection-hygiene cleanup after the result is final — failure is
+        // harmless but must not vanish silently (catch-log criterion).
+        // Redact: exception messages can echo the request uri (same
+        // rationale as the validate error log below).
+        debugPrint(
+            '[WebDAV] validate drain failed: ${redactUrlForLog(e.toString())}');
+      }));
       return result;
     } on TimeoutException {
       debugPrint('[WebDAV] validate: timeout');
