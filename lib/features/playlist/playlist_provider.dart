@@ -46,15 +46,25 @@ int _playlistSortCompare(Playlist a, Playlist b, PlaylistSortOption sort) {
 }
 
 int _trackSortCompare(PlaylistTrack a, PlaylistTrack b, TrackSortOption sort) {
+  final int primary;
   switch (sort) {
     case TrackSortOption.addedAsc:
-      final cmp = a.addedAt.compareTo(b.addedAt);
-      return cmp != 0 ? cmp : (a.id ?? 0).compareTo(b.id ?? 0);
+      primary = a.addedAt.compareTo(b.addedAt);
     case TrackSortOption.nameAsc:
-      return a.fileName.compareTo(b.fileName);
+      primary = a.fileName.compareTo(b.fileName);
     case TrackSortOption.nameDesc:
-      return b.fileName.compareTo(a.fileName);
+      primary = b.fileName.compareTo(a.fileName);
   }
+  if (primary != 0) return primary;
+  // BUG-08-S1: id tiebreak on primary ties — keeps the display order aligned
+  // with the DAO reorder baseline `ORDER BY added_at ASC, id ASC`
+  // (BUG-08-INV1). Null ids sort after non-null ones.
+  final aId = a.id;
+  final bId = b.id;
+  if (aId != null && bId != null) return aId.compareTo(bId);
+  if (aId != null) return -1;
+  if (bId != null) return 1;
+  return 0;
 }
 
 // ── Data providers ─────────────────────────────────────────────────────────

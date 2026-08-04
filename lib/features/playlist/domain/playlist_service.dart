@@ -62,7 +62,11 @@ class PlaylistService {
   /// Deduplicates by checking [PlaylistDao.trackExists] for each file's path
   /// before inserting.  Only files not already present are added.
   Future<void> addTracksToPlaylist(int playlistId, List<NasFile> files) async {
-    var baseTime = DateTime.now();
+    // BUG-08-S2: read the clock once; each actually inserted track gets
+    // baseTime + n ms (n = number of tracks inserted so far), so batch
+    // timestamps are strictly monotonic. Dedup-skipped files do not consume
+    // an index because `tracks.length` only counts inserted tracks.
+    final baseTime = DateTime.now();
     final seen = <String>{};
     final tracks = <PlaylistTrack>[];
     for (final file in files) {
