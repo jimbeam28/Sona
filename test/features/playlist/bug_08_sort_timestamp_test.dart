@@ -7,6 +7,10 @@
 //   BUG-08-S1   — provider 排序比较器 id tiebreak（全 switch 分支）
 //   BUG-08-S2   — 批添加时间戳单调递增（baseTime + n 毫秒）
 //   BUG-08-INV1 — 展示序 == DAO reorder 基准序（added_at ASC, id ASC）
+//
+// 追加（cr-20260804-1922 §5 O5-D2）:
+//   DAO 层基准序一致性 — findTracksForPlaylist 与 reorderTrack 对齐到
+//   `added_at ASC, id ASC`（INV1 的 DAO 层半边，防回归锚定，见组头注释）
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -387,6 +391,143 @@ void main() {
         displayed.map((e) => e.id).toList(),
         await _baselineIds(playlistId),
       );
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // O5-D2 (cr-20260804-1922 §5): DAO 读取路径对齐 reorder 基准序
+  //
+  // findTracksForPlaylist 原为裸 `added_at ASC`，reorderTrack 为
+  // `added_at ASC, id ASC`——BUG-08 修复前的 legacy 批数据共享同一
+  // added_at，等值行的相对序在两条 DAO 路径间缺乏共同契约（回归隐患）。
+  // 本组把 BUG-08-INV1 的基准序锚定到 DAO 层。
+  //
+  // RED 可构造性：本 SQLite 构建中 playlist_tracks.id 是 rowid 别名，
+  // 隐式行序恒等于 id 序——裸 `added_at ASC` 的等值决议碰巧与目标序
+  // 一致（乱序显式 id / UPDATE 等值 / 删除空洞 / 60 行乱序四组探针均
+  // 无法构造 FAIL），故本组定性为防回归锚定。锚定有效性经反向验证：
+  // ORDER BY 改为 `added_at ASC, id DESC` 时本组用例 FAIL。
+  // ═══════════════════════════════════════════════════════════════════════
+
+  group('O5-D2 findTracksForPlaylist == reorder baseline (DAO layer)', () {
+    late PlaylistDao dao;
+    late int playlistId;
+    final stamp = DateTime(2026, 8, 2, 9);
+
+    setUp(() async {
+      dao = PlaylistDao();
+      playlistId = await dao.insertPlaylist(Playlist(
+        name: 'o5d2',
+        createdAt: DateTime(2026, 8, 1),
+        updatedAt: DateTime(2026, 8, 1),
+      ));
+    });
+
+    Future<List<int>> baselineIds() async {
+      final rows = await db.rawQuery(
+        'SELECT id FROM playlist_tracks '
+        'WHERE playlist_id = ? ORDER BY added_at ASC, id ASC',
+        [playlistId],
+      );
+      return rows.map((r) => r['id'] as int).toList();
+    }
+
+    /// Inserts rows sharing one [stamp] with explicit [ids] — the legacy
+    /// pre-BUG-08 batch shape (one DateTime.now() for the whole batch).
+    /// Direct SQL so ids can be chosen independently of insert order.
+    Future<void> seedSharedStampRows(List<int> ids) async {
+      for (final id in ids) {
+        await db.insert('playlist_tracks', {
+          'id': id,
+          'playlist_id': playlistId,
+          'file_path': '/legacy/f$id.mp3',
+          'file_name': 'f$id.mp3',
+          'added_at': stamp.millisecondsSinceEpoch,
+        });
+      }
+    }
+
+    test('legacy 批 ≥3 条等值 added_at → 读取序 == added_at ASC, id ASC', () async {
+      // Physical insert order deliberately ≠ id ASC.
+      await seedSharedStampRows([7, 2, 5]);
+
+      final ids = (await dao.findTracksForPlaylist(playlistId))
+          .map((t) => t.id)
+          .toList();
+
+      expect(ids, [2, 5, 7], reason: 'O5-D2: 等值 added_at 行必须按 id ASC 定序');
+      expect(ids, await baselineIds(),
+          reason: 'O5-D2: 读取序 == ORDER BY added_at ASC, id ASC 基准');
+    });
+
+    test('等值组 + 前后异值锚点 → 主键序优先，tiebreak 仅在组内生效', () async {
+      await seedSharedStampRows([3, 1, 2]);
+      // Anchors with ids inverted relative to their added_at position.
+      await db.insert('playlist_tracks', {
+        'id': 9,
+        'playlist_id': playlistId,
+        'file_path': '/early.mp3',
+        'file_name': 'early.mp3',
+        'added_at':
+            stamp.subtract(const Duration(seconds: 1)).millisecondsSinceEpoch,
+      });
+      await db.insert('playlist_tracks', {
+        'id': 8,
+        'playlist_id': playlistId,
+        'file_path': '/late.mp3',
+        'file_name': 'late.mp3',
+        'added_at':
+            stamp.add(const Duration(seconds: 1)).millisecondsSinceEpoch,
+      });
+
+      final ids = (await dao.findTracksForPlaylist(playlistId))
+          .map((t) => t.id)
+          .toList();
+
+      expect(ids, [9, 1, 2, 3, 8],
+          reason: 'O5-D2: 异值 added_at 主键优先，等值组内 id ASC');
+      expect(ids, await baselineIds());
+    });
+
+    test('findTracksForPlaylist 序 == reorderTrack 操作序（INV1 DAO 层）', () async {
+      await seedSharedStampRows([4, 6, 5]);
+      final baseline = await baselineIds();
+      expect(baseline, [4, 5, 6]);
+
+      // reorderTrack(0 → 2) operates on its internal read order; if that
+      // order differed from findTracksForPlaylist's, the moved row would
+      // not be baseline[0].
+      await dao.reorderTrack(playlistId, 0, 2);
+
+      final moved = [...baseline]
+        ..removeAt(0)
+        ..insert(2, baseline[0]);
+      expect(
+        (await dao.findTracksForPlaylist(playlistId)).map((t) => t.id).toList(),
+        moved,
+        reason: 'O5-D2: 两条 DAO 路径共享同一基准序（added_at ASC, id ASC）',
+      );
+    });
+
+    test('否定断言：added_at 互不相同 → 排序仍为主键序（tiebreak 不反客为主）', () async {
+      // ids deliberately inverted relative to strictly increasing stamps.
+      final base = DateTime(2026, 8, 2, 9);
+      for (var i = 0; i < 3; i++) {
+        await db.insert('playlist_tracks', {
+          'id': 10 - i,
+          'playlist_id': playlistId,
+          'file_path': '/f$i.mp3',
+          'file_name': 'f$i.mp3',
+          'added_at': base.add(Duration(seconds: i)).millisecondsSinceEpoch,
+        });
+      }
+
+      final ids = (await dao.findTracksForPlaylist(playlistId))
+          .map((t) => t.id)
+          .toList();
+
+      expect(ids, [10, 9, 8], reason: 'added_at 互异时主键决定排序（与修复前行为一致）');
+      expect(ids, isNot([8, 9, 10]), reason: '否定断言: 不得退化为纯 id ASC');
     });
   });
 }

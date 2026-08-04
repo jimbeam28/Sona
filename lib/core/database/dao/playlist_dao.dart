@@ -101,7 +101,11 @@ class PlaylistDao implements IPlaylistDao {
     });
   }
 
-  /// Returns the tracks of a playlist ordered by `added_at ASC`.
+  /// Returns the tracks of a playlist ordered by `added_at ASC, id ASC`.
+  ///
+  /// The `id ASC` tiebreak matches [reorderTrack]'s baseline order so rows
+  /// sharing one `added_at` (legacy pre-BUG-08 batches) read back in the
+  /// same relative order both DAO paths agree on (BUG-08-INV1, O5-D2).
   ///
   /// Each track's `filePath` is normalised to the connection-root-relative
   /// form (O1) using the active connection's root, so rows persisted by
@@ -115,7 +119,7 @@ class PlaylistDao implements IPlaylistDao {
       'playlist_tracks',
       where: 'playlist_id = ?',
       whereArgs: [playlistId],
-      orderBy: 'added_at ASC',
+      orderBy: 'added_at ASC, id ASC',
     );
     final tracks = rows.map(PlaylistTrack.fromMap).toList();
     if (root == null || root == '/') return tracks;
