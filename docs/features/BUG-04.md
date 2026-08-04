@@ -14,7 +14,7 @@ name: Shuffle 排列一致性缺陷簇
 priority: P0
 status: draft
 created_at: 2026-07-27
-last_updated: 2026-07-27
+last_updated: 2026-08-05
 spec_anchored_files:
   - lib/shared/models/play_queue.dart
   - lib/features/player/domain/playback_orchestrator.dart
@@ -141,6 +141,37 @@ manual_qa_required: false
        );
      }
      ```
+
+     > **⚠ 更正（2026-08-05，cr-20260804-1922 §4 S4 复核）**：上述片段的重洗循环条件
+     > `excludeIndex != null && order.isNotEmpty && order[0] == excludeIndex` 在
+     > `q.length == 1` 时**死循环**——order 恒为 `[0]`、`excludeIndex` 恒为 0，条件恒真，
+     > 与下方边界裁决「`files.length == 1` → 仍播同一首」自相矛盾。原片段不得作为实现依据。
+     > 实际落地实现（commit 17a9010）以 `q.length > 1` 守卫规避，`excludeIndex` 改为非空
+     > `required` 参数，并将 S3 的 forPrevious 合入同一方法：
+     >
+     > ```dart
+     > // lib/features/player/domain/playback_orchestrator.dart:456-471（当前实现语义）
+     > PlayQueue _regenerateShuffleQueue(PlayQueue q,
+     >     {required int excludeIndex, bool forPrevious = false}) {
+     >   List<int> order;
+     >   do {
+     >     order = PlayQueue.generateShuffleOrder(q.length, _rng);
+     >   } while (q.length > 1 && order[0] == excludeIndex);
+     >   final position = forPrevious ? order.length - 1 : 0;
+     >   return PlayQueue(
+     >     files: q.files,
+     >     currentIndex: order[position],
+     >     startPositionMs: null,
+     >     playMode: q.playMode,
+     >     shuffleOrder: order,
+     >     shufflePosition: position,
+     >   );
+     > }
+     > ```
+     >
+     > 单曲队列退化为重播该曲（循环一次即退出，不死循环）；`forPrevious: true` 时指针落
+     > 排列末尾（S3）。接入点：`skipToNext`（`playback_orchestrator.dart:261-266`）、
+     > `skipToPrevious`（`:292-300`）、`computeNextQueue`（`:425-434`）。
   2. 在 `PlayQueue` 类中将 `_generateShuffleOrder`（:65）改为公开方法（去掉下划线前缀或新增公开包装），以便 orchestrator 调用。建议新增：
      ```dart
      /// 公开 Fisher-Yates 排列生成，供编排层重洗用。
@@ -219,6 +250,13 @@ manual_qa_required: false
      }();
      ```
      **实现简化建议**：可在 `PlayQueue` 中新增 `PlayQueue regenerateShuffleWithLastPosition(int excludeIndex, Random rng)` 工厂方法，避免 orchestrator 直接操作排列内部。
+
+     > **⚠ 更正（2026-08-05，cr-20260804-1922 §4 S4 复核）**：实际落地实现（commit 17a9010）
+     > 未采用本节片段与工厂方法建议，而是复用 S2 更正块中的
+     > `_regenerateShuffleQueue(q, excludeIndex: q.currentIndex, forPrevious: true)`
+     > （`playback_orchestrator.dart:292-300,456-471`）：指针落排列末尾、
+     > `currentIndex = order[末尾]`，语义与本 Scenario 一致（末位曲目 ≠ 刚播完曲目
+     > 由重洗守卫在 `q.length > 1` 时保证；单曲队列退化为重播）。
   2. **边界裁决**：
      - `files.length == 1` → 排列=[0]，末尾=0，仍播同一首
      - 重洗后末位曲目 ≠ 刚播完的曲目（由 _regenerateShuffleQueue 保证首位≠excludeIndex，末位自然不同）
@@ -303,8 +341,11 @@ BUG-04-ALG2              # 重洗算法
 
 ### 5.4 测试文件位置
 
-新建：`test/features/player/bug_bug04_repro_test.dart`（复现测试，修复前 FAIL）
-新建：`test/features/player/bug_bug04_fixed_test.dart`（修复后断言）
+门禁：`test/features/player/bug_bug04_fixed_test.dart`（覆盖 S1-S4 + INV1-3 + ALG1/2，两态实证修复前 FAIL + mutation 锚定；commit 17a9010）
+
+> **⚠ 更正（2026-08-05，cr-20260804-1922 复核）**：原列的 `bug_bug04_repro_test.dart`
+> **从未创建**（`git log --all` 对该路径零命中）；「修复前 FAIL」实证由复核门禁
+> 两态验证承担（见 17a9010 commit message）。实际门禁为上列 `bug_bug04_fixed_test.dart`。
 
 ---
 
@@ -350,3 +391,4 @@ ALG [BUG-04-ALG2-regenerateShuffle]:
 
 - 2026-07-27: 创建 BUG-04 spec（基于 cr-20260724-0110.md PLY1/PLY3/MDL4 + 用户裁决 PLY3=重洗）
 - 2026-07-27: 增强 §3 修改指令（精确到行号 + 代码片段 + 边界裁决）
+- 2026-08-05: cr-20260804-1922 复核：修订实现性错误/门禁指向——§3.2 S2 更正原 regenerate 片段 n=1 死循环并贴实际实现语义（playback_orchestrator.dart:456-471，q.length>1 守卫 + forPrevious）；S3 更正实际实现为同方法复用；§5.4 门禁改指向实际落地的 bug_bug04_fixed_test.dart（原 bug_bug04_repro_test.dart 从未创建，git log --all 证实）

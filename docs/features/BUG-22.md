@@ -13,7 +13,7 @@ name: 音频焦点死代码 + 无超时（SVC2 + SVC3）
 priority: P1
 status: draft
 created_at: 2026-07-27
-last_updated: 2026-07-27
+last_updated: 2026-08-05
 spec_anchored_files:
   - lib/core/services/audio_handler.dart
   - lib/features/player/domain/background_playback.dart
@@ -88,6 +88,9 @@ manual_qa_required: true
   Code evidence: `audio_handler.dart:67-71`（构造函数只订阅 playerStateStream/positionStream/durationStream，无 audio_session）
   grep 证据: `lib/` 下 grep `interruptionEventStream` / `becomingNoisyEventStream` / `AudioSession.instance` 零命中
   依赖证据: `pubspec.yaml:38`（`audio_session: any` 已声明但未使用）
+  更正（2026-08-05）：原证据行号 `:38` 为当时 **dev_dependencies** 区位置，系误记位置；
+  `lib/core/services/audio_handler.dart` 直接 import audio_session，须为**主依赖**——
+  2f946ff 已将其移正至 dependencies（`pubspec.yaml:16-19`，含 BUG-22 注释）
 
   **修改指令 — `lib/core/services/audio_handler.dart`（构造函数 + dispose + 新增字段）**
 
@@ -272,6 +275,7 @@ manual_qa_required: true
 
 - **[BUG-22-INV3]** audio_session 订阅失败不阻塞核心播放功能
   证据：`audio_session: any` 已在 `pubspec.yaml:38` 声明；`AudioSession.instance` 可能在测试环境不可用，需 try/catch 降级
+  更正（2026-08-05）：依赖位置同 S1 依赖证据更正——现为 dependencies 主依赖（`pubspec.yaml:16-19`，2f946ff 移正），原 `:38` 为 dev_dependencies 误记
 
 ---
 
@@ -308,6 +312,7 @@ BUG-22-INV3         # audio_session 初始化失败不阻塞
 | BRW | 无 | 不涉及浏览 |
 
 `audio_session` 包已在 `pubspec.yaml` 声明（`:38`），无需新增依赖。
+更正（2026-08-05）：现为 dependencies 主依赖（`pubspec.yaml:16-19`）——lib/ 直接 import，2f946ff 从 dev_dependencies 移正；原 `:38` 行号为 dev_dependencies 区误记。
 
 ---
 
@@ -329,3 +334,4 @@ BUG-22-INV3         # audio_session 初始化失败不阻塞
 ## §10 changelog
 
 - 2026-07-27: 创建 BUG-22 spec（基于 cr-20260724-0110.md SVC2 + SVC3）
+- 2026-08-05: cr-20260804-1922 复核：修订实现性错误/门禁指向——audio_session 依赖位置误记修订（cr §4 S4 归于 BUG-18 簇，实际误记在本 spec）：三处 `pubspec.yaml:38` 引用为 dev_dependencies 区误记，实际是主依赖 dependencies（pubspec.yaml:16-19，2f946ff 从 dev_dependencies 移正，lib/ 已直接 import）

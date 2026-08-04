@@ -13,7 +13,7 @@ name: loadAndPlay 12s 轮询等待播放开始
 priority: P1
 status: draft
 created_at: 2026-07-27
-last_updated: 2026-07-27
+last_updated: 2026-08-05
 spec_anchored_files:
   - lib/features/player/domain/playback_orchestrator.dart
 cross_module_impacts: [PLY]
@@ -237,3 +237,4 @@ BUG-18-INV2         # 超时 ≥ 12s
 ## §10 changelog
 
 - 2026-07-27: 创建 BUG-18 spec（基于 cr-2026-06-28.md FRAGILE-02）
+- 2026-08-05: cr-20260804-1922 复核：修订实现性错误/门禁指向——核查 cr §4 S4「audio_session 依赖位置记录错误」：本 spec 全文无 audio_session/pubspec 记录（grep 零命中，无可修订处）；误记实际位于 BUG-22.md（三处 `pubspec.yaml:38` dev_dependencies 区引用），已在 BUG-22.md 更正为 dependencies 主依赖（pubspec.yaml:16-19，2f946ff 移正）

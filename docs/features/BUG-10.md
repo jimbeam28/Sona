@@ -13,7 +13,7 @@ name: 删除活跃连接后不复位导航栈
 priority: P1
 status: draft
 created_at: 2026-07-27
-last_updated: 2026-07-27
+last_updated: 2026-08-05
 spec_anchored_files:
   - lib/features/connection/connection_provider.dart
   - lib/features/connection/connection_list_screen.dart
@@ -160,6 +160,7 @@ manual_qa_required: false
   - `resetBrowserStateOnActiveConnectionChange` 已在 `:289-292` 定义，invalidate `directoryCacheProvider` + `navigationStackProvider`。
 
   **测试文件位置：** `test/features/connection/bug_10_test.dart`
+  更正（2026-08-05）：该门禁文件**从未创建**（af084af 复核报告：生产修复 596a63b 已落地且正确，门禁缺失）。生产修复现状证据：`connection_service.dart:119-133`（delete 返回 wasActive）、`connection_provider.dart:338-358`（`:343-345` 捕获 wasActive、`:355-357` 条件性调 `resetBrowserStateOnActiveConnectionChange`，钩子定义 `:296`）。补门禁时按 SCHEMA §1.3 防撞名规则改全称形态命名（见 §5.4）。
 
 ---
 
@@ -179,12 +180,31 @@ BUG-10-S1           # 删除后重置浏览器
 BUG-10-INV1         # 三种变更均触发
 ```
 
+### 5.3 测试覆盖盲点
+
+| 未覆盖 ID | 现状 | 应补偿方式 |
+|---|---|---|
+| BUG-10-S1 | **门禁测试欠账**：§5.4 原指定文件从未创建；生产修复已落地（596a63b，af084af 复核正确），但既有用例零锚定——con_06_test 只断言删除+密码清理，无浏览器重置断言；回退浏览器重置逻辑既有测试照样绿 | 补门禁：删除活跃连接 → directoryCacheProvider 清空 + navigationStackProvider 复位到根（含否定断言：删除非活跃连接不触发重置） |
+| BUG-10-INV1 | 同上欠账：切换/编辑路径已有覆盖（connection_list_screen.dart:78-80 / bug_16_repro_test.dart CON3 组），删除路径无断言 | 同一门禁文件内断言三入口均触发重置 |
+
+> **⚠ 门禁测试欠账记账（2026-08-05，cr-20260804-1922 复核）**：本欠账已在
+> `docs/dev/dev-status.json` BUG-10 条目 `test_coverage_gaps` 记账
+> （BUG-10-S1 / BUG-10-INV1）。`spec-scan.sh --gate BUG-10` 在欠账清偿前持续 FAIL，
+> 属预期。**不许为平账造空壳测试**——补测须两态实证（回退 connection_provider.dart:355-357
+> 的 `if (wasActive)` 分支应 FAIL）。
+
 ### 5.4 测试文件位置
 
 | 测试 ID | 文件路径 |
 |---|---|
-| BUG-10-S1 | `test/features/connection/bug_10_test.dart` |
-| BUG-10-INV1 | `test/features/connection/bug_10_test.dart` |
+| BUG-10-S1 | `test/features/connection/bug_bug10_repro_test.dart`（**欠账，待补**） |
+| BUG-10-INV1 | `test/features/connection/bug_bug10_repro_test.dart`（**欠账，待补**） |
+
+> 更正（2026-08-05）：原指向 `bug_10_test.dart`（connection/ 下从未创建）。
+> 待补文件按 SCHEMA §1.3 防撞名规则改全称形态命名 `bug_bug10_repro_test.dart`——
+> 旧轮已有同名编号文件：`test/features/bug_10_test.dart`（旧轮 SecureStorage 超时 bug）
+> 与 `test/features/progress/bug_10_repro_test.dart`（旧轮 PRG1 double-pop bug），
+> 二者均与本 spec（CON4 删除活跃连接）无关。
 
 ---
 
@@ -211,3 +231,4 @@ BUG-10-INV1         # 三种变更均触发
 ## §10 changelog
 
 - 2026-07-27: 创建 BUG-10 spec（基于 cr-20260724-0110.md CON4）
+- 2026-08-05: cr-20260804-1922 复核：修订实现性错误/门禁指向——§5.4 原指向的 bug_10_test.dart 从未创建，标注门禁测试欠账（BUG-10-S1/INV1，dev-status test_coverage_gaps 记账）；生产修复现状锚点补齐（connection_provider.dart:338-358 / connection_service.dart:119-133）；待补门禁文件按 SCHEMA §1.3 防撞名规则改全称形态 bug_bug10_repro_test.dart

@@ -13,7 +13,7 @@ name: 服务层健壮性（SVC4+SVC5）
 priority: P1
 status: draft
 created_at: 2026-07-27
-last_updated: 2026-07-27
+last_updated: 2026-08-05
 spec_anchored_files:
   - lib/core/services/storage_utils.dart
   - lib/core/services/background_service.dart
@@ -237,6 +237,19 @@ manual_qa_required: true
           }
   ```
 
+  > **⚠ 更正（2026-08-05，cr-20260804-1922 复核；f4ef23b secret-logs）**：上述调用方适配
+  > 片段中含 "password" 的日志文案已改为 secure storage 语义化文案（日志文案不得含
+  > 凭证关键字——secret-logs 门禁判据），catch + 日志 + 跳过/降级语义不变。
+  > 当前文案以以下 file:line 为准：
+  > - `lib/core/services/audio_source_builder.dart:156` — `'[AudioSource] preload: secure storage read timeout, skip'`（原 spec 文案 `'[AudioSource] preload: password read timeout'`）
+  > - `lib/features/connection/connection_provider.dart:165` — `'[Conn] startupValidation: secure storage read timeout'`（原 spec 文案 `'[Conn] startupValidation: password read timeout'`）
+  > - `lib/features/connection/connection_provider.dart:169` — `'[Conn] startupValidation: no secret stored'`（原 spec 文案 `'[Conn] startupValidation: no password'`，S1 当前代码块与改后块两处同改）
+  > - `lib/features/player/player_screen.dart:203` — `'[Player] secure storage read timeout'`（原 spec 文案 `'[Player] password read timeout'`）
+  >
+  > 用户可见文案不变（属 banner 非日志，不受凭证关键字约束）：
+  > `WebDavValidationResult.error('读取密码超时，请重试')`（`connection_provider.dart:166`）、
+  > `WebDavException('读取密码超时，请重试')`（`browser_provider.dart:94`）。
+
 - **[BUG-32-S2]** `moveTaskToBack` 处理异步错误 (`status: new`)
   ```
   Given Android Activity 已销毁
@@ -293,6 +306,7 @@ manual_qa_required: true
   - 调用方 `home_screen.dart:84` 无需修改（函数签名不变，仍为 `void`）
 
   **测试文件位置：`test/features/timer/bug_bug32_repro_test.dart`**
+  更正（2026-08-05）：上行路径笔误——实际门禁为 `test/features/coverage/bug_bug32_repro_test.dart`（与 §5.4 一致；commit 08fd938 创建、f4ef23b 扩充。注意 `.gitignore` `coverage/` 误伤该目录，入库需 `git add -f`，见 cr-20260804-1922 §5 O6）
 
 ---
 
@@ -382,3 +396,4 @@ BUG-32-INV3         # MethodChannel 错误处理
 ## §10 changelog
 
 - 2026-07-27: 创建 BUG-32 spec（基于 cr-20260724-0110.md SVC4 + SVC5）
+- 2026-08-05: cr-20260804-1922 复核：修订实现性错误/门禁指向——S1 调用方适配片段中 4 处含 "password" 的日志文案快照过时，按 f4ef23b（secret-logs）当前文案更正（audio_source_builder.dart:156 / connection_provider.dart:165,169 / player_screen.dart:203）；S2 测试文件位置笔误 timer/ 更正为 coverage/（与 §5.4 一致）

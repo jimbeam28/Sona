@@ -80,13 +80,10 @@
         "BUG-04-ALG1-remapShuffleOrder",
         "BUG-04-ALG2-regenerateShuffle"
       ],
-      "test_files": [],
-      "test_coverage_gaps": [
-        "BUG-04-S1",
-        "BUG-04-S2",
-        "BUG-04-S3",
-        "BUG-04-S4"
+      "test_files": [
+        "test/features/player/bug_bug04_fixed_test.dart"
       ],
+      "test_coverage_gaps": [],
       "cross_module_impacts": [
         "PLY",
         "BRW"
@@ -302,7 +299,8 @@
       "algorithms": [],
       "test_files": [],
       "test_coverage_gaps": [
-        "BUG-10-S1"
+        "BUG-10-S1",
+        "BUG-10-INV1"
       ],
       "cross_module_impacts": [
         "BRW"

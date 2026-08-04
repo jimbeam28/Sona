@@ -48,6 +48,8 @@
 
 `dev-status.sh next-id <PREFIX>` — 扫 status.json 条目 + `docs/features/*.md` 文件名取下一个空闲号。模块前缀：CON / BRW / PLY / TMR / PRG / SET / INT；bug 专用 BUG-NN。
 
+**门禁测试文件命名防撞名（cr-20260804-1922 §4 S5）**：BUG 条目命名门禁测试文件前，先 `grep -rn <候选文件名> test/` 确认无同名/近名文件。BUG 编号在跨 CR 轮次间会复用（如 9cd9ce2 轮 PRG2/BRW1 已占用 `test/features/browser/bug_11_repro_test.dart` / `bug_12_repro_test.dart`，与新一轮 BUG-11/BUG-12 撞名）——与既有文件冲突时改用全称形态（去连字符小写，如 `bug_bug11_test.dart`），**禁止覆盖或改名既有文件**。spec §5.4 登记的文件名必须与实际落盘文件名一致（spec-scan.sh --gate 按 §5.4 路径做存在性硬校验）。
+
 ---
 
 ## 2. spec 文档 docs/features/{ID}.md

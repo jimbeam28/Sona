@@ -13,7 +13,7 @@ name: 播放单健壮性（LIST3 + LIST5 + LIST6 + LIST7 + LIST8）
 priority: P2
 status: draft
 created_at: 2026-07-27
-last_updated: 2026-07-27
+last_updated: 2026-08-05
 spec_anchored_files:
   - lib/features/playlist/domain/playlist_service.dart
   - lib/features/playlist/playlist_detail_screen.dart
@@ -440,6 +440,19 @@ manual_qa_required: false
   - showProgressResumeDialog 后 → 已有 `:66` mounted 检查 → 二次保护
   - progress < 5s → 不弹对话框 → 直接进入已有 mounted 检查
 
+  > **⚠ 更正（2026-08-05，cr-20260804-1922 复核）**：原方案的 `context.mounted` 检查被门禁
+  > 实证**不可行**——defunct State 上 `context` getter 本身即抛（debug FlutterError /
+  > release null check），await 后行 51 的 `context.mounted` 检查被外层 catch 吞掉、
+  > 行 72 原崩溃点照样再抛，对目标场景零防护（复核报告 M8 第 6 条）。
+  > 实际落地实现（commit ef3d386）改用 **State 级 `mounted`**：
+  > - `lib/features/playlist/playlist_detail_screen.dart:51-54` — await progress 之后
+  >   `if (!mounted) return;`（注释注明不用 `context.mounted` 的原因）
+  > - `lib/features/playlist/playlist_detail_screen.dart:78-79` — showDialog 之后同款守卫
+  >
+  > State 的 `mounted` 属性不依赖 context getter，State defunct 后仍可安全读取，
+  > 才能守住本 Scenario 要防的场景。原「改为 context.mounted」修改指令及对应边界裁决
+  > 两条作废，本 Scenario 的 Then/否定断言语义不变。
+
 - **[BUG-25-S5]** 对话框 TextEditingController 正确 dispose (`status: new`)
   ```
   Given 打开重命名或新建对话框
@@ -600,6 +613,25 @@ manual_qa_required: false
   - 对话框被系统 pop（如返回键）→ dispose 仍触发（showDialog future 完成）
   - 多次开/关对话框 → 每次创建+释放，无泄漏
 
+  > **⚠ 更正（2026-08-05，cr-20260804-1922 复核）**：原方案（`.then((_) => controller.dispose())`
+  > 与「`await showDialog` 后 dispose」）被门禁实证**与退场动画竞态**——showDialog 返回的
+  > Future 在 `pop` 被调用时即完成，但此时退场动画仍在播放、对话框内容仍 mounted 且
+  > TextField 仍持有 controller，立即 dispose → use-after-disposed 崩溃
+  > （复核报告 M8 第 7 条）。实际落地实现（commit ef3d386）按 CR 首推方案
+  > **对话框内容抽成 StatefulWidget，controller 随对话框元素 dispose**：
+  > - 新建对话框：`lib/features/playlist/playlist_list_screen.dart:119-128`
+  >   （`_showCreateDialog` 委托 `builder: (_) => const _CreatePlaylistDialog()`）、
+  >   `:131-149`（`_CreatePlaylistDialog` ConsumerStatefulWidget，controller 字段 `:143`，
+  >   State.dispose 内释放 `:145-149`）
+  > - 重命名对话框：`lib/features/playlist/playlist_detail_screen.dart:259-267`
+  >   （`_showRenameDialog` 委托 `builder: (_) => _RenamePlaylistDialog(initialText: currentName)`）、
+  >   `:371-388`（`_RenamePlaylistDialog` StatefulWidget，controller `:381-382`，
+  >   State.dispose 内释放 `:384-388`）
+  >
+  > 退场动画结束、对话框元素 unmount 时 State.dispose 才触发 → controller 安全释放，
+  > 无竞态、无泄漏。原两段「改为 .then/await 后 dispose」修改指令与上方边界裁决四条作废，
+  > 本 Scenario 的 Then/否定断言语义不变。
+
   **测试文件位置：`test/features/playlist/bug_bug25_repro_test.dart`**
 
 ---
@@ -620,9 +652,11 @@ manual_qa_required: false
 
 - **[BUG-25-INV5]** 所有 await 后调用 showDialog / Navigator 前有 mounted 检查
   证据：`playlist_detail_screen.dart:49-66`（修复目标）
+  更正（2026-08-05）：已落地为 State 级 `mounted`——`playlist_detail_screen.dart:51-54,78-79`（ef3d386；不用 `context.mounted`，理由见 S4 更正块）
 
 - **[BUG-25-INV6]** 所有 TextEditingController 在使用后被 dispose
   证据：`playlist_list_screen.dart:105`、`playlist_detail_screen.dart:243`（修复目标）
+  更正（2026-08-05）：已落地为对话框 StatefulWidget 自持——`playlist_list_screen.dart:142-149`（_CreatePlaylistDialogState.dispose）、`playlist_detail_screen.dart:380-388`（_RenamePlaylistDialogState.dispose）（ef3d386，见 S5 更正块）
 
 ---
 
@@ -692,3 +726,4 @@ BUG-25-INV6         # controller dispose 完整
 ## §10 changelog
 
 - 2026-07-27: 创建 BUG-25 spec（基于 cr-20260724-0110.md LIST3 + LIST5 + LIST6 + LIST7 + LIST8）
+- 2026-08-05: cr-20260804-1922 复核：修订实现性错误/门禁指向——S4 原方案 context.mounted 门禁实证不可行（defunct State 上 context getter 本身即抛），更正为实际落地的 State 级 mounted（playlist_detail_screen.dart:51-54,78-79，ef3d386）；S5 原方案「showDialog 后 dispose controller」与退场动画竞态，更正为实际落地的对话框抽 StatefulWidget、controller 随对话框元素 dispose（playlist_list_screen.dart:131-149 / playlist_detail_screen.dart:371-388，ef3d386）；INV5/INV6 证据同步
