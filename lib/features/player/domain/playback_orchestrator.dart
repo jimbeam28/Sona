@@ -16,8 +16,10 @@
 //
 // Internal state:
 //   - SerializedRequestGate  — serializes overlapping load requests
-//   - Auto-save timer        — saves progress every 10 seconds
-//   - Processing listener    — handles track completion / auto-advance
+//
+// Playback listeners (track-completion auto-advance, auto-save, pause-save)
+// live in the provider layer (player_provider.dart) — BUG-27-S2 removed the
+// orchestrator-internal copies, which were never enabled in production.
 
 import 'dart:async';
 import 'dart:math';
@@ -76,8 +78,8 @@ abstract class QueueConnectionIdProvider {
 
 // ── PlaybackOrchestrator ─────────────────────────────────────────────────────
 
-/// Core playback orchestrator that coordinates queue navigation, audio loading,
-/// progress persistence, and listener management.
+/// Core playback orchestrator that coordinates queue navigation, audio
+/// loading, and progress persistence.
 ///
 /// All external dependencies are injected through the constructor.
 /// This class contains zero Riverpod or Flutter widget dependencies.
@@ -112,10 +114,6 @@ class PlaybackOrchestrator {
   int? _activeConnectionId;
 
   final SerializedRequestGate _gate = SerializedRequestGate();
-  Timer? _autoSaveTimer;
-  StreamSubscription<ProcessingState>? _processingSub;
-  StreamSubscription<PlayerState>? _pauseSaveSub;
-  bool _completing = false;
 
   /// RNG for shuffle-round regeneration (BUG-04-S2/S3).  Tests inject a
   /// seeded instance for determinism.
@@ -141,7 +139,7 @@ class PlaybackOrchestrator {
   /// Returns [TrackLoadResult.loaded] on success, [TrackLoadResult.failed]
   /// on any error (no queue, no connection, no password, playback failed),
   /// or [TrackLoadResult.superseded] if a newer request was scheduled.
-  Future<TrackLoadResult> loadAndPlay({bool registerListeners = true}) {
+  Future<TrackLoadResult> loadAndPlay() {
     return _gate.schedule<TrackLoadResult>(
       onSuperseded: () => const TrackLoadResult.superseded(),
       task: (requestId) async {
@@ -190,9 +188,6 @@ class PlaybackOrchestrator {
             username: activeConn.username,
             password: password,
           );
-
-          // Register processing listener before loading.
-          if (registerListeners) _startProcessingListener();
 
           await player.setAudioSource(source);
 
@@ -243,17 +238,9 @@ class PlaybackOrchestrator {
           // Record active connection ID.
           _activeConnectionId = activeConn.id;
 
-          // Start background listeners for progress persistence.
-          if (registerListeners) {
-            _startAutoSave();
-            _startPauseSaveListener();
-          }
-
           return TrackLoadResult.loaded(player);
         } catch (e) {
           return const TrackLoadResult.failed();
-        } finally {
-          _completing = false;
         }
       },
     );
@@ -264,7 +251,7 @@ class PlaybackOrchestrator {
   /// Advances to the next track in the queue and loads it.
   ///
   /// Saves the current progress before advancing.
-  Future<TrackLoadResult> skipToNext({bool registerListeners = true}) async {
+  Future<TrackLoadResult> skipToNext() async {
     final q = queue;
     if (q == null) return const TrackLoadResult.failed();
 
@@ -289,7 +276,7 @@ class PlaybackOrchestrator {
 
     saveProgress();
     queue = nextQueue;
-    return loadAndPlay(registerListeners: registerListeners);
+    return loadAndPlay();
   }
 
   // ── skipToPrevious ──────────────────────────────────────────────────────
@@ -297,8 +284,7 @@ class PlaybackOrchestrator {
   /// Goes back to the previous track in the queue and loads it.
   ///
   /// Saves the current progress before going back.
-  Future<TrackLoadResult> skipToPrevious(
-      {bool registerListeners = true}) async {
+  Future<TrackLoadResult> skipToPrevious() async {
     final q = queue;
     if (q == null) return const TrackLoadResult.failed();
 
@@ -324,14 +310,13 @@ class PlaybackOrchestrator {
 
     saveProgress();
     queue = prevQueue;
-    return loadAndPlay(registerListeners: registerListeners);
+    return loadAndPlay();
   }
 
   // ── selectQueueIndex ────────────────────────────────────────────────────
 
   /// Selects a specific queue index and loads that track.
-  Future<TrackLoadResult> selectQueueIndex(int index,
-      {bool registerListeners = true}) async {
+  Future<TrackLoadResult> selectQueueIndex(int index) async {
     final q = queue;
     if (q == null || index < 0 || index >= q.length) {
       return const TrackLoadResult.failed();
@@ -342,7 +327,7 @@ class PlaybackOrchestrator {
 
     saveProgress();
     queue = q.withIndex(index);
-    return loadAndPlay(registerListeners: registerListeners);
+    return loadAndPlay();
   }
 
   // ── removeTrack ─────────────────────────────────────────────────────────
@@ -352,7 +337,7 @@ class PlaybackOrchestrator {
   /// - If the queue becomes empty, stops playback.
   /// - If the removed track was the current one, loads the next track.
   /// - If the removed track was not the current one, just updates the queue.
-  Future<void> removeTrack(int index, {bool registerListeners = true}) async {
+  Future<void> removeTrack(int index) async {
     final q = queue;
     if (q == null || index < 0 || index >= q.length) return;
 
@@ -360,11 +345,13 @@ class PlaybackOrchestrator {
     final newQueue = q.withoutIndex(index);
 
     if (newQueue.length == 0) {
+      // BUG-27-S1: invalidate any in-flight gate request BEFORE stopping so
+      // a suspended load task (weak network) resumes into isLatest()==false
+      // → superseded, instead of continuing to setAudioSource + play
+      // (ghost playback).  With the gate idle this is a harmless ID bump.
       _gate.beginRequest();
       await player.stop();
       queue = null;
-      _cancelAutoSave();
-      _cancelPauseSave();
       return;
     }
 
@@ -376,7 +363,7 @@ class PlaybackOrchestrator {
       // NEXT track's path (进度张冠李戴 → wrong resume position later).
       saveProgress();
       queue = newQueue;
-      await loadAndPlay(registerListeners: registerListeners);
+      await loadAndPlay();
     } else {
       queue = newQueue;
     }
@@ -427,30 +414,7 @@ class PlaybackOrchestrator {
     }));
   }
 
-  // ── Processing listener (track completion) ──────────────────────────────
-
-  /// Registers a listener on [player.processingStateStream] that handles
-  /// track completion — auto-advance to next track or stop.
-  void _startProcessingListener() {
-    _processingSub?.cancel();
-    _processingSub = player.processingStateStream.listen((state) {
-      if (state == ProcessingState.completed) {
-        if (_completing) return;
-        _completing = true;
-
-        final nextQueue = computeNextQueue();
-        if (nextQueue == null) {
-          player.pause();
-          _completing = false;
-          return;
-        }
-
-        saveProgress();
-        queue = nextQueue;
-        unawaited(loadAndPlay());
-      }
-    });
-  }
+  // ── Queue progression (track completion) ────────────────────────────────
 
   /// Computes the next queue entry based on the current mode, or `null` if
   /// playback should stop.
@@ -506,45 +470,11 @@ class PlaybackOrchestrator {
     );
   }
 
-  // ── Auto-save timer ─────────────────────────────────────────────────────
-
-  void _startAutoSave() {
-    _autoSaveTimer?.cancel();
-    _autoSaveTimer = Timer.periodic(const Duration(seconds: 10), (_) {
-      saveProgress();
-    });
-  }
-
-  void _cancelAutoSave() {
-    _autoSaveTimer?.cancel();
-    _autoSaveTimer = null;
-  }
-
-  // ── Pause-save listener ─────────────────────────────────────────────────
-
-  void _startPauseSaveListener() {
-    _pauseSaveSub?.cancel();
-    var wasPlaying = player.playing;
-    _pauseSaveSub = player.playerStateStream.listen((state) {
-      final playing = state.playing;
-      if (wasPlaying && !playing) {
-        saveProgress();
-      }
-      wasPlaying = playing;
-    });
-  }
-
-  void _cancelPauseSave() {
-    _pauseSaveSub?.cancel();
-    _pauseSaveSub = null;
-  }
-
   // ── Cleanup ─────────────────────────────────────────────────────────────
 
-  /// Cancels all internal subscriptions and timers.
-  void dispose() {
-    _processingSub?.cancel();
-    _pauseSaveSub?.cancel();
-    _cancelAutoSave();
-  }
+  /// Lifecycle hook kept for call-site compatibility (player_provider.dart
+  /// registers it via ref.onDispose).  Playback listeners live in the
+  /// provider layer (BUG-27-S2), so the orchestrator itself holds no
+  /// subscriptions or timers to clean up.
+  void dispose() {}
 }

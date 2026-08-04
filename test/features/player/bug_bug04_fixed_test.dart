@@ -457,8 +457,7 @@ void main() {
       final env = createOrchestrator(random: Random(20260724));
       env.orchestrator.queue = shuffleQueue(4, [0, 2, 3, 1], 3); // 播 B(1)
 
-      final result =
-          await env.orchestrator.skipToNext(registerListeners: false);
+      final result = await env.orchestrator.skipToNext();
 
       expect(result.isLoaded, isTrue, reason: '重洗后必须成功加载新曲');
       final q = env.orchestrator.queue!;
@@ -495,8 +494,7 @@ void main() {
       // order=[0,2,3,1] pos=0 → 当前曲 = order[0] = 0（A），retreat 返回 null
       env.orchestrator.queue = shuffleQueue(4, [0, 2, 3, 1], 0);
 
-      final result =
-          await env.orchestrator.skipToPrevious(registerListeners: false);
+      final result = await env.orchestrator.skipToPrevious();
 
       expect(result.isLoaded, isTrue, reason: '头部 previous 不得失败');
       final q = env.orchestrator.queue!;
@@ -527,8 +525,7 @@ void main() {
       final env = createOrchestrator(random: Random(1));
       env.orchestrator.queue = shuffleQueue(4, [0, 2, 3, 1], 2); // 播 D(3)
 
-      final result =
-          await env.orchestrator.skipToPrevious(registerListeners: false);
+      final result = await env.orchestrator.skipToPrevious();
 
       expect(result.isLoaded, isTrue);
       final q = env.orchestrator.queue!;
@@ -541,8 +538,7 @@ void main() {
       final env = createOrchestrator(random: Random(7));
       env.orchestrator.queue = shuffleQueue(1, [0], 0);
 
-      final result =
-          await env.orchestrator.skipToPrevious(registerListeners: false);
+      final result = await env.orchestrator.skipToPrevious();
 
       expect(result.isLoaded, isTrue);
       final q = env.orchestrator.queue!;

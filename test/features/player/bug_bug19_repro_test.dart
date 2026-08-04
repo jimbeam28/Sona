@@ -23,18 +23,33 @@
 // BUG-19-INV1-T02: track completion 监听器仍触发 save
 // BUG-19-INV1-T03: auto-save Timer.periodic(10s) 仍触发 save
 // BUG-19-INV1-T04: playing→paused 转换仍触发 save
+//
+// BUG-27-S2 迁移说明（2026-08-05）：INV1-T02/T03/T04 原先直接驱动
+// orchestrator 内部 listener（loadAndPlay 默认 registerListeners:true）。
+// BUG-27-S2 删除该死代码后（生产线所有调用均传 false，listener 实际由
+// provider 层平行实现承载），三组用例等价迁移到 provider 层平行实现：
+//   T02 → startProcessingListenerProvider（completed → save + 进曲）
+//   T03 → reconnectPlaybackListenersProvider 启动的 auto-save Timer
+//   T04 → reconnectPlaybackListenersProvider 启动的 pause-save 订阅
+// 断言语义保持不变：保存被触发、路径归属正确、周期/dispose 行为一致。
+// orchestrator 层的 upsert 参数断言仍由 INV1-T01 组覆盖。
 
 import 'dart:async';
 
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:mockito/mockito.dart';
 import 'package:nas_audio_player/features/player/domain/playback_orchestrator.dart';
 import 'package:nas_audio_player/features/player/domain/request_gate.dart';
+import 'package:nas_audio_player/shared/di/providers.dart';
 import 'package:nas_audio_player/shared/models/connection_config.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:nas_audio_player/shared/models/play_queue.dart';
+
+import '../../helpers/mock_audio_player.dart';
 
 // ── Recorded upsert call ─────────────────────────────────────────────────────
 
@@ -406,76 +421,142 @@ void main() {
     });
   });
 
-  group('BUG-19-INV1-T02: track completion listener still saves', () {
+  group(
+      'BUG-19-INV1-T02: track completion listener still saves'
+      '（BUG-27-S2 迁移：provider 层平行实现）', () {
     test('completed state triggers saveProgress then advances', () async {
-      final env = createEnv();
-      addTearDown(env.orchestrator.dispose);
-      addTearDown(env.processingController.close);
-      addTearDown(env.playerStateController.close);
-      env.orchestrator.queue =
+      final processingController =
+          StreamController<ProcessingState>.broadcast();
+      addTearDown(processingController.close);
+      final player = MockAudioPlayer();
+      when(player.processingStateStream)
+          .thenAnswer((_) => processingController.stream);
+      when(player.position).thenReturn(const Duration(seconds: 30));
+      when(player.duration).thenReturn(const Duration(minutes: 3));
+
+      final savePaths = <String>[];
+      final loads = <String>[];
+      late final ProviderContainer container;
+      container = ProviderContainer(overrides: [
+        audioPlayerProvider.overrideWithValue(player),
+        // Timer feature: no active afterCurrent timer.
+        onTrackCompletedProvider.overrideWithValue(() => false),
+        // Record the queue's current path at each save (save fires BEFORE
+        // the queue advances — same attribution the orchestrator listener
+        // guaranteed).
+        saveProgressProvider.overrideWithValue(() {
+          final q = container.read(currentPlayQueueProvider);
+          savePaths.add(q?.current.path ?? 'null-queue');
+        }),
+        loadAndPlayProvider.overrideWithValue(() async {
+          loads.add('loadAndPlay');
+          return TrackLoadResult.loaded(player);
+        }),
+      ]);
+      addTearDown(container.dispose);
+
+      container.read(currentPlayQueueProvider.notifier).state =
           makeQueue(['/music/song1.mp3', '/music/song2.mp3']);
+      container.read(playModeProvider.notifier).state = PlayMode.sequential;
 
-      final loaded = await env.orchestrator.loadAndPlay();
-      expect(loaded.isLoaded, isTrue);
-
-      env.processingController.add(ProcessingState.completed);
+      container.read(startProcessingListenerProvider)();
+      processingController.add(ProcessingState.completed);
       await pumpEventQueue(times: 50);
 
-      expect(env.saver.calls, hasLength(1), reason: '曲目播完必须触发保存');
-      expect(env.saver.calls.single.filePath, '/music/song1.mp3');
-      expect(env.orchestrator.queue!.current.path, '/music/song2.mp3');
-      expect(env.player.setAudioSourceCalls, equals(2));
+      expect(savePaths, hasLength(1), reason: '曲目播完必须触发保存');
+      expect(savePaths.single, '/music/song1.mp3',
+          reason: '保存必须记在播完曲目名下（进曲前的队列状态）');
+      expect(container.read(currentPlayQueueProvider)!.current.path,
+          '/music/song2.mp3',
+          reason: '完成后必须进曲');
+      expect(loads, hasLength(1), reason: '进曲必须触发 loadAndPlay');
     });
   });
 
-  group('BUG-19-INV1-T03: auto-save timer still saves every 10s', () {
+  group(
+      'BUG-19-INV1-T03: auto-save timer still saves every 10s'
+      '（BUG-27-S2 迁移：provider 层平行实现）', () {
     test('Timer.periodic(10s) keeps firing after the fix', () {
       FakeAsync().run((async) {
-        final env = createEnv();
-        env.orchestrator.queue =
+        final player = MockAudioPlayer();
+        when(player.playing).thenReturn(true);
+
+        final savePaths = <String>[];
+        late final ProviderContainer container;
+        container = ProviderContainer(overrides: [
+          audioPlayerProvider.overrideWithValue(player),
+          saveProgressProvider.overrideWithValue(() {
+            final q = container.read(currentPlayQueueProvider);
+            savePaths.add(q?.current.path ?? 'null-queue');
+          }),
+        ]);
+        container.read(currentPlayQueueProvider.notifier).state =
             makeQueue(['/music/song1.mp3', '/music/song2.mp3']);
 
-        TrackLoadResult? loaded;
-        unawaited(env.orchestrator.loadAndPlay().then((r) => loaded = r));
+        // reconnect 入口同时启动 processing listener / autoSave / pauseSave
+        // （生产路径：加载成功后 _startPlaybackListeners 调用同一组件）。
+        container.read(reconnectPlaybackListenersProvider)();
         async.flushMicrotasks();
-        expect(loaded, isNotNull);
-        expect(loaded!.isLoaded, isTrue);
-        expect(env.saver.calls, isEmpty, reason: '加载成功本身不触发保存');
+        expect(savePaths, isEmpty, reason: '启动本身不触发保存');
 
         async.elapse(const Duration(seconds: 10));
-        expect(env.saver.calls, hasLength(1), reason: '10s 自动保存必须触发');
-        expect(env.saver.calls.single.filePath, '/music/song1.mp3');
+        expect(savePaths, hasLength(1), reason: '10s 自动保存必须触发');
+        expect(savePaths.single, '/music/song1.mp3');
 
         async.elapse(const Duration(seconds: 10));
-        expect(env.saver.calls, hasLength(2), reason: '周期保存持续生效');
+        expect(savePaths, hasLength(2), reason: '周期保存持续生效');
 
-        env.orchestrator.dispose();
+        container.dispose();
         async.elapse(const Duration(seconds: 30));
-        expect(env.saver.calls, hasLength(2), reason: 'dispose 后定时器必须停止');
+        expect(savePaths, hasLength(2), reason: 'dispose 后定时器必须停止');
       });
     });
   });
 
-  group('BUG-19-INV1-T04: pause transition still saves', () {
-    test('playing → paused triggers saveProgress', () async {
-      final env = createEnv();
-      addTearDown(env.orchestrator.dispose);
-      addTearDown(env.processingController.close);
-      addTearDown(env.playerStateController.close);
-      env.orchestrator.queue = makeQueue(['/music/song1.mp3']);
+  group(
+      'BUG-19-INV1-T04: pause transition still saves'
+      '（BUG-27-S2 迁移：provider 层平行实现）', () {
+    test('playing → paused triggers saveProgress', () {
+      FakeAsync().run((async) {
+        final playerStateController = StreamController<PlayerState>.broadcast();
+        final player = MockAudioPlayer();
+        when(player.playing).thenReturn(true);
+        when(player.playerStateStream)
+            .thenAnswer((_) => playerStateController.stream);
 
-      final loaded = await env.orchestrator.loadAndPlay();
-      expect(loaded.isLoaded, isTrue);
+        final savePaths = <String>[];
+        late final ProviderContainer container;
+        container = ProviderContainer(overrides: [
+          audioPlayerProvider.overrideWithValue(player),
+          saveProgressProvider.overrideWithValue(() {
+            final q = container.read(currentPlayQueueProvider);
+            savePaths.add(q?.current.path ?? 'null-queue');
+          }),
+        ]);
+        container.read(currentPlayQueueProvider.notifier).state =
+            makeQueue(['/music/song1.mp3']);
 
-      // Still playing → no save; then pause → save.
-      env.playerStateController.add(PlayerState(true, ProcessingState.ready));
-      await pumpEventQueue(times: 20);
-      expect(env.saver.calls, isEmpty);
+        container.read(reconnectPlaybackListenersProvider)();
+        async.flushMicrotasks();
 
-      env.playerStateController.add(PlayerState(false, ProcessingState.ready));
-      await pumpEventQueue(times: 20);
-      expect(env.saver.calls, hasLength(1), reason: '暂停转换必须触发保存');
-      expect(env.saver.calls.single.filePath, '/music/song1.mp3');
+        // Still playing → no save; then pause → save.
+        playerStateController.add(PlayerState(true, ProcessingState.ready));
+        async.flushMicrotasks();
+        expect(savePaths, isEmpty);
+
+        playerStateController.add(PlayerState(false, ProcessingState.ready));
+        async.flushMicrotasks();
+        expect(savePaths, hasLength(1), reason: '暂停转换必须触发保存');
+        expect(savePaths.single, '/music/song1.mp3');
+
+        container.dispose();
+        // 否定断言：dispose 后订阅已 cancel，暂停事件不再触发保存。
+        playerStateController.add(PlayerState(true, ProcessingState.ready));
+        playerStateController.add(PlayerState(false, ProcessingState.ready));
+        async.flushMicrotasks();
+        expect(savePaths, hasLength(1), reason: 'dispose 后不得继续保存');
+        playerStateController.close();
+      });
     });
   });
 }

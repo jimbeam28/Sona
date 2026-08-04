@@ -310,9 +310,7 @@ void _startPlaybackListeners(Ref ref) {
 
 final Provider<Future<TrackLoadResult> Function()> loadAndPlayProvider =
     Provider<Future<TrackLoadResult> Function()>((ref) => () async {
-          final r = await ref
-              .read(playbackOrchestratorProvider)
-              .loadAndPlay(registerListeners: false);
+          final r = await ref.read(playbackOrchestratorProvider).loadAndPlay();
           if (r.isLoaded) _startPlaybackListeners(ref);
           ref.read(_completingProvider.notifier).state = false;
           return r;
@@ -320,9 +318,7 @@ final Provider<Future<TrackLoadResult> Function()> loadAndPlayProvider =
 
 final Provider<Future<TrackLoadResult> Function()> skipToNextProvider =
     Provider<Future<TrackLoadResult> Function()>((ref) => () async {
-          final r = await ref
-              .read(playbackOrchestratorProvider)
-              .skipToNext(registerListeners: false);
+          final r = await ref.read(playbackOrchestratorProvider).skipToNext();
           if (r.isLoaded) _startPlaybackListeners(ref);
           ref.read(_completingProvider.notifier).state = false;
           return r;
@@ -330,9 +326,8 @@ final Provider<Future<TrackLoadResult> Function()> skipToNextProvider =
 
 final skipToPreviousProvider =
     Provider<Future<TrackLoadResult> Function()>((ref) => () async {
-          final r = await ref
-              .read(playbackOrchestratorProvider)
-              .skipToPrevious(registerListeners: false);
+          final r =
+              await ref.read(playbackOrchestratorProvider).skipToPrevious();
           if (r.isLoaded) _startPlaybackListeners(ref);
           ref.read(_completingProvider.notifier).state = false;
           return r;
@@ -340,9 +335,8 @@ final skipToPreviousProvider =
 
 final selectQueueIndexProvider =
     Provider<Future<TrackLoadResult> Function(int)>((ref) => (i) async {
-          final r = await ref
-              .read(playbackOrchestratorProvider)
-              .selectQueueIndex(i, registerListeners: false);
+          final r =
+              await ref.read(playbackOrchestratorProvider).selectQueueIndex(i);
           if (r.isLoaded) _startPlaybackListeners(ref);
           ref.read(_completingProvider.notifier).state = false;
           return r;
@@ -352,9 +346,7 @@ final removeTrackFromQueueProvider =
     Provider<Future<void> Function(int)>((ref) => (i) async {
           final q = ref.read(currentPlayQueueProvider);
           if (q == null || i < 0 || i >= q.length) return;
-          await ref
-              .read(playbackOrchestratorProvider)
-              .removeTrack(i, registerListeners: false);
+          await ref.read(playbackOrchestratorProvider).removeTrack(i);
           // removeTrack may have loaded a new track (if wasCurrent).
           // Check if the player is now playing to decide if listeners are needed.
           final player = ref.read(audioPlayerProvider);

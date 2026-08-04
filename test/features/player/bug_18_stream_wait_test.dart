@@ -44,9 +44,7 @@ void main() {
             _Env(playing: true, stream: const Stream<PlayerState>.empty());
 
         TrackLoadStatus? result;
-        env.orchestrator
-            .loadAndPlay(registerListeners: false)
-            .then((r) => result = r.status);
+        env.orchestrator.loadAndPlay().then((r) => result = r.status);
 
         // 不推进任何时间，只 flush 微任务。
         // 否定断言：若无 fast path（只等流事件），空 stream 永不发出
@@ -68,9 +66,7 @@ void main() {
         final env = _Env(playing: false, stream: controller.stream);
 
         TrackLoadStatus? result;
-        env.orchestrator
-            .loadAndPlay(registerListeners: false)
-            .then((r) => result = r.status);
+        env.orchestrator.loadAndPlay().then((r) => result = r.status);
 
         // 推进到 50ms（远小于旧轮询的 200ms 间隔）并发出 playing 事件。
         async.elapse(const Duration(milliseconds: 50));
@@ -95,9 +91,7 @@ void main() {
         final env = _Env(playing: false, stream: controller.stream);
 
         TrackLoadStatus? result;
-        env.orchestrator
-            .loadAndPlay(registerListeners: false)
-            .then((r) => result = r.status);
+        env.orchestrator.loadAndPlay().then((r) => result = r.status);
 
         // 大 FLAC 经慢速 NAS 缓冲 16s 才开始播放
         // （选 16s：大于旧 12s 轮询上限，且在外层 gate 20s 任务超时之内）。
@@ -126,7 +120,7 @@ void main() {
 
         TrackLoadStatus? result;
         Object? error;
-        env.orchestrator.loadAndPlay(registerListeners: false).then<void>(
+        env.orchestrator.loadAndPlay().then<void>(
           (r) {
             result = r.status;
           },
