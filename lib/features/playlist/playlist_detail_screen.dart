@@ -79,11 +79,15 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
     if (!mounted) return;
 
     final nasFiles = tracks.map((t) => t.toNasFile()).toList();
+    // O3 链路（cr-20260804-1922 §5）: 按当前 playModeProvider 的模式建队，
+    // 与 browser_screen.dart 建队点同款——恒以默认 sequential 建队会让
+    // 「先切 shuffle 再建队」的模式选择在持久化/重启后丢失。复用 f3cb8eb
+    // 的 withMode 机制（排列/指针不变量单源）。跨 feature 经 shared/di 桥接。
     final queue = PlayQueue(
       files: nasFiles,
       currentIndex: index,
       startPositionMs: startPositionMs,
-    );
+    ).withMode(ref.read(playModeProvider));
     ref.read(currentPlayQueueProvider.notifier).state = queue;
     ref.read(lastQueueConnectionIdProvider.notifier).state = conn?.id;
     context.push('/player');

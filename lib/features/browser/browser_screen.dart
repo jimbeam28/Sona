@@ -139,11 +139,19 @@ class BrowserScreen extends ConsumerWidget {
 
                       final goRouter = GoRouter.of(context);
 
+                      // O3 链路（cr-20260804-1922 §5）: 按当前 playModeProvider
+                      // 的模式建队。恒以默认 sequential 建队会让「先切 shuffle
+                      // 再建队」的用户丢模式——播放行为是 shuffle（orchestrator
+                      // 从 playModeProvider 同步），但队列 playMode 字段落
+                      // sequential → 持久化 sequential → 重启忠实恢复 sequential。
+                      // 复用 f3cb8eb 的 withMode 机制（进 shuffle 生成排列且
+                      // 指针锚定当前曲; 同模式幂等; 单曲无排列），不在创建点
+                      // 手写排列生成。跨 feature 经 shared/di 桥接读取。
                       final queue = PlayQueue(
                         files: audioFiles,
                         currentIndex: startIndex,
                         startPositionMs: startPositionMs,
-                      );
+                      ).withMode(ref.read(playModeProvider));
                       ref.read(currentPlayQueueProvider.notifier).state = queue;
                       final connId =
                           ref.read(activeConnectionProvider).valueOrNull?.id;
