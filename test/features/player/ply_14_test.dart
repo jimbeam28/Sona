@@ -25,6 +25,7 @@ import 'package:mockito/mockito.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/features/player/player_screen.dart';
 import 'package:nas_audio_player/features/player/player_provider.dart';
+import 'package:nas_audio_player/shared/di/providers.dart';
 import 'package:nas_audio_player/shared/models/play_queue.dart';
 
 import '../../helpers/mock_audio_player.dart';
@@ -46,7 +47,9 @@ Widget _buildTestApp({
       audioPlayerProvider.overrideWith((ref) => player),
       audioHandlerProvider.overrideWith((ref) => null),
       currentPlayQueueProvider.overrideWith((ref) => queue),
-      seekStepProvider.overrideWith((ref) => seekStep),
+      // REF-04-S3: seekStepProvider 已删除，PlayerScreen watch
+      // seekStepSettingProvider（经 shared/di/providers.dart 获取）。
+      seekStepSettingProvider.overrideWith((ref) => seekStep),
       loadAndPlayProvider.overrideWith(
         (ref) => () async => const TrackLoadResult.loaded(),
       ),

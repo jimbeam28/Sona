@@ -13,6 +13,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
+import 'package:nas_audio_player/features/player/domain/speed_manager.dart'
+    show seekStepOptions, setSeekStep, setDefaultSpeed;
 import 'package:nas_audio_player/features/player/player_provider.dart';
 import 'package:nas_audio_player/features/settings/about_screen.dart';
 import 'package:nas_audio_player/features/settings/domain/settings_service.dart'
@@ -332,7 +334,7 @@ void main() {
           reason: '重启后应恢复步长 30秒');
     });
 
-    test('SET-T22: 播放器 seekStepProvider 使用 Settings 中的步长', () async {
+    test('SET-T22: 播放器经 seekStepSettingProvider 使用 Settings 中的步长', () async {
       SharedPreferences.setMockInitialValues({
         'seek_step_seconds': 60,
       });
@@ -341,9 +343,10 @@ void main() {
       final container = createContainer(prefs: prefs);
       addTearDown(container.dispose);
 
-      // seekStepProvider reads from SharedPreferences now
-      expect(container.read(seekStepProvider), equals(60),
-          reason: 'seekStepProvider 应从 SharedPreferences 读取步长 60秒');
+      // REF-04-S3: seekStepProvider 已删除，seekStepSettingProvider 是唯一
+      // 数据源 —— 播放器与设置页同读它。
+      expect(container.read(seekStepSettingProvider), equals(60),
+          reason: 'seekStepSettingProvider 应从 SharedPreferences 读取步长 60秒');
     });
 
     test('setSeekStepSettingProvider rejects invalid values', () async {
@@ -871,8 +874,8 @@ void main() {
 
   // ═══════════════════════════════════════════════════════════════════════════════
 
-  group('setSeekStepSettingProvider propagates to seekStepProvider', () {
-    test('setting seek step updates both providers', () async {
+  group('REF-04-S3: setSeekStepSettingProvider 更新唯一数据源', () {
+    test('REF-04-S3: 设置后唯一数据源 seekStepSettingProvider 反映新值', () async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
 
@@ -881,9 +884,84 @@ void main() {
 
       container.read(setSeekStepSettingProvider)(10);
 
-      expect(container.read(seekStepSettingProvider), equals(10));
-      expect(container.read(seekStepProvider), equals(10),
-          reason: 'setSeekStepSettingProvider 应同步更新 seekStepProvider');
+      // REF-04-S3 否定断言：不再有第二个 provider 需要手动同步 —— 唯一数据源
+      // seekStepSettingProvider 即播放器消费方读取的值。
+      expect(container.read(seekStepSettingProvider), equals(10),
+          reason:
+              'setSeekStepSettingProvider 应更新唯一数据源 seekStepSettingProvider');
+      expect(prefs.getInt('seek_step_seconds'), equals(10),
+          reason: '设置后应持久化到 SharedPreferences');
+    });
+  });
+
+  group('REF-04-S1/S3/S4: speed/step 单一来源 + 唯一数据源', () {
+    test('REF-04-S1: speed_manager.setDefaultSpeed 校验失败返回 false 且不写', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+
+      for (final speed in [0.3, 0.6, 1.1, 3.0]) {
+        final result = setDefaultSpeed(prefs, speed);
+        expect(result, isFalse, reason: '$speed 不是有效速度选项，应返回 false');
+      }
+      expect(prefs.getDouble('default_playback_speed'), isNull,
+          reason: '非法速度不得写入 default_playback_speed');
+    });
+
+    test('REF-04-S1: speed_manager.setDefaultSpeed 合法值写入 key', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+
+      final result = setDefaultSpeed(prefs, 1.5);
+      expect(result, isTrue);
+      expect(prefs.getDouble('default_playback_speed'), equals(1.5),
+          reason: '合法速度 1.5 应写入 default_playback_speed（key 值不变）');
+    });
+
+    test('REF-04-S1: speed_manager.setSeekStep 校验失败返回 false 且不写', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+
+      for (final step in [5, 20, 45, 90, 0, -1]) {
+        final result = setSeekStep(prefs, step);
+        expect(result, isFalse, reason: '$step 不是有效步长，应返回 false');
+      }
+      expect(prefs.getInt('seek_step_seconds'), isNull,
+          reason: '非法步长不得写入 seek_step_seconds');
+    });
+
+    test('REF-04-S1: speed_manager.setSeekStep 合法值写入 key', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+
+      for (final step in seekStepOptions) {
+        final result = setSeekStep(prefs, step);
+        expect(result, isTrue, reason: '$step 是有效步长，应返回 true');
+        expect(prefs.getInt('seek_step_seconds'), equals(step),
+            reason: '合法步长 $step 应写入 seek_step_seconds（key 值不变）');
+      }
+    });
+
+    test('REF-04-S3: prefs 存 60 → seekStepSettingProvider 为唯一数据源返回 60',
+        () async {
+      SharedPreferences.setMockInitialValues({
+        'seek_step_seconds': 60,
+      });
+      final prefs = await SharedPreferences.getInstance();
+
+      final container = createContainer(prefs: prefs);
+      addTearDown(container.dispose);
+
+      expect(container.read(seekStepSettingProvider), equals(60),
+          reason:
+              'REF-04-S3: 唯一数据源 seekStepSettingProvider 应直读 SharedPreferences');
+    });
+
+    test('REF-04-S4: sharedPreferencesProvider 默认返回 null', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      expect(container.read(sharedPreferencesProvider), isNull,
+          reason: 'REF-04-S4: sharedPreferencesProvider 默认应为 null');
     });
   });
 

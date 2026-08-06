@@ -141,9 +141,6 @@ final playbackOrchestratorProvider = Provider<PlaybackOrchestrator>((ref) {
   return o;
 });
 
-final seekStepProvider = StateProvider<int>((ref) =>
-    ref.watch(sharedPreferencesProvider)?.getInt(sm.seekStepPrefsKey) ??
-    sm.defaultSeekStep);
 final playModeProvider = StateProvider<PlayMode>((ref) => PlayMode.sequential);
 final nextPlayModeProvider = Provider<PlayMode Function()>((ref) => () {
       final c = ref.read(playModeProvider);

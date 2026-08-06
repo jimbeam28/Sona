@@ -16,6 +16,7 @@
 // skipped in favour of logic-level coverage.
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,8 +28,10 @@ import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/features/player/domain/seek_utils.dart';
 import 'package:nas_audio_player/features/player/player_screen.dart';
 import 'package:nas_audio_player/features/player/player_provider.dart';
+import 'package:nas_audio_player/shared/di/providers.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:nas_audio_player/shared/models/play_queue.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../helpers/mock_audio_player.dart';
 import '../../helpers/test_factories.dart';
@@ -45,7 +48,9 @@ Widget _wrapPlayerScreen({
       audioPlayerProvider.overrideWith((ref) => player),
       audioHandlerProvider.overrideWith((ref) => null),
       currentPlayQueueProvider.overrideWith((ref) => queue),
-      seekStepProvider.overrideWith((ref) => seekStep),
+      // REF-04-S3: seekStepProvider 已删除，PlayerScreen watch
+      // seekStepSettingProvider（经 shared/di/providers.dart 获取）。
+      seekStepSettingProvider.overrideWith((ref) => seekStep),
       loadAndPlayProvider.overrideWith(
         (ref) => () async => const TrackLoadResult.loaded(),
       ),
@@ -330,7 +335,11 @@ void main() {
     });
   });
 
-  group('C-2: seekStep 60 icon mapping', () {
+  // REF-04-S3: 下方 widget 测试通过 override seekStepSettingProvider 注入
+  // 步长 60 —— PlayerScreen 侧 watch 唯一数据源 seekStepSettingProvider
+  // 获得步长，UI 才能显示 '60s' 标签与回转箭头图标。
+
+  group('C-2: seekStep 60 icon mapping (REF-04-S3)', () {
     testWidgets('60-second seek buttons use circular replay icons',
         (tester) async {
       final player = MockAudioPlayer();
@@ -671,23 +680,49 @@ void main() {
     });
   });
 
-  // ── seekStepProvider ────────────────────────────────────────────────────
+  // ── REF-04-S3: seekStepSettingProvider（单一数据源）─────────────────────
 
-  group('seekStepProvider', () {
-    test('default seek step is 15 seconds', () {
+  group('REF-04-S3: seekStepSettingProvider（单一数据源）', () {
+    test('REF-04-S3: 默认 seek step 为 15 秒', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
-      final step = container.read(seekStepProvider);
+      final step = container.read(seekStepSettingProvider);
       expect(step, equals(15), reason: '默认快进/快退步长应为 15 秒');
     });
 
-    test('seek step can be changed', () {
-      final container = ProviderContainer();
+    test('REF-04-S3: setSeekStepSettingProvider 更新唯一数据源', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+
+      final container = ProviderContainer(
+        overrides: [
+          sharedPreferencesProvider.overrideWith((ref) => prefs),
+        ],
+      );
       addTearDown(container.dispose);
 
-      container.read(seekStepProvider.notifier).state = 30;
-      expect(container.read(seekStepProvider), equals(30));
+      container.read(setSeekStepSettingProvider)(30);
+      expect(container.read(seekStepSettingProvider), equals(30));
+    });
+
+    test('REF-04-S3: player_provider.dart 不再定义 seekStepProvider', () {
+      final source = File('lib/features/player/player_provider.dart');
+      expect(source.existsSync(), isTrue,
+          reason: 'player_provider.dart 应存在（REF-04 实现未落地时预期失败）');
+      final text = source.readAsStringSync();
+      expect(text, isNot(contains('seekStepProvider =')),
+          reason: 'REF-04-S3: player_provider.dart 不得再定义 seekStepProvider');
+    });
+
+    test('REF-04-S3: settings_provider.dart 不再手动同步 seekStepProvider', () {
+      final source = File('lib/features/settings/settings_provider.dart');
+      expect(source.existsSync(), isTrue,
+          reason: 'settings_provider.dart 应存在（REF-04 实现未落地时预期失败）');
+      final text = source.readAsStringSync();
+      expect(text, isNot(contains('seekStepProvider.notifier')),
+          reason:
+              'REF-04-S3: setSeekStepSettingProvider 不得再手动同步 seekStepProvider');
     });
   });
 

@@ -1661,19 +1661,21 @@ void main() {
           prefs.getInt(sm.seekStepPrefsKey) ?? sm.defaultSeekStep, equals(30));
     });
 
+    // REF-04-S1: setSeekStep 已迁移到 speed_manager（settings_service 版本
+    // 已删除），本文件经 sm 命名空间直调 speed_manager 的规范实现。
     test('setSeekStep accepts only valid options', () async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
 
-      expect(setSeekStep(prefs, 10), isTrue);
-      expect(setSeekStep(prefs, 15), isTrue);
-      expect(setSeekStep(prefs, 30), isTrue);
-      expect(setSeekStep(prefs, 60), isTrue);
+      expect(sm.setSeekStep(prefs, 10), isTrue);
+      expect(sm.setSeekStep(prefs, 15), isTrue);
+      expect(sm.setSeekStep(prefs, 30), isTrue);
+      expect(sm.setSeekStep(prefs, 60), isTrue);
 
       // Invalid options
-      expect(setSeekStep(prefs, 5), isFalse);
-      expect(setSeekStep(prefs, 20), isFalse);
-      expect(setSeekStep(prefs, 120), isFalse);
+      expect(sm.setSeekStep(prefs, 5), isFalse);
+      expect(sm.setSeekStep(prefs, 20), isFalse);
+      expect(sm.setSeekStep(prefs, 120), isFalse);
     });
 
     test('labelForSeekStep returns formatted label', () {

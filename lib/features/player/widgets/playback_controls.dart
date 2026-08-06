@@ -9,7 +9,6 @@ import 'package:just_audio/just_audio.dart';
 import '../../../shared/models/play_queue.dart';
 import '../../../shared/di/providers.dart';
 import '../domain/seek_utils.dart';
-import '../player_provider.dart';
 
 /// Row of playback controls: previous, skip backward, play/pause, skip forward, next.
 /// PLY-T55~T56.
@@ -26,7 +25,7 @@ class PlaybackControls extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final player = ref.watch(audioPlayerProvider);
-    final seekStep = ref.watch(seekStepProvider);
+    final seekStep = ref.watch(seekStepSettingProvider);
     final queue = ref.watch(currentPlayQueueProvider);
     final mode = ref.watch(playModeProvider);
 

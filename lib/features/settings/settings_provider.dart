@@ -15,6 +15,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/di/providers.dart';
 import 'domain/settings_service.dart';
 
+// REF-04 (SET2): seek step options, validation, and label formatting are
+// canonical in speed_manager.dart; re-exported here so settings consumers
+// keep a single settings-side import surface.
+export '../player/domain/speed_manager.dart'
+    show seekStepOptions, setSeekStep, labelForSeekStep;
+
 // ── Domain service singleton ─────────────────────────────────────────────────
 
 /// Shared [SettingsService] instance used by all providers and re-exported
@@ -67,21 +73,6 @@ final setThemeModeProvider = Provider<void Function(ThemeMode)>((ref) {
 
 // ── Seek step (SET-04) ─────────────────────────────────────────────────────
 
-/// Available seek step options in seconds.
-const List<int> seekStepOptions = [10, 15, 30, 60];
-
-/// Persists [seconds] to SharedPreferences if it is one of the valid
-/// [seekStepOptions].
-///
-/// Delegates to [SettingsService.setSeekStep].
-bool setSeekStep(SharedPreferences? prefs, int seconds) =>
-    _service.setSeekStep(prefs, seconds);
-
-/// Human-readable Chinese label for a seek step value.
-///
-/// Delegates to [SettingsService.labelForSeekStep].
-String labelForSeekStep(int seconds) => _service.labelForSeekStep(seconds);
-
 // ── Remember speed (F-4) ─────────────────────────────────────────────────────
 
 /// Returns whether the "remember playback speed" setting is enabled.
@@ -116,15 +107,15 @@ final seekStepSettingProvider = Provider<int>((ref) {
   return prefs?.getInt(seekStepPrefsKey) ?? defaultSeekStep;
 });
 
-/// Persists a new seek step to SharedPreferences and invalidates both
-/// [seekStepSettingProvider] and [seekStepProvider] so that the player
-/// picks up the new value.
+/// Persists a new seek step to SharedPreferences and invalidates
+/// [seekStepSettingProvider] so the player picks up the new value.
+///
+/// REF-04 (DI1): [seekStepSettingProvider] is the single data source for the
+/// seek step — there is no player-side copy to sync anymore.
 final setSeekStepSettingProvider = Provider<void Function(int)>((ref) {
   return (int seconds) {
     debugPrint('[Settings] seekStep: ${seconds}s');
-    if (!_service.setSeekStep(ref.read(sharedPreferencesProvider), seconds))
-      return;
+    if (!setSeekStep(ref.read(sharedPreferencesProvider), seconds)) return;
     ref.invalidate(seekStepSettingProvider);
-    ref.read(seekStepProvider.notifier).state = seconds;
   };
 });

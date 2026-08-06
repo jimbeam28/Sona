@@ -1291,6 +1291,13 @@
         "SET",
         "PLY",
         "BRW"
+      ],
+      "impl_status": "done",
+      "test_status": "passed",
+      "test_files": [
+        "test/features/player/ply_02_test.dart",
+        "test/features/settings/ref_27_test.dart",
+        "test/features/settings/settings_test.dart"
       ]
     },
     "REF-05": {

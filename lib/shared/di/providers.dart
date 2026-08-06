@@ -1,15 +1,19 @@
 // lib/shared/di/providers.dart
-// Cross-feature provider bridge (REF-31).
+// Cross-feature provider re-export facade.
 //
-// This is the ONLY file that is allowed to import from multiple features.
-// It re-exports providers that are consumed across feature boundaries so that
-// feature modules can import from a single canonical source instead of
-// reaching into each other's internals.
+// This file re-exports providers from multiple features so that consumers
+// can import from a single canonical source instead of reaching into each
+// other's internals.  It does NOT own any business logic — all providers
+// are defined in their respective feature modules.
 //
-// After REF-32, individual feature providers will import from this file
-// rather than directly from other features, eliminating circular dependency
-// chains such as browser <-> player.
-//
+// Feature modules MAY import pure-domain symbols directly from other
+// features' domain/ directories (no feature-isolation violation), but
+// should prefer this facade for provider access to keep import graphs
+// shallow and auditable.
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 // Organisation:
 //   1. Browser feature  — queue, sort, cache, directory providers
 //   2. Connection feature — active connection, validation, DAO, storage
@@ -24,7 +28,6 @@
 export '../../features/browser/browser_provider.dart'
     show
         // Infrastructure
-        sharedPreferencesProvider,
         sortOptionProvider,
         SortOption,
         SortOptionNotifier,
@@ -92,7 +95,6 @@ export '../../features/player/player_provider.dart'
         defaultSpeedProvider,
         setDefaultSpeedProvider,
         currentSpeedProvider,
-        seekStepProvider,
         // Play mode
         playModeProvider,
         nextPlayModeProvider,
@@ -237,3 +239,13 @@ export '../../features/timer/domain/timer_service.dart'
 export '../../features/playlist/playlist_list_screen.dart'
     show PlaylistListScreen;
 export '../../features/player/widgets/mini_player_bar.dart' show MiniPlayerBar;
+
+// ── Infrastructure ───────────────────────────────────────────────────────────
+
+/// Global SharedPreferences provider — infrastructure moved here from
+/// browser_provider.dart (REF-04-S4).  Production overrides it with the
+/// real instance; tests override it with mock prefs or leave it null.
+///
+/// Defined after the exports so that the re-export facade stays
+/// directive-first (REF-04-S4/DI2).
+final sharedPreferencesProvider = Provider<SharedPreferences?>((ref) => null);
