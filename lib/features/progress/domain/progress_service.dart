@@ -6,12 +6,12 @@
 // dependencies — so it can be unit-tested with plain constructors.
 //
 // REF-25: Extracted from progress_provider.dart
-//   - 5 save trigger-point orchestration (delegate to ProgressDao.upsert)
+//   - 5 save trigger-point orchestration (delegate to IProgressDao.upsert)
 //   - Resume-dialog state management (countdown state machine)
 
 import 'dart:async';
 
-import '../../../core/database/dao/progress_dao.dart';
+import '../../../core/contracts/database_contract.dart';
 import '../../../shared/models/play_progress.dart';
 
 // ── Save trigger points ──────────────────────────────────────────────────────
@@ -38,15 +38,15 @@ enum SaveTrigger {
 /// All dependencies are injected through the constructor so the class
 /// has zero service-locator / Flutter dependencies.
 class ProgressService {
-  final ProgressDao _dao;
+  final IProgressDao _dao;
 
-  ProgressService({ProgressDao? dao}) : _dao = dao ?? ProgressDao();
+  ProgressService({required IProgressDao dao}) : _dao = dao;
 
   // ── Progress persistence ─────────────────────────────────────────────────
 
   /// Saves playback progress for the given [trigger].
   ///
-  /// Delegates to [ProgressDao.upsert] which applies the business rules
+  /// Delegates to [IProgressDao.upsert] which applies the business rules
   /// (skip < 5 s, clear near end).  Returns the DAO result:
   ///   `true`  — record created / updated
   ///   `false` — save skipped (position < 5 s)

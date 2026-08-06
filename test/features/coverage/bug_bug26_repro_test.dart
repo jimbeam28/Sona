@@ -425,13 +425,14 @@ void main() {
           reason: 'BUG-26-S4: 默认 clock 必须保持生产行为');
     });
 
-    test('否定断言：rawInsert 测试播种能力保持兼容', () async {
-      // spec §3.1 S4 否定断言：注入机制与 rawInsert 并存不冲突。
+    test('否定断言：rawInsertForTest 测试播种能力保持兼容', () async {
+      // spec §3.1 S4 否定断言：注入机制与测试播种并存不冲突。
+      // REF-02-S9: rawInsert 移出契约，播种改走 test helper extension。
       db = await openTestDatabase(TestSchema.progress);
       await seedConnection(db);
       final dao = ProgressDao(clock: () => _fixedClock);
 
-      await dao.rawInsert(PlayProgress(
+      await dao.rawInsertForTest(PlayProgress(
         connectionId: 1,
         filePath: '/explicit.mp3',
         positionMs: 30000,
@@ -441,7 +442,7 @@ void main() {
       final saved = await dao.find(1, '/explicit.mp3');
       expect(saved!.lastPlayedAt.millisecondsSinceEpoch,
           DateTime(2021, 6, 15).millisecondsSinceEpoch,
-          reason: 'BUG-26-S4: rawInsert 显式时间戳不受 clock 注入影响');
+          reason: 'BUG-26-S4: rawInsertForTest 显式时间戳不受 clock 注入影响');
     });
   });
 }

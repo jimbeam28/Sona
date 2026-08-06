@@ -58,8 +58,6 @@ class _MockProgressDao implements ProgressDao {
   Future<void> deleteByConnection(int connectionId) async {}
   @override
   Future<int> count() async => 0;
-  @override
-  Future<void> rawInsert(PlayProgress progress) async {}
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

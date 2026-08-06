@@ -41,6 +41,8 @@ import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:nas_audio_player/shared/models/play_progress.dart';
 import 'package:nas_audio_player/shared/models/play_queue.dart';
 
+import '../../helpers/fake_progress_dao.dart';
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Generate mocks
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -468,13 +470,15 @@ void main() {
   group('AUD-05-T08: Progress resume dialog state reachability', () {
     test('Hidden: initial state (null)', () {
       // ProgressResumeNotifier starts with null state
-      final notifier = ProgressResumeNotifier(ProgressService());
+      final notifier =
+          ProgressResumeNotifier(ProgressService(dao: FakeProgressDao()));
       expect(notifier.state, isNull);
       notifier.dispose();
     });
 
     test('Hidden -> Showing: show(progress)', () {
-      final notifier = ProgressResumeNotifier(ProgressService());
+      final notifier =
+          ProgressResumeNotifier(ProgressService(dao: FakeProgressDao()));
       final progress = PlayProgress(
         connectionId: 1,
         filePath: '/music/test.mp3',
@@ -491,7 +495,8 @@ void main() {
 
     test('Showing -> Showing: countdown decrements', () {
       fakeAsync((async) {
-        final notifier = ProgressResumeNotifier(ProgressService());
+        final notifier =
+            ProgressResumeNotifier(ProgressService(dao: FakeProgressDao()));
         final progress = PlayProgress(
           connectionId: 1,
           filePath: '/music/test.mp3',
@@ -514,7 +519,8 @@ void main() {
 
     test('Showing -> Expired: countdown reaches 0', () {
       fakeAsync((async) {
-        final notifier = ProgressResumeNotifier(ProgressService());
+        final notifier =
+            ProgressResumeNotifier(ProgressService(dao: FakeProgressDao()));
         final progress = PlayProgress(
           connectionId: 1,
           filePath: '/music/test.mp3',
@@ -533,7 +539,8 @@ void main() {
     });
 
     test('Showing -> Hidden: dismiss()', () {
-      final notifier = ProgressResumeNotifier(ProgressService());
+      final notifier =
+          ProgressResumeNotifier(ProgressService(dao: FakeProgressDao()));
       final progress = PlayProgress(
         connectionId: 1,
         filePath: '/music/test.mp3',

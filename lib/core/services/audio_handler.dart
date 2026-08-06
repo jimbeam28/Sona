@@ -21,19 +21,9 @@ import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 
-import '../../features/player/background_playback.dart';
 import '../../features/player/media_control_model.dart' hide MediaAction;
-
-/// Callback for when the handler needs to advance to the next track.
-///
-/// The handler itself does not own or read the play queue — it delegates
-/// queue navigation to the app layer which has access to Riverpod state.
-typedef NextTrackCallback = void Function();
-typedef PreviousTrackCallback = void Function();
-
-/// Callback invoked whenever [BackgroundPlaybackConfig] changes inside the
-/// handler, so that the Riverpod [BackgroundPlaybackNotifier] can stay in sync.
-typedef ConfigChangeCallback = void Function(BackgroundPlaybackConfig config);
+import '../contracts/audio_handler_contract.dart';
+import '../contracts/background_playback_contract.dart';
 
 /// Supplies the [AudioSession] used to subscribe to audio-focus event
 /// streams.
@@ -50,7 +40,9 @@ typedef AudioSessionProvider = Future<AudioSession> Function();
 /// system media commands into calls on that player.  Player-state changes
 /// are reflected in the notification via [playbackState] and [mediaItem]
 /// streams.
-class NasAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
+class NasAudioHandler extends BaseAudioHandler
+    with QueueHandler, SeekHandler
+    implements IAudioHandler {
   final AudioPlayer _player;
 
   /// Injectable audio-session supplier (testability injection, same style as
@@ -73,7 +65,22 @@ class NasAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
 
   /// The current background-playback configuration, driven by the pure-logic
   /// state machine in [BackgroundPlaybackConfig].
+  @override
   BackgroundPlaybackConfig get config => _config;
+
+  // ── Streams (IAudioHandler contract) ─────────────────────────────────────
+
+  /// Stream of playback-state changes for notification / lock-screen.
+  ///
+  /// Backed by the [BaseAudioHandler.playbackState] [BehaviorSubject] —
+  /// consumers can access `.value` for the current state and `.add()` to
+  /// push updates.
+  @override
+  Stream<PlaybackState> get playbackStateStream => playbackState;
+
+  /// Stream of the current media item metadata.
+  @override
+  Stream<MediaItem?> get mediaItemStream => mediaItem;
 
   // ── Subscriptions ──────────────────────────────────────────────────────
 
@@ -159,6 +166,7 @@ class NasAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   }
 
   /// Updates the notification [mediaItem] to represent [filePath].
+  @override
   void setMediaItemFromPath(String filePath, {Duration? duration}) {
     final title = extractTitleFromPath(filePath);
     mediaItem.add(MediaItem(
@@ -231,6 +239,7 @@ class NasAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   /// notifier path, but the handler performs no playback side effect (the
   /// former gained auto-resume branch was dead code, removed per
   /// cr-20260728-1700 D1).
+  @override
   void onAudioFocusChange(AudioFocusState focus) {
     final next = _config.updateAudioFocus(focus);
     _updateConfig(next);
@@ -326,6 +335,7 @@ class NasAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
 
   // ── Cleanup ────────────────────────────────────────────────────────────
 
+  @override
   void dispose() {
     _stateSub?.cancel();
     _positionSub?.cancel();

@@ -40,6 +40,8 @@ abstract class IConnectionDao {
   /// Deletes the connection with [id] and cascades to related records.
   ///
   /// Returns `true` if the deleted connection was the active one.
+  ///
+  /// Throws [LastConnectionException] when only one connection remains.
   Future<bool> delete(int id);
 
   /// Returns the total number of connections.
@@ -62,9 +64,6 @@ abstract class IProgressDao {
     required int positionMs,
     int? durationMs,
   });
-
-  /// Inserts a progress record directly without policy checks.
-  Future<void> rawInsert(PlayProgress progress);
 
   /// Finds the saved progress for a file on a connection.
   Future<PlayProgress?> find(int connectionId, String filePath);

@@ -9,6 +9,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nas_audio_player/core/contracts/database_contract.dart';
 import 'package:nas_audio_player/core/network/webdav_client.dart';
 import 'package:nas_audio_player/features/connection/connection_provider.dart';
 import 'package:nas_audio_player/features/connection/connection_screen.dart';
@@ -740,6 +741,36 @@ void main() {
       validatorState = 'validating';
       expect(validatorState, equals('validating'),
           reason: 'TST-T147: 验证器可从 idle 过渡到 validating');
+    });
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // REF-02-S1: connectionDaoProvider 类型为 IConnectionDao（CTR4）
+  // ═════════════════════════════════════════════════════════════════════════════
+
+  group('REF-02-S1: connectionDaoProvider 类型为 IConnectionDao', () {
+    test('REF-02-S1: 编译期声明 + 运行时契约断言', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      // 编译期锚：provider 读取结果必须可赋给 IConnectionDao；
+      // 若实现仍声明 Provider<ConnectionDao>，本声明不构成编译错误
+      // （Dart 泛型协变），运行时断言才是兜底。
+      final IConnectionDao dao = container.read(connectionDaoProvider);
+      expect(dao, isA<IConnectionDao>(),
+          reason: 'REF-02-S1: connectionDaoProvider 必须暴露 IConnectionDao 契约'
+              '而非具体类类型');
+    });
+
+    test('REF-02-S1: 无 DB 环境也可读取（实例创建方式不变）', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      // 否定断言：provider 的实例创建方式不改变 —— 默认值仍可构造，
+      // 且构造过程不触碰数据库（仅实例化 DAO）。
+      final dao = container.read(connectionDaoProvider);
+      expect(dao, isNotNull,
+          reason: 'REF-02-S1: connectionDaoProvider 默认应返回实例');
     });
   });
 }

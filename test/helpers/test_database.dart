@@ -5,7 +5,9 @@
 // con_06_test.dart, con_09_test.dart, prg_test.dart, ply_10_test.dart,
 // ply_11_test.dart.
 
+import 'package:nas_audio_player/core/database/dao/progress_dao.dart';
 import 'package:nas_audio_player/core/database/database_helper.dart';
+import 'package:nas_audio_player/shared/models/play_progress.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 /// Schema subsets that tests may select when opening a test database.
@@ -144,4 +146,20 @@ Future<void> seedConnection(Database db, {int id = 1}) async {
     'created_at': 0,
     'updated_at': 0,
   });
+}
+
+/// 测试播种专用 extension（REF-02-S9 迁移自 IProgressDao.rawInsert）：
+/// 直接 INSERT 一行 `play_progress`，使用 [PlayProgress.lastPlayedAt] 的
+/// 显式时间戳，不经过 shouldSave/shouldClear 策略与 clock 注入。
+extension ProgressDaoTestHelper on ProgressDao {
+  Future<void> rawInsertForTest(PlayProgress progress) async {
+    final db = await DatabaseHelper.instance.database;
+    await db.insert('play_progress', {
+      'connection_id': progress.connectionId,
+      'file_path': progress.filePath,
+      'position_ms': progress.positionMs,
+      'duration_ms': progress.durationMs,
+      'last_played_at': progress.lastPlayedAt.millisecondsSinceEpoch,
+    });
+  }
 }

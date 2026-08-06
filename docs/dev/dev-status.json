@@ -1211,6 +1211,19 @@
         "PRG",
         "SET",
         "TMR"
+      ],
+      "impl_status": "done",
+      "test_status": "passed",
+      "test_files": [
+        "test/features/connection/con_01_test.dart",
+        "test/features/connection/ref_22_test.dart",
+        "test/features/player/bug_05_handler_play_test.dart",
+        "test/features/playlist/ply_09_test.dart",
+        "test/features/progress/prg_test.dart",
+        "test/features/progress/ref_25_test.dart",
+        "test/helpers/fake_secure_storage.dart",
+        "test/helpers/mock_audio_player.dart",
+        "test/helpers/test_database.dart"
       ]
     },
     "REF-03": {

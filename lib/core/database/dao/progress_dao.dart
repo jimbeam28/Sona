@@ -138,16 +138,6 @@ class ProgressDao implements IProgressDao {
 
   // ── Query ────────────────────────────────────────────────────────────────────
 
-  /// Inserts a [progress] record directly without [shouldSave] / [shouldClear]
-  /// checks.  Useful for testing when you need explicit control over
-  /// timestamps (e.g. [getRecentlyPlayed] ordering tests).
-  Future<void> rawInsert(PlayProgress progress) async {
-    final db = await _db;
-    final map = progress.toMap();
-    map.remove('id'); // let AUTOINCREMENT assign it
-    await db.insert('play_progress', map);
-  }
-
   /// Finds the saved playback progress for a file on a connection.
   ///
   /// Returns `null` when no progress has been saved (PRG-T12).

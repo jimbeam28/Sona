@@ -12,6 +12,7 @@
 
 import 'dart:convert';
 
+import '../../../core/contracts/database_contract.dart';
 import '../../../core/database/dao/playlist_dao.dart';
 import '../../../shared/models/nas_file.dart';
 import '../../../shared/models/playlist.dart';
@@ -22,9 +23,9 @@ import '../../../shared/models/playlist.dart';
 /// All dependencies are injected through the constructor so the class
 /// has zero service-locator / Flutter dependencies.
 class PlaylistService {
-  final PlaylistDao _dao;
+  final IPlaylistDao _dao;
 
-  PlaylistService({PlaylistDao? dao}) : _dao = dao ?? PlaylistDao();
+  PlaylistService({IPlaylistDao? dao}) : _dao = dao ?? PlaylistDao();
 
   // ── Playlist CRUD ─────────────────────────────────────────────────────────
 

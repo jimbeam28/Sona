@@ -7,8 +7,18 @@
 
 import 'package:audio_service/audio_service.dart';
 
-import '../../features/player/background_playback.dart';
-import '../services/audio_handler.dart';
+import 'background_playback_contract.dart';
+
+/// Callback for when the handler needs to advance to the next track.
+///
+/// The handler itself does not own or read the play queue — it delegates
+/// queue navigation to the app layer which has access to Riverpod state.
+typedef NextTrackCallback = void Function();
+typedef PreviousTrackCallback = void Function();
+
+/// Callback invoked whenever [BackgroundPlaybackConfig] changes inside the
+/// handler, so that the Riverpod [BackgroundPlaybackNotifier] can stay in sync.
+typedef ConfigChangeCallback = void Function(BackgroundPlaybackConfig config);
 
 /// Abstract interface for the audio service handler.
 ///

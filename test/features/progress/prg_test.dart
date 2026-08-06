@@ -7,6 +7,7 @@
 // PRG-T24~T28: Clear progress tests (DAO + widget)
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,6 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fake_async/fake_async.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:mockito/mockito.dart';
+import 'package:nas_audio_player/core/contracts/database_contract.dart';
 import 'package:nas_audio_player/core/database/dao/progress_dao.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/features/connection/connection_provider.dart';
@@ -441,7 +443,8 @@ void main() {
           lastPlayedAt: lastPlayed,
         );
         // Use raw insert for timestamp control (upsert uses DateTime.now())
-        await dao.rawInsert(progress);
+        // REF-02-S9: rawInsert 移出契约，测试播种改 rawInsertForTest（helpers）
+        await dao.rawInsertForTest(progress);
       }
 
       // Get recently played with default limit (20)
@@ -471,7 +474,7 @@ void main() {
 
     test('latestPlayedProgressProvider returns the most recent record',
         () async {
-      await dao.rawInsert(
+      await dao.rawInsertForTest(
         testProgress(
           connectionId: 1,
           filePath: '/music/older.mp3',
@@ -479,7 +482,7 @@ void main() {
           lastPlayedAt: DateTime(2026, 5, 17, 9, 0),
         ),
       );
-      await dao.rawInsert(
+      await dao.rawInsertForTest(
         testProgress(
           connectionId: 1,
           filePath: '/music/latest.mp3',
@@ -521,7 +524,7 @@ void main() {
     // 改为锚定纯查询语义——findLatest 返回最近一条且不得删除其它文件进度。
     test('findLatest is a pure query: latest record, no deletion side effect',
         () async {
-      await dao.rawInsert(
+      await dao.rawInsertForTest(
         testProgress(
           connectionId: 1,
           filePath: '/music/older.mp3',
@@ -529,7 +532,7 @@ void main() {
           lastPlayedAt: DateTime(2026, 5, 17, 8, 0),
         ),
       );
-      await dao.rawInsert(
+      await dao.rawInsertForTest(
         testProgress(
           connectionId: 2,
           filePath: '/music/newer.mp3',
@@ -1219,7 +1222,7 @@ void main() {
         positionMs: 3000, // 3 seconds
         durationMs: 120000,
       );
-      await dao.rawInsert(progress);
+      await dao.rawInsertForTest(progress);
 
       final container = ProviderContainer(
         overrides: [
@@ -1788,6 +1791,55 @@ void main() {
       final set = queue.withStartPosition(30000);
       expect(set.startPositionMs, equals(30000),
           reason: 'TST-T148: withStartPosition 可设置新的 startPositionMs');
+    });
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // REF-02-S2: progressDaoProvider 类型为 IProgressDao（CTR4）
+  // ═════════════════════════════════════════════════════════════════════════════
+
+  group('REF-02-S2: progressDaoProvider 类型为 IProgressDao', () {
+    test('REF-02-S2: 编译期声明 + 运行时契约断言', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      // 编译期锚：provider 读取结果必须可赋给 IProgressDao。
+      final IProgressDao dao = container.read(progressDaoProvider);
+      expect(dao, isA<IProgressDao>(),
+          reason: 'REF-02-S2: progressDaoProvider 必须暴露 IProgressDao 契约'
+              '而非具体类类型');
+    });
+
+    test('REF-02-S2: 默认读取不触碰数据库（实例创建方式不变）', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final dao = container.read(progressDaoProvider);
+      expect(dao, isNotNull, reason: 'REF-02-S2: progressDaoProvider 默认应返回实例');
+    });
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // REF-02-S9: IProgressDao 不含 rawInsert（CTR5）— 静态文本断言
+  // ═════════════════════════════════════════════════════════════════════════════
+
+  group('REF-02-S9: IProgressDao 不含 rawInsert', () {
+    test('REF-02-S9: database_contract.dart 接口定义无 rawInsert', () {
+      final file = File('lib/core/contracts/database_contract.dart');
+      expect(file.existsSync(), isTrue,
+          reason: '契约文件应存在 —— REF-02 实现未落地（预期失败）');
+      expect(file.readAsStringSync(), isNot(contains('rawInsert')),
+          reason: 'REF-02-S9: IProgressDao 不得保留 rawInsert 测试钩子'
+              '（当前 database_contract.dart:67）');
+    });
+
+    test('REF-02-S9: progress_dao.dart 生产实现无 rawInsert', () {
+      final file = File('lib/core/database/dao/progress_dao.dart');
+      expect(file.existsSync(), isTrue,
+          reason: 'progress_dao.dart 应存在 —— REF-02 实现未落地（预期失败）');
+      expect(file.readAsStringSync(), isNot(contains('rawInsert')),
+          reason: 'REF-02-S9: 生产 DAO 不得保留仅测试使用的 rawInsert 方法'
+              '（当前 progress_dao.dart:78-83）');
     });
   });
 }

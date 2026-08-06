@@ -3,6 +3,7 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/contracts/database_contract.dart';
 import '../../core/database/dao/playlist_dao.dart';
 import '../../shared/models/nas_file.dart';
 import '../../shared/models/playlist.dart';
@@ -16,7 +17,7 @@ enum TrackSortOption { addedAsc, nameAsc, nameDesc }
 
 // ── Infrastructure ─────────────────────────────────────────────────────────
 
-final playlistDaoProvider = Provider<PlaylistDao>((ref) => PlaylistDao());
+final playlistDaoProvider = Provider<IPlaylistDao>((ref) => PlaylistDao());
 
 final playlistServiceProvider = Provider<PlaylistService>((ref) {
   return PlaylistService(dao: ref.read(playlistDaoProvider));

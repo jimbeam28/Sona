@@ -4,6 +4,8 @@
 // Pure Dart tests — no Flutter/Riverpod dependency.
 // Uses sqflite_common_ffi for an in-memory SQLite database.
 
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nas_audio_player/core/contracts/storage_contract.dart';
@@ -363,6 +365,48 @@ void main() {
 
       expect(container.read(secureStorageProvider), isA<ISecureStorage>(),
           reason: 'REF-01-S4: provider 必须暴露 ISecureStorage 契约而非具体类');
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // REF-02-S10: IConnectionDao.delete 文档化 LastConnectionException（CTR6）
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  group('REF-02-S10: IConnectionDao.delete 抛出 LastConnectionException', () {
+    test('REF-02-S10: dao.delete 对唯一连接直接抛 LastConnectionException', () async {
+      final db = await openTestDatabase(TestSchema.connections);
+      addTearDown(() => db.close());
+      final dao = ConnectionDao();
+
+      final config =
+          testConfig(name: 'Only NAS', url: 'http://only.local:5005');
+      final id = await dao.insert(config, passwordKey: 'key_only');
+
+      // 契约级锚点：不经过 ConnectionService，直接调 IConnectionDao.delete。
+      expect(
+        () => dao.delete(id),
+        throwsA(isA<LastConnectionException>()),
+        reason: 'REF-02-S10: 仅剩一个连接时 IConnectionDao.delete 必须抛出'
+            'LastConnectionException（与 REF-22-T03 服务层行为一致）',
+      );
+
+      // 否定断言：连接仍存在（delete 抛异常时不得删除）。
+      final remaining = await dao.findAll();
+      expect(remaining.length, equals(1), reason: 'REF-02-S10: 抛异常时连接应仍然存在');
+    });
+
+    test(
+        'REF-02-S10: database_contract.dart delete 文档包含 LastConnectionException',
+        () {
+      final file = File('lib/core/contracts/database_contract.dart');
+      expect(file.existsSync(), isTrue,
+          reason: '契约文件应存在 —— REF-02 实现未落地（预期失败）');
+      final source = file.readAsStringSync();
+
+      // CTR6 是文档修复：delete 的 dartdoc 必须显式说明异常条件。
+      expect(source, contains('LastConnectionException'),
+          reason: 'REF-02-S10: IConnectionDao.delete dartdoc 必须提及'
+              'LastConnectionException 抛出条件');
     });
   });
 }

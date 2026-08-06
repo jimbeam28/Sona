@@ -9,10 +9,12 @@
 // Pure Dart tests — no Flutter widget dependencies.
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nas_audio_player/core/contracts/database_contract.dart';
 import 'package:nas_audio_player/core/database/dao/progress_dao.dart';
 import 'package:nas_audio_player/features/progress/domain/progress_service.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import '../../helpers/fake_progress_dao.dart';
 import '../../helpers/test_database.dart';
 import '../../helpers/test_factories.dart';
 
@@ -175,7 +177,9 @@ void main() {
     late ProgressService service;
 
     setUp(() {
-      service = ProgressService();
+      // REF-02-S11: ProgressService 构造要求 IProgressDao —— 注入内存 fake，
+      // 本组只测对话框状态机，不触碰 DAO。
+      service = ProgressService(dao: FakeProgressDao());
     });
 
     test('showResumeDialog creates initial state with countdown=5', () {
@@ -278,7 +282,8 @@ void main() {
     late ProgressService service;
 
     setUp(() {
-      service = ProgressService();
+      // REF-02-S11: ProgressService 构造要求 IProgressDao —— 注入内存 fake。
+      service = ProgressService(dao: FakeProgressDao());
     });
 
     test('countdown reaches 0 after exactly 5 ticks → isExpired=true', () {
@@ -350,6 +355,32 @@ void main() {
 
       expect(countdownValues, equals([4, 3, 2, 1, 0]),
           reason: 'countdown should decrement 4,3,2,1,0');
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // REF-02-S11: ProgressService 接受 IProgressDao（PRG5）
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  group('REF-02-S11: ProgressService 注入 IProgressDao', () {
+    test('REF-02-S11: 编译期断言构造接受 IProgressDao 契约', () {
+      // 编译期锚：若实现仍为 `ProgressService({ProgressDao? dao})` 或
+      // `final ProgressDao _dao`，fake（仅 implements IProgressDao）无法
+      // 通过编译 —— 本声明是契约边界的锚。
+      final IProgressDao dao = FakeProgressDao();
+      final service = ProgressService(dao: dao);
+      expect(service, isA<ProgressService>(),
+          reason: 'REF-02-S11: ProgressService 必须接受 IProgressDao 契约注入');
+    });
+
+    test('REF-02-S11: 注入 fake 后状态机行为不变（回归）', () {
+      final service = ProgressService(dao: FakeProgressDao());
+      final progress = testProgress(positionMs: 60000, durationMs: 180000);
+      var state = service.showResumeDialog(progress);
+      expect(state.countdownSeconds, equals(5),
+          reason: 'REF-02-S11: 构造变更不得改变对话框状态机行为');
+      state = service.tickCountdown(state);
+      expect(state.countdownSeconds, equals(4));
     });
   });
 }

@@ -13,16 +13,17 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/contracts/database_contract.dart';
 import '../../core/database/dao/progress_dao.dart';
 import '../../shared/models/play_progress.dart';
 import 'domain/progress_service.dart';
 
 // ── DAO instance ────────────────────────────────────────────────────────────────
 
-/// Singleton [ProgressDao] used by all progress providers.
+/// Singleton [IProgressDao] used by all progress providers.
 ///
 /// Can be overridden in tests to inject a DAO backed by an in-memory database.
-final progressDaoProvider = Provider<ProgressDao>((ref) => ProgressDao());
+final progressDaoProvider = Provider<IProgressDao>((ref) => ProgressDao());
 
 // ── ProgressService instance ─────────────────────────────────────────────────────
 

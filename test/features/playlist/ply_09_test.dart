@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:nas_audio_player/core/contracts/database_contract.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/features/home/home_screen.dart';
 import 'package:nas_audio_player/features/playlist/playlist_provider.dart';
@@ -158,6 +159,31 @@ void main() {
 
       // Sort icon should be visible in AppBar
       expect(find.byIcon(Icons.sort), findsOneWidget);
+    });
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // REF-02-S3: playlistDaoProvider 类型为 IPlaylistDao（CTR4）
+  // ═════════════════════════════════════════════════════════════════════════
+
+  group('REF-02-S3: playlistDaoProvider 类型为 IPlaylistDao', () {
+    test('REF-02-S3: 编译期声明 + 运行时契约断言', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      // 编译期锚：provider 读取结果必须可赋给 IPlaylistDao。
+      final IPlaylistDao dao = container.read(playlistDaoProvider);
+      expect(dao, isA<IPlaylistDao>(),
+          reason: 'REF-02-S3: playlistDaoProvider 必须暴露 IPlaylistDao 契约'
+              '而非具体类类型');
+    });
+
+    test('REF-02-S3: 默认读取不触碰数据库（实例创建方式不变）', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final dao = container.read(playlistDaoProvider);
+      expect(dao, isNotNull, reason: 'REF-02-S3: playlistDaoProvider 默认应返回实例');
     });
   });
 }

@@ -9,18 +9,18 @@
 // - delete: last-connection protection + secure-storage cleanup + auto-activate
 // - setActive: transactional switch (single active connection)
 
+import '../../../core/contracts/database_contract.dart';
 import '../../../core/contracts/storage_contract.dart';
-import '../../../core/database/dao/connection_dao.dart';
 import '../../../core/services/log_forwarder.dart';
 import '../../../core/services/storage_utils.dart';
 import '../../../shared/models/connection_config.dart';
 
 /// Pure-Dart service for connection lifecycle operations.
 ///
-/// Depends only on [ConnectionDao] and [ISecureStorage] — no Flutter
+/// Depends only on [IConnectionDao] and [ISecureStorage] — no Flutter
 /// framework, no Riverpod, no BuildContext.
 class ConnectionService {
-  final ConnectionDao _dao;
+  final IConnectionDao _dao;
   final ISecureStorage _storage;
 
   ConnectionService(this._dao, this._storage);

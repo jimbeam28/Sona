@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/contracts/audio_handler_contract.dart';
 import '../../core/services/audio_handler.dart';
 import '../../core/services/audio_player_adapter.dart';
 import '../../shared/models/connection_config.dart';
@@ -65,7 +66,7 @@ final audioPlayingProvider = StreamProvider<bool>((ref) {
   final player = ref.watch(audioPlayerProvider);
   return player.playingStream;
 });
-final audioHandlerProvider = Provider<NasAudioHandler?>((ref) => null);
+final audioHandlerProvider = Provider<IAudioHandler?>((ref) => null);
 
 class _Deps
     implements
@@ -122,7 +123,11 @@ final playbackOrchestratorProvider = Provider<PlaybackOrchestrator>((ref) {
     ref.read(currentPlayQueueProvider.notifier).state = q;
     _syncingFromOrchestrator = false;
     if (q == null) {
-      ref.read(audioHandlerProvider)?.mediaItem.add(null);
+      // REF-02-S8: the provider is typed as IAudioHandler; clearing the
+      // notification media item needs the concrete BehaviorSubject exposed by
+      // BaseAudioHandler (not part of the contract surface), so the wiring
+      // point casts back to the concrete handler.
+      (ref.read(audioHandlerProvider) as NasAudioHandler?)?.mediaItem.add(null);
     }
   };
   // Sync Riverpod state → orchestrator queue (external mutations only).

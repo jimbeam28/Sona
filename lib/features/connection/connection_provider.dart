@@ -10,6 +10,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../../core/contracts/database_contract.dart';
 import '../../core/contracts/storage_contract.dart';
 import '../../core/database/dao/connection_dao.dart';
 import '../../core/network/webdav_client.dart';
@@ -21,7 +22,8 @@ import 'domain/connection_service.dart';
 
 // ── Infrastructure providers ──────────────────────────────────────────────────
 
-final connectionDaoProvider = Provider<ConnectionDao>((ref) => ConnectionDao());
+final connectionDaoProvider =
+    Provider<IConnectionDao>((ref) => ConnectionDao());
 
 final webDavClientProvider =
     Provider<WebDavClientInterface>((ref) => WebDavClient());

@@ -17,13 +17,17 @@
 // BUG-05-INV1-T01: completed 恢复路径 seek(0) 严格先于 play()（顺序不变量）
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:fake_async/fake_async.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
+import 'package:nas_audio_player/core/contracts/audio_handler_contract.dart';
 import 'package:nas_audio_player/core/services/audio_handler.dart';
+import 'package:nas_audio_player/features/player/player_provider.dart';
 
 import 'bug_05_handler_play_test.mocks.dart';
 
@@ -273,6 +277,77 @@ void main() {
         handler.dispose();
         controller.close();
       });
+    });
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // REF-02-S6/S7/S8: IAudioHandler 真启用（CTR2/CTR3/SVC6）
+  // ═════════════════════════════════════════════════════════════════════════════
+
+  group('REF-02-S6: audio_handler_contract 无 feature 层反向 import', () {
+    test('REF-02-S6: 契约文件 import 列表干净', () {
+      // 静态文本断言（ref_01_domain_pure_test 风格）：dart:io 只读文件文本，
+      // 不读取、不依赖任何实现细节。
+      final file = File('lib/core/contracts/audio_handler_contract.dart');
+      expect(file.existsSync(), isTrue,
+          reason: 'audio_handler_contract.dart 应存在 —— REF-02 实现未落地'
+              '（预期失败）');
+
+      final imports = file
+          .readAsStringSync()
+          .split('\n')
+          .where((line) => line.trimLeft().startsWith('import '))
+          .join('\n');
+
+      // 否定断言：contract 层不得 import 任何 feature 层路径
+      //（当前 :10 `../../features/player/background_playback.dart`）。
+      expect(imports, isNot(contains('features/')),
+          reason: 'REF-02-S6: contract 不得反向 import feature 层文件');
+      // 否定断言：contract 不得反向 import 实现文件
+      //（当前 :11 `../services/audio_handler.dart`）。
+      expect(imports, isNot(contains('services/audio_handler.dart')),
+          reason: 'REF-02-S6: contract 不得 import services/audio_handler.dart');
+    });
+  });
+
+  group('REF-02-S7: NasAudioHandler implements IAudioHandler', () {
+    test('REF-02-S7: 编译期断言 NasAudioHandler 满足 IAudioHandler 契约', () {
+      final player = MockAudioPlayer();
+      // 与 makeHandler 相同的流桩，避免构造期订阅空流。
+      when(player.playerStateStream)
+          .thenAnswer((_) => const Stream<PlayerState>.empty());
+      when(player.positionStream)
+          .thenAnswer((_) => const Stream<Duration>.empty());
+      when(player.durationStream)
+          .thenAnswer((_) => const Stream<Duration?>.empty());
+      when(player.position).thenReturn(Duration.zero);
+      when(player.bufferedPosition).thenReturn(Duration.zero);
+      when(player.speed).thenReturn(1.0);
+
+      // 编译期锚：若 NasAudioHandler 未声明 implements IAudioHandler，
+      // 或接口成员与实现漂移（CTR2），本赋值无法编译。
+      final IAudioHandler handler = NasAudioHandler(player);
+      expect(handler, isA<IAudioHandler>(),
+          reason: 'REF-02-S7: NasAudioHandler 必须满足 IAudioHandler 契约');
+
+      // 断言 playbackStateStream / mediaItemStream 可访问（S7 成员锚点）。
+      expect(handler.playbackStateStream, isNotNull);
+      expect(handler.mediaItemStream, isNotNull);
+
+      handler.dispose();
+    });
+  });
+
+  group('REF-02-S8: audioHandlerProvider 类型为 Provider<IAudioHandler?>', () {
+    test('REF-02-S8: 编译期声明 + 默认 null', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      // 编译期锚：provider 读取结果必须可赋给 IAudioHandler?。
+      final IAudioHandler? handler = container.read(audioHandlerProvider);
+      expect(handler, isNull,
+          reason: 'REF-02-S8: 默认无注入时 audioHandlerProvider 为 null，'
+              '且声明类型必须接受 IAudioHandler?');
     });
   });
 }
