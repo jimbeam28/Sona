@@ -163,6 +163,12 @@ REF-07-INV2         # hashCode 一致性
 | REF-07-S1 | 无测试验证 ConnectionConfig 值相等 | 构造两个相同字段的实例 → expect(a == b, true) + expect(a.hashCode, b.hashCode) |
 | REF-07-S2 | 无测试验证各字段不同导致不等 | 对每个字段分别构造差异实例 → expect(a != b, true)（8 条） |
 
+### 5.4 测试文件位置
+
+| 测试 ID | 文件路径 |
+|---|---|
+| REF-07-S1/S2 | `test/shared/model_equality_test.dart`（新建，与 TEST-10 §5.4 共用同一文件） |
+
 ---
 
 ## §6 算法样例
@@ -194,3 +200,4 @@ REF-07-INV2         # hashCode 一致性
 ## §10 changelog
 
 - 2026-07-27: 创建 REF-07 spec（基于 cr-20260724-0110.md MDL5）
+- 2026-08-06: dev-plan 修订——补 §5.4「测试文件位置」门禁节（spec-scan --gate 硬门禁前置，af084af 引入）；门禁文件与 TEST-10 共用 test/shared/model_equality_test.dart（避免同名重复文件）

@@ -263,6 +263,13 @@ REF-05-INV3         # 唯一写入点
 |---|---|---|
 | REF-05-S4 | 需验证预设不覆盖自定义值 | 启动预设 5 分钟 → 检查 lastCustomTimerMinutes 未变；启动自定义 30 分钟 → 检查值为 30 |
 
+### 5.4 测试文件位置
+
+| 测试 ID | 文件路径 |
+|---|---|
+| REF-05-S1/S2/S3 | `test/features/timer/timer_test.dart`（删除 TimerButton group :517、TST-05 暂停/恢复 :925、copyWith/pause/resume 相关用例） |
+| REF-05-S4 | `test/features/timer/timer_test.dart`（新增 lastCustomTimerMinutes 写入点用例） |
+
 ---
 
 ## §6 算法样例
@@ -295,3 +302,4 @@ REF-05-INV3         # 唯一写入点
 ## §10 changelog
 
 - 2026-07-27: 创建 REF-05 spec（基于 cr-20260724-0110.md TMR2 + TMR4 + TMR5）
+- 2026-08-06: dev-plan 修订——补 §5.4「测试文件位置」门禁节（spec-scan --gate 硬门禁前置，af084af 引入）；门禁文件 = timer_test.dart（TimerButton group 与 TST-05 用例定位确认）

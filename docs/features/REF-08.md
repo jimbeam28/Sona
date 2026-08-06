@@ -162,6 +162,12 @@ REF-08-INV2         # 不重复记录
 |---|---|---|
 | REF-08-S1 | 无测试 | 调用 installLogBufferHook 两次 → debugPrint 一条消息 → LogBuffer.entries.length == 1 |
 
+### 5.4 测试文件位置
+
+| 测试 ID | 文件路径 |
+|---|---|
+| REF-08-S1 | `test/core/services/log_buffer_test.dart`（新建） |
+
 ---
 
 ## §6 算法样例
@@ -193,3 +199,4 @@ REF-08-INV2         # 不重复记录
 ## §10 changelog
 
 - 2026-07-27: 创建 REF-08 spec（基于 cr-20260724-0110.md SVC7）
+- 2026-08-06: dev-plan 修订——补 §5.4「测试文件位置」门禁节（spec-scan --gate 硬门禁前置，af084af 引入）；门禁文件 = 新建 test/core/services/log_buffer_test.dart（当前无任何 log_buffer 单元测试）

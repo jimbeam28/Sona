@@ -312,6 +312,15 @@ REF-04-INV1 … INV4    # 不变量
 | REF-04-S3 | seekStepProvider 删除 | 验证 player 使用 seekStepSettingProvider |
 | REF-04-S4 | sharedPreferencesProvider 迁移 | 验证所有消费方通过 di/providers.dart 获取 |
 
+### 5.4 测试文件位置
+
+| 测试 ID | 文件路径 |
+|---|---|
+| REF-04-S1 | `test/features/settings/ref_27_test.dart`（删除 speed/step 相关测试） |
+| REF-04-S2/S3 | `test/features/player/ply_02_test.dart`（seekStepProvider→seekStepSettingProvider 适配） |
+| REF-04-S3 | `test/features/settings/settings_test.dart`（seekStepOptions 引用适配） |
+| REF-04-S4 | `test/features/settings/settings_test.dart` + `test/features/player/ply_02_test.dart`（sharedPreferences 经 di/providers.dart 获取） |
+
 ---
 
 ## §6 算法样例
@@ -345,3 +354,4 @@ REF-04-INV1 … INV4    # 不变量
 ## §10 changelog
 
 - 2026-07-27: 创建 REF-04 spec（基于 cr-20260724-0110.md SET2 + DI1 + DI2 + DI3）
+- 2026-08-06: dev-plan 修订——补 §5.4「测试文件位置」门禁节（spec-scan --gate 硬门禁前置，af084af 引入）；门禁文件按 §5.1 现状表映射：ref_27_test / ply_02_test / settings_test

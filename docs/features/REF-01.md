@@ -426,6 +426,19 @@ REF-01-INV1 … INV3    # 不变量
 | REF-01-S3 | ConnectionService 构造函数签名变更 | 现有 connection 测试用 FakeSecureStorage 需适配 ISecureStorage |
 | REF-01-S5 | TrackLoadResult 移除 player 字段 | 检查所有消费 `TrackLoadResult.player` 的测试 |
 
+### 5.4 测试文件位置
+
+| 测试 ID | 文件路径 |
+|---|---|
+| REF-01-S1/S2 | `test/features/settings/settings_test.dart`（ThemeMode→String 适配 + provider 映射用例） |
+| REF-01-S3/S4 | `test/features/connection/ref_22_test.dart`（ISecureStorage 注入适配） |
+| REF-01-S5/S6/S7 | `test/features/player/ply_02_test.dart`（TrackLoadResult 去 player 字段 + IAudioPlayer 适配） |
+| REF-01-S8 | `test/features/settings/settings_test.dart`（speed 直读 prefs 适配） |
+| REF-01-S9 | `test/features/browser/brw_07_test.dart`（SortOptionNotifier 参数适配） |
+| helpers | `test/helpers/fake_secure_storage.dart`（implements ISecureStorage） |
+| helpers | `test/helpers/mock_audio_player.dart`（额外 implements IAudioPlayer） |
+| REF-01-INV1/INV2 | `test/features/coverage/ref_01_domain_pure_test.dart`（新建：静态断言 6 个 domain 文件无违规 import） |
+
 ---
 
 ## §6 算法样例
@@ -462,3 +475,4 @@ REF-01-INV1 … INV3    # 不变量
 ## §10 changelog
 
 - 2026-07-27: 创建 REF-01 spec（基于 cr-2026-06-28 §1.1 + arch-baseline.txt A1-A6）
+- 2026-08-06: dev-plan 修订——补 §5.4「测试文件位置」门禁节（spec-scan --gate 硬门禁前置，af084af 引入）；§5.4 测试文件与现有引用面核对：ref_22_test（ConnectionService 注入）、ply_02_test（RequestGate/播放编排）、brw_07_test（SortOption）、settings_test（ThemeMode/speed）

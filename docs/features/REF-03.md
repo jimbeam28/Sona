@@ -238,6 +238,15 @@ REF-03-INV1 … INV2    # 不变量
 | REF-03-S1 | ref_25_test.dart 需适配 | 删除 trigger 参数后测试仍验证 saveProgress 委托 upsert |
 | REF-03-S3 | prg_test.dart 需适配 | 验证 rawInsertForTest 行为等价 |
 
+### 5.4 测试文件位置
+
+| 测试 ID | 文件路径 |
+|---|---|
+| REF-03-S1 | `test/features/progress/ref_25_test.dart`（删除 SaveTrigger 参数 14 处） |
+| REF-03-S2/S3 | `test/features/progress/prg_test.dart`（rawInsert 5 处迁移 helper） |
+| helpers | `test/helpers/test_database.dart`（rawInsertForTest extension 落点） |
+| REF-03-S3 | `test/features/progress/bug_09_test.dart`（删除 fake rawInsert 存根 :62） |
+
 ---
 
 ## §6 算法样例
@@ -270,3 +279,4 @@ REF-03-INV1 … INV2    # 不变量
 ## §10 changelog
 
 - 2026-07-27: 创建 REF-03 spec（基于 cr-20260724-0110.md PRG4 + DB8）
+- 2026-08-06: dev-plan 修订——补 §5.4「测试文件位置」门禁节（spec-scan --gate 硬门禁前置，af084af 引入）；门禁文件按 §5.1 现状表直接映射

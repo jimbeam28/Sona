@@ -247,6 +247,14 @@ REF-06-INV3         # SortOption 导出完整
 | REF-06-S1 | ref_19_test 中 sortFiles 用例需迁移到测试顶层函数 | 修改 ref_19_test：删除 DirectoryService 实例用例，保留 sortFiles 用例并改为调用顶层函数 |
 | REF-06-S2 | brw_03_test 中 BRW-T47 用例需删除 | 删除 progressPercentage 相关测试用例 |
 
+### 5.4 测试文件位置
+
+| 测试 ID | 文件路径 |
+|---|---|
+| REF-06-S1 | `test/features/browser/ref_19_test.dart`（删除 DirectoryService 实例用例，sortFiles 用例改调顶层函数） |
+| REF-06-S2 | `test/features/browser/brw_03_test.dart`（删除 BRW-T47 :201-245） |
+| REF-06-S2 | `test/features/browser/brw_07_test.dart`（删除 progressPercentage null 用例 :280） |
+
 ---
 
 ## §6 算法样例
@@ -278,3 +286,4 @@ REF-06-INV3         # SortOption 导出完整
 ## §10 changelog
 
 - 2026-07-27: 创建 REF-06 spec（基于 cr-20260724-0110.md BRW6 + BRW7）
+- 2026-08-06: dev-plan 修订——补 §5.4「测试文件位置」门禁节（spec-scan --gate 硬门禁前置，af084af 引入）；门禁文件按 §5.1 现状表映射：ref_19_test / brw_03_test / brw_07_test

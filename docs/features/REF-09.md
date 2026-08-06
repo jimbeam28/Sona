@@ -166,6 +166,13 @@ REF-09-INV2         # 视觉一致
 |---|---|---|
 | REF-09-S1 | widget 提取为纯 UI 重构 | 可选：widget test 验证 SectionHeader 渲染正确（Text + Padding + 样式） |
 
+### 5.4 测试文件位置
+
+| 测试 ID | 文件路径 |
+|---|---|
+| REF-09-S1 | `test/features/settings/settings_test.dart`（设置页现有 widget 测试兜底视觉一致） |
+| REF-09-S1 | `test/features/settings/settings_test.dart`（可选新增 SectionHeader 渲染断言） |
+
 ---
 
 ## §6 算法样例
@@ -197,3 +204,4 @@ REF-09-INV2         # 视觉一致
 ## §10 changelog
 
 - 2026-07-27: 创建 REF-09 spec（基于 cr-20260724-0110.md SET4）
+- 2026-08-06: dev-plan 修订——补 §5.4「测试文件位置」门禁节（spec-scan --gate 硬门禁前置，af084af 引入）；门禁文件 = settings_test.dart（现有设置页 widget 测试兜底）

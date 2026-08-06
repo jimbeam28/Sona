@@ -29,15 +29,15 @@
 
 | ID | 名称 | 状态 | 最近更新 | 主锚点文件 | 跨模块影响 | S/INV/ALG | impl / test / check |
 |---|---|---|---|---|---|---|---|
-| REF-01 | Domain 层 Flutter 依赖清理（A1-A6） | draft | 2026-07-27 | `lib/features/*/domain/*.dart` (6 files) | SET, CON, PLY, BRW | 9/3/0 | pending / pending / pending |
-| REF-02 | 契约层真启用（CTR2-CTR6+SVC6+PRG5） | draft | 2026-07-27 | `lib/core/contracts/*.dart` | CON, PLY, BRW, PRG, SET, TMR | 11/5/0 | pending / pending / pending |
-| REF-03 | 死代码清理（PRG4+DB8） | draft | 2026-07-27 | `lib/features/progress/domain/progress_service.dart` | PRG | 3/2/0 | pending / pending / pending |
-| REF-04 | 架构整合（SET2+DI1+DI2+DI3） | draft | 2026-07-27 | `lib/features/settings/domain/settings_service.dart` | SET, PLY, BRW | 5/4/0 | pending / pending / pending |
-| REF-05 | 定时器死代码清理（TMR2+TMR4+TMR5） | draft | 2026-07-27 | `lib/features/timer/timer_provider.dart` | PLY | 4/3/0 | pending / pending / pending |
-| REF-06 | 浏览器死代码（BRW6+BRW7） | draft | 2026-07-27 | `lib/features/browser/browser_provider.dart` | — | 2/3/0 | pending / pending / pending |
-| REF-07 | ConnectionConfig ==/hashCode 补全（MDL5） | draft | 2026-07-27 | `lib/shared/models/connection_config.dart` | CON | 2/2/0 | pending / pending / pending |
-| REF-08 | installLogBufferHook 幂等化（SVC7） | draft | 2026-07-27 | `lib/core/services/log_buffer.dart` | — | 1/2/0 | pending / pending / pending |
-| REF-09 | _SectionHeader 共享组件提取（SET4） | draft | 2026-07-27 | `lib/features/settings/settings_screen.dart` | — | 1/2/0 | pending / pending / pending |
+| REF-01 | Domain 层 Flutter 依赖清理（A1-A6） | draft | 2026-08-06 | `lib/features/*/domain/*.dart` (6 files) | SET, CON, PLY, BRW | 9/3/0 | pending / pending / pending |
+| REF-02 | 契约层真启用（CTR2-CTR6+SVC6+PRG5） | draft | 2026-08-06 | `lib/core/contracts/*.dart` | CON, PLY, BRW, PRG, SET, TMR | 11/5/0 | pending / pending / pending |
+| REF-03 | 死代码清理（PRG4+DB8） | draft | 2026-08-06 | `lib/features/progress/domain/progress_service.dart` | PRG | 3/2/0 | pending / pending / pending |
+| REF-04 | 架构整合（SET2+DI1+DI2+DI3） | draft | 2026-08-06 | `lib/features/settings/domain/settings_service.dart` | SET, PLY, BRW | 5/4/0 | pending / pending / pending |
+| REF-05 | 定时器死代码清理（TMR2+TMR4+TMR5） | draft | 2026-08-06 | `lib/features/timer/timer_provider.dart` | PLY | 4/3/0 | pending / pending / pending |
+| REF-06 | 浏览器死代码（BRW6+BRW7） | draft | 2026-08-06 | `lib/features/browser/browser_provider.dart` | — | 2/3/0 | pending / pending / pending |
+| REF-07 | ConnectionConfig ==/hashCode 补全（MDL5） | draft | 2026-08-06 | `lib/shared/models/connection_config.dart` | CON | 2/2/0 | pending / pending / pending |
+| REF-08 | installLogBufferHook 幂等化（SVC7） | draft | 2026-08-06 | `lib/core/services/log_buffer.dart` | — | 1/2/0 | pending / pending / pending |
+| REF-09 | _SectionHeader 共享组件提取（SET4） | draft | 2026-08-06 | `lib/features/settings/settings_screen.dart` | — | 1/2/0 | pending / pending / pending |
 
 ## Bug 文档
 
@@ -114,6 +114,7 @@
 ## changelog
 
 - 2026-08-05: cr-20260804-1922 §4 复核修订同步——BUG-04（S2 片段 n=1 死循环更正 + §5.4 门禁改指向 bug_bug04_fixed_test.dart）/ BUG-10（门禁欠账标注 + dev-status gaps 记账）/ BUG-18（audio_session 误记核查：本文件无记录，误记在 BUG-22）/ BUG-22（audio_session 依赖位置更正为 dependencies 主依赖）/ BUG-25（S4/S5 原方案实证不可行，按落地实现更正）/ BUG-32（日志文案快照按 f4ef23b 更正 + S2 测试路径笔误）；最近更新列同步
+- 2026-08-06: REF-01～REF-09 修订——补 §5.4「测试文件位置」门禁节（spec-scan --gate 硬门禁前置，af084af 引入）；最近更新列同步
 - 2026-07-27: 新增 BUG-18～BUG-32、REF-05～REF-09、TEST-09～TEST-11（cr-2026-06-28 + cr-20260724-0110.md 全量纳入）
 - 2026-07-27: 新增 TEST-05～TEST-08（cr-20260724-0110.md PRG7-9 + TMR6-7 + NET9-10+CTR7 + SVC8-10）
 - 2026-07-27: 新增 TEST-01～TEST-04（cr-20260724-0110.md 测试缺口）

@@ -397,6 +397,20 @@ REF-02-INV1 … INV5    # 不变量
 | REF-02-S7 | NasAudioHandler implements IAudioHandler | 编译时验证（implements 声明确保方法签名匹配） |
 | REF-02-S9 | rawInsert 移出 contract | 验证引用 rawInsert 的测试改用 test helper extension |
 
+### 5.4 测试文件位置
+
+| 测试 ID | 文件路径 |
+|---|---|
+| REF-02-S1 | `test/features/connection/con_01_test.dart`（connectionDaoProvider 类型适配） |
+| REF-02-S2/S9 | `test/features/progress/prg_test.dart`（progressDaoProvider 类型适配 + rawInsert 迁移） |
+| REF-02-S3 | `test/features/playlist/ply_09_test.dart`（playlistDaoProvider 类型适配） |
+| REF-02-S4/S5 | `test/helpers/fake_secure_storage.dart`（implements ISecureStorage） |
+| REF-02-S6/S7/S8 | `test/features/player/bug_05_handler_play_test.dart`（audioHandlerProvider 类型适配） |
+| REF-02-S10 | `test/features/connection/ref_22_test.dart`（delete LastConnectionException 文档化锚定） |
+| REF-02-S11 | `test/features/progress/ref_25_test.dart`（ProgressService 构造变更适配） |
+| helpers | `test/helpers/test_database.dart`（rawInsertForTest extension 迁移至此） |
+| helpers | `test/helpers/mock_audio_player.dart`（implements IAudioHandler 适配） |
+
 ---
 
 ## §6 算法样例
@@ -433,3 +447,4 @@ REF-02-INV1 … INV5    # 不变量
 ## §10 changelog
 
 - 2026-07-27: 创建 REF-02 spec（基于 cr-20260724-0110.md CTR2-CTR6 + SVC6 + PRG5）
+- 2026-08-06: dev-plan 修订——补 §5.4「测试文件位置」门禁节（spec-scan --gate 硬门禁前置，af084af 引入）；门禁文件按现有引用面锚定：con_01/prg_test/ply_09/bug_05_handler_play/ref_22/ref_25 + helpers 三件套
