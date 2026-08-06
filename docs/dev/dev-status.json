@@ -1512,6 +1512,13 @@
       "cross_module_impacts": [
         "CON",
         "BRW"
+      ],
+      "impl_status": "done",
+      "test_status": "passed",
+      "test_files": [
+        "test/features/connection/test_02_con11_test.dart",
+        "test/features/connection/test_02_con12_test.dart",
+        "test/features/connection/test_02_con13_test.dart"
       ]
     },
     "TEST-03": {
