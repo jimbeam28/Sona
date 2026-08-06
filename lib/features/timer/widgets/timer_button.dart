@@ -10,7 +10,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../timer_provider.dart';
-import '../domain/timer_service.dart';
 
 /// The bottom-sheet menu for selecting or cancelling a sleep timer.
 ///
