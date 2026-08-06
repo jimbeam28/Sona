@@ -1382,6 +1382,11 @@
       "test_coverage_gaps": [],
       "cross_module_impacts": [
         "CON"
+      ],
+      "impl_status": "done",
+      "test_status": "passed",
+      "test_files": [
+        "test/shared/model_equality_test.dart"
       ]
     },
     "REF-08": {

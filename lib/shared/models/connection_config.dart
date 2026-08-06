@@ -88,6 +88,23 @@ class ConnectionConfig {
   }
 
   @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ConnectionConfig &&
+          id == other.id &&
+          name == other.name &&
+          url == other.url &&
+          username == other.username &&
+          basePath == other.basePath &&
+          isActive == other.isActive &&
+          createdAt == other.createdAt &&
+          updatedAt == other.updatedAt;
+
+  @override
+  int get hashCode => Object.hash(
+      id, name, url, username, basePath, isActive, createdAt, updatedAt);
+
+  @override
   String toString() =>
       'ConnectionConfig(id: $id, name: $name, url: $url, username: $username, '
       'basePath: $basePath, isActive: $isActive)';
