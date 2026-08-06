@@ -1471,6 +1471,13 @@
       ],
       "cross_module_impacts": [
         "BRW"
+      ],
+      "impl_status": "done",
+      "test_status": "passed",
+      "test_files": [
+        "test/features/browser/test_01_brw09_test.dart",
+        "test/features/browser/test_01_brw10_test.dart",
+        "test/features/browser/test_01_brw11_test.dart"
       ]
     },
     "TEST-02": {
