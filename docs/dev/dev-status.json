@@ -1353,7 +1353,14 @@
       ],
       "algorithms": [],
       "test_coverage_gaps": [],
-      "cross_module_impacts": []
+      "cross_module_impacts": [],
+      "impl_status": "done",
+      "test_status": "passed",
+      "test_files": [
+        "test/features/browser/brw_03_test.dart",
+        "test/features/browser/brw_07_test.dart",
+        "test/features/browser/ref_19_test.dart"
+      ]
     },
     "REF-07": {
       "id": "REF-07",

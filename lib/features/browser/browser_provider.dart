@@ -16,13 +16,11 @@ import 'domain/directory_service.dart';
 import 'domain/navigation_stack.dart';
 
 export 'domain/cache_policy.dart';
-export 'domain/directory_service.dart' show SortOption, SortOptionNotifier;
+export 'domain/directory_service.dart'
+    show SortOption, SortOptionNotifier, sortFiles;
 export 'domain/navigation_stack.dart';
 export '../../core/services/audio_source_builder.dart' show preloadAudioSource;
 export '../../shared/di/providers.dart' show sharedPreferencesProvider;
-
-List<NasFile> sortFiles(List<NasFile> files, SortOption option) =>
-    DirectoryService.sortFiles(files, option);
 
 /// REF-01-A6: SharedPreferences-backed [ISortOptionPersist] — keeps the
 /// domain layer free of platform-plugin imports.

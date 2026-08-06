@@ -18,17 +18,14 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nas_audio_player/core/network/webdav_client.dart';
-import 'package:nas_audio_player/features/browser/domain/directory_service.dart';
+import 'package:nas_audio_player/features/browser/browser_provider.dart';
+import 'package:nas_audio_player/features/connection/connection_provider.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 
+import '../../helpers/fake_secure_storage.dart';
 import '../../helpers/fake_webdav_client.dart';
-
-// ── Test doubles ─────────────────────────────────────────────────────────────
-
-class _PasswordReader implements ISecurePasswordReader {
-  @override
-  Future<String?> read({required String key}) async => 'test-password';
-}
+import '../../helpers/test_factories.dart';
+import '../../helpers/widget_helpers.dart';
 
 // ── XML builders（端到端解析路径锚定） ────────────────────────────────────────
 
@@ -300,10 +297,10 @@ void main() {
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // BRW 跨模块回归（spec §7）：DirectoryService 过滤 — 文件不消失、分类正确
+  // BRW 跨模块回归（spec §7）：directoryContentsProvider 过滤 — 文件不消失、分类正确
   // ═══════════════════════════════════════════════════════════════════════════
 
-  group('BRW 回归: DirectoryService 列表过滤', () {
+  group('BRW 回归: directoryContentsProvider 列表过滤', () {
     test('无扩展名 displayname 的音频文件不消失，非音频仍被排除', () async {
       final client = MockWebDavClient()
         ..returnListResult([
@@ -337,27 +334,25 @@ void main() {
           ),
         ]);
 
-      final service = DirectoryService(
-        client: client,
-        storage: _PasswordReader(),
-      );
+      final container = makeContainer([
+        activeConnectionProvider.overrideWith((ref) async => testConnection()),
+        webDavClientProvider.overrideWithValue(client),
+        secureStorageProvider
+            .overrideWithValue(FakeSecureStorage()..setPassword(1, 'secret')),
+      ]);
+      addTearDown(container.dispose);
 
-      final result = await service.loadDirectory(
-        connectionId: 1,
-        url: 'http://nas.example.com',
-        username: 'user',
-        path: '/music',
-        sortOption: SortOption.nameAsc,
-      );
+      final result =
+          await container.read(directoryContentsProvider('/music').future);
 
-      final names = result.files.map((f) => f.name).toList();
+      final names = result.map((f) => f.name).toList();
       expect(names, containsAll(<String>['song', 'My Book', 'subdir']),
           reason: '修复前 "song" 与 "My Book" 因 audioType=null 被过滤，整条消失');
       expect(names, isNot(contains('cover')), reason: '非音频文件仍须被过滤，不得放宽');
 
-      final song = result.files.firstWhere((f) => f.name == 'song');
+      final song = result.firstWhere((f) => f.name == 'song');
       expect(song.audioType, equals(AudioFileType.music));
-      final book = result.files.firstWhere((f) => f.name == 'My Book');
+      final book = result.firstWhere((f) => f.name == 'My Book');
       expect(book.audioType, equals(AudioFileType.audiobook),
           reason: '.m4b 应分类为 audiobook（修复前误判为 music）');
     });

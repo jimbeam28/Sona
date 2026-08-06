@@ -46,14 +46,10 @@ class DirectoryListTile extends StatelessWidget {
 /// Displays an icon that distinguishes music from audiobook files,
 /// the file name, and optionally the file size.  [onTap] fires with the
 /// [NasFile] when the user taps the tile.
-///
-/// When [progressPercentage] is non-null, a thin progress bar is shown
-/// at the bottom of the tile to indicate playback progress (BRW-T47).
 class AudioFileListTile extends StatelessWidget {
   final NasFile file;
   final FileItemTapCallback? onTap;
   final VoidCallback? onLongPress;
-  final double? progressPercentage;
   final FileItemTapCallback? onPlayNext;
   final bool playNextEnabled;
 
@@ -62,7 +58,6 @@ class AudioFileListTile extends StatelessWidget {
     required this.file,
     this.onTap,
     this.onLongPress,
-    this.progressPercentage,
     this.onPlayNext,
     this.playNextEnabled = true,
   });
@@ -112,7 +107,7 @@ class AudioFileListTile extends StatelessWidget {
             onTap: () {},
             child: nextIcon,
           );
-    final tile = ListTile(
+    return ListTile(
       leading: Icon(_icon, color: _iconColor),
       title: Text(
         file.name,
@@ -123,23 +118,6 @@ class AudioFileListTile extends StatelessWidget {
       trailing: trailing,
       onTap: onTap != null ? () => onTap!(file) : null,
       onLongPress: onLongPress,
-    );
-
-    if (progressPercentage == null) return tile;
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        tile,
-        Padding(
-          padding: const EdgeInsets.only(left: 72, right: 16),
-          child: LinearProgressIndicator(
-            value: progressPercentage,
-            minHeight: 2,
-            backgroundColor: Colors.grey.shade200,
-          ),
-        ),
-      ],
     );
   }
 }

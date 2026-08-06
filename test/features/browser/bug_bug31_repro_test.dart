@@ -5,14 +5,15 @@
 // BRW5：DirectoryListTile/AudioFileListTile 未传 ValueKey（P13），列表替换
 // 时按位置复用导致动画/状态错配。修复：一律 ValueKey(file.path)（S1）。
 // BRW8：TTL"当前时刻"硬编码 DateTime.now()，provider 与 domain 均不可注入
-// 时钟（P16），测试被迫用真实等待。修复：DirectoryService 接受 clock 参数
-// （S2），directoryContentsProvider 经 browserClockProvider 注入（S3）。
+// 时钟（P16），测试被迫用真实等待。修复：directoryContentsProvider 经
+// browserClockProvider 注入时钟（S2/S3）。
 //
 // 用例：
 //   BUG-31-S1/INV1: widget 测试 — 两种 tile 的 key 均为 ValueKey(file.path)
-//   BUG-31-S2:      DirectoryService 注入时钟驱动 TTL（无真实等待）
+//   BUG-31-S2:      browserClockProvider 注入时钟驱动 TTL（无真实等待）
 //   BUG-31-S3:      directoryContentsProvider 经 browserClockProvider 注入
-//   BUG-31-INV2:    默认行为不变 — 未注入时钟时 DirectoryService 正常工作
+//   BUG-31-INV2:    默认行为不变 — 未注入时钟时 directoryContentsProvider
+//                   正常走真实时钟
 //
 // 修复前 FAIL：S1 断言 key 为 null；S2/S3 无注入口无法编译（或注入无效，
 // 过期判定走真实 DateTime.now() → 6min 假推进后仍命中缓存，refetch 计数不变）。
@@ -22,7 +23,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nas_audio_player/core/network/webdav_client.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/features/browser/browser_screen.dart';
-import 'package:nas_audio_player/features/browser/domain/directory_service.dart';
 import 'package:nas_audio_player/features/browser/widgets/file_list_item.dart';
 import 'package:nas_audio_player/features/connection/connection_provider.dart';
 import 'package:nas_audio_player/shared/models/connection_config.dart';
@@ -77,112 +77,84 @@ void main() {
     });
   });
 
-  // ── BUG-31-S2: DirectoryService 注入时钟 ──
+  // ── BUG-31-S2: browserClockProvider 注入时钟 ──
 
-  group('BUG-31-S2: DirectoryService 时钟注入', () {
+  group('BUG-31-S2: directoryContentsProvider 时钟注入', () {
     test('注入时钟驱动 TTL 过期判定（无真实等待）', () async {
       final client = _CountingClient([
         testDir('sub', '/music/sub'),
         testAudio('a.mp3', '/music/a.mp3'),
       ]);
+      final storage = FakeSecureStorage()..setPassword(1, 'secret');
+      final sortNotifier = SortOptionNotifier(null);
       var now = DateTime(2026, 1, 1, 12, 0, 0);
-      final service = DirectoryService(
-        client: client,
-        storage: _StubPasswordReader(),
-        clock: () => now,
-      );
+
+      final container = makeContainer([
+        activeConnectionProvider.overrideWith((ref) async => _conn),
+        secureStorageProvider.overrideWithValue(storage),
+        webDavClientProvider.overrideWithValue(client),
+        browserClockProvider.overrideWithValue(() => now),
+        sortOptionProvider.overrideWith((ref) => sortNotifier),
+      ]);
+      addTearDown(container.dispose);
 
       // T0：首次加载走网络并写缓存。
-      final r1 = await service.loadDirectory(
-        connectionId: 1,
-        url: 'http://nas',
-        username: 'u',
-        path: '/music',
-        sortOption: SortOption.nameAsc,
-      );
-      expect(r1.fromCache, isFalse);
-      expect(client.callCount, 1);
+      await container.read(directoryContentsProvider('/music').future);
+      expect(client.callCount, 1, reason: 'T0 首次加载必须请求网络');
 
       // T0：缓存存活 → 命中，不再请求网络。
-      final r2 = await service.loadDirectory(
-        connectionId: 1,
-        url: 'http://nas',
-        username: 'u',
-        path: '/music',
-        sortOption: SortOption.nameAsc,
-      );
-      expect(r2.fromCache, isTrue);
+      container.invalidate(directoryContentsProvider('/music'));
+      await container.read(directoryContentsProvider('/music').future);
       expect(client.callCount, 1);
 
       // T0+4m59s：仍在 TTL 内（5min，严格 <）。
       now = DateTime(2026, 1, 1, 12, 4, 59);
-      final r3 = await service.loadDirectory(
-        connectionId: 1,
-        url: 'http://nas',
-        username: 'u',
-        path: '/music',
-        sortOption: SortOption.nameAsc,
-      );
-      expect(r3.fromCache, isTrue, reason: '4m59s 处缓存必须仍存活');
-      expect(client.callCount, 1);
+      container.invalidate(directoryContentsProvider('/music'));
+      await container.read(directoryContentsProvider('/music').future);
+      expect(client.callCount, 1, reason: '4m59s 处缓存必须仍存活');
 
       // T0+5m：到期边界 → 重新请求。
       now = DateTime(2026, 1, 1, 12, 5, 0);
-      final r4 = await service.loadDirectory(
-        connectionId: 1,
-        url: 'http://nas',
-        username: 'u',
-        path: '/music',
-        sortOption: SortOption.nameAsc,
-      );
-      expect(r4.fromCache, isFalse, reason: '5m 边界缓存过期必须重新加载');
-      expect(client.callCount, 2);
+      container.invalidate(directoryContentsProvider('/music'));
+      await container.read(directoryContentsProvider('/music').future);
+      expect(client.callCount, 2, reason: '5m 边界缓存过期必须重新加载');
 
-      // resortCached 同样受注入时钟约束。
-      expect(
-          service.resortCached(
-            connectionId: 1,
-            path: '/music',
-            sortOption: SortOption.nameDesc,
-          ),
-          isNotNull);
+      // resortCached 同样受注入时钟约束：缓存存活时切换排序只重排缓存，
+      // 不请求网络（provider 形态：sortOption 变化 → 依赖重建 → 走缓存分支）。
+      sortNotifier.setOption(SortOption.nameDesc);
+      final resorted =
+          await container.read(directoryContentsProvider('/music').future);
+      expect(client.callCount, 2, reason: '缓存存活（12:05:00 刚 refetch）时重排不得请求网络');
+      expect(resorted, hasLength(2),
+          reason: 'resortCached 语义：缓存值被重新排序返回，而非 null');
+
       now = DateTime(2026, 1, 1, 12, 10, 1);
-      expect(
-          service.resortCached(
-            connectionId: 1,
-            path: '/music',
-            sortOption: SortOption.nameDesc,
-          ),
-          isNull,
-          reason: '注入时钟超过 TTL 后 resortCached 必须判过期');
+      container.invalidate(directoryContentsProvider('/music'));
+      await container.read(directoryContentsProvider('/music').future);
+      expect(client.callCount, 3,
+          reason: '注入时钟超过 TTL 后缓存必须判过期（resortCached 语义）');
     });
 
     test('BUG-31-INV2: 未注入时钟默认 DateTime.now，行为不变', () async {
       final client = _CountingClient([
         testAudio('a.mp3', '/music/a.mp3'),
       ]);
-      final service = DirectoryService(
-        client: client,
-        storage: _StubPasswordReader(),
-      );
-      final r1 = await service.loadDirectory(
-        connectionId: 1,
-        url: 'http://nas',
-        username: 'u',
-        path: '/music',
-        sortOption: SortOption.nameAsc,
-      );
-      expect(r1.fromCache, isFalse);
-      // 立即重读：真实时钟下 5min TTL 必然存活 → 命中缓存。
-      final r2 = await service.loadDirectory(
-        connectionId: 1,
-        url: 'http://nas',
-        username: 'u',
-        path: '/music',
-        sortOption: SortOption.nameAsc,
-      );
-      expect(r2.fromCache, isTrue, reason: '默认时钟行为与修复前一致（现有 ref_19 用例不受影响）');
+      final storage = FakeSecureStorage()..setPassword(1, 'secret');
+
+      final container = makeContainer([
+        activeConnectionProvider.overrideWith((ref) async => _conn),
+        secureStorageProvider.overrideWithValue(storage),
+        webDavClientProvider.overrideWithValue(client),
+      ]);
+      addTearDown(container.dispose);
+
+      // 首次加载 → 网络请求。
+      await container.read(directoryContentsProvider('/music').future);
       expect(client.callCount, 1);
+      // 立即重读：真实时钟下 5min TTL 必然存活 → 命中缓存。
+      container.invalidate(directoryContentsProvider('/music'));
+      await container.read(directoryContentsProvider('/music').future);
+      expect(client.callCount, 1, reason: '默认时钟行为与修复前一致（现有 ref_19 用例不受影响）');
     });
   });
 
@@ -265,9 +237,4 @@ class _CountingClient implements WebDavClientInterface {
   }) async {
     return WebDavValidationResult.success();
   }
-}
-
-class _StubPasswordReader implements ISecurePasswordReader {
-  @override
-  Future<String?> read({required String key}) async => 'secret';
 }

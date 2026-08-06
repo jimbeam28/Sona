@@ -2,7 +2,7 @@
 // BRW-03: 音频文件过滤（格式图标区分）— automated test suite
 //
 // Unit tests  (BRW-T18~T22): classifyType audio detection, fromProps wiring
-// Widget tests (BRW-T47, T49): progress bar visibility, icon distinction
+// Widget tests (BRW-T49): icon distinction
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -192,59 +192,10 @@ void main() {
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Widget tests — BRW-T47, BRW-T49
+  // Widget tests — BRW-T49
   // ═══════════════════════════════════════════════════════════════════════════
 
-  group('BRW-T47, BRW-T49 widget tests', () {
-    // ── BRW-T47: Progress bar visibility ──────────────────────────────────────
-    //
-    // When progressPercentage is non-null a thin LinearProgressIndicator is
-    // rendered below the tile.  When null no progress bar appears.
-
-    testWidgets('BRW-T47: progress bar shown when progressPercentage is set',
-        (WidgetTester tester) async {
-      final file = _audioFile('song.mp3');
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: AudioFileListTile(
-              file: file,
-              progressPercentage: 0.4,
-            ),
-          ),
-        ),
-      );
-
-      // Progress bar should be rendered when percentage is non-null
-      expect(find.byType(LinearProgressIndicator), findsOneWidget,
-          reason: 'progressPercentage 非 null 时应显示进度条');
-
-      // Verify the value was passed through
-      final indicator = tester.widget<LinearProgressIndicator>(
-          find.byType(LinearProgressIndicator));
-      expect(indicator.value, equals(0.4),
-          reason: '进度条 value 应等于传入的 progressPercentage');
-    });
-
-    testWidgets(
-        'BRW-T47: no progress bar when progressPercentage is null (default)',
-        (WidgetTester tester) async {
-      final file = _audioFile('song.mp3');
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: AudioFileListTile(file: file),
-          ),
-        ),
-      );
-
-      // No progress bar rendered when percentage is not provided (null)
-      expect(find.byType(LinearProgressIndicator), findsNothing,
-          reason: 'progressPercentage 为 null（默认值）时不应显示进度条');
-    });
-
+  group('BRW-T49 widget tests', () {
     // ── BRW-T49: Audiobook icon vs music icon distinction ─────────────────────
 
     testWidgets(
