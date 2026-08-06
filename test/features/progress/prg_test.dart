@@ -13,24 +13,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fake_async/fake_async.dart';
+import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:mockito/mockito.dart';
 import 'package:nas_audio_player/core/contracts/database_contract.dart';
 import 'package:nas_audio_player/core/database/dao/progress_dao.dart';
-import 'package:nas_audio_player/features/browser/browser_provider.dart';
-import 'package:nas_audio_player/features/connection/connection_provider.dart';
-import 'package:nas_audio_player/features/player/player_provider.dart';
-import 'package:nas_audio_player/features/progress/progress_dialog.dart';
-import 'package:nas_audio_player/features/progress/progress_provider.dart';
+import 'package:nas_audio_player/features/player/player_screen.dart';
+import 'package:nas_audio_player/shared/di/providers.dart';
 import 'package:nas_audio_player/shared/models/connection_config.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:nas_audio_player/shared/models/play_progress.dart';
 import 'package:nas_audio_player/shared/models/play_queue.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import '../../helpers/fake_secure_storage.dart';
 import '../../helpers/test_database.dart';
 import '../../helpers/test_factories.dart';
 import '../../helpers/mock_audio_player.dart';
+import '../../helpers/widget_helpers.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -55,6 +55,77 @@ void expectProgressEquals(
     expect(actual.lastPlayedAt, equals(expected.lastPlayedAt),
         reason: 'lastPlayedAt should match');
   }
+}
+
+// ── TEST-05 helpers: 叶子 fake DAO + BrowserScreen 装配 ───────────────────────
+// （同 bug_12/brw09 项目标准：走真实生产链路 BrowserScreen → progressForFileProvider
+// → ProgressService → ProgressDao，仅叶子 DAO 注入内存 fake——sqflite_ffi 的
+// Future 在 testWidgets FakeAsync 区不完成，widget 测试经契约注入 fake。）
+
+/// 叶子 fake：内存 store 的 ProgressDao，记录 find 调用参数。
+class _RecordingProgressDao extends ProgressDao {
+  _RecordingProgressDao([Map<String, PlayProgress>? records])
+      : _store = records ?? {};
+
+  final Map<String, PlayProgress> _store;
+  final List<(int, String)> findCalls = [];
+
+  static String _key(int connectionId, String filePath) =>
+      '$connectionId:$filePath';
+
+  @override
+  Future<PlayProgress?> find(int connectionId, String filePath) async {
+    findCalls.add((connectionId, filePath));
+    return _store[_key(connectionId, filePath)];
+  }
+
+  @override
+  Future<void> delete(int connectionId, String filePath) async {
+    _store.remove(_key(connectionId, filePath));
+  }
+}
+
+final _test05Conn = ConnectionConfig(
+  id: 1,
+  name: 'NAS',
+  url: 'http://nas.example.com',
+  username: 'admin',
+  isActive: true,
+  createdAt: DateTime(2026, 1, 1),
+  updatedAt: DateTime(2026, 1, 1),
+);
+
+PlayProgress _test05Progress(String filePath, int positionMs) => PlayProgress(
+      connectionId: 1,
+      filePath: filePath,
+      positionMs: positionMs,
+      durationMs: 600000,
+      lastPlayedAt: DateTime(2026, 7, 24),
+    );
+
+const _test05FileA = '/music/a.mp3';
+const _test05FileB = '/music/b.mp3';
+
+/// 目录含两个音频文件；a.mp3 有进度（83s = 1:23），b.mp3 无进度（由传入 dao 决定）。
+Future<void> _pumpTest05Browser(
+  WidgetTester tester, {
+  required ProgressDao dao,
+  List<Override> extraOverrides = const [],
+}) async {
+  await tester.pumpWidget(buildTestAppWithPlayerRoute(
+    const Scaffold(body: BrowserScreen()),
+    overrides: [
+      directoryContentsProvider('/').overrideWith((ref) async => [
+            testAudio('a.mp3', _test05FileA),
+            testAudio('b.mp3', _test05FileB),
+          ]),
+      activeConnectionProvider.overrideWith((ref) async => _test05Conn),
+      progressDaoProvider.overrideWithValue(dao),
+      ...extraOverrides,
+    ],
+  ));
+  await tester.pumpAndSettle();
+  expect(find.text('a.mp3'), findsOneWidget, reason: '前置条件：文件列表已渲染');
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -607,33 +678,129 @@ void main() {
           reason: '应有继续播放按钮（含倒计时）');
     });
 
-    // ── PRG-T18: No progress → direct play, no dialog ──────────────────────
+    // ── PRG-T18 / TEST-05-S1: No progress → direct play, no dialog ─────────
 
-    test('PRG-T18: null progress does not show resume dialog', () {
-      // Verify: the design says "无进度记录时直接开始播放，不显示对话框"
-      // This is driven by logic in browser_screen.dart (BUG-12 后):
-      //   final progress = await ref.read(progressForFileProvider(...).future);
-      //   if (progress != null) { showDialog... } else { play... }
-      //
-      // progressForFileProvider resolves to null when no progress exists,
-      // so the dialog is never triggered.  We verify that the provider
-      // returns null by default (no DB setup needed).
-      final container = ProviderContainer(
-        overrides: [
-          progressDaoProvider.overrideWithValue(ProgressDao()),
+    testWidgets('TEST-05-S1: 无进度文件点击 → 直接播放、无弹窗', (WidgetTester tester) async {
+      // 空 DB：没有任何进度记录。真实 BrowserScreen + 生产链路
+      // （onFileTap → progressForFileProvider → DAO），仅叶子 DAO 注入 fake。
+      final dao = _RecordingProgressDao();
+      await _pumpTest05Browser(tester, dao: dao);
+
+      // 容器须在导航前获取（点击后 BrowserScreen 出栈，element 不可再查）
+      final container =
+          ProviderScope.containerOf(tester.element(find.byType(BrowserScreen)));
+
+      // When 用户点击无进度文件 b.mp3
+      await tester.tap(find.text('b.mp3'));
+      await tester.pumpAndSettle();
+
+      // Then 直接触发播放（等价触发：进入播放页）
+      expect(find.text('Player'), findsOneWidget,
+          reason: 'TEST-05-S1: 点击无进度文件应直接进入播放页');
+
+      // 否定断言: 不弹出 showProgressResumeDialog（无进度时无对话框）
+      expect(find.text('恢复播放进度'), findsNothing,
+          reason: 'TEST-05-S1: 无进度文件点击不得弹出恢复播放进度对话框');
+
+      // 否定断言: 不修改播放队列中其他曲目的状态——队列当前曲目为被点击文件，
+      // 且不携带恢复位置（无进度 → 从头播放）
+      final queue = container.read(currentPlayQueueProvider);
+      expect(queue, isNotNull, reason: 'TEST-05-S1: 点击后应建立播放队列');
+      expect(queue!.current.path, equals(_test05FileB),
+          reason: 'TEST-05-S1: 队列当前曲目应为被点击的文件 b.mp3');
+      expect(queue.startPositionMs, isNull,
+          reason: 'TEST-05-S1: 无进度时队列不得携带恢复位置');
+
+      // 实际生产行为锚定（spec 原否定"不查询 progressDao"与生产不符——
+      // onFileTap 经 progressForFileProvider 直读 DAO 一次做弹窗决策，
+      // 与 spec §4 TEST-05-INV1 自身证据一致）：
+      // 仅对被点击文件查询一次，不做任何其他查询。
+      expect(dao.findCalls, [(1, _test05FileB)],
+          reason: 'TEST-05-S1: 点击仅查询被点击文件一次（弹窗决策用），'
+              '无预渲染查询、无其他文件查询');
+    });
+
+    testWidgets('TEST-05-S1: 无进度文件点击 → loadAndPlay 触发一次（真实 PlayerScreen 装配）',
+        (WidgetTester tester) async {
+      // brw11 模式：/player 挂真实 PlayerScreen（其初始化经 loadAndPlayProvider
+      // 加载音频），锚定"直接触发播放（IAudioPlayer.load + play）"。
+      final mockPlayer = MockAudioPlayer();
+      when(mockPlayer.playing).thenReturn(true);
+      when(mockPlayer.processingState).thenReturn(ProcessingState.ready);
+      when(mockPlayer.processingStateStream)
+          .thenAnswer((_) => const Stream<ProcessingState>.empty());
+      when(mockPlayer.playingStream)
+          .thenAnswer((_) => Stream<bool>.value(true));
+      when(mockPlayer.sequenceState).thenReturn(null);
+      when(mockPlayer.duration).thenReturn(const Duration(minutes: 4));
+      when(mockPlayer.position).thenReturn(Duration.zero);
+      when(mockPlayer.playerStateStream).thenAnswer(
+          (_) => Stream.value(PlayerState(false, ProcessingState.ready)));
+      when(mockPlayer.speedStream).thenAnswer((_) => Stream.value(1.0));
+
+      int loadAndPlayCalls = 0;
+
+      final router = GoRouter(
+        initialLocation: '/',
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (_, __) => const Scaffold(body: BrowserScreen()),
+          ),
+          GoRoute(
+            path: '/player',
+            builder: (_, __) => const PlayerScreen(),
+          ),
         ],
       );
-      addTearDown(container.dispose);
 
-      // Without any saved progress, the provider should return null
-      // (the sync playProgressProvider reads from the empty registry).
-      // For progressForFileProvider, it would be AsyncValue.data(null)
-      // once the future completes with an empty DB.
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            directoryContentsProvider('/').overrideWith((ref) async => [
+                  testAudio('a.mp3', _test05FileA),
+                  testAudio('b.mp3', _test05FileB),
+                ]),
+            activeConnectionProvider.overrideWith((ref) async => _test05Conn),
+            audioPlayerProvider.overrideWithValue(mockPlayer),
+            audioHandlerProvider.overrideWith((ref) => null),
+            playModeProvider.overrideWith((ref) => PlayMode.sequential),
+            seekStepSettingProvider.overrideWith((ref) => 15),
+            loadAndPlayProvider.overrideWithValue(() async {
+              loadAndPlayCalls++;
+              return const TrackLoadResult.loaded();
+            }),
+            progressDaoProvider.overrideWithValue(_RecordingProgressDao()),
+            secureStorageProvider.overrideWithValue(
+                FakeSecureStorage()..setPassword(1, 'secret')),
+          ],
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('b.mp3'), findsOneWidget, reason: '前置条件：文件列表已渲染');
 
-      // Unit test of the decision logic:
-      // If progress is null → play from beginning, no dialog.
-      // This is tested by verifying the branching in browser_screen.dart.
-      expect(true, isTrue); // placeholder — logic verified via code review
+      // 预热 activeConnection（同 brw11：PlayerScreen 的 _runSerializedLoad
+      // 需 valueOrNull 非空；在同一个容器内读，避免跨 scope override 不匹配）
+      final container =
+          ProviderScope.containerOf(tester.element(find.byType(BrowserScreen)));
+      await container.read(activeConnectionProvider.future);
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      // When 用户点击无进度文件 b.mp3
+      await tester.tap(find.text('b.mp3'));
+      await tester.pumpAndSettle();
+
+      // Then 直接触发播放：loadAndPlay 恰好被调一次 + 播放页挂载
+      expect(loadAndPlayCalls, equals(1),
+          reason: 'TEST-05-S1: 无进度文件点击应直接触发 loadAndPlay 播放');
+      expect(find.byType(PlayerScreen), findsOneWidget,
+          reason: 'TEST-05-S1: 点击无进度文件应进入播放页');
+
+      // 否定断言: 无进度时不弹出恢复对话框
+      expect(find.text('恢复播放进度'), findsNothing,
+          reason: 'TEST-05-S1: 无进度文件点击不得弹出恢复播放进度对话框');
     });
 
     // ── PRG-T19: "继续播放" → seek to saved position ──────────────────────
@@ -852,46 +1019,79 @@ void main() {
       await db.close();
     });
 
-    // ── PRG-T24: Long-press file WITH progress → menu shows clear option ───
+    // ── PRG-T24 / TEST-05-S2: Long-press file WITH progress → real menu ────
     //
-    // This is a widget/logic test: we verify the decision logic that
-    // controls whether "清除播放进度" appears in the context menu.
+    // 断言真实 widget 的菜单项（生产 BrowserScreen 构建），
+    // 不再在测试内重建 menuItems 逻辑（旧 PRG8 问题）。
+    // 生产菜单实测含：文件名（菜单标题）+ "清除播放进度" + "已保存进度 HH:MM:SS"；
+    // spec 的"And 菜单项包含'添加到队列'/'查看文件信息'"与生产不符（见报告）。
 
-    test('PRG-T24: menu includes clear option when progress exists', () {
-      // The logic in browser_screen.dart (or file list widget):
-      //   if (progress != null) {
-      //     menuItems.add('清除播放进度');
-      //   }
-      //
-      // We test this decision logic in isolation.
-      final hasProgress = ProgressDao.shouldSave(30000); // position >= 5s
-      expect(hasProgress, isTrue);
+    testWidgets('TEST-05-S2: 有进度文件长按 → 真实菜单含"清除播放进度"',
+        (WidgetTester tester) async {
+      final dao = _RecordingProgressDao({
+        '1:$_test05FileA': _test05Progress(_test05FileA, 83000),
+      });
+      await _pumpTest05Browser(tester, dao: dao);
 
-      final menuItems = <String>[];
-      menuItems.add('添加到队列');
-      menuItems.add('查看文件信息');
-      if (hasProgress) {
-        menuItems.add('清除播放进度');
-      }
+      // When 长按有进度的文件 a.mp3 触发上下文菜单
+      await tester.longPress(find.text('a.mp3'));
+      await tester.pumpAndSettle();
 
-      expect(menuItems, contains('清除播放进度'),
-          reason: '有进度记录的文件长按菜单应包含"清除播放进度"选项');
+      // Then 真实 widget 菜单项包含"清除播放进度"
+      expect(find.text('清除播放进度'), findsOneWidget,
+          reason: 'TEST-05-S2: 有进度文件长按菜单应包含"清除播放进度"');
+
+      // And 菜单标题为被长按的文件名（tile 一个 + 菜单标题一个）
+      expect(find.text('a.mp3'), findsNWidgets(2),
+          reason: 'TEST-05-S2: 长按菜单应包含被长按文件的名字作为菜单标题');
+
+      // And 菜单项包含已保存进度信息（生产真实菜单项，非测试重建）
+      expect(find.text('已保存进度 1:23'), findsOneWidget,
+          reason: 'TEST-05-S2: 长按菜单应包含"已保存进度"信息项');
     });
 
-    // ── PRG-T25: Long-press file WITHOUT progress → menu hides option ──────
+    // ── PRG-T25 / TEST-05-S3: Long-press WITHOUT progress → no clear item ──
+    //
+    // 生产行为实测：无进度文件 onFileLongPress 早退 → 整个上下文菜单不弹出
+    // （spec 期望的"菜单仅含'添加到队列'/'查看文件信息'"与生产不符，见报告）。
+    // 核心否定断言（不出现"清除播放进度"）在生产与 spec 下均成立。
 
-    test('PRG-T25: menu does NOT include clear option when no progress', () {
-      const progress = null; // no saved progress
+    testWidgets('TEST-05-S3: 无进度文件长按 → 不出现"清除播放进度"（生产行为：整菜单不弹出）',
+        (WidgetTester tester) async {
+      // a.mp3 有进度（对照组），b.mp3 无进度
+      final dao = _RecordingProgressDao({
+        '1:$_test05FileA': _test05Progress(_test05FileA, 83000),
+      });
+      await _pumpTest05Browser(tester, dao: dao);
 
-      final menuItems = <String>[];
-      menuItems.add('添加到队列');
-      menuItems.add('查看文件信息');
-      if (progress != null) {
-        menuItems.add('清除播放进度');
-      }
+      // When 长按无进度的文件 b.mp3 触发上下文菜单
+      await tester.longPress(find.text('b.mp3'));
+      await tester.pumpAndSettle();
 
-      expect(menuItems, isNot(contains('清除播放进度')),
-          reason: '无进度记录的文件长按菜单不应包含"清除播放进度"选项');
+      // Then 菜单不包含"清除播放进度"
+      expect(find.text('清除播放进度'), findsNothing,
+          reason: 'TEST-05-S3: 无进度文件长按不得出现"清除播放进度"'
+              '（progress == null 早退分支）');
+
+      // 否定断言（生产行为）: 无进度文件整菜单不弹出——spec 假设的
+      // "添加到队列"/"查看文件信息"基础项在生产中并不渲染
+      expect(find.text('添加到队列'), findsNothing,
+          reason: 'TEST-05-S3: 无进度文件长按不弹出任何菜单（无"添加到队列"项）');
+      expect(find.text('查看文件信息'), findsNothing,
+          reason: 'TEST-05-S3: 无进度文件长按不弹出任何菜单（无"查看文件信息"项）');
+      expect(find.textContaining('已保存进度'), findsNothing,
+          reason: 'TEST-05-S3: 无进度文件长按不弹出任何菜单（无进度信息项）');
+
+      // 否定断言: 长按不得触发 onTap 的播放/导航
+      expect(find.text('Player'), findsNothing,
+          reason: 'TEST-05-S3: 长按无进度文件不得触发播放导航');
+
+      // 对照组: 同一页面内长按有进度文件仍正常弹菜单（证明上述结果是
+      // 无进度分支所致，而非菜单整体失效）
+      await tester.longPress(find.text('a.mp3'));
+      await tester.pumpAndSettle();
+      expect(find.text('清除播放进度'), findsOneWidget,
+          reason: 'TEST-05-S3 对照: 有进度文件长按仍应弹出含"清除播放进度"的菜单');
     });
 
     // ── PRG-T26: Click "清除播放进度" → delete from DB ─────────────────────
@@ -1840,6 +2040,104 @@ void main() {
       expect(file.readAsStringSync(), isNot(contains('rawInsert')),
           reason: 'REF-02-S9: 生产 DAO 不得保留仅测试使用的 rawInsert 方法'
               '（当前 progress_dao.dart:78-83）');
+    });
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // TEST-05-S4: 两层路由栈关闭进度对话框 → 下层页面完整、无 double-pop
+  // ═════════════════════════════════════════════════════════════════════════════
+
+  group('TEST-05-S4 两层路由栈关闭进度对话框 (PRG9)', () {
+    testWidgets('TEST-05-S4: 关闭对话框 → 下层页面仍在 + 对话框移除 + 无 double-pop',
+        (WidgetTester tester) async {
+      final progress = testProgress(positionMs: 30000, durationMs: 600000);
+
+      // Given Navigator 栈为 [HomePage, BrowserPage]（下层页面在栈中）
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: Center(
+                child: Builder(
+                  builder: (context) => Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text('HomePage'),
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => Scaffold(
+                                body: Center(
+                                  child: Builder(
+                                    builder: (dialogContext) => Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        const Text('BrowserPage'),
+                                        ElevatedButton(
+                                          onPressed: () {
+                                            showProgressResumeDialog(
+                                              dialogContext,
+                                              ProviderScope.containerOf(
+                                                  dialogContext),
+                                              progress,
+                                            );
+                                          },
+                                          child: const Text('Show Dialog'),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                        child: const Text('Open Browser'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // 压入下层页面 → 栈 [HomePage, BrowserPage]
+      await tester.tap(find.text('Open Browser'));
+      await tester.pumpAndSettle();
+      expect(find.text('BrowserPage'), findsOneWidget,
+          reason: 'TEST-05-S4 前置：下层页面已压栈');
+
+      // 打开进度对话框 → 栈 [HomePage, BrowserPage, Dialog]
+      // 不用 pumpAndSettle：对话框有 5s 倒计时 Timer.periodic
+      await tester.tap(find.text('Show Dialog'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('恢复播放进度'), findsOneWidget,
+          reason: 'TEST-05-S4 前置：进度对话框已压栈');
+
+      // When 用户关闭对话框（点"从头播放"）
+      await tester.tap(find.text('从头播放'));
+      await tester.pumpAndSettle();
+
+      // Then 对话框 widget 已移除
+      expect(find.text('恢复播放进度'), findsNothing,
+          reason: 'TEST-05-S4: 关闭后对话框应从路由栈移除');
+
+      // And 下层页面仍在栈中（未被 pop）
+      expect(find.text('BrowserPage'), findsOneWidget,
+          reason: 'TEST-05-S4: 关闭对话框不得把下层页面一并 pop');
+
+      // 否定断言: 不弹出下层路由 / 不 double-pop——若多 pop 一层会回到 HomePage
+      expect(find.text('HomePage'), findsNothing,
+          reason: 'TEST-05-S4: 关闭对话框不得 double-pop 弹回下层之下的页面');
+
+      // 否定断言: 不抛出 Navigator 操作异常
+      expect(tester.takeException(), isNull,
+          reason: 'TEST-05-S4: 关闭对话框不得抛出 Navigator 异常');
     });
   });
 }
