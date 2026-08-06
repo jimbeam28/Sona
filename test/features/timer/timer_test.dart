@@ -19,10 +19,12 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:mockito/mockito.dart';
+import 'package:nas_audio_player/features/timer/domain/timer_service.dart';
 import 'package:nas_audio_player/shared/di/providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -35,6 +37,46 @@ import '../../helpers/widget_helpers.dart';
 
 // createTimerTestContainer(), noopRemainingTimeOverride()
 // are imported from widget_helpers.dart.
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TEST-06 helpers — 注入时钟（P16）+ 真实 remainingTimeProvider 容器
+//（模式借鉴 bug_bug29_repro_test.dart：DateTime.now 不受 FakeAsync 控制，
+//  now 全程经注入；时钟与 fake 时间轴逐秒同步推进）
+// ═══════════════════════════════════════════════════════════════════════════════
+
+DateTime _test06Now = DateTime(2026, 8, 4);
+
+DateTime _now06() => _test06Now;
+
+void _reset06() => _test06Now = DateTime(2026, 8, 4);
+
+void _advance06(Duration d) => _test06Now = _test06Now.add(d);
+
+/// 时钟与 fake 时间轴逐秒同步推进：每秒先拨注入时钟再 elapse 1s，
+/// 保证 periodic 回调在整点触发时读到的 remainingTime 与时间轴一致。
+void _tick06(FakeAsync async, Duration d) {
+  expect(d.inMilliseconds % 1000, 0, reason: '仅支持整秒步进');
+  for (var i = 0; i < d.inSeconds; i++) {
+    _advance06(const Duration(seconds: 1));
+    async.elapse(const Duration(seconds: 1));
+  }
+}
+
+/// REF-05 后 notifier 无 pause()；paused state 经 service 产生后注入。
+class _Test06PausedInjectTimerNotifier extends TimerStateNotifier {
+  void injectPaused(TimerState paused) => state = paused;
+}
+
+/// 真实 remainingTimeProvider 的测试容器（不做 noop 覆盖）。
+ProviderContainer _test06Container() {
+  const now = _now06;
+  return ProviderContainer(
+    overrides: [
+      timerStateProvider.overrideWith(_Test06PausedInjectTimerNotifier.new),
+      timerServiceProvider.overrideWithValue(TimerService(now: now)),
+    ],
+  );
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Unit tests — TMR-01: 设置固定时长定时
@@ -976,6 +1018,269 @@ void main() {
       expect(file.existsSync(), isTrue, reason: 'timer_button.dart 应存在');
       expect(file.readAsStringSync(),
           contains('setLastCustomTimerMinutesProvider'));
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // TEST-06: 定时器测试缺口（TMR6+TMR7）
+  // — 真实 remainingTimeProvider 逐秒发射 / 取消终止 / 暂停冻结 / 到零一次关闭
+  // — TimerState 负数守卫 + ==/hashCode 四字段覆盖
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  group('TEST-06: 定时器测试缺口（TMR6+TMR7）', () {
+    test('TEST-06-S1: remainingTimeProvider 逐秒发射 59s/58s/57s（真实流）', () {
+      _reset06();
+      FakeAsync().run((async) {
+        final container = _test06Container();
+        final emitted = <Duration?>[];
+        container.listen<AsyncValue<Duration?>>(
+          remainingTimeProvider,
+          (_, next) {
+            if (next is AsyncData) emitted.add(next.value);
+          },
+        );
+
+        // 1 分钟定时器
+        container.read(startDurationTimerProvider)(1);
+        container.read(remainingTimeProvider); // 触发惰性重建
+        async.flushMicrotasks();
+        expect(emitted, hasLength(1), reason: 't=0 首发初值');
+        expect(emitted.first, const Duration(seconds: 60));
+
+        _tick06(async, const Duration(seconds: 1));
+        expect(emitted.last, const Duration(seconds: 59),
+            reason: '第 1 秒发射约 59s 剩余');
+        _tick06(async, const Duration(seconds: 1));
+        expect(emitted.last, const Duration(seconds: 58),
+            reason: '第 2 秒发射约 58s 剩余');
+        _tick06(async, const Duration(seconds: 1));
+        expect(emitted.last, const Duration(seconds: 57),
+            reason: '第 3 秒发射约 57s 剩余');
+
+        // 否定断言：未用 noopRemainingTimeOverride（若被替换为
+        // Stream.value(null) 仅 1 帧）、非单次读取 >0 断言——逐秒值真实递减
+        expect(emitted, hasLength(4), reason: '否定：真实 periodic 持续发射，非单帧');
+
+        container.dispose();
+      });
+    });
+
+    test('TEST-06-S2: 取消 → 流发射 null 后关闭', () {
+      _reset06();
+      FakeAsync().run((async) {
+        final container = _test06Container();
+        final events = <AsyncValue<Duration?>>[];
+        container.listen<AsyncValue<Duration?>>(
+          remainingTimeProvider,
+          (_, next) => events.add(next),
+        );
+
+        container.read(startDurationTimerProvider)(1);
+        container.read(remainingTimeProvider);
+        async.flushMicrotasks();
+        expect(events.whereType<AsyncData<Duration?>>(), isNotEmpty,
+            reason: '定时器激活，流有发射');
+
+        container.read(cancelTimerProvider)();
+        container.read(remainingTimeProvider); // 触发惰性重建到 null 分支
+        async.flushMicrotasks();
+        expect(events.last, const AsyncData<Duration?>(null),
+            reason: '取消后流发射 null（takeWhile 返回 false）');
+
+        // 否定断言：取消后流关闭——不继续发射非 null 值、不保持挂起
+        final countAfterCancel = events.length;
+        _tick06(async, const Duration(seconds: 3));
+        expect(events, hasLength(countAfterCancel),
+            reason: '否定：取消后无后续事件（流已关闭，不挂起）');
+
+        container.dispose();
+      });
+    });
+
+    test('TEST-06-S3: 暂停 → remainingTime 返回固定 remainingMs + 流不终止', () {
+      _reset06();
+      FakeAsync().run((async) {
+        final container = _test06Container();
+        final service = container.read(timerServiceProvider);
+        final emitted = <Duration?>[];
+        container.listen<AsyncValue<Duration?>>(
+          remainingTimeProvider,
+          (_, next) {
+            if (next is AsyncData) emitted.add(next.value);
+          },
+        );
+
+        container.read(startDurationTimerProvider)(5);
+        container.read(remainingTimeProvider); // 触发惰性重建
+        async.flushMicrotasks();
+        _tick06(async, const Duration(seconds: 25)); // 倒计时至剩余 275s
+        expect(emitted.last, const Duration(seconds: 275));
+
+        // 服务层（不经过 notifier）：pause() 后 remainingTime 返回 saved
+        // remainingMs（非 endTime - now 计算值）
+        final paused = service.pause();
+        expect(paused, isTrue);
+        final s = service.state!;
+        expect(s.mode, TimerMode.paused);
+        expect(s.remainingMs, 275000, reason: '暂停时保存的毫秒余量');
+        expect(s.remainingTime, const Duration(milliseconds: 275000),
+            reason: 'paused 返回 fixed remainingMs（非 endTime 差值）');
+        _advance06(const Duration(seconds: 10));
+        expect(
+            service.state!.remainingTime, const Duration(milliseconds: 275000),
+            reason: '否定：时钟推进后剩余不变——非 endTime - now 计算值');
+
+        // 流层：注入 paused state 后，流发射冻结值而非 null（不以 null 终止）
+        final notifier = container.read(timerStateProvider.notifier)
+            as _Test06PausedInjectTimerNotifier;
+        notifier.injectPaused(service.state!);
+        container.read(remainingTimeProvider); // 触发惰性重建到 paused 分支
+        async.flushMicrotasks();
+        expect(emitted.last, const Duration(milliseconds: 275000),
+            reason: 'paused 分支发射冻结 Duration，流不终止');
+        expect(emitted.last, isNotNull, reason: '否定：不发射 null（区别于取消时流终止）');
+
+        container.dispose();
+      });
+    });
+
+    test('TEST-06-S4: 到零 → 发射 Duration.zero 恰好一次 → 流关闭', () {
+      _reset06();
+      FakeAsync().run((async) {
+        final container = _test06Container();
+        final emitted = <Duration?>[];
+        container.listen<AsyncValue<Duration?>>(
+          remainingTimeProvider,
+          (_, next) {
+            if (next is AsyncData) emitted.add(next.value);
+          },
+        );
+
+        container.read(startDurationTimerProvider)(1); // 60s
+        container.read(remainingTimeProvider); // 触发惰性重建
+        async.flushMicrotasks();
+        expect(emitted.first, const Duration(seconds: 60));
+
+        _tick06(async, const Duration(seconds: 58)); // 剩余 2 秒
+        expect(emitted.last, const Duration(seconds: 2));
+        _tick06(async, const Duration(seconds: 1)); // 剩余 1 秒
+        expect(emitted.last, const Duration(seconds: 1));
+        _tick06(async, const Duration(seconds: 1)); // 剩余 0 秒
+        expect(emitted.last, Duration.zero, reason: '剩余 0 秒发射一次 zero');
+        expect(emitted.where((d) => d == Duration.zero), hasLength(1),
+            reason: 'zero 恰好一次（didEmitZero 守卫）');
+
+        // 否定断言：zero 后无第二次 zero、无负值、流关闭
+        _tick06(async, const Duration(seconds: 5));
+        expect(emitted.where((d) => d == Duration.zero), hasLength(1),
+            reason: '否定：不发射第二次 zero');
+        expect(emitted.where((d) => d != null && d < Duration.zero), isEmpty,
+            reason: '否定：zero 后不发射负值');
+        expect(emitted.last, Duration.zero, reason: '否定：流已关闭，zero 后无后续事件');
+
+        container.dispose();
+      });
+    });
+
+    test('TEST-06-S5: startDuration(-1) 抛 ArgumentError 且 state 不变', () {
+      _reset06();
+      final service = TimerService(now: _now06);
+      service.startDuration(5);
+      final before = service.state;
+      expect(before, isNotNull);
+
+      expect(
+        () => service.startDuration(-1),
+        throwsA(isA<ArgumentError>().having(
+          (e) => e.message?.toString(),
+          'message',
+          contains('must not be negative'),
+        )),
+      );
+
+      // 否定断言：守卫抛异常前状态不变
+      expect(service.state, equals(before),
+          reason: '负数输入不得设置 state（守卫抛异常前状态不变）');
+      expect(service.state!.mode, TimerMode.duration);
+      expect(service.isActive, isTrue);
+
+      // 否定断言：仅负数触发——零和正数不抛
+      expect(() => service.startDuration(0), returnsNormally);
+      expect(() => service.startDuration(1), returnsNormally);
+    });
+
+    test('TEST-06-S6: endTime 不同 → == 返回 false', () {
+      final s1 = DateTime(2026, 8, 4, 10);
+      final s2 = DateTime(2026, 8, 4, 10, 5);
+      final a = TimerState(
+        mode: TimerMode.duration,
+        endTime: s1,
+        startedAt: s1,
+        remainingMs: null,
+      );
+      final b = TimerState(
+        mode: TimerMode.duration,
+        endTime: s2,
+        startedAt: s1,
+        remainingMs: null,
+      );
+      expect(a == b, isFalse, reason: 'endTime 不同 → !=');
+      expect(b == a, isFalse, reason: '对称性');
+    });
+
+    test('TEST-06-S6 边界: startedAt 不同 → == 返回 false（I-1 含 startedAt）', () {
+      final s1 = DateTime(2026, 8, 4, 10);
+      final s2 = DateTime(2026, 8, 4, 10, 5);
+      final a = TimerState(
+        mode: TimerMode.duration,
+        endTime: s1,
+        startedAt: s1,
+        remainingMs: null,
+      );
+      final b = TimerState(
+        mode: TimerMode.duration,
+        endTime: s1,
+        startedAt: s2,
+        remainingMs: null,
+      );
+      expect(a == b, isFalse, reason: 'startedAt 差异不得被忽略（I-1）');
+    });
+
+    test('TEST-06-S7: mode 不同 → hashCode 不同', () {
+      final s1 = DateTime(2026, 8, 4, 10);
+      final a = TimerState(
+        mode: TimerMode.duration,
+        endTime: s1,
+        startedAt: s1,
+        remainingMs: null,
+      );
+      final b = TimerState(
+        mode: TimerMode.afterCurrent,
+        endTime: null,
+        startedAt: s1,
+        remainingMs: null,
+      );
+      expect(a == b, isFalse, reason: '与 == 一致性：mode 不同不等');
+      expect(a.hashCode, isNot(equals(b.hashCode)),
+          reason: 'mode 不同 → hash 不同');
+    });
+
+    test('TEST-06-S7 对照: 相同字段 → == true 且 hashCode 相同', () {
+      final s1 = DateTime(2026, 8, 4, 10);
+      final a = TimerState(
+        mode: TimerMode.duration,
+        endTime: s1,
+        startedAt: s1,
+        remainingMs: null,
+      );
+      final a2 = TimerState(
+        mode: TimerMode.duration,
+        endTime: s1,
+        startedAt: s1,
+        remainingMs: null,
+      );
+      expect(a == a2, isTrue);
+      expect(a.hashCode, equals(a2.hashCode));
     });
   });
 }
