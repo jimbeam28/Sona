@@ -179,8 +179,7 @@ export '../../features/timer/timer_provider.dart'
         lastCustomTimerMinutesProvider,
         setLastCustomTimerMinutesProvider;
 
-export '../../features/timer/widgets/timer_button.dart'
-    show TimerButton, TimerBottomSheet;
+export '../../features/timer/widgets/timer_button.dart' show TimerBottomSheet;
 
 // ── 6. Settings ─────────────────────────────────────────────────────────────
 

@@ -80,22 +80,6 @@ class TimerState {
     return !endTime!.isAfter(_now());
   }
 
-  /// Creates a copy of this state with optional field changes. Returns
-  /// a state preserving the [now] provider.
-  TimerState copyWith({
-    TimerMode? mode,
-    DateTime? endTime,
-    DateTime? startedAt,
-    int? remainingMs,
-  }) =>
-      TimerState(
-        mode: mode ?? this.mode,
-        endTime: endTime ?? this.endTime,
-        startedAt: startedAt ?? this.startedAt,
-        remainingMs: remainingMs ?? this.remainingMs,
-        now: _now,
-      );
-
   // I-1: include startedAt so distinct timer instances compare correctly.
   @override
   bool operator ==(Object other) =>

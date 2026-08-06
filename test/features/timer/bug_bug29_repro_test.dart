@@ -50,12 +50,21 @@ void _tick(FakeAsync async, Duration d) {
   }
 }
 
+/// REF-05-S1 后 notifier 无 pause()；paused state 经 service 产生后注入。
+class _PausedInjectTimerNotifier extends TimerStateNotifier {
+  void injectPaused(TimerState paused) => state = paused;
+}
+
 /// 真实 remainingTimeProvider 的测试容器（不做 noop 覆盖）。
-ProviderContainer _container() => ProviderContainer(
-      overrides: [
-        timerServiceProvider.overrideWith((ref) => TimerService(now: _now)),
-      ],
-    );
+ProviderContainer _container() {
+  const now = _now;
+  return ProviderContainer(
+    overrides: [
+      timerStateProvider.overrideWith(_PausedInjectTimerNotifier.new),
+      timerServiceProvider.overrideWithValue(TimerService(now: now)),
+    ],
+  );
+}
 
 /// 状态变更后 settles 显示链：读一次触发惰性重建、冲 microtask 送达流事件、
 /// 再读返回显示值。
@@ -85,7 +94,10 @@ void main() {
         _tick(async, const Duration(seconds: 25)); // 倒计时至剩余 275s
         expect(_settle(container, async), '04:35');
 
-        container.read(timerStateProvider.notifier).pause();
+        final notifier = container.read(timerStateProvider.notifier)
+            as _PausedInjectTimerNotifier;
+        container.read(timerServiceProvider).pause();
+        notifier.injectPaused(container.read(timerServiceProvider).state!);
         final state = container.read(timerStateProvider);
         expect(state, isNotNull);
         expect(state!.mode, TimerMode.paused);
@@ -111,7 +123,10 @@ void main() {
         _tick(async, const Duration(seconds: 25));
         expect(_settle(container, async), '04:35');
 
-        container.read(timerStateProvider.notifier).pause();
+        final notifier = container.read(timerStateProvider.notifier)
+            as _PausedInjectTimerNotifier;
+        container.read(timerServiceProvider).pause();
+        notifier.injectPaused(container.read(timerServiceProvider).state!);
         expect(_settle(container, async), '04:35');
 
         // 暂停后再过 30s：冻结值不变，而非继续倒计时
@@ -134,7 +149,10 @@ void main() {
         container.read(startDurationTimerProvider)(5);
         _settle(container, async);
         _tick(async, const Duration(seconds: 25));
-        container.read(timerStateProvider.notifier).pause();
+        final notifier = container.read(timerStateProvider.notifier)
+            as _PausedInjectTimerNotifier;
+        container.read(timerServiceProvider).pause();
+        notifier.injectPaused(container.read(timerServiceProvider).state!);
 
         final formatted = _settle(container, async);
         expect(formatted, service.displayString,
@@ -167,7 +185,10 @@ void main() {
         expect(emitted.last, const Duration(seconds: 275),
             reason: 'duration 分支每秒倒计时');
 
-        container.read(timerStateProvider.notifier).pause();
+        final notifier = container.read(timerStateProvider.notifier)
+            as _PausedInjectTimerNotifier;
+        container.read(timerServiceProvider).pause();
+        notifier.injectPaused(container.read(timerServiceProvider).state!);
         container.read(remainingTimeProvider); // 触发惰性重建到 paused 分支
         async.flushMicrotasks();
         expect(emitted.last, const Duration(milliseconds: 275000),
@@ -341,6 +362,7 @@ void main() {
   group('BUG-29 widget: TimerControl 显示链', () {
     Widget wrapTimerControl() => ProviderScope(
           overrides: [
+            timerStateProvider.overrideWith(_PausedInjectTimerNotifier.new),
             timerServiceProvider.overrideWith((ref) => TimerService(now: _now)),
           ],
           child: const MaterialApp(
@@ -391,7 +413,10 @@ void main() {
       await tester.pump(const Duration(seconds: 25));
       expect(find.text('04:35'), findsOneWidget);
 
-      container.read(timerStateProvider.notifier).pause();
+      final notifier = container.read(timerStateProvider.notifier)
+          as _PausedInjectTimerNotifier;
+      container.read(timerServiceProvider).pause();
+      notifier.injectPaused(container.read(timerServiceProvider).state!);
       await tester.pump();
       await tester.pump();
       expect(find.text('04:35'), findsOneWidget, reason: 'U1: paused 显示冻结剩余时间');

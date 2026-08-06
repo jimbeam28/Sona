@@ -7,8 +7,8 @@
 //
 // Provider tests: [ProviderContainer]-level tests for Riverpod wiring.
 //
-// Widget tests (TMR-T23~T29): UI tests on [TimerButton] and
-// [TimerBottomSheet] using [WidgetTester] and [ProviderScope].
+// Widget tests: 原 TimerButton 组（TMR-T23~T29）已随 REF-05 删除；
+// REF-05 相关用例（S4 行为 + 静态断言）见文末。
 //
 // IMPORTANT: The [remainingTimeProvider] is a [StreamProvider] that
 // creates a [Stream.periodic] timer when a duration timer is active.
@@ -17,16 +17,13 @@
 // therefore override [remainingTimeProvider] with a simple null stream.
 
 import 'dart:async';
+import 'dart:io';
 
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:mockito/mockito.dart';
-import 'package:nas_audio_player/features/timer/domain/timer_service.dart';
-import 'package:nas_audio_player/features/player/player_provider.dart';
-import 'package:nas_audio_player/features/timer/timer_provider.dart';
-import 'package:nas_audio_player/features/timer/widgets/timer_button.dart';
+import 'package:nas_audio_player/shared/di/providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../helpers/mock_audio_player.dart';
@@ -36,8 +33,7 @@ import '../../helpers/widget_helpers.dart';
 // Helpers
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// wrapWithTimerProviders(), wrapWithTimerProvidersAndPrefs(),
-// createTimerTestContainer(), pumpTimerWidget(), timerContainerOf()
+// createTimerTestContainer(), noopRemainingTimeOverride()
 // are imported from widget_helpers.dart.
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -511,227 +507,6 @@ void main() {
   });
 
   // ═════════════════════════════════════════════════════════════════════════
-  // Widget tests — TimerButton UI (TMR-T23 ~ TMR-T29)
-  // ═════════════════════════════════════════════════════════════════════════
-
-  group('TimerButton widget', () {
-    // ── TMR-T23: 无定时时按钮显示未激活沙漏图标 ─────────────────────
-
-    testWidgets('TMR-T23: 无定时时按钮显示未激活沙漏图标', (tester) async {
-      await pumpTimerWidget(tester, const TimerButton());
-
-      expect(find.byType(IconButton), findsOneWidget);
-      expect(find.byIcon(Icons.hourglass_bottom), findsOneWidget);
-    });
-
-    // ── TMR-T24: 固定时长定时激活时 — 剩余时间通过 provider 暴露 ───
-
-    test('TMR-T24: 固定时长定时激活时 state 非 null 且模式正确', () {
-      final container = createTimerTestContainer();
-      container.read(startDurationTimerProvider)(5);
-
-      final state = container.read(timerStateProvider);
-      expect(state, isNotNull);
-      expect(state!.mode, equals(TimerMode.duration));
-      expect(state.remainingTime, isNotNull);
-    });
-
-    // ── TMR-T25: 「播完当前」模式激活时 ──────────────────────────────
-
-    test('TMR-T25: 「播完当前」模式激活时 state.mode == afterCurrent', () {
-      final container = createTimerTestContainer();
-      container.read(startAfterCurrentProvider)();
-
-      final state = container.read(timerStateProvider);
-      expect(state, isNotNull);
-      expect(state!.mode, equals(TimerMode.afterCurrent));
-    });
-
-    // ── TMR-T26: 点击未激活的定时按钮 → 弹出 4 选项菜单 ───────────
-
-    testWidgets('TMR-T26: 点击未激活的定时按钮弹出 4 选项菜单', (tester) async {
-      await pumpTimerWidget(tester, const TimerButton());
-
-      await tester.tap(find.byType(IconButton));
-      await tester.pumpAndSettle();
-
-      expect(find.text('5 分钟'), findsOneWidget);
-      expect(find.text('10 分钟'), findsOneWidget);
-      expect(find.text('自定义'), findsOneWidget);
-      expect(find.text('播完当前'), findsOneWidget);
-      expect(find.text('取消定时'), findsNothing);
-    });
-
-    // ── TMR-T27: 定时激活时点击 → 显示 5 个选项（含取消） ─────────
-
-    testWidgets('TMR-T27: 定时激活时点击定时按钮弹出含取消选项的菜单', (tester) async {
-      // Use a wrapper that activates the timer BEFORE building the UI,
-      // so the TimerButton initially sees an active timer.
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            timerServiceProvider.overrideWith((ref) => TimerService()),
-            ...noopRemainingTimeOverride(),
-          ],
-          child: const _ActiveTimerTestApp(),
-        ),
-      );
-      // Let the post-frame callback fire that activates the timer
-      await tester.pumpAndSettle();
-
-      // Tap to open bottom sheet
-      await tester.tap(find.byType(IconButton));
-      await tester.pumpAndSettle();
-
-      expect(find.text('5 分钟'), findsOneWidget);
-      expect(find.text('10 分钟'), findsOneWidget);
-      expect(find.text('自定义'), findsOneWidget);
-      expect(find.text('播完当前'), findsOneWidget);
-      expect(find.text('取消定时'), findsOneWidget);
-    });
-
-    // ── TMR-T28: 在 BottomSheet 中选择 10 分钟 → 关闭，按钮更新 ───
-
-    testWidgets('TMR-T28: 在 BottomSheet 中选择 10 分钟 — sheet 关闭，定时激活',
-        (tester) async {
-      await pumpTimerWidget(tester, const TimerButton());
-
-      await tester.tap(find.byType(IconButton));
-      await tester.pumpAndSettle();
-
-      // Tap "10 分钟"
-      await tester.tap(find.text('10 分钟'));
-      await tester.pumpAndSettle();
-
-      // Bottom sheet should be dismissed
-      expect(find.text('10 分钟'), findsNothing);
-
-      // Verify via provider that timer is active
-      final iconButton = tester.widget<IconButton>(find.byType(IconButton));
-      // The tooltip should indicate active state
-      expect(iconButton.tooltip, isNotNull);
-    });
-
-    // ── TMR-T29: 在 BottomSheet 中点击「取消定时」→ 恢复未激活 ──────
-
-    testWidgets('TMR-T29: 在 BottomSheet 中点击「取消定时」— sheet 关闭，按钮恢复',
-        (tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            timerServiceProvider.overrideWith((ref) => TimerService()),
-            ...noopRemainingTimeOverride(),
-          ],
-          child: const _ActiveTimerTestApp(),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      // Tap to open bottom sheet
-      await tester.tap(find.byType(IconButton));
-      await tester.pumpAndSettle();
-
-      // Tap "取消定时"
-      await tester.tap(find.text('取消定时'));
-      await tester.pumpAndSettle();
-
-      // Bottom sheet should be dismissed, timer should be inactive
-      expect(find.text('取消定时'), findsNothing);
-    });
-
-    testWidgets('自定义定时选择 0:00 时确认按钮禁用', (tester) async {
-      await pumpTimerWidget(tester, const TimerButton());
-
-      await tester.tap(find.byType(IconButton));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('自定义'));
-      await tester.pumpAndSettle();
-
-      final minuteWheel = find.byType(ListWheelScrollView).last;
-      await tester.drag(minuteWheel, const Offset(0, 220));
-      await tester.pumpAndSettle();
-
-      final confirm =
-          tester.widget<TextButton>(find.widgetWithText(TextButton, '确认'));
-      expect(confirm.onPressed, isNull, reason: '选择 0 小时 0 分钟时确认按钮应禁用');
-    });
-
-    testWidgets('自定义定时选择非 0 时长后确认会启动定时', (tester) async {
-      await pumpTimerWidget(tester, const TimerButton());
-      final container = timerContainerOf(tester);
-
-      await tester.tap(find.byType(IconButton));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('自定义'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('确认'));
-      await tester.pumpAndSettle();
-
-      final state = container.read(timerStateProvider);
-      expect(state, isNotNull);
-      expect(state!.mode, equals(TimerMode.duration));
-      expect(state.endTime, isNotNull);
-    });
-
-    testWidgets('无上次自定义时长时隐藏快捷项', (tester) async {
-      SharedPreferences.setMockInitialValues({});
-      final prefs = await SharedPreferences.getInstance();
-
-      await tester.pumpWidget(
-        wrapWithTimerProvidersAndPrefs(const TimerButton(), prefs: prefs),
-      );
-
-      await tester.tap(find.byType(IconButton));
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining('上次时长'), findsNothing);
-    });
-
-    testWidgets('有上次自定义时长时显示快捷项并可直接启用', (tester) async {
-      SharedPreferences.setMockInitialValues({
-        lastCustomTimerMinutesKey: 75,
-      });
-      final prefs = await SharedPreferences.getInstance();
-
-      await tester.pumpWidget(
-        wrapWithTimerProvidersAndPrefs(const TimerButton(), prefs: prefs),
-      );
-
-      await tester.tap(find.byType(IconButton));
-      await tester.pumpAndSettle();
-
-      expect(find.text('上次时长（1小时15分钟）'), findsOneWidget);
-      await tester.tap(find.text('上次时长（1小时15分钟）'));
-      await tester.pumpAndSettle();
-
-      final iconButton = tester.widget<IconButton>(find.byType(IconButton));
-      expect(iconButton.tooltip, isNotNull);
-    });
-
-    testWidgets('确认自定义时长后保存为上次时长', (tester) async {
-      SharedPreferences.setMockInitialValues({});
-      final prefs = await SharedPreferences.getInstance();
-
-      await tester.pumpWidget(
-        wrapWithTimerProvidersAndPrefs(const TimerButton(), prefs: prefs),
-      );
-
-      await tester.tap(find.byType(IconButton));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('自定义'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('确认'));
-      await tester.pumpAndSettle();
-
-      expect(
-        prefs.getInt(lastCustomTimerMinutesKey),
-        equals(5),
-        reason: '确认自定义时长后应持久化最近一次自定义分钟数',
-      );
-    });
-  });
-
-  // ═════════════════════════════════════════════════════════════════════════
   // Integration tests — TST-03: 定时器到期触发停止（集成测试）
   // ═════════════════════════════════════════════════════════════════════════
 
@@ -1098,40 +873,109 @@ void main() {
       expect(service.isActive, isTrue);
     });
   });
-}
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// Test widget that activates a timer on init
-// ═══════════════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // REF-05-S4: lastCustomTimerMinutes 写入时机（行为测试）
+  // ═══════════════════════════════════════════════════════════════════════════════
 
-/// A test harness that renders [TimerButton] and activates a 5-minute
-/// duration timer via a post-frame callback.
-///
-/// This lets widget tests start with a timer already active, avoiding
-/// the need to fish out the [ProviderContainer] from the widget tree.
-class _ActiveTimerTestApp extends ConsumerStatefulWidget {
-  const _ActiveTimerTestApp();
+  group('REF-05-S4: 预设启动不覆盖自定义时长记忆', () {
+    test('REF-05-S4: 预置 30 分钟自定义记忆，预设 5 分钟启动不覆盖', () async {
+      SharedPreferences.setMockInitialValues({lastCustomTimerMinutesKey: 30});
+      final prefs = await SharedPreferences.getInstance();
 
-  @override
-  ConsumerState<_ActiveTimerTestApp> createState() =>
-      _ActiveTimerTestAppState();
-}
+      final container = ProviderContainer(
+        overrides: [
+          timerServiceProvider.overrideWith((ref) => TimerService()),
+          sharedPreferencesProvider.overrideWith((ref) => prefs),
+          ...noopRemainingTimeOverride(),
+        ],
+      );
+      addTearDown(container.dispose);
 
-class _ActiveTimerTestAppState extends ConsumerState<_ActiveTimerTestApp> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(startDurationTimerProvider)(5);
+      expect(container.read(lastCustomTimerMinutesProvider), 30,
+          reason: '预置 lastCustomTimerMinutes=30，读回应为 30');
+
+      // 预设路径：直接调 startDuration(5) 模拟预设按钮（预设/自定义区分在调用方）
+      container.read(startDurationTimerProvider)(5);
+
+      expect(container.read(lastCustomTimerMinutesProvider), 30,
+          reason: 'REF-05-S4: 预设 5 分钟启动不得覆盖自定义 30 分钟记忆');
+      expect(prefs.getInt(lastCustomTimerMinutesKey), 30,
+          reason: 'REF-05-S4: 底层 prefs 值不得被 startDuration 改写');
+
+      // 否定断言：startDuration 的其它行为不变（TimerState 正常创建）
+      final state = container.read(timerStateProvider);
+      expect(state, isNotNull);
+      expect(state!.mode, equals(TimerMode.duration));
     });
-  }
+  });
 
-  @override
-  Widget build(BuildContext context) {
-    return const MaterialApp(
-      home: Scaffold(
-        body: TimerButton(),
-      ),
-    );
-  }
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // REF-05 静态断言 — 死代码删除（dart:io 读 lib/ 文件文本，测试先行阶段预期失败）
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  group('REF-05 静态断言: 死代码删除与唯一写入点', () {
+    test('REF-05-S1/INV1: TimerStateNotifier 无 pause()/resume() 方法定义', () {
+      final file = File('lib/features/timer/timer_provider.dart');
+      expect(file.existsSync(), isTrue, reason: 'timer_provider.dart 应存在');
+      final source = file.readAsStringSync();
+      expect(source, isNot(contains('void pause() {')));
+      expect(source, isNot(contains('void resume() {')));
+    });
+
+    test('REF-05-S1: TimerService.pause()/resume() 保留（服务层能力不变）', () {
+      final file = File('lib/features/timer/domain/timer_service.dart');
+      expect(file.existsSync(), isTrue, reason: 'timer_service.dart 应存在');
+      final source = file.readAsStringSync();
+      expect(source, contains('bool pause()'));
+      expect(source, contains('bool resume()'));
+    });
+
+    test('REF-05-S2/INV2: TimerButton 类已删除', () {
+      final file = File('lib/features/timer/widgets/timer_button.dart');
+      expect(file.existsSync(), isTrue, reason: 'timer_button.dart 应存在');
+      expect(file.readAsStringSync(), isNot(contains('class TimerButton')));
+    });
+
+    test('REF-05-S2/INV2: providers.dart re-export 不含 TimerButton', () {
+      final file = File('lib/shared/di/providers.dart');
+      expect(file.existsSync(), isTrue, reason: 'providers.dart 应存在');
+      expect(file.readAsStringSync(), isNot(contains('show TimerButton')));
+    });
+
+    test('REF-05-S2: TimerBottomSheet 保留（类定义 + re-export）', () {
+      final buttonFile = File('lib/features/timer/widgets/timer_button.dart');
+      expect(buttonFile.existsSync(), isTrue, reason: 'timer_button.dart 应存在');
+      expect(buttonFile.readAsStringSync(), contains('class TimerBottomSheet'));
+
+      final diFile = File('lib/shared/di/providers.dart');
+      expect(diFile.existsSync(), isTrue, reason: 'providers.dart 应存在');
+      expect(diFile.readAsStringSync(), contains('show TimerBottomSheet'));
+    });
+
+    test('REF-05-S3: TimerState.copyWith 已删除', () {
+      final file = File('lib/features/timer/domain/timer_service.dart');
+      expect(file.existsSync(), isTrue, reason: 'timer_service.dart 应存在');
+      expect(file.readAsStringSync(), isNot(contains('copyWith(')));
+    });
+
+    test(
+        'REF-05-S4/INV3: timer_provider.dart 不再调用 '
+        'setLastCustomTimerMinutesProvider', () {
+      final file = File('lib/features/timer/timer_provider.dart');
+      expect(file.existsSync(), isTrue, reason: 'timer_provider.dart 应存在');
+      expect(
+        file.readAsStringSync(),
+        isNot(contains('setLastCustomTimerMinutesProvider)')),
+        reason: 'startDuration 内不得再写入 lastCustomTimerMinutes',
+      );
+    });
+
+    test('REF-05-S4/INV3: timer_button.dart 保留唯一写入点', () {
+      final file = File('lib/features/timer/widgets/timer_button.dart');
+      expect(file.existsSync(), isTrue, reason: 'timer_button.dart 应存在');
+      expect(file.readAsStringSync(),
+          contains('setLastCustomTimerMinutesProvider'));
+    });
+  });
 }

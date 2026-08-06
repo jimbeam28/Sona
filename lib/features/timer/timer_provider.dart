@@ -49,7 +49,6 @@ class TimerStateNotifier extends Notifier<TimerState?> {
   void startDuration(int minutes) {
     debugPrint('[Timer] startDuration: ${minutes}min');
     _service.startDuration(minutes);
-    ref.read(setLastCustomTimerMinutesProvider)(minutes);
     state = _service.state;
   }
 
@@ -83,17 +82,6 @@ class TimerStateNotifier extends Notifier<TimerState?> {
       state = _service.state;
     }
     return triggered;
-  }
-
-  // TMR-03: pause/resume support
-  void pause() {
-    _service.pause();
-    state = _service.state;
-  }
-
-  void resume() {
-    _service.resume();
-    state = _service.state;
   }
 }
 

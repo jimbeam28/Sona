@@ -6,16 +6,13 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:nas_audio_player/features/timer/domain/timer_service.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/features/player/player_provider.dart';
 import 'package:nas_audio_player/features/timer/timer_provider.dart';
-import 'package:nas_audio_player/features/timer/widgets/timer_button.dart';
 import 'package:nas_audio_player/shared/models/play_queue.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 // ── Generic wrappers ─────────────────────────────────────────────────────────
 
@@ -162,40 +159,6 @@ List<Override> noopRemainingTimeOverride() => [
       remainingTimeProvider.overrideWith((ref) => Stream.value(null)),
     ];
 
-/// Wraps [child] in a [ProviderScope] with a fresh [TimerService] and the
-/// no-op remaining-time stream override.
-Widget wrapWithTimerProviders(Widget child) {
-  return ProviderScope(
-    overrides: [
-      timerServiceProvider.overrideWith((ref) => TimerService()),
-      sharedPreferencesProvider.overrideWith((ref) => null),
-      ...noopRemainingTimeOverride(),
-    ],
-    child: MaterialApp(
-      home: Scaffold(body: child),
-    ),
-  );
-}
-
-/// Wraps [child] in a [ProviderScope] with a fresh [TimerService], the
-/// no-op remaining-time stream override, and a specific [SharedPreferences]
-/// instance.
-Widget wrapWithTimerProvidersAndPrefs(
-  Widget child, {
-  SharedPreferences? prefs,
-}) {
-  return ProviderScope(
-    overrides: [
-      timerServiceProvider.overrideWith((ref) => TimerService()),
-      sharedPreferencesProvider.overrideWith((ref) => prefs),
-      ...noopRemainingTimeOverride(),
-    ],
-    child: MaterialApp(
-      home: Scaffold(body: child),
-    ),
-  );
-}
-
 /// Creates a [ProviderContainer] suitable for timer provider-level tests,
 /// with the no-op remaining-time stream override so no periodic timers
 /// are created.
@@ -206,15 +169,4 @@ ProviderContainer createTimerTestContainer() {
       ...noopRemainingTimeOverride(),
     ],
   );
-}
-
-/// Helper to pump a widget with timer providers.
-Future<void> pumpTimerWidget(WidgetTester tester, Widget child) async {
-  await tester.pumpWidget(wrapWithTimerProviders(child));
-}
-
-/// Returns the [ProviderContainer] from the nearest [ProviderScope] ancestor
-/// of [TimerButton] in the widget tree.
-ProviderContainer timerContainerOf(WidgetTester tester) {
-  return ProviderScope.containerOf(tester.element(find.byType(TimerButton)));
 }

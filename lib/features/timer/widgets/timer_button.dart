@@ -1,11 +1,7 @@
 // lib/features/timer/widgets/timer_button.dart
-// Timer button and bottom-sheet menu — TMR-01 through TMR-05 UI.
+// Timer bottom-sheet menu — TMR-01 through TMR-05 UI.
 //
-// [TimerButton] shows the current timer state as an icon button that can
-// be added to the player screen.  When inactive it shows a sandglass icon;
-// when active it shows the remaining countdown or "播完停止".
-//
-// Tapping the button opens [TimerBottomSheet] with options:
+// The bottom-sheet menu with options:
 //   - 5 分钟 / 10 分钟 / 15 分钟 (TMR-01)
 //   - 播完当前 (TMR-02)
 //   - 取消定时 (TMR-04, only shown when timer is active)
@@ -15,55 +11,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../timer_provider.dart';
 import '../domain/timer_service.dart';
-
-/// An icon button that shows the current timer state and opens a
-/// bottom-sheet menu on tap.
-///
-/// Intended to be placed on the player screen toolbar.
-///
-/// TMR-T23: inactive state shows sandglass icon, no text.
-/// TMR-T24: active duration timer shows remaining time text.
-/// TMR-T25: afterCurrent mode shows "播完停止" label.
-/// TMR-T26: tapping inactive button shows 4-option menu.
-/// TMR-T27: tapping active button shows 5-option menu (incl. cancel).
-class TimerButton extends ConsumerWidget {
-  const TimerButton({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(timerStateProvider);
-    final isActive = state != null;
-    final isAfterCurrent = state?.mode == TimerMode.afterCurrent;
-
-    // Resolve the display text.
-    String? displayText;
-    if (isAfterCurrent) {
-      displayText = TimerService.afterCurrentLabel;
-    } else if (isActive) {
-      displayText = ref.watch(formattedRemainingProvider);
-    }
-
-    return IconButton(
-      onPressed: () => _showBottomSheet(context, ref, isActive),
-      icon: Icon(
-        Icons.hourglass_bottom,
-        color: isActive ? Theme.of(context).colorScheme.primary : null,
-      ),
-      tooltip: isActive ? (displayText ?? '定时中') : '定时',
-    );
-  }
-
-  void _showBottomSheet(
-    BuildContext context,
-    WidgetRef ref,
-    bool isActive,
-  ) {
-    showModalBottomSheet<void>(
-      context: context,
-      builder: (ctx) => TimerBottomSheet(isActive: isActive),
-    );
-  }
-}
 
 /// The bottom-sheet menu for selecting or cancelling a sleep timer.
 ///
