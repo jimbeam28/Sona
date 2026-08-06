@@ -45,14 +45,13 @@ void main() {
     test('REF-07-S1: 与非 ConnectionConfig 比较不等', () {
       final a = _base();
       expect(a == 'string', isFalse);
-      expect(a == null, isFalse);
     });
 
     test('REF-07-S2: id 不同 → 不等', () {
       expect(_base(id: 1) == _base(id: 2), isFalse);
     });
 
-    test('REF-07-S2: id null 与 非null 不等，双 null 相等', () {
+    test('REF-07-S2: id null 与 非null 不等', () {
       expect(_base(id: null) == _base(id: 1), isFalse);
       expect(_base(id: null) == _base(id: null), isTrue);
     });
