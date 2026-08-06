@@ -48,16 +48,28 @@ class LogBuffer extends ChangeNotifier {
   }
 }
 
+/// The installed wrapper, kept so repeated calls can detect that
+/// [debugPrint] is already wrapped (REF-08 idempotency).
+void Function(String? message, {int? wrapWidth})? _installedHook;
+
 /// Installs a [debugPrint] hook that mirrors output into [LogBuffer].
 ///
 /// The original synchronous printer is still invoked so console logs
 /// continue to work when the device is attached to a host.
+///
+/// Idempotent: calling multiple times (e.g. after hot restart) only
+/// installs the hook once, avoiding duplicate log entries.  Detection is
+/// by identity with the current [debugPrint] — if it has been restored
+/// to the raw printer in between, the hook is (re)installed without
+/// nesting.
 void installLogBufferHook() {
+  if (identical(debugPrint, _installedHook)) return;
   final original = debugPrint;
-  debugPrint = (String? message, {int? wrapWidth}) {
+  _installedHook = (String? message, {int? wrapWidth}) {
     if (message != null) {
       LogBuffer.instance.add(message);
     }
     original(message, wrapWidth: wrapWidth);
   };
+  debugPrint = _installedHook!;
 }
