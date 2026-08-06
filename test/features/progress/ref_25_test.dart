@@ -42,14 +42,12 @@ void main() {
       await db.close();
     });
 
-    test('SaveTrigger.periodic — 10-second auto-save delegates to upsert',
-        () async {
+    test('periodic 触发点 — 10 秒自动保存委托 upsert', () async {
       final result = await service.saveProgress(
         connectionId: 1,
         filePath: '/music/periodic.mp3',
         positionMs: 30000,
         durationMs: 120000,
-        trigger: SaveTrigger.periodic,
       );
 
       expect(result, isTrue, reason: 'periodic save should succeed');
@@ -58,13 +56,12 @@ void main() {
       expect(saved!.positionMs, equals(30000));
     });
 
-    test('SaveTrigger.pause — pause detection delegates to upsert', () async {
+    test('pause 触发点 — 暂停检测委托 upsert', () async {
       final result = await service.saveProgress(
         connectionId: 1,
         filePath: '/music/paused.mp3',
         positionMs: 67300,
         durationMs: 180000,
-        trigger: SaveTrigger.pause,
       );
 
       expect(result, isTrue, reason: 'pause save should succeed');
@@ -73,14 +70,13 @@ void main() {
       expect(saved!.positionMs, equals(67300));
     });
 
-    test('SaveTrigger.skipNext — skip-to-next delegates to upsert', () async {
+    test('skipNext 触发点 — 切下一首委托 upsert', () async {
       // First save a record at an earlier position
       await service.saveProgress(
         connectionId: 1,
         filePath: '/music/skip_next.mp3',
         positionMs: 45000,
         durationMs: 240000,
-        trigger: SaveTrigger.periodic,
       );
 
       // Simulate skip-next: save the current track's position before advancing
@@ -89,7 +85,6 @@ void main() {
         filePath: '/music/skip_next.mp3',
         positionMs: 80000,
         durationMs: 240000,
-        trigger: SaveTrigger.skipNext,
       );
 
       expect(result, isTrue, reason: 'skipNext save should succeed');
@@ -99,14 +94,12 @@ void main() {
           reason: 'skipNext should update position to the latest value');
     });
 
-    test('SaveTrigger.skipPrev — skip-to-previous delegates to upsert',
-        () async {
+    test('skipPrev 触发点 — 切上一首委托 upsert', () async {
       final result = await service.saveProgress(
         connectionId: 1,
         filePath: '/music/skip_prev.mp3',
         positionMs: 120000,
         durationMs: 300000,
-        trigger: SaveTrigger.skipPrev,
       );
 
       expect(result, isTrue, reason: 'skipPrev save should succeed');
@@ -115,14 +108,12 @@ void main() {
       expect(saved!.positionMs, equals(120000));
     });
 
-    test('SaveTrigger.complete — track completion delegates to upsert',
-        () async {
+    test('complete 触发点 — 曲目完成委托 upsert', () async {
       final result = await service.saveProgress(
         connectionId: 1,
         filePath: '/music/completed.mp3',
         positionMs: 5000,
         durationMs: 120000,
-        trigger: SaveTrigger.complete,
       );
 
       expect(result, isTrue, reason: 'complete trigger save should succeed');
@@ -131,42 +122,57 @@ void main() {
       expect(saved!.positionMs, equals(5000));
     });
 
-    test('all 5 triggers share the same shouldSave / shouldClear rules',
-        () async {
+    test('全部 5 个触发点共享 shouldSave / shouldClear 规则', () async {
       // shouldSave: position < 5s → skipped for ALL triggers
-      for (final trigger in SaveTrigger.values) {
+      for (final trigger in [
+        'periodic',
+        'pause',
+        'skipNext',
+        'skipPrev',
+        'complete'
+      ]) {
         final result = await service.saveProgress(
           connectionId: 1,
-          filePath: '/music/short_${trigger.name}.mp3',
+          filePath: '/music/short_$trigger.mp3',
           positionMs: 3000, // < 5s
           durationMs: 120000,
-          trigger: trigger,
         );
         expect(result, isFalse,
-            reason: '${trigger.name}: position < 5s should be skipped');
+            reason: '$trigger: position < 5s should be skipped');
       }
 
       // shouldClear: position near end → record cleared for ALL triggers
       // First create records to be cleared
-      for (final trigger in SaveTrigger.values) {
+      for (final trigger in [
+        'periodic',
+        'pause',
+        'skipNext',
+        'skipPrev',
+        'complete'
+      ]) {
         await dao.upsert(
           connectionId: 1,
-          filePath: '/music/near_end_${trigger.name}.mp3',
+          filePath: '/music/near_end_$trigger.mp3',
           positionMs: 30000,
           durationMs: 120000,
         );
       }
 
-      for (final trigger in SaveTrigger.values) {
+      for (final trigger in [
+        'periodic',
+        'pause',
+        'skipNext',
+        'skipPrev',
+        'complete'
+      ]) {
         final result = await service.saveProgress(
           connectionId: 1,
-          filePath: '/music/near_end_${trigger.name}.mp3',
+          filePath: '/music/near_end_$trigger.mp3',
           positionMs: 115000, // > 120000 - 10000
           durationMs: 120000,
-          trigger: trigger,
         );
         expect(result, isNull,
-            reason: '${trigger.name}: position near end should clear record');
+            reason: '$trigger: position near end should clear record');
       }
     });
   });

@@ -16,22 +16,6 @@ import '../../../shared/models/play_progress.dart';
 
 // ── Save trigger points ──────────────────────────────────────────────────────
 
-/// Enumerates the 5 playback events that trigger a progress save.
-///
-/// Each value maps to a distinct call-site in the player layer:
-/// 1. [periodic]  — 10-second auto-save timer
-/// 2. [pause]     — player transitions from playing to paused
-/// 3. [skipNext]  — user (or auto-advance) skips to the next track
-/// 4. [skipPrev]  — user skips to the previous track
-/// 5. [complete]  — current track finishes playback
-enum SaveTrigger {
-  periodic,
-  pause,
-  skipNext,
-  skipPrev,
-  complete,
-}
-
 /// Pure-logic service that coordinates progress persistence and the
 /// resume-dialog countdown state machine.
 ///
@@ -44,7 +28,7 @@ class ProgressService {
 
   // ── Progress persistence ─────────────────────────────────────────────────
 
-  /// Saves playback progress for the given [trigger].
+  /// Saves playback progress.
   ///
   /// Delegates to [IProgressDao.upsert] which applies the business rules
   /// (skip < 5 s, clear near end).  Returns the DAO result:
@@ -56,7 +40,6 @@ class ProgressService {
     required String filePath,
     required int positionMs,
     int? durationMs,
-    SaveTrigger trigger = SaveTrigger.periodic,
   }) {
     return _dao.upsert(
       connectionId: connectionId,
