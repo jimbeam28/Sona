@@ -9,6 +9,8 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+
+import 'widgets/section_header.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -28,7 +30,7 @@ class SettingsScreen extends ConsumerWidget {
       body: ListView(
         children: [
           // ── 播放设置 ──────────────────────────────────────────────
-          const _SectionHeader(title: '播放设置'),
+          const SectionHeader(title: '播放设置'),
           _DefaultSpeedTile(),
           _SeekStepTile(),
           _RememberSpeedTile(),
@@ -36,13 +38,13 @@ class SettingsScreen extends ConsumerWidget {
           const Divider(),
 
           // ── 外观 ──────────────────────────────────────────────────
-          const _SectionHeader(title: '外观'),
+          const SectionHeader(title: '外观'),
           _ThemeModeTile(),
 
           const Divider(),
 
           // ── 连接 ──────────────────────────────────────────────────
-          const _SectionHeader(title: '连接'),
+          const SectionHeader(title: '连接'),
           ListTile(
             leading: const Icon(Icons.storage_outlined),
             title: const Text('管理 NAS 连接'),
@@ -54,13 +56,13 @@ class SettingsScreen extends ConsumerWidget {
           const Divider(),
 
           // ── 存储 ──────────────────────────────────────────────────
-          const _SectionHeader(title: '存储'),
+          const SectionHeader(title: '存储'),
           _ClearCacheTile(),
 
           const Divider(),
 
           // ── 关于 ──────────────────────────────────────────────────
-          const _SectionHeader(title: '关于'),
+          const SectionHeader(title: '关于'),
           ListTile(
             leading: const Icon(Icons.info_outline),
             title: const Text('关于本应用'),
@@ -77,29 +79,6 @@ class SettingsScreen extends ConsumerWidget {
               onTap: () => context.push('/logs'),
             ),
         ],
-      ),
-    );
-  }
-}
-
-// ── Section header ─────────────────────────────────────────────────────────────
-
-class _SectionHeader extends StatelessWidget {
-  final String title;
-
-  const _SectionHeader({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: Theme.of(context).colorScheme.primary,
-        ),
       ),
     );
   }

@@ -21,6 +21,7 @@ import 'package:nas_audio_player/features/settings/domain/settings_service.dart'
     as settings_domain;
 import 'package:nas_audio_player/features/settings/settings_provider.dart';
 import 'package:nas_audio_player/features/settings/settings_screen.dart';
+import 'package:nas_audio_player/features/settings/widgets/section_header.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Helpers
@@ -1277,6 +1278,46 @@ void main() {
       // Settings page should render
       expect(find.byType(SettingsScreen), findsOneWidget,
           reason: 'TST-T143: SettingsScreen 组件应渲染');
+    });
+  });
+  group('REF-09: SectionHeader 共享组件', () {
+    testWidgets('REF-09-S1: SectionHeader 渲染 title 与样式（padding/font/color）',
+        (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SectionHeader(title: '测试分组'),
+          ),
+        ),
+      );
+
+      final text = tester.widget<Text>(find.text('测试分组'));
+      expect(text.style?.fontSize, equals(13),
+          reason: 'REF-09-INV2: fontSize 保持 13');
+      expect(text.style?.fontWeight, equals(FontWeight.w600),
+          reason: 'REF-09-INV2: fontWeight 保持 w600');
+
+      final padding = tester.widget<Padding>(find.byType(Padding).first);
+      expect(padding.padding, const EdgeInsets.fromLTRB(16, 16, 16, 4),
+          reason: 'REF-09-INV2: padding 保持 (16,16,16,4)');
+    });
+
+    testWidgets('REF-09-S1: 设置页与关于页仍渲染分组标题', (tester) async {
+      final prefs = await SharedPreferences.getInstance();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            sharedPreferencesProvider.overrideWith((ref) => prefs),
+          ],
+          child: const MaterialApp(home: SettingsScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('播放设置'), findsOneWidget);
+      expect(find.text('外观'), findsOneWidget);
+      expect(find.text('连接'), findsOneWidget);
+      expect(find.text('存储'), findsOneWidget);
     });
   });
 }

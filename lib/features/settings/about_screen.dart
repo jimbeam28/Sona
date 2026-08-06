@@ -5,6 +5,8 @@
 
 import 'package:flutter/material.dart';
 
+import 'widgets/section_header.dart';
+
 /// The app version string displayed on the About page.
 const appVersion = '1.0.0';
 
@@ -58,7 +60,7 @@ class AboutScreen extends StatelessWidget {
           const Divider(),
 
           // Open-source licenses
-          const _SectionHeader(title: '开源许可'),
+          const SectionHeader(title: '开源许可'),
           const LicenseListTile(
             packageName: 'Flutter',
             packageDescription:
@@ -95,27 +97,6 @@ class AboutScreen extends StatelessWidget {
 
           const SizedBox(height: 32),
         ],
-      ),
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  final String title;
-
-  const _SectionHeader({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: Theme.of(context).colorScheme.primary,
-        ),
       ),
     );
   }
