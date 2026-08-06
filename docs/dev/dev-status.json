@@ -1702,6 +1702,14 @@
       "cross_module_impacts": [
         "CON",
         "BRW"
+      ],
+      "impl_status": "done",
+      "test_status": "passed",
+      "test_files": [
+        "test/core/network/webdav_client_test.dart",
+        "test/features/browser/brw_01_test.dart",
+        "test/helpers/fake_secure_storage.dart",
+        "test/helpers/fake_webdav_client.dart"
       ]
     },
     "TEST-08": {

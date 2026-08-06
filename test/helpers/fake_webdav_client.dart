@@ -4,8 +4,9 @@
 // Two variants are provided:
 //   [MockWebDavClient]  — full mock with `returnResult()` / `hangUntilCompleted()`
 //                         for the `validate` method (used by connection tests).
-//                         `listDirectory` throws by default; override via
-//                         `returnListResult()` for browser tests.
+//                         `listDirectory` returns an empty list by default;
+//                         override via `returnListResult()`, or set
+//                         `listDirectoryError` to inject a failure.
 //   [SpyWebDavClient]   — lightweight spy that tracks `listDirectory` call
 //                         count and called paths (used by browser cache tests).
 
@@ -23,8 +24,9 @@ import 'package:nas_audio_player/shared/models/nas_file.dart';
 ///   - `returnResult()` — immediately returns the given result.
 ///   - `hangUntilCompleted()` — suspends until the supplied [Completer] resolves.
 ///
-/// `listDirectory` is a no-op by default (throws [UnimplementedError]).
-/// Use [returnListResult] to provide canned directory listings.
+/// `listDirectory` returns an empty list by default.
+/// Use [returnListResult] to provide canned directory listings, or set
+/// [listDirectoryError] to inject a failure.
 class MockWebDavClient implements WebDavClientInterface {
   // ── validate support ──────────────────────────────────────────────────────
 
@@ -80,6 +82,11 @@ class MockWebDavClient implements WebDavClientInterface {
 
   List<NasFile> _listResult = const [];
 
+  /// When set, `listDirectory()` throws this exception instead of returning
+  /// a result (error-injection mode, TEST-07-S6). Mutually exclusive with
+  /// [returnListResult] only in the sense that the error takes precedence.
+  WebDavException? listDirectoryError;
+
   /// Configure `listDirectory()` to return [result].
   void returnListResult(List<NasFile> result) {
     _listResult = result;
@@ -92,6 +99,10 @@ class MockWebDavClient implements WebDavClientInterface {
     required String password,
     required String path,
   }) async {
+    final error = listDirectoryError;
+    if (error != null) {
+      throw error;
+    }
     return _listResult;
   }
 }
