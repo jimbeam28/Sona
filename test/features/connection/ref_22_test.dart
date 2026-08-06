@@ -4,8 +4,11 @@
 // Pure Dart tests — no Flutter/Riverpod dependency.
 // Uses sqflite_common_ffi for an in-memory SQLite database.
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nas_audio_player/core/contracts/storage_contract.dart';
 import 'package:nas_audio_player/core/database/dao/connection_dao.dart';
+import 'package:nas_audio_player/features/connection/connection_provider.dart';
 import 'package:nas_audio_player/features/connection/domain/connection_service.dart';
 
 import '../../helpers/fake_secure_storage.dart';
@@ -287,6 +290,79 @@ void main() {
       final list = await dao.findAll();
       final activeCount = list.where((c) => c.isActive).length;
       expect(activeCount, equals(1), reason: '仍只有一个活跃连接');
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // REF-01-S3: ConnectionService 注入 ISecureStorage（A2）
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  group('REF-01-S3: ConnectionService 接受 ISecureStorage', () {
+    late Database db;
+    late ConnectionDao dao;
+
+    setUp(() async {
+      db = await openTestDatabase(TestSchema.connections);
+      dao = ConnectionDao();
+      // Pre-populate with one connection so the rollback delete does not
+      // trigger LastConnectionException (same rationale as REF-22-T02).
+      await dao.insert(
+          testConfig(name: 'Pre-existing', url: 'http://pre.local:5005'),
+          passwordKey: 'key_pre');
+    });
+
+    tearDown(() async {
+      await db.close();
+    });
+
+    test('REF-01-S3: 构造注入 ISecureStorage 契约实例', () async {
+      // 编译期断言：FakeSecureStorage 必须满足 ISecureStorage 契约。
+      final ISecureStorage storage = FakeSecureStorage();
+      final service = ConnectionService(dao, storage);
+
+      final saved = await service.save(
+          config: testConfig(name: 'Contract NAS'), password: 'pw');
+
+      // 密码经 ISecureStorage 契约写入，key 格式 connection_password_{id} 不变。
+      expect(await storage.read(key: 'connection_password_${saved.id}'),
+          equals('pw'),
+          reason: 'REF-01-S3: 密码应通过 ISecureStorage 契约写入, key 格式不变');
+      expect(await storage.containsKey(key: 'connection_password_${saved.id}'),
+          isTrue,
+          reason: 'REF-01-S3: containsKey 应反映已写入的密码');
+    });
+
+    test('REF-01-S3: 写入失败经契约回滚 DB（行为不变）', () async {
+      final throwingStorage = ThrowingFakeSecureStorage();
+      // 编译期断言：抛错子类同样满足 ISecureStorage 契约。
+      final ISecureStorage storage = throwingStorage;
+      final service = ConnectionService(dao, storage);
+
+      try {
+        await service.save(
+            config: testConfig(name: 'Rollback NAS'), password: 'x');
+        fail('Expected save to throw due to secure storage failure');
+      } catch (_) {
+        // Expected
+      }
+
+      final all = await dao.findAll();
+      final newConn = all.where((c) => c.name == 'Rollback NAS');
+      expect(newConn, isEmpty, reason: 'REF-01-S3: 失败后 DB 行应回滚');
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // REF-01-S4: secureStorageProvider 返回 ISecureStorage（A2 调用方适配）
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  group('REF-01-S4: secureStorageProvider 返回 ISecureStorage', () {
+    test('REF-01-S4: ref.read(secureStorageProvider) 运行时为 ISecureStorage', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      expect(container.read(secureStorageProvider), isA<ISecureStorage>(),
+          reason: 'REF-01-S4: provider 必须暴露 ISecureStorage 契约而非具体类');
     });
   });
 }

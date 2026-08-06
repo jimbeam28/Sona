@@ -24,10 +24,9 @@
 import 'dart:async';
 import 'dart:math';
 
-import 'package:flutter/foundation.dart';
-import 'package:just_audio/just_audio.dart';
-
+import '../../../core/contracts/audio_player_contract.dart';
 import '../../../core/services/audio_source_builder.dart';
+import '../../../core/services/log_forwarder.dart';
 import '../../../shared/models/connection_config.dart';
 import '../../../shared/models/nas_file.dart';
 import '../../../shared/models/play_queue.dart';
@@ -84,7 +83,7 @@ abstract class QueueConnectionIdProvider {
 /// All external dependencies are injected through the constructor.
 /// This class contains zero Riverpod or Flutter widget dependencies.
 class PlaybackOrchestrator {
-  final AudioPlayer player;
+  final IAudioPlayer player;
   final ActiveConnectionProvider connectionProvider;
   final PasswordReader passwordReader;
   final ProgressSaver progressSaver;
@@ -238,7 +237,7 @@ class PlaybackOrchestrator {
           // Record active connection ID.
           _activeConnectionId = activeConn.id;
 
-          return TrackLoadResult.loaded(player);
+          return const TrackLoadResult.loaded();
         } catch (e) {
           return const TrackLoadResult.failed();
         }
@@ -410,7 +409,7 @@ class PlaybackOrchestrator {
       // is fire-and-forget, so the error must never surface as an unhandled
       // async error, but it must not vanish silently either (observability
       // via log — never swallow without logging).
-      debugPrint('[Player] saveProgress failed: $e');
+      debugLog('[Player] saveProgress failed: $e');
     }));
   }
 

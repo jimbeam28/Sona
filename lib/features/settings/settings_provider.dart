@@ -25,25 +25,33 @@ const _service = SettingsService();
 
 /// Returns the [ThemeMode] stored in [prefs], or [ThemeMode.system] if not set.
 ///
-/// Delegates to [SettingsService.getThemeMode].
-ThemeMode getThemeMode(SharedPreferences? prefs) =>
-    _service.getThemeMode(prefs);
+/// REF-01-S2: the domain layer stores theme mode as a String; this provider
+/// boundary maps the String back to the [ThemeMode] enum.
+ThemeMode getThemeMode(SharedPreferences? prefs) {
+  final raw = _service.getThemeMode(prefs);
+  return ThemeMode.values.cast<ThemeMode?>().firstWhere(
+        (e) => e!.name == raw,
+        orElse: () => ThemeMode.system,
+      )!;
+}
 
 /// Persists [mode] to SharedPreferences.
 ///
-/// Delegates to [SettingsService.setThemeMode].
+/// REF-01-S2: maps the [ThemeMode] enum to its name String for the domain
+/// layer.  Storage key and value format are unchanged.
 void setThemeMode(SharedPreferences? prefs, ThemeMode mode) =>
-    _service.setThemeMode(prefs, mode);
+    _service.setThemeMode(prefs, mode.name);
 
 /// Human-readable Chinese label for a [ThemeMode].
 ///
-/// Delegates to [SettingsService.labelForThemeMode].
-String labelForThemeMode(ThemeMode mode) => _service.labelForThemeMode(mode);
+/// REF-01-S2: delegates to the domain layer's String-based label function.
+String labelForThemeMode(ThemeMode mode) =>
+    _service.labelForThemeMode(mode.name);
 
 /// The currently active theme mode, persisted to SharedPreferences.
 final themeModeProvider = Provider<ThemeMode>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
-  return _service.getThemeMode(prefs);
+  return getThemeMode(prefs);
 });
 
 /// Persists a new theme mode to SharedPreferences and invalidates
@@ -52,7 +60,7 @@ final setThemeModeProvider = Provider<void Function(ThemeMode)>((ref) {
   return (ThemeMode mode) {
     debugPrint('[Settings] themeMode: ${mode.name}');
     final prefs = ref.read(sharedPreferencesProvider);
-    _service.setThemeMode(prefs, mode);
+    setThemeMode(prefs, mode);
     ref.invalidate(themeModeProvider);
   };
 });
@@ -100,11 +108,12 @@ final setRememberSpeedProvider = Provider<void Function(bool)>((ref) {
 
 /// The seek step setting, persisted to SharedPreferences.
 ///
-/// Reads the value from SharedPreferences on first access.  When
-/// SharedPreferences is unavailable (test environments) defaults to 15.
+/// REF-01-A5: reads SharedPreferences directly (the domain layer no longer
+/// exposes a reader function).  When SharedPreferences is unavailable (test
+/// environments) defaults to 15.
 final seekStepSettingProvider = Provider<int>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
-  return readSeekStep(prefs);
+  return prefs?.getInt(seekStepPrefsKey) ?? defaultSeekStep;
 });
 
 /// Persists a new seek step to SharedPreferences and invalidates both

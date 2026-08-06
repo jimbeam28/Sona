@@ -41,6 +41,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:nas_audio_player/core/contracts/audio_player_contract.dart';
 import 'package:mockito/mockito.dart';
 import 'package:nas_audio_player/features/player/domain/playback_orchestrator.dart';
 import 'package:nas_audio_player/features/player/domain/request_gate.dart';
@@ -123,7 +124,7 @@ class _FakeQueueConnIdProvider implements QueueConnectionIdProvider {
 /// parameter conflict — same rationale as aud_02's `_LenientMockPlayer`.
 /// Unimplemented members throw via [Fake], so any unexpected player access
 /// fails the test loudly.
-class _FakePlayer extends Fake implements AudioPlayer {
+class _FakePlayer extends Fake implements AudioPlayer, IAudioPlayer {
   int setAudioSourceCalls = 0;
   bool playingStub = true;
   Duration positionStub = const Duration(seconds: 30);
@@ -450,7 +451,7 @@ void main() {
         }),
         loadAndPlayProvider.overrideWithValue(() async {
           loads.add('loadAndPlay');
-          return TrackLoadResult.loaded(player);
+          return const TrackLoadResult.loaded();
         }),
       ]);
       addTearDown(container.dispose);

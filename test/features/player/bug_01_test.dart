@@ -57,7 +57,7 @@ ProviderContainer _createContainer({
       timerServiceProvider.overrideWith((ref) => timerService),
       saveProgressProvider.overrideWith((ref) => () {}),
       loadAndPlayProvider
-          .overrideWith((ref) => () async => TrackLoadResult.loaded(player)),
+          .overrideWith((ref) => () async => const TrackLoadResult.loaded()),
     ],
   );
 }

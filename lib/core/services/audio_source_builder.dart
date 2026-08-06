@@ -9,10 +9,10 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:meta/meta.dart';
 
+import '../contracts/storage_contract.dart';
 import 'storage_utils.dart';
 
 class AudioSourceBuilder {
@@ -139,7 +139,7 @@ class AudioSourceBuilder {
 /// Pre-loads audio source for a track so the mini player bar works
 /// immediately after app start.
 Future<void> preloadAudioSource({
-  required FlutterSecureStorage storage,
+  required ISecureStorage storage,
   required int connectionId,
   required String baseUrl,
   required String filePath,

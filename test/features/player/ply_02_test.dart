@@ -22,6 +22,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:mockito/mockito.dart';
+import 'package:nas_audio_player/core/contracts/audio_player_contract.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/features/player/domain/seek_utils.dart';
 import 'package:nas_audio_player/features/player/player_screen.dart';
@@ -46,7 +47,7 @@ Widget _wrapPlayerScreen({
       currentPlayQueueProvider.overrideWith((ref) => queue),
       seekStepProvider.overrideWith((ref) => seekStep),
       loadAndPlayProvider.overrideWith(
-        (ref) => () async => TrackLoadResult.loaded(player),
+        (ref) => () async => const TrackLoadResult.loaded(),
       ),
     ],
     child: const MaterialApp(home: PlayerScreen()),
@@ -1032,7 +1033,7 @@ void main() {
           reason: 'TST-T132: failed状态isLoaded应为false');
       expect(result.isSuperseded, isFalse,
           reason: 'TST-T132: failed状态isSuperseded应为false');
-      expect(result.player, isNull, reason: 'TST-T132: failed状态player应为null');
+      // REF-01-A3: TrackLoadResult 已移除 player 字段 —— loaded 状态只需标记成功。
     });
 
     // ── TST-T133: setAudioSource failure → PlayerLoadState.error ──────────────
@@ -1060,6 +1061,40 @@ void main() {
       expect(timeoutError.isAuthError, isFalse, reason: 'TST-T133: 超时错误非认证错误');
       expect(timeoutError.errorMessage, contains('超时'),
           reason: 'TST-T133: 超时错误消息应包含"超时"');
+    });
+  });
+
+  // ── REF-01-S5/S6: TrackLoadResult 无 player 字段 + IAudioPlayer 适配 ───────
+
+  group('REF-01-S5/S6: TrackLoadResult 去 player 字段 + IAudioPlayer', () {
+    test('REF-01-S5: TrackLoadResult.loaded() 无参构造, isLoaded 仅由 status 决定', () {
+      const result = TrackLoadResult.loaded();
+      expect(result.status, equals(TrackLoadStatus.loaded),
+          reason: 'REF-01-S5: loaded 状态 status 应为 loaded');
+      expect(result.isLoaded, isTrue,
+          reason: 'REF-01-S5: loaded 状态下 isLoaded 应为 true');
+      expect(result.isSuperseded, isFalse,
+          reason: 'REF-01-S5: loaded 状态下 isSuperseded 应为 false');
+    });
+
+    test('REF-01-S5: failed/superseded 否定断言 —— isLoaded 恒为 false', () {
+      const failed = TrackLoadResult.failed();
+      expect(failed.isLoaded, isFalse,
+          reason: 'REF-01-S5: failed 状态下 isLoaded 必须为 false');
+      const superseded = TrackLoadResult.superseded();
+      expect(superseded.isLoaded, isFalse,
+          reason: 'REF-01-S5: superseded 状态下 isLoaded 必须为 false');
+      expect(superseded.isSuperseded, isTrue,
+          reason: 'REF-01-S5: superseded 状态下 isSuperseded 应为 true');
+    });
+
+    test('REF-01-S6: MockAudioPlayer 满足 IAudioPlayer 契约（构造注入前提）', () {
+      final player = MockAudioPlayer();
+      // 编译期断言：mock 必须可赋给 IAudioPlayer —— PlaybackOrchestrator
+      // 构造函数收 IAudioPlayer 时所有测试的 player 实例仍可注入。
+      final IAudioPlayer contractPlayer = player;
+      expect(contractPlayer, isA<IAudioPlayer>(),
+          reason: 'REF-01-S6: mock 应实现 IAudioPlayer 契约');
     });
   });
 

@@ -7,8 +7,8 @@
 // Uses sqflite_common_ffi for an in-memory SQLite database.
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nas_audio_player/core/contracts/storage_contract.dart';
 import 'package:nas_audio_player/core/database/dao/connection_dao.dart';
 import 'package:nas_audio_player/features/connection/connection_provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -21,7 +21,10 @@ import '../../helpers/test_factories.dart';
 /// Minimal fake [FlutterSecureStorage] backed by an in-memory map.
 /// Overrides [delete] in addition to [read] and [write] so that the
 /// delete provider can remove password entries during tests.
-class FakeSecureStorage extends FlutterSecureStorage {
+class FakeSecureStorage implements ISecureStorage {
+  @override
+  Future<bool> containsKey({required String key}) async =>
+      _store.containsKey(key);
   final Map<String, String> _store = {};
 
   void stub(String key, String value) => _store[key] = value;
@@ -29,12 +32,6 @@ class FakeSecureStorage extends FlutterSecureStorage {
   @override
   Future<String?> read({
     required String key,
-    IOSOptions? iOptions,
-    AndroidOptions? aOptions,
-    LinuxOptions? lOptions,
-    WindowsOptions? wOptions,
-    WebOptions? webOptions,
-    MacOsOptions? mOptions,
   }) async {
     return _store[key];
   }
@@ -43,12 +40,6 @@ class FakeSecureStorage extends FlutterSecureStorage {
   Future<void> write({
     required String key,
     required String? value,
-    IOSOptions? iOptions,
-    AndroidOptions? aOptions,
-    LinuxOptions? lOptions,
-    WindowsOptions? wOptions,
-    WebOptions? webOptions,
-    MacOsOptions? mOptions,
   }) async {
     if (value != null) {
       _store[key] = value;
@@ -60,12 +51,6 @@ class FakeSecureStorage extends FlutterSecureStorage {
   @override
   Future<void> delete({
     required String key,
-    IOSOptions? iOptions,
-    AndroidOptions? aOptions,
-    LinuxOptions? lOptions,
-    WindowsOptions? wOptions,
-    WebOptions? webOptions,
-    MacOsOptions? mOptions,
   }) async {
     _store.remove(key);
   }

@@ -26,6 +26,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:nas_audio_player/core/contracts/audio_player_contract.dart';
 import 'package:nas_audio_player/features/player/domain/playback_orchestrator.dart';
 import 'package:nas_audio_player/shared/models/connection_config.dart';
 import 'package:nas_audio_player/shared/models/play_queue.dart';
@@ -96,7 +97,7 @@ class _FakeQueueConnIdProvider implements QueueConnectionIdProvider {
 ///
 /// Unimplemented members throw via [Fake], so any unexpected player access
 /// fails the test loudly.
-class _FakePlayer extends Fake implements AudioPlayer {
+class _FakePlayer extends Fake implements AudioPlayer, IAudioPlayer {
   int setAudioSourceCalls = 0;
   bool playingStub = true;
   Duration positionStub = const Duration(seconds: 42);

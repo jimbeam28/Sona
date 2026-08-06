@@ -20,6 +20,7 @@ import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:nas_audio_player/core/contracts/audio_player_contract.dart';
 import 'package:nas_audio_player/features/player/domain/playback_orchestrator.dart';
 import 'package:nas_audio_player/shared/models/connection_config.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
@@ -69,7 +70,7 @@ class _FakeQueueConnIdProvider implements QueueConnectionIdProvider {
 }
 
 /// Minimal fake [AudioPlayer]; unimplemented members throw via [Fake].
-class _FakePlayer extends Fake implements AudioPlayer {
+class _FakePlayer extends Fake implements AudioPlayer, IAudioPlayer {
   int setAudioSourceCalls = 0;
 
   @override

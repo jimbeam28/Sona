@@ -25,9 +25,25 @@ List<NasFile> sortFiles(List<NasFile> files, SortOption option) =>
 
 final sharedPreferencesProvider = Provider<SharedPreferences?>((ref) => null);
 
+/// REF-01-A6: SharedPreferences-backed [ISortOptionPersist] — keeps the
+/// domain layer free of platform-plugin imports.
+class SharedPreferencesSortOptionPersist implements ISortOptionPersist {
+  final SharedPreferences? _prefs;
+  SharedPreferencesSortOptionPersist(this._prefs);
+
+  static const _key = 'browser_sort_option';
+
+  @override
+  String? readSortOption() => _prefs?.getString(_key);
+
+  @override
+  void writeSortOption(String name) => _prefs?.setString(_key, name);
+}
+
 final sortOptionProvider =
-    StateNotifierProvider<SortOptionNotifier, SortOption>(
-        (ref) => SortOptionNotifier(ref.read(sharedPreferencesProvider)));
+    StateNotifierProvider<SortOptionNotifier, SortOption>((ref) =>
+        SortOptionNotifier(SharedPreferencesSortOptionPersist(
+            ref.read(sharedPreferencesProvider))));
 
 final directoryCacheProvider =
     StateProvider<Map<String, CacheEntry<List<NasFile>>>>((ref) => {});

@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/features/browser/browser_screen.dart';
+import 'package:nas_audio_player/features/browser/domain/directory_service.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -22,12 +23,44 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 // testDir() and testAudio() are imported from test_factories.dart as
 // testDir() and testAudio().
 
-/// Creates a [SortOptionNotifier] backed by a mock [SharedPreferences].
+/// REF-01-A6: 以 SharedPreferences 为后端的 [ISortOptionPersist] fake ——
+/// 持久化 key 与格式保持不变（browser_sort_option）。
+class _PrefsSortPersist implements ISortOptionPersist {
+  final SharedPreferences prefs;
+  _PrefsSortPersist(this.prefs);
+
+  @override
+  String? readSortOption() => prefs.getString('browser_sort_option');
+
+  @override
+  void writeSortOption(String name) =>
+      prefs.setString('browser_sort_option', name);
+}
+
+/// REF-01-A6: 纯内存版 [ISortOptionPersist] fake —— 只验证 domain 层
+/// SortOptionNotifier 与持久化抽象的交互，不依赖 SharedPreferences。
+class _MemorySortPersist implements ISortOptionPersist {
+  String? value;
+  int writeCount = 0;
+  _MemorySortPersist([this.value]);
+
+  @override
+  String? readSortOption() => value;
+
+  @override
+  void writeSortOption(String name) {
+    value = name;
+    writeCount++;
+  }
+}
+
+/// Creates a [SortOptionNotifier] backed by a mock [SharedPreferences]
+/// through the [ISortOptionPersist] abstraction (REF-01-A6).
 Future<SortOptionNotifier> _notifierWithPrefs(
     Map<String, Object> initialValues) async {
   SharedPreferences.setMockInitialValues(initialValues);
   final prefs = await SharedPreferences.getInstance();
-  return SortOptionNotifier(prefs);
+  return SortOptionNotifier(_PrefsSortPersist(prefs));
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -396,6 +429,53 @@ void main() {
       expect(file.size, isNull);
       expect(file.modifiedAt, isNull);
       expect(file.audioType, equals(AudioFileType.music));
+    });
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // REF-01-S9: SortOptionNotifier 接受 ISortOptionPersist 抽象（A6）
+  // ═════════════════════════════════════════════════════════════════════════════
+
+  group('REF-01-S9: SortOptionNotifier 通过 ISortOptionPersist 持久化', () {
+    test('REF-01-S9: 接受内存版 ISortOptionPersist, 无持久化值时默认 nameAsc', () {
+      final persist = _MemorySortPersist();
+      final notifier = SortOptionNotifier(persist);
+      addTearDown(notifier.dispose);
+
+      expect(notifier.state, equals(SortOption.nameAsc),
+          reason: 'REF-01-S9: 无持久化值时默认名称升序');
+      expect(persist.writeCount, equals(0),
+          reason: 'REF-01-S9: 构造时不得写持久化（否定断言）');
+    });
+
+    test('REF-01-S9: setOption 经 writeSortOption 持久化, 新实例可恢复', () {
+      final persist = _MemorySortPersist();
+      final notifier = SortOptionNotifier(persist);
+      addTearDown(notifier.dispose);
+
+      notifier.setOption(SortOption.nameDesc);
+      expect(notifier.state, equals(SortOption.nameDesc),
+          reason: 'REF-01-S9: 设置后 state 应更新');
+      expect(persist.value, equals('nameDesc'),
+          reason: 'REF-01-S9: 应通过 writeSortOption 写入 nameDesc');
+      expect(persist.writeCount, equals(1), reason: 'REF-01-S9: 仅写入一次');
+
+      final restored = SortOptionNotifier(_MemorySortPersist('nameDesc'));
+      addTearDown(restored.dispose);
+      expect(restored.state, equals(SortOption.nameDesc),
+          reason: 'REF-01-S9: 新实例应从持久化抽象恢复排序偏好');
+    });
+
+    test('REF-01-S9: SharedPreferences 后端下 key 与值格式不变', () async {
+      // BRW-T40 语义保留：经 ISortOptionPersist 适配层读写 browser_sort_option。
+      final notifier = await _notifierWithPrefs({});
+      addTearDown(notifier.dispose);
+
+      notifier.setOption(SortOption.modifiedDesc);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('browser_sort_option'), equals('modifiedDesc'),
+          reason: 'REF-01-S9: 持久化 key 与值格式必须保持不变');
     });
   });
 }

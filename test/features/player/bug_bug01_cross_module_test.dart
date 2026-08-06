@@ -69,7 +69,7 @@ void main() {
           onTrackCompletedProvider.overrideWithValue(() => false),
           saveProgressProvider.overrideWithValue(() {}),
           loadAndPlayProvider.overrideWithValue(() async {
-            return TrackLoadResult.loaded(mockPlayer);
+            return const TrackLoadResult.loaded();
           }),
         ],
       );

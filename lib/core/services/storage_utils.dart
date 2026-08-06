@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+import '../contracts/storage_contract.dart';
 
 /// Thrown when [safeStorageRead] exceeds its timeout.
 /// Callers can distinguish "no value" (null) from "timeout" (this exception).
@@ -19,7 +20,7 @@ class SecureStorageTimeoutException implements Exception {
 /// Throws [SecureStorageTimeoutException] on timeout.
 /// Returns null on other errors (logged).
 Future<String?> safeStorageRead(
-  FlutterSecureStorage storage, {
+  ISecureStorage storage, {
   required String key,
 }) async {
   try {
@@ -37,7 +38,7 @@ Future<String?> safeStorageRead(
 /// Writes to [storage] with a 5-second timeout.
 /// Throws [TimeoutException] on timeout.
 Future<void> safeStorageWrite(
-  FlutterSecureStorage storage, {
+  ISecureStorage storage, {
   required String key,
   required String? value,
 }) async {
@@ -54,7 +55,7 @@ Future<void> safeStorageWrite(
 /// Deletes from [storage] with a 5-second timeout.
 /// Throws [TimeoutException] on timeout.
 Future<void> safeStorageDelete(
-  FlutterSecureStorage storage, {
+  ISecureStorage storage, {
   required String key,
 }) async {
   try {

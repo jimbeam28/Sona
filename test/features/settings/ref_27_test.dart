@@ -4,7 +4,6 @@
 // Tests the pure Dart domain service for theme, speed, and seek step
 // read/write persistence via SharedPreferences.
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -18,58 +17,60 @@ void main() {
   // ═══════════════════════════════════════════════════════════════════════════
 
   group('REF-27-T01: 主题读写持久化', () {
+    // REF-01-A1: domain 层用 String 表示 theme mode（'system'/'light'/'dark'），
+    // String ↔ ThemeMode 映射在 provider 层。
+
     test('getThemeMode with null prefs returns system', () {
-      expect(service.getThemeMode(null), equals(ThemeMode.system));
+      expect(service.getThemeMode(null), equals('system'));
     });
 
     test('getThemeMode with empty prefs returns system', () async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
-      expect(service.getThemeMode(prefs), equals(ThemeMode.system));
+      expect(service.getThemeMode(prefs), equals('system'));
     });
 
     test('setThemeMode persists to SharedPreferences', () async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
 
-      service.setThemeMode(prefs, ThemeMode.dark);
+      service.setThemeMode(prefs, 'dark');
 
       expect(prefs.getString('theme_mode'), equals('dark'));
-      expect(service.getThemeMode(prefs), equals(ThemeMode.dark));
+      expect(service.getThemeMode(prefs), equals('dark'));
     });
 
     test('setThemeMode with null prefs does not throw', () {
-      expect(
-          () => service.setThemeMode(null, ThemeMode.light), returnsNormally);
+      expect(() => service.setThemeMode(null, 'light'), returnsNormally);
     });
 
     test('getThemeMode reads all three modes correctly', () async {
-      for (final mode in ThemeMode.values) {
-        SharedPreferences.setMockInitialValues({'theme_mode': mode.name});
+      for (final mode in ['system', 'light', 'dark']) {
+        SharedPreferences.setMockInitialValues({'theme_mode': mode});
         final prefs = await SharedPreferences.getInstance();
         expect(service.getThemeMode(prefs), equals(mode),
-            reason: 'Should read ${mode.name} correctly');
+            reason: 'Should read $mode correctly');
       }
     });
 
     test('getThemeMode with invalid string returns system', () async {
       SharedPreferences.setMockInitialValues({'theme_mode': 'invalid'});
       final prefs = await SharedPreferences.getInstance();
-      expect(service.getThemeMode(prefs), equals(ThemeMode.system));
+      expect(service.getThemeMode(prefs), equals('system'));
     });
 
     test('theme mode round-trip: write then read', () async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
 
-      service.setThemeMode(prefs, ThemeMode.light);
-      expect(service.getThemeMode(prefs), equals(ThemeMode.light));
+      service.setThemeMode(prefs, 'light');
+      expect(service.getThemeMode(prefs), equals('light'));
 
-      service.setThemeMode(prefs, ThemeMode.dark);
-      expect(service.getThemeMode(prefs), equals(ThemeMode.dark));
+      service.setThemeMode(prefs, 'dark');
+      expect(service.getThemeMode(prefs), equals('dark'));
 
-      service.setThemeMode(prefs, ThemeMode.system);
-      expect(service.getThemeMode(prefs), equals(ThemeMode.system));
+      service.setThemeMode(prefs, 'system');
+      expect(service.getThemeMode(prefs), equals('system'));
     });
   });
 

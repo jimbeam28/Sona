@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-08-04",
+    "last_updated": "2026-08-06",
     "total": 20,
     "pending": 20,
     "total_items": 49
@@ -1156,6 +1156,17 @@
         "CON",
         "PLY",
         "BRW"
+      ],
+      "impl_status": "done",
+      "test_status": "passed",
+      "test_files": [
+        "test/features/browser/brw_07_test.dart",
+        "test/features/connection/ref_22_test.dart",
+        "test/features/coverage/ref_01_domain_pure_test.dart",
+        "test/features/player/ply_02_test.dart",
+        "test/features/settings/settings_test.dart",
+        "test/helpers/fake_secure_storage.dart",
+        "test/helpers/mock_audio_player.dart"
       ]
     },
     "REF-02": {

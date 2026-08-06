@@ -27,6 +27,7 @@ import 'dart:io';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:nas_audio_player/core/contracts/audio_player_contract.dart';
 import 'package:mockito/mockito.dart';
 import 'package:nas_audio_player/features/player/domain/playback_orchestrator.dart';
 import 'package:nas_audio_player/features/player/domain/request_gate.dart';
@@ -171,7 +172,7 @@ void main() {
 // Helpers（与 aud_02_boundary_test.dart 同型的轻量 mock，避免 build_runner）
 // ═══════════════════════════════════════════════════════════════════════════
 
-class _LenientMockPlayer extends Mock implements AudioPlayer {
+class _LenientMockPlayer extends Mock implements AudioPlayer, IAudioPlayer {
   @override
   Stream<PlayerState> get playerStateStream =>
       super.noSuchMethod(Invocation.getter(#playerStateStream),

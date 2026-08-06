@@ -6,7 +6,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/services/audio_handler.dart';
+import '../../core/services/audio_player_adapter.dart';
 import '../../shared/models/connection_config.dart';
 import '../../shared/models/nas_file.dart';
 import '../../shared/models/play_progress.dart';
@@ -42,13 +44,23 @@ export 'domain/request_gate.dart'
         TrackLoadResult,
         TrackLoadStatus;
 export 'domain/speed_manager.dart'
-    show speedOptions, isValidSpeed, getDefaultSpeed, readSeekStep;
+    show
+        speedOptions,
+        isValidSpeed,
+        defaultSpeedKey,
+        seekStepPrefsKey,
+        defaultSeekStep;
 
 final audioPlayerProvider = Provider<AudioPlayer>((ref) {
   final p = AudioPlayer();
   ref.onDispose(() => p.dispose());
   return p;
 });
+
+/// REF-01-A5: reads the default playback speed directly from
+/// [SharedPreferences] (domain layer no longer exposes a reader function).
+double _readDefaultSpeed(SharedPreferences? prefs) =>
+    prefs?.getDouble(sm.defaultSpeedKey) ?? 1.0;
 final audioPlayingProvider = StreamProvider<bool>((ref) {
   final player = ref.watch(audioPlayerProvider);
   return player.playingStream;
@@ -87,7 +99,7 @@ class _Deps
           durationMs: durationMs);
   @override
   double getDefaultSpeed() =>
-      sm.getDefaultSpeed(_ref.read(sharedPreferencesProvider));
+      _readDefaultSpeed(_ref.read(sharedPreferencesProvider));
   @override
   int? getLastQueueConnectionId() => _ref.read(lastQueueConnectionIdProvider);
 }
@@ -95,7 +107,7 @@ class _Deps
 final playbackOrchestratorProvider = Provider<PlaybackOrchestrator>((ref) {
   final d = _Deps(ref);
   final o = PlaybackOrchestrator(
-    player: ref.read(audioPlayerProvider),
+    player: AudioPlayerAdapter(ref.read(audioPlayerProvider)),
     connectionProvider: d,
     passwordReader: d,
     progressSaver: d,
@@ -124,8 +136,9 @@ final playbackOrchestratorProvider = Provider<PlaybackOrchestrator>((ref) {
   return o;
 });
 
-final seekStepProvider = StateProvider<int>(
-    (ref) => sm.readSeekStep(ref.watch(sharedPreferencesProvider)));
+final seekStepProvider = StateProvider<int>((ref) =>
+    ref.watch(sharedPreferencesProvider)?.getInt(sm.seekStepPrefsKey) ??
+    sm.defaultSeekStep);
 final playModeProvider = StateProvider<PlayMode>((ref) => PlayMode.sequential);
 final nextPlayModeProvider = Provider<PlayMode Function()>((ref) => () {
       final c = ref.read(playModeProvider);
@@ -152,8 +165,10 @@ IconData iconForPlayMode(PlayMode mode) => switch (mode) {
       PlayMode.repeatAll => Icons.repeat,
       PlayMode.shuffle => Icons.shuffle,
     };
-final defaultSpeedProvider = Provider<double>(
-    (ref) => sm.getDefaultSpeed(ref.watch(sharedPreferencesProvider)));
+final defaultSpeedProvider = Provider<double>((ref) {
+  final prefs = ref.watch(sharedPreferencesProvider);
+  return _readDefaultSpeed(prefs);
+});
 final setDefaultSpeedProvider = Provider<void Function(double)>((ref) => (s) {
       if (!sm.isValidSpeed(s)) return;
       ref.read(sharedPreferencesProvider)?.setDouble(sm.defaultSpeedKey, s);

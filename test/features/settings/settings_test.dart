@@ -15,6 +15,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/features/player/player_provider.dart';
 import 'package:nas_audio_player/features/settings/about_screen.dart';
+import 'package:nas_audio_player/features/settings/domain/settings_service.dart'
+    as settings_domain;
 import 'package:nas_audio_player/features/settings/settings_provider.dart';
 import 'package:nas_audio_player/features/settings/settings_screen.dart';
 
@@ -69,7 +71,7 @@ void main() {
   // ── SET-T01: First launch, no config → default speed 1.0 ──────────────────
 
   group('SET-01: 默认播放速度设置', () {
-    test('SET-T01: 首次启动无配置记录, getDefaultSpeed() 返回 1.0', () async {
+    test('SET-T01: 首次启动无配置记录, defaultSpeedProvider 返回 1.0', () async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
 
@@ -78,8 +80,8 @@ void main() {
 
       expect(container.read(defaultSpeedProvider), equals(1.0),
           reason: '首次启动应返回默认速度 1.0x');
-      expect(getDefaultSpeed(prefs), equals(1.0),
-          reason: 'getDefaultSpeed 在无存储时应返回 1.0');
+      // REF-01-A5: getDefaultSpeed 已从 domain 层移除，读取逻辑由 provider
+      // 直接完成 —— 此处以 defaultSpeedProvider 断言等价行为。
     });
 
     test('SET-T02: 设置默认速度为 1.5x, SharedPreferences 中持久化', () async {
@@ -249,13 +251,16 @@ void main() {
   // ═══════════════════════════════════════════════════════════════════════════════
 
   group('SET-04: 快进/快退步长设置', () {
-    test('SET-T17: 首次启动无配置记录, readSeekStep() 返回 15', () async {
+    test('SET-T17: 首次启动无配置记录, seekStepSettingProvider 返回 15', () async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
 
-      expect(readSeekStep(null), equals(15),
-          reason: 'prefs 为 null 时应返回默认步长 15秒');
-      expect(readSeekStep(prefs), equals(15), reason: '无存储时应返回默认步长 15秒');
+      // REF-01-A5: readSeekStep 已从 domain 层移除，读取逻辑由 provider 直接
+      // 完成 —— 以下通过 seekStepSettingProvider 断言等价行为。
+      final container = createContainer(prefs: prefs);
+      addTearDown(container.dispose);
+      expect(container.read(seekStepSettingProvider), equals(15),
+          reason: '无存储时应返回默认步长 15秒');
     });
 
     test('SET-T17b: seekStepSettingProvider 首次启动返回 15', () async {
@@ -509,6 +514,114 @@ void main() {
       expect(find.text('管理 NAS 连接'), findsOneWidget,
           reason: '应显示"管理 NAS 连接" ListTile');
       expect(find.text('添加、编辑或切换连接'), findsOneWidget, reason: '应显示连接管理的副标题说明');
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // REF-01-S1: settings_service ThemeMode → String 解耦（domain 层零 Flutter 依赖）
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  group('REF-01-S1: settings_service ThemeMode→String 解耦', () {
+    test('REF-01-S1: getThemeMode 返回 String, prefs 为 null 时返回 system', () {
+      expect(settings_domain.getThemeMode(null), equals('system'),
+          reason: 'prefs 为 null 时 domain 层应返回字符串 system');
+    });
+
+    test('REF-01-S1: getThemeMode 无存储时返回 system, 有存储返回对应 String', () async {
+      SharedPreferences.setMockInitialValues({});
+      final emptyPrefs = await SharedPreferences.getInstance();
+      expect(settings_domain.getThemeMode(emptyPrefs), equals('system'),
+          reason: '无存储时 domain 层应返回字符串 system');
+
+      SharedPreferences.setMockInitialValues({'theme_mode': 'dark'});
+      final darkPrefs = await SharedPreferences.getInstance();
+      expect(settings_domain.getThemeMode(darkPrefs), equals('dark'),
+          reason: '存储 dark 时 domain 层应返回字符串 dark');
+
+      SharedPreferences.setMockInitialValues({'theme_mode': 'light'});
+      final lightPrefs = await SharedPreferences.getInstance();
+      expect(settings_domain.getThemeMode(lightPrefs), equals('light'),
+          reason: '存储 light 时 domain 层应返回字符串 light');
+    });
+
+    test('REF-01-S1: setThemeMode 接受 String, 存储 key 与值格式不变', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+
+      settings_domain.setThemeMode(prefs, 'dark');
+      expect(prefs.getString('theme_mode'), equals('dark'),
+          reason: '存储 key 仍为 theme_mode, 值格式不变');
+    });
+
+    test('REF-01-S1: labelForThemeMode 接受 String 且输出不变', () {
+      expect(settings_domain.labelForThemeMode('light'), equals('亮色'),
+          reason: "'light' 应映射为 '亮色'");
+      expect(settings_domain.labelForThemeMode('dark'), equals('暗色'),
+          reason: "'dark' 应映射为 '暗色'");
+      expect(settings_domain.labelForThemeMode('system'), equals('跟随系统'),
+          reason: "'system' 应映射为 '跟随系统'");
+    });
+
+    test('REF-01-S1: labelForThemeMode 未知 String 回退到跟随系统', () {
+      expect(settings_domain.labelForThemeMode('unknown'), equals('跟随系统'),
+          reason: '未知模式应回退到"跟随系统"');
+      expect(settings_domain.labelForThemeMode(''), equals('跟随系统'),
+          reason: '空字符串应回退到"跟随系统"');
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // REF-01-S2: settings_provider String ↔ ThemeMode 映射正确性
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  group('REF-01-S2: settings_provider ThemeMode 映射', () {
+    test('REF-01-S2: 存储 dark → provider.getThemeMode 返回 ThemeMode.dark',
+        () async {
+      SharedPreferences.setMockInitialValues({'theme_mode': 'dark'});
+      final prefs = await SharedPreferences.getInstance();
+      expect(getThemeMode(prefs), equals(ThemeMode.dark),
+          reason: 'provider 层应把字符串 dark 映射为 ThemeMode.dark');
+    });
+
+    test('REF-01-S2: 存储非法值 → provider.getThemeMode 回退 ThemeMode.system',
+        () async {
+      SharedPreferences.setMockInitialValues({'theme_mode': 'invalid'});
+      final prefs = await SharedPreferences.getInstance();
+      expect(getThemeMode(prefs), equals(ThemeMode.system),
+          reason: '非法字符串应回退到 ThemeMode.system');
+    });
+
+    test('REF-01-S2: themeModeProvider 默认 ThemeMode.system', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+
+      final container = createContainer(prefs: prefs);
+      addTearDown(container.dispose);
+
+      expect(container.read(themeModeProvider), equals(ThemeMode.system),
+          reason: 'themeModeProvider 默认值必须保持 ThemeMode.system');
+    });
+
+    test('REF-01-S2: setThemeModeProvider 写 String, provider 读回 ThemeMode',
+        () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+
+      final container = createContainer(prefs: prefs);
+      addTearDown(container.dispose);
+
+      container.read(setThemeModeProvider)(ThemeMode.dark);
+
+      expect(prefs.getString('theme_mode'), equals('dark'),
+          reason: 'provider 层应把 ThemeMode.dark 映射为字符串 dark 持久化');
+      expect(container.read(themeModeProvider), equals(ThemeMode.dark),
+          reason: 'themeModeProvider 应反映新值 ThemeMode.dark');
+    });
+
+    test('REF-01-S2: provider labelForThemeMode 输出不变', () {
+      expect(labelForThemeMode(ThemeMode.system), equals('跟随系统'));
+      expect(labelForThemeMode(ThemeMode.light), equals('亮色'));
+      expect(labelForThemeMode(ThemeMode.dark), equals('暗色'));
     });
   });
 

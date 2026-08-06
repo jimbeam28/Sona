@@ -3,7 +3,6 @@
 // Extracted from browser_provider.dart (REF-19).
 // Zero Flutter dependencies — pure Dart.
 
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:state_notifier/state_notifier.dart';
 
 import '../../../core/network/webdav_client.dart';
@@ -22,13 +21,23 @@ enum SortOption {
   modifiedDesc,
 }
 
-/// Manages the current sort option, persisting to [SharedPreferences].
+/// REF-01-A6: domain abstraction for persisting the sort option — the
+/// provider layer supplies a SharedPreferences-backed implementation.
+abstract class ISortOptionPersist {
+  /// Reads the persisted sort option name, or null when never stored.
+  String? readSortOption();
+
+  /// Persists the sort option under its enum name.
+  void writeSortOption(String name);
+}
+
+/// Manages the current sort option, persisting through [ISortOptionPersist].
 class SortOptionNotifier extends StateNotifier<SortOption> {
-  final SharedPreferences? _prefs;
-  SortOptionNotifier(this._prefs) : super(SortOption.nameAsc) {
-    final prefs = _prefs;
-    if (prefs != null) {
-      final saved = prefs.getString('browser_sort_option');
+  final ISortOptionPersist? _persist;
+  SortOptionNotifier(this._persist) : super(SortOption.nameAsc) {
+    final persist = _persist;
+    if (persist != null) {
+      final saved = persist.readSortOption();
       if (saved != null) {
         state = SortOption.values.cast<SortOption?>().firstWhere(
             (e) => e!.name == saved,
@@ -39,7 +48,7 @@ class SortOptionNotifier extends StateNotifier<SortOption> {
   void setOption(SortOption option) {
     if (state == option) return;
     state = option;
-    _prefs?.setString('browser_sort_option', option.name);
+    _persist?.writeSortOption(option.name);
   }
 }
 

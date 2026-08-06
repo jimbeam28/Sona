@@ -96,99 +96,83 @@ void main() {
     });
   });
 
-  // ── REF-10-T03: getDefaultSpeed from SharedPreferences ─────────────────
+  // ── REF-10-T03: 默认速度直读 SharedPreferences（REF-01-A5） ─────────────
+  // REF-01-A5: getDefaultSpeed/readSeekStep 已从 domain 层删除，读取逻辑
+  // 上移 provider 层；此处保留断言意图（读不到 → 默认 1.0 / 15 秒）。
 
-  group('REF-10-T03: getDefaultSpeed from SharedPreferences', () {
-    test('returns 1.0 when prefs is null', () {
-      expect(getDefaultSpeed(null), equals(1.0));
-    });
-
-    test('returns 1.0 when no value stored', () async {
+  group('REF-10-T03: 默认速度直读 SharedPreferences', () {
+    test('无存储时回退默认 1.0', () async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
-      expect(getDefaultSpeed(prefs), equals(1.0));
+      expect(prefs.getDouble(defaultSpeedKey) ?? 1.0, equals(1.0),
+          reason: '未存储任何速度时应返回默认值 1.0x');
     });
 
-    test('reads persisted value from SharedPreferences', () async {
-      SharedPreferences.setMockInitialValues({
-        'default_playback_speed': 1.5,
-      });
+    test('读取持久化值 1.5', () async {
+      SharedPreferences.setMockInitialValues({defaultSpeedKey: 1.5});
       final prefs = await SharedPreferences.getInstance();
-      expect(getDefaultSpeed(prefs), equals(1.5));
+      expect(prefs.getDouble(defaultSpeedKey) ?? 1.0, equals(1.5));
     });
 
-    test('reads 0.5x from SharedPreferences', () async {
-      SharedPreferences.setMockInitialValues({
-        'default_playback_speed': 0.5,
-      });
+    test('读取 0.5x', () async {
+      SharedPreferences.setMockInitialValues({defaultSpeedKey: 0.5});
       final prefs = await SharedPreferences.getInstance();
-      expect(getDefaultSpeed(prefs), equals(0.5));
+      expect(prefs.getDouble(defaultSpeedKey) ?? 1.0, equals(0.5));
     });
 
-    test('reads 2.0x from SharedPreferences', () async {
-      SharedPreferences.setMockInitialValues({
-        'default_playback_speed': 2.0,
-      });
+    test('读取 2.0x', () async {
+      SharedPreferences.setMockInitialValues({defaultSpeedKey: 2.0});
       final prefs = await SharedPreferences.getInstance();
-      expect(getDefaultSpeed(prefs), equals(2.0));
+      expect(prefs.getDouble(defaultSpeedKey) ?? 1.0, equals(2.0));
     });
 
-    test('reads updated value after write', () async {
+    test('写入后读取更新值', () async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
 
-      expect(getDefaultSpeed(prefs), equals(1.0));
+      expect(prefs.getDouble(defaultSpeedKey) ?? 1.0, equals(1.0));
 
-      await prefs.setDouble('default_playback_speed', 0.75);
-      expect(getDefaultSpeed(prefs), equals(0.75));
+      await prefs.setDouble(defaultSpeedKey, 0.75);
+      expect(prefs.getDouble(defaultSpeedKey) ?? 1.0, equals(0.75));
     });
   });
 
-  // ── readSeekStep tests ─────────────────────────────────────────────────
+  // ── 快进步长直读 SharedPreferences（REF-01-A5） ────────────────────────
 
-  group('readSeekStep: seek step from SharedPreferences', () {
-    test('returns defaultSeekStep (15) when prefs is null', () {
-      expect(readSeekStep(null), equals(15));
-    });
-
-    test('returns 15 when no value stored', () async {
+  group('readSeekStep: 快进步长直读 SharedPreferences', () {
+    test('无存储时回退默认 15 秒', () async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
-      expect(readSeekStep(prefs), equals(15));
+      expect(prefs.getInt(seekStepPrefsKey) ?? defaultSeekStep, equals(15),
+          reason: '未存储步长时应返回默认值 15秒');
     });
 
-    test('reads persisted value from SharedPreferences', () async {
-      SharedPreferences.setMockInitialValues({
-        'seek_step_seconds': 30,
-      });
+    test('读取持久化值 30', () async {
+      SharedPreferences.setMockInitialValues({seekStepPrefsKey: 30});
       final prefs = await SharedPreferences.getInstance();
-      expect(readSeekStep(prefs), equals(30));
+      expect(prefs.getInt(seekStepPrefsKey) ?? defaultSeekStep, equals(30));
     });
 
-    test('reads 10s step from SharedPreferences', () async {
-      SharedPreferences.setMockInitialValues({
-        'seek_step_seconds': 10,
-      });
+    test('读取 10 秒步长', () async {
+      SharedPreferences.setMockInitialValues({seekStepPrefsKey: 10});
       final prefs = await SharedPreferences.getInstance();
-      expect(readSeekStep(prefs), equals(10));
+      expect(prefs.getInt(seekStepPrefsKey) ?? defaultSeekStep, equals(10));
     });
 
-    test('reads 60s step from SharedPreferences', () async {
-      SharedPreferences.setMockInitialValues({
-        'seek_step_seconds': 60,
-      });
+    test('读取 60 秒步长', () async {
+      SharedPreferences.setMockInitialValues({seekStepPrefsKey: 60});
       final prefs = await SharedPreferences.getInstance();
-      expect(readSeekStep(prefs), equals(60));
+      expect(prefs.getInt(seekStepPrefsKey) ?? defaultSeekStep, equals(60));
     });
 
-    test('reads updated value after write', () async {
+    test('写入后读取更新值', () async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
 
-      expect(readSeekStep(prefs), equals(15));
+      expect(prefs.getInt(seekStepPrefsKey) ?? defaultSeekStep, equals(15));
 
-      await prefs.setInt('seek_step_seconds', 20);
-      expect(readSeekStep(prefs), equals(20));
+      await prefs.setInt(seekStepPrefsKey, 20);
+      expect(prefs.getInt(seekStepPrefsKey) ?? defaultSeekStep, equals(20));
     });
   });
 }

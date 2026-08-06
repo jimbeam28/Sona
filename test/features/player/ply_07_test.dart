@@ -97,25 +97,21 @@ void main() {
       });
       final prefs = await SharedPreferences.getInstance();
 
-      // getDefaultSpeed reads the persisted value
-      expect(getDefaultSpeed(prefs), equals(1.5),
+      // REF-01-A5: getDefaultSpeed 已从 domain 层移除，provider 直读 prefs
+      expect(prefs.getDouble('default_playback_speed') ?? 1.0, equals(1.5),
           reason: '应从 SharedPreferences 读取保存的速度 1.5x');
 
       // Write a new default speed
       prefs.setDouble('default_playback_speed', 0.75);
-      expect(getDefaultSpeed(prefs), equals(0.75), reason: '写入 0.75x 后应能读取回来');
+      expect(prefs.getDouble('default_playback_speed') ?? 1.0, equals(0.75),
+          reason: '写入 0.75x 后应能读取回来');
     });
 
-    test('getDefaultSpeed returns 1.0 when prefs is null', () {
-      expect(getDefaultSpeed(null), equals(1.0),
-          reason: 'prefs 为 null 时应返回默认值 1.0x');
-    });
-
-    test('getDefaultSpeed returns 1.0 when no value stored', () async {
+    test('default speed 无存储时回退默认 1.0x', () async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
 
-      expect(getDefaultSpeed(prefs), equals(1.0),
+      expect(prefs.getDouble('default_playback_speed') ?? 1.0, equals(1.0),
           reason: '未存储任何速度时应返回默认值 1.0x');
     });
 

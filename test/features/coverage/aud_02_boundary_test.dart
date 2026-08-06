@@ -18,6 +18,7 @@ import 'dart:async';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:nas_audio_player/core/contracts/audio_player_contract.dart';
 import 'package:mockito/mockito.dart';
 import 'package:nas_audio_player/features/browser/domain/cache_policy.dart';
 import 'package:nas_audio_player/features/player/domain/playback_orchestrator.dart';
@@ -376,7 +377,7 @@ void main() {
 /// variant allows unstubbed method calls to return default values via
 /// [Mock.noSuchMethod].  This avoids the type-system conflict between
 /// Mockito's `any` matcher and non-nullable parameter types.
-class _LenientMockPlayer extends Mock implements AudioPlayer {
+class _LenientMockPlayer extends Mock implements AudioPlayer, IAudioPlayer {
   @override
   Stream<ProcessingState> get processingStateStream =>
       super.noSuchMethod(Invocation.getter(#processingStateStream),

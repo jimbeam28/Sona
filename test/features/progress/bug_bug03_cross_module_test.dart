@@ -78,7 +78,7 @@ void main() {
           progressDaoProvider.overrideWith((ref) => realDao),
           onTrackCompletedProvider.overrideWithValue(() => false),
           loadAndPlayProvider.overrideWithValue(() async {
-            return TrackLoadResult.loaded(mockPlayer);
+            return const TrackLoadResult.loaded();
           }),
         ],
       );

@@ -7,10 +7,3 @@
 #
 # 由 2026-07-23 cross-imports.sh 修复后首次全量扫描产出（旧版脚本 domain-flutter /
 # feature-isolation 检查因 rg 正则不兼容常年假 PASS，这些违规此前从未被检出）：
-
-domain-flutter	lib/features/browser/domain/directory_service.dart	# 注入式 SharedPreferences? 实例（刻意权衡：可 mock 测试）；债务：prefs 应走 contract 抽象
-domain-flutter	lib/features/connection/domain/connection_service.dart	# 直接注入 FlutterSecureStorage 具体类，绕过 ISecureStorage 契约
-domain-flutter	lib/features/player/domain/playback_orchestrator.dart	# 直接用 just_audio AudioPlayer/ProcessingState，绕过 IAudioPlayer 契约（player bug 高发根因之一）
-domain-flutter	lib/features/player/domain/request_gate.dart	# 同上，just_audio 类型直接依赖
-domain-flutter	lib/features/player/domain/speed_manager.dart	# 注入式 SharedPreferences? 实例（刻意权衡）
-domain-flutter	lib/features/settings/domain/settings_service.dart	# 注入式 SharedPreferences?（刻意权衡）+ ThemeMode 枚举耦合 flutter/material

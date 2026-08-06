@@ -9,6 +9,11 @@ import 'dart:async';
 
 import 'package:just_audio/just_audio.dart';
 
+// REF-01-A4: the contract layer is the legitimate just_audio bridge — domain
+// code imports this contract (never just_audio directly) and receives the
+// stream element types through this re-export.
+export 'package:just_audio/just_audio.dart' show PlayerState, ProcessingState;
+
 /// Abstract interface for audio playback.
 ///
 /// Mirrors the subset of [AudioPlayer] methods used by the application so

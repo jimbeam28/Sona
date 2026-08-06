@@ -814,7 +814,7 @@ void main() {
           // Track loadAndPlay calls; return a successful result
           loadAndPlayProvider.overrideWithValue(() async {
             loadAndPlayCalls.add('loadAndPlay');
-            return TrackLoadResult.loaded(mockPlayer);
+            return const TrackLoadResult.loaded();
           }),
         ],
       );
@@ -1013,7 +1013,7 @@ void main() {
 
           // Tracked loadAndPlay
           loadAndPlayProvider.overrideWithValue(() async {
-            return TrackLoadResult.loaded(player2);
+            return const TrackLoadResult.loaded();
           }),
         ],
       );
@@ -1133,7 +1133,7 @@ void main() {
           // and the real loadAndPlayProvider's finally block resetting it.
           loadAndPlayProvider.overrideWithValue(() async {
             loadAndPlayCalls.add('loadAndPlay');
-            return TrackLoadResult.loaded(mockPlayer);
+            return const TrackLoadResult.loaded();
           }),
         ],
       );
@@ -1234,7 +1234,7 @@ void main() {
           saveProgressProvider.overrideWithValue(() {}),
           loadAndPlayProvider.overrideWithValue(() async {
             loadCalls2.add('loadAndPlay');
-            return TrackLoadResult.loaded(player2);
+            return const TrackLoadResult.loaded();
           }),
         ],
       );

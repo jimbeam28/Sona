@@ -9,6 +9,8 @@ import 'package:audio_session/audio_session.dart' as _i5;
 import 'package:just_audio/just_audio.dart' as _i2;
 import 'package:mockito/mockito.dart' as _i1;
 import 'package:mockito/src/dummies.dart' as _i4;
+import 'package:nas_audio_player/core/contracts/audio_player_contract.dart'
+    as _i8;
 import 'package:nas_audio_player/features/player/domain/playback_orchestrator.dart'
     as _i6;
 import 'package:nas_audio_player/shared/models/connection_config.dart' as _i7;
@@ -61,7 +63,8 @@ class _FakePlayerState_2 extends _i1.SmartFake implements _i2.PlayerState {
 /// A class which mocks [AudioPlayer].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockAudioPlayer extends _i1.Mock implements _i2.AudioPlayer {
+class MockAudioPlayer extends _i1.Mock
+    implements _i2.AudioPlayer, _i8.IAudioPlayer {
   MockAudioPlayer() {
     _i1.throwOnMissingStub(this);
   }

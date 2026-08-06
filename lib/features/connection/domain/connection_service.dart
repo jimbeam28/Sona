@@ -9,20 +9,19 @@
 // - delete: last-connection protection + secure-storage cleanup + auto-activate
 // - setActive: transactional switch (single active connection)
 
-import 'package:flutter/foundation.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-
+import '../../../core/contracts/storage_contract.dart';
 import '../../../core/database/dao/connection_dao.dart';
+import '../../../core/services/log_forwarder.dart';
 import '../../../core/services/storage_utils.dart';
 import '../../../shared/models/connection_config.dart';
 
 /// Pure-Dart service for connection lifecycle operations.
 ///
-/// Depends only on [ConnectionDao] and [FlutterSecureStorage] — no Flutter
+/// Depends only on [ConnectionDao] and [ISecureStorage] — no Flutter
 /// framework, no Riverpod, no BuildContext.
 class ConnectionService {
   final ConnectionDao _dao;
-  final FlutterSecureStorage _storage;
+  final ISecureStorage _storage;
 
   ConnectionService(this._dao, this._storage);
 
@@ -127,7 +126,7 @@ class ConnectionService {
       // failure). But the error must not vanish silently either: catch-log
       // discipline (same criterion as CON1/BUG-19/LIST6). Only the key name
       // and the exception are logged — never a secret value.
-      debugPrint('[Conn] delete: secure storage cleanup failed for id=$id: $e');
+      debugLog('[Conn] delete: secure storage cleanup failed for id=$id: $e');
     }
     return wasActive;
   }

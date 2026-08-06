@@ -34,7 +34,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nas_audio_player/core/database/dao/connection_dao.dart';
@@ -141,16 +140,7 @@ class _GateableThrowingStorage extends FakeSecureStorage {
   Completer<void>? writeGate;
 
   @override
-  Future<void> write({
-    required String key,
-    required String? value,
-    IOSOptions? iOptions,
-    AndroidOptions? aOptions,
-    LinuxOptions? lOptions,
-    WindowsOptions? wOptions,
-    WebOptions? webOptions,
-    MacOsOptions? mOptions,
-  }) async {
+  Future<void> write({required String key, required String? value}) async {
     if (writeGate != null) await writeGate!.future;
     throw Exception('Simulated secure storage write failure');
   }

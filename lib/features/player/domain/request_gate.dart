@@ -12,8 +12,6 @@
 
 import 'dart:async';
 
-import 'package:just_audio/just_audio.dart';
-
 // ── Player load state ──────────────────────────────────────────────────────────
 
 /// Lifecycle of loading an audio source into the player.
@@ -90,20 +88,21 @@ enum TrackLoadStatus {
 }
 
 /// Outcome wrapper for serialized load requests.
+///
+/// REF-01-A3: no longer holds an AudioPlayer reference — a loaded result
+/// only marks success (the caller already owns the player instance).
 class TrackLoadResult {
   final TrackLoadStatus status;
-  final AudioPlayer? player;
 
-  const TrackLoadResult._(this.status, this.player);
+  const TrackLoadResult._(this.status);
 
-  const TrackLoadResult.loaded(AudioPlayer player)
-      : this._(TrackLoadStatus.loaded, player);
+  const TrackLoadResult.loaded() : this._(TrackLoadStatus.loaded);
 
-  const TrackLoadResult.failed() : this._(TrackLoadStatus.failed, null);
+  const TrackLoadResult.failed() : this._(TrackLoadStatus.failed);
 
-  const TrackLoadResult.superseded() : this._(TrackLoadStatus.superseded, null);
+  const TrackLoadResult.superseded() : this._(TrackLoadStatus.superseded);
 
-  bool get isLoaded => status == TrackLoadStatus.loaded && player != null;
+  bool get isLoaded => status == TrackLoadStatus.loaded;
   bool get isSuperseded => status == TrackLoadStatus.superseded;
 }
 

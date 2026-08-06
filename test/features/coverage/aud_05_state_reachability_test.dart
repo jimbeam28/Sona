@@ -41,8 +41,6 @@ import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:nas_audio_player/shared/models/play_progress.dart';
 import 'package:nas_audio_player/shared/models/play_queue.dart';
 
-import 'aud_05_state_reachability_test.mocks.dart';
-
 // ═══════════════════════════════════════════════════════════════════════════════
 // Generate mocks
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -262,8 +260,7 @@ void main() {
 
   group('AUD-05-T05: TrackLoadResult state reachability', () {
     test('loaded: successful load', () {
-      final player = MockAudioPlayer();
-      final result = TrackLoadResult.loaded(player);
+      final result = const TrackLoadResult.loaded();
       expect(result.isLoaded, true);
       expect(result.isSuperseded, false);
       expect(result.status, TrackLoadStatus.loaded);

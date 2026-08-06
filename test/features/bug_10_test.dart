@@ -9,9 +9,9 @@
 
 import 'dart:async';
 
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fake_async/fake_async.dart';
+import 'package:nas_audio_player/core/contracts/storage_contract.dart';
 import 'package:nas_audio_player/core/services/storage_utils.dart';
 
 void main() {
@@ -112,7 +112,14 @@ void main() {
 // ── Manual fakes ─────────────────────────────────────────────────────────────
 
 /// Fake [FlutterSecureStorage] that resolves immediately with a preset password.
-class _FakeSecureStorage extends FlutterSecureStorage {
+class _FakeSecureStorage implements ISecureStorage {
+  @override
+  Future<void> write({required String key, required String? value}) async {}
+  @override
+  Future<void> delete({required String key}) async {}
+
+  @override
+  Future<bool> containsKey({required String key}) async => false;
   final String? password;
 
   _FakeSecureStorage({this.password});
@@ -120,19 +127,20 @@ class _FakeSecureStorage extends FlutterSecureStorage {
   @override
   Future<String?> read({
     required String key,
-    IOSOptions? iOptions = IOSOptions.defaultOptions,
-    AndroidOptions? aOptions = AndroidOptions.defaultOptions,
-    LinuxOptions? lOptions = LinuxOptions.defaultOptions,
-    WindowsOptions? wOptions = WindowsOptions.defaultOptions,
-    MacOsOptions? mOptions = MacOsOptions.defaultOptions,
-    WebOptions? webOptions = WebOptions.defaultOptions,
   }) async {
     return password;
   }
 }
 
 /// Fake [FlutterSecureStorage] that records write calls and completes immediately.
-class _FakeWriteSecureStorage extends FlutterSecureStorage {
+class _FakeWriteSecureStorage implements ISecureStorage {
+  @override
+  Future<String?> read({required String key}) async => null;
+  @override
+  Future<void> delete({required String key}) async {}
+
+  @override
+  Future<bool> containsKey({required String key}) async => false;
   String? lastWrittenKey;
   String? lastWrittenValue;
 
@@ -140,12 +148,6 @@ class _FakeWriteSecureStorage extends FlutterSecureStorage {
   Future<void> write({
     required String key,
     required String? value,
-    IOSOptions? iOptions = IOSOptions.defaultOptions,
-    AndroidOptions? aOptions = AndroidOptions.defaultOptions,
-    LinuxOptions? lOptions = LinuxOptions.defaultOptions,
-    WindowsOptions? wOptions = WindowsOptions.defaultOptions,
-    MacOsOptions? mOptions = MacOsOptions.defaultOptions,
-    WebOptions? webOptions = WebOptions.defaultOptions,
   }) async {
     lastWrittenKey = key;
     lastWrittenValue = value;
@@ -153,16 +155,17 @@ class _FakeWriteSecureStorage extends FlutterSecureStorage {
 }
 
 /// Fake [FlutterSecureStorage] whose [read] never completes (simulates hung storage).
-class _HangingSecureStorage extends FlutterSecureStorage {
+class _HangingSecureStorage implements ISecureStorage {
+  @override
+  Future<void> write({required String key, required String? value}) async {}
+  @override
+  Future<void> delete({required String key}) async {}
+
+  @override
+  Future<bool> containsKey({required String key}) async => false;
   @override
   Future<String?> read({
     required String key,
-    IOSOptions? iOptions = IOSOptions.defaultOptions,
-    AndroidOptions? aOptions = AndroidOptions.defaultOptions,
-    LinuxOptions? lOptions = LinuxOptions.defaultOptions,
-    WindowsOptions? wOptions = WindowsOptions.defaultOptions,
-    MacOsOptions? mOptions = MacOsOptions.defaultOptions,
-    WebOptions? webOptions = WebOptions.defaultOptions,
   }) {
     // Return a future that never completes.
     return Completer<String?>().future;
@@ -170,17 +173,18 @@ class _HangingSecureStorage extends FlutterSecureStorage {
 }
 
 /// Fake [FlutterSecureStorage] whose [write] never completes (simulates hung storage).
-class _HangingWriteSecureStorage extends FlutterSecureStorage {
+class _HangingWriteSecureStorage implements ISecureStorage {
+  @override
+  Future<String?> read({required String key}) async => null;
+  @override
+  Future<void> delete({required String key}) async {}
+
+  @override
+  Future<bool> containsKey({required String key}) async => false;
   @override
   Future<void> write({
     required String key,
     required String? value,
-    IOSOptions? iOptions = IOSOptions.defaultOptions,
-    AndroidOptions? aOptions = AndroidOptions.defaultOptions,
-    LinuxOptions? lOptions = LinuxOptions.defaultOptions,
-    WindowsOptions? wOptions = WindowsOptions.defaultOptions,
-    MacOsOptions? mOptions = MacOsOptions.defaultOptions,
-    WebOptions? webOptions = WebOptions.defaultOptions,
   }) {
     // Return a future that never completes.
     return Completer<void>().future;

@@ -5,10 +5,10 @@
 // and seek step read/write logic can be tested independently of
 // Flutter widgets and Riverpod providers.
 //
-// Zero Flutter widget dependencies — only shared_preferences for storage.
+// REF-01-A1: theme mode is represented as a String ('system'/'light'/'dark')
+// instead of the Flutter ThemeMode enum — zero Flutter dependencies.
 
-import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../../shared/preferences_bridge.dart';
 
 /// SharedPreferences keys used by the settings service.
 const _themeModeKey = 'theme_mode';
@@ -25,6 +25,33 @@ const List<int> seekStepOptions = [10, 15, 30, 60];
 /// Available playback speed multipliers.
 const List<double> speedOptions = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
 
+/// Reads the theme mode stored in [prefs] as a String
+/// (`'system'`/`'light'`/`'dark'`), or `'system'` when not set (REF-01-A1).
+String getThemeMode(SharedPreferences? prefs) {
+  if (prefs == null) return 'system';
+  final raw = prefs.getString(_themeModeKey);
+  if (raw != 'system' && raw != 'light' && raw != 'dark') return 'system';
+  return raw!;
+}
+
+/// Persists the theme mode [mode] (a String: `'system'`/`'light'`/`'dark'`)
+/// to [prefs] (REF-01-A1).
+void setThemeMode(SharedPreferences? prefs, String mode) {
+  prefs?.setString(_themeModeKey, mode);
+}
+
+/// Human-readable Chinese label for a theme mode String (REF-01-A1).
+String labelForThemeMode(String mode) {
+  switch (mode) {
+    case 'light':
+      return '亮色';
+    case 'dark':
+      return '暗色';
+    default:
+      return '跟随系统';
+  }
+}
+
 /// Pure Dart service for reading and writing settings to SharedPreferences.
 ///
 /// All methods are instance-level and accept a [SharedPreferences] instance
@@ -34,22 +61,20 @@ class SettingsService {
 
   // ── Theme mode ──────────────────────────────────────────────────────────
 
-  /// Returns the [ThemeMode] stored in [prefs], or [ThemeMode.system] if not set.
-  ThemeMode getThemeMode(SharedPreferences? prefs) {
-    if (prefs == null) return ThemeMode.system;
-    final saved = prefs.getString(_themeModeKey);
-    if (saved == null) return ThemeMode.system;
-    return ThemeMode.values.cast<ThemeMode?>().firstWhere(
-          (e) => e!.name == saved,
-          orElse: () => ThemeMode.system,
-        )!;
+  /// Returns the theme mode stored in [prefs] as a String
+  /// (`'system'`/`'light'`/`'dark'`), or `'system'` if not set (REF-01-A1).
+  String getThemeMode(SharedPreferences? prefs) {
+    if (prefs == null) return 'system';
+    final raw = prefs.getString(_themeModeKey);
+    if (raw != 'system' && raw != 'light' && raw != 'dark') return 'system';
+    return raw!;
   }
 
-  /// Persists [mode] to [prefs].
+  /// Persists the theme mode [mode] (a String) to [prefs] (REF-01-A1).
   ///
   /// Does nothing if [prefs] is null.
-  void setThemeMode(SharedPreferences? prefs, ThemeMode mode) {
-    prefs?.setString(_themeModeKey, mode.name);
+  void setThemeMode(SharedPreferences? prefs, String mode) {
+    prefs?.setString(_themeModeKey, mode);
   }
 
   // ── Default speed ───────────────────────────────────────────────────────
@@ -92,15 +117,15 @@ class SettingsService {
     return true;
   }
 
-  /// Human-readable Chinese label for a [ThemeMode].
-  String labelForThemeMode(ThemeMode mode) {
+  /// Human-readable Chinese label for a theme mode String (REF-01-A1).
+  String labelForThemeMode(String mode) {
     switch (mode) {
-      case ThemeMode.system:
-        return '跟随系统';
-      case ThemeMode.light:
+      case 'light':
         return '亮色';
-      case ThemeMode.dark:
+      case 'dark':
         return '暗色';
+      default:
+        return '跟随系统';
     }
   }
 

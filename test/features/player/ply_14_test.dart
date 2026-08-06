@@ -48,7 +48,7 @@ Widget _buildTestApp({
       currentPlayQueueProvider.overrideWith((ref) => queue),
       seekStepProvider.overrideWith((ref) => seekStep),
       loadAndPlayProvider.overrideWith(
-        (ref) => () async => TrackLoadResult.loaded(player),
+        (ref) => () async => const TrackLoadResult.loaded(),
       ),
       ...?extraOverrides,
     ],

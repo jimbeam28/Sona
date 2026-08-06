@@ -10,6 +10,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../../core/contracts/storage_contract.dart';
 import '../../core/database/dao/connection_dao.dart';
 import '../../core/network/webdav_client.dart';
 import '../../core/services/storage_utils.dart';
@@ -25,8 +26,31 @@ final connectionDaoProvider = Provider<ConnectionDao>((ref) => ConnectionDao());
 final webDavClientProvider =
     Provider<WebDavClientInterface>((ref) => WebDavClient());
 
+/// REF-01-A2: production adapter that wraps [FlutterSecureStorage] behind the
+/// [ISecureStorage] contract.  The concrete plugin type never leaks past this
+/// adapter into the domain layer.
+class FlutterSecureStorageAdapter implements ISecureStorage {
+  final FlutterSecureStorage _impl;
+  const FlutterSecureStorageAdapter(
+      [this._impl = const FlutterSecureStorage()]);
+
+  @override
+  Future<String?> read({required String key}) => _impl.read(key: key);
+
+  @override
+  Future<void> write({required String key, required String? value}) =>
+      _impl.write(key: key, value: value);
+
+  @override
+  Future<void> delete({required String key}) => _impl.delete(key: key);
+
+  @override
+  Future<bool> containsKey({required String key}) =>
+      _impl.containsKey(key: key);
+}
+
 final secureStorageProvider =
-    Provider<FlutterSecureStorage>((ref) => const FlutterSecureStorage());
+    Provider<ISecureStorage>((ref) => const FlutterSecureStorageAdapter());
 
 /// Provider for [ConnectionService] — the pure-Dart CRUD facade.
 final connectionServiceProvider = Provider<ConnectionService>((ref) {
@@ -208,7 +232,7 @@ final switchActiveConnectionProvider =
 class ConnectionSaver {
   final ConnectionService _service;
 
-  ConnectionSaver(Object daoOrService, [FlutterSecureStorage? storage])
+  ConnectionSaver(Object daoOrService, [ISecureStorage? storage])
       : _service = daoOrService is ConnectionService
             ? daoOrService
             : ConnectionService(daoOrService as ConnectionDao, storage!);
@@ -260,7 +284,7 @@ final connectionSaverProvider = Provider<ConnectionSaver>((ref) {
 class ConnectionUpdater {
   final ConnectionService _service;
 
-  ConnectionUpdater(Object daoOrService, [FlutterSecureStorage? storage])
+  ConnectionUpdater(Object daoOrService, [ISecureStorage? storage])
       : _service = daoOrService is ConnectionService
             ? daoOrService
             : ConnectionService(daoOrService as ConnectionDao, storage!);

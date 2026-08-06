@@ -18,6 +18,7 @@ import 'dart:async';
 import 'package:audio_session/audio_session.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:mockito/mockito.dart';
+import 'package:nas_audio_player/core/contracts/audio_player_contract.dart';
 
 /// A hand-written mock of [AudioPlayer] that supports Mockito's
 /// `when()` and `verify()` APIs.
@@ -29,7 +30,7 @@ import 'package:mockito/mockito.dart';
 /// verify(player.pause()).called(1);
 /// ```
 // ignore_for_file: unnecessary_overrides
-class MockAudioPlayer extends Mock implements AudioPlayer {
+class MockAudioPlayer extends Mock implements AudioPlayer, IAudioPlayer {
   MockAudioPlayer() {
     throwOnMissingStub(this);
   }

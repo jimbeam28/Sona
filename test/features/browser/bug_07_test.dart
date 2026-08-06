@@ -9,11 +9,11 @@
 
 import 'dart:async';
 
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
+import 'package:nas_audio_player/core/contracts/storage_contract.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
 
 import 'bug_07_test.mocks.dart';
@@ -25,12 +25,12 @@ void main() {
   // ── Helpers ──────────────────────────────────────────────────────────────────
 
   /// Fake secure storage that resolves immediately with [password].
-  FlutterSecureStorage fakeStorage(String? password) {
+  ISecureStorage fakeStorage(String? password) {
     return _FakeSecureStorage(password: password);
   }
 
   /// Fake secure storage that never completes (hangs).
-  FlutterSecureStorage hangingStorage() {
+  ISecureStorage hangingStorage() {
     return _HangingSecureStorage();
   }
 
@@ -222,7 +222,14 @@ void main() {
 // ── Manual fakes ─────────────────────────────────────────────────────────────
 
 /// Fake [FlutterSecureStorage] that resolves immediately with a preset password.
-class _FakeSecureStorage extends FlutterSecureStorage {
+class _FakeSecureStorage implements ISecureStorage {
+  @override
+  Future<void> write({required String key, required String? value}) async {}
+  @override
+  Future<void> delete({required String key}) async {}
+
+  @override
+  Future<bool> containsKey({required String key}) async => false;
   final String? password;
 
   _FakeSecureStorage({this.password});
@@ -230,28 +237,23 @@ class _FakeSecureStorage extends FlutterSecureStorage {
   @override
   Future<String?> read({
     required String key,
-    IOSOptions? iOptions = IOSOptions.defaultOptions,
-    AndroidOptions? aOptions = AndroidOptions.defaultOptions,
-    LinuxOptions? lOptions = LinuxOptions.defaultOptions,
-    WindowsOptions? wOptions = WindowsOptions.defaultOptions,
-    MacOsOptions? mOptions = MacOsOptions.defaultOptions,
-    WebOptions? webOptions = WebOptions.defaultOptions,
   }) async {
     return password;
   }
 }
 
 /// Fake [FlutterSecureStorage] that never completes (simulates hung storage).
-class _HangingSecureStorage extends FlutterSecureStorage {
+class _HangingSecureStorage implements ISecureStorage {
+  @override
+  Future<void> write({required String key, required String? value}) async {}
+  @override
+  Future<void> delete({required String key}) async {}
+
+  @override
+  Future<bool> containsKey({required String key}) async => false;
   @override
   Future<String?> read({
     required String key,
-    IOSOptions? iOptions = IOSOptions.defaultOptions,
-    AndroidOptions? aOptions = AndroidOptions.defaultOptions,
-    LinuxOptions? lOptions = LinuxOptions.defaultOptions,
-    WindowsOptions? wOptions = WindowsOptions.defaultOptions,
-    MacOsOptions? mOptions = MacOsOptions.defaultOptions,
-    WebOptions? webOptions = WebOptions.defaultOptions,
   }) {
     // Return a future that never completes.
     return Completer<String?>().future;

@@ -19,10 +19,10 @@ import 'package:fake_async/fake_async.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:mockito/mockito.dart';
+import 'package:nas_audio_player/core/contracts/storage_contract.dart';
 import 'package:nas_audio_player/core/network/webdav_client.dart';
 import 'package:nas_audio_player/core/services/audio_source_builder.dart';
 import 'package:nas_audio_player/core/services/background_service.dart';
@@ -41,84 +41,99 @@ import '../../helpers/test_factories.dart';
 // ── Fakes ────────────────────────────────────────────────────────────────────
 
 /// Fake [FlutterSecureStorage] whose [read] never completes (hung Keystore).
-class _HangingReadStorage extends FlutterSecureStorage {
+class _HangingReadStorage implements ISecureStorage {
+  @override
+  Future<void> write({required String key, required String? value}) async {}
+  @override
+  Future<void> delete({required String key}) async {}
+
+  @override
+  Future<bool> containsKey({required String key}) async => false;
   @override
   Future<String?> read({
     required String key,
-    IOSOptions? iOptions = IOSOptions.defaultOptions,
-    AndroidOptions? aOptions = AndroidOptions.defaultOptions,
-    LinuxOptions? lOptions = LinuxOptions.defaultOptions,
-    WindowsOptions? wOptions = WindowsOptions.defaultOptions,
-    MacOsOptions? mOptions = MacOsOptions.defaultOptions,
-    WebOptions? webOptions = WebOptions.defaultOptions,
   }) {
     return Completer<String?>().future;
   }
 }
 
 /// Fake [FlutterSecureStorage] whose [write] never completes.
-class _HangingWriteStorage extends FlutterSecureStorage {
+class _HangingWriteStorage implements ISecureStorage {
+  @override
+  Future<String?> read({required String key}) async => null;
+  @override
+  Future<void> delete({required String key}) async {}
+
+  @override
+  Future<bool> containsKey({required String key}) async => false;
   @override
   Future<void> write({
     required String key,
     required String? value,
-    IOSOptions? iOptions = IOSOptions.defaultOptions,
-    AndroidOptions? aOptions = AndroidOptions.defaultOptions,
-    LinuxOptions? lOptions = LinuxOptions.defaultOptions,
-    WindowsOptions? wOptions = WindowsOptions.defaultOptions,
-    MacOsOptions? mOptions = MacOsOptions.defaultOptions,
-    WebOptions? webOptions = WebOptions.defaultOptions,
   }) {
     return Completer<void>().future;
   }
 }
 
 /// Fake [FlutterSecureStorage] whose [delete] never completes.
-class _HangingDeleteStorage extends FlutterSecureStorage {
+class _HangingDeleteStorage implements ISecureStorage {
+  @override
+  Future<String?> read({required String key}) async => null;
+  @override
+  Future<void> write({required String key, required String? value}) async {}
+
+  @override
+  Future<bool> containsKey({required String key}) async => false;
   @override
   Future<void> delete({
     required String key,
-    IOSOptions? iOptions = IOSOptions.defaultOptions,
-    AndroidOptions? aOptions = AndroidOptions.defaultOptions,
-    LinuxOptions? lOptions = LinuxOptions.defaultOptions,
-    WindowsOptions? wOptions = WindowsOptions.defaultOptions,
-    MacOsOptions? mOptions = MacOsOptions.defaultOptions,
-    WebOptions? webOptions = WebOptions.defaultOptions,
   }) {
     return Completer<void>().future;
   }
 }
 
 /// Fake [FlutterSecureStorage] backed by an in-memory map (null = no value).
-class _MapStorage extends FlutterSecureStorage {
+class _MapStorage implements ISecureStorage {
+  @override
+  Future<void> write({required String key, required String? value}) async {
+    if (value != null) {
+      _map[key] = value;
+    } else {
+      _map.remove(key);
+    }
+  }
+
+  @override
+  Future<void> delete({required String key}) async {
+    _map.remove(key);
+  }
+
+  @override
+  Future<bool> containsKey({required String key}) async =>
+      _map.containsKey(key);
   _MapStorage(this._map);
   final Map<String, String> _map;
 
   @override
   Future<String?> read({
     required String key,
-    IOSOptions? iOptions = IOSOptions.defaultOptions,
-    AndroidOptions? aOptions = AndroidOptions.defaultOptions,
-    LinuxOptions? lOptions = LinuxOptions.defaultOptions,
-    WindowsOptions? wOptions = WindowsOptions.defaultOptions,
-    MacOsOptions? mOptions = MacOsOptions.defaultOptions,
-    WebOptions? webOptions = WebOptions.defaultOptions,
   }) async {
     return _map[key];
   }
 }
 
 /// Fake [FlutterSecureStorage] whose [read] throws a non-timeout error.
-class _ThrowingReadStorage extends FlutterSecureStorage {
+class _ThrowingReadStorage implements ISecureStorage {
+  @override
+  Future<void> write({required String key, required String? value}) async {}
+  @override
+  Future<void> delete({required String key}) async {}
+
+  @override
+  Future<bool> containsKey({required String key}) async => false;
   @override
   Future<String?> read({
     required String key,
-    IOSOptions? iOptions = IOSOptions.defaultOptions,
-    AndroidOptions? aOptions = AndroidOptions.defaultOptions,
-    LinuxOptions? lOptions = LinuxOptions.defaultOptions,
-    WindowsOptions? wOptions = WindowsOptions.defaultOptions,
-    MacOsOptions? mOptions = MacOsOptions.defaultOptions,
-    WebOptions? webOptions = WebOptions.defaultOptions,
   }) async {
     throw Exception('simulated keystore failure');
   }

@@ -30,6 +30,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:nas_audio_player/core/contracts/audio_player_contract.dart';
 import 'package:nas_audio_player/features/player/domain/playback_orchestrator.dart';
 import 'package:nas_audio_player/features/player/domain/request_gate.dart';
 import 'package:nas_audio_player/shared/models/connection_config.dart';
@@ -234,7 +235,7 @@ PlayQueue _queue(List<String> paths, {int currentIndex = 0}) => PlayQueue(
 ///
 /// `extends Fake` 使任何未实现的成员访问大声失败 —— 若被作废的 gate 任务
 /// 意外走到 play/seek 等调用，测试会立即暴露。
-class _FakePlayer extends Fake implements AudioPlayer {
+class _FakePlayer extends Fake implements AudioPlayer, IAudioPlayer {
   final List<String> callLog = [];
   Completer<Duration?>? hangSetAudioSourceOn;
   bool playingStub = true;
