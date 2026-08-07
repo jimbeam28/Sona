@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-08-06",
+    "last_updated": "2026-08-07",
     "total": 20,
     "pending": 20,
     "total_items": 49
@@ -1746,6 +1746,14 @@
         "PLY",
         "CON",
         "BRW"
+      ],
+      "impl_status": "done",
+      "test_status": "passed",
+      "test_files": [
+        "test/core/services/audio_handler_test.dart",
+        "test/core/services/background_service_test.dart",
+        "test/core/services/storage_utils_test.dart",
+        "test/features/coverage/svc_storage_utils_test.dart"
       ]
     },
     "TEST-09": {
