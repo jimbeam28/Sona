@@ -1854,6 +1854,11 @@
       ],
       "cross_module_impacts": [
         "SET"
+      ],
+      "impl_status": "done",
+      "test_status": "passed",
+      "test_files": [
+        "test/features/settings/log_viewer_test.dart"
       ]
     }
   }

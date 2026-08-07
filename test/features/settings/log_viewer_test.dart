@@ -5,6 +5,7 @@
 // LogViewerScreen (widget rendering, empty state, entry rendering).
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:nas_audio_player/core/services/log_buffer.dart';
@@ -228,6 +229,162 @@ void main() {
         expect(find.byType(SelectableText), findsNothing,
             reason: 'clear() 后不应有日志条目渲染');
       });
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TEST-11 (SET3): LogViewer 行为测试 — 过滤 / 复制全部 / 清空
+  // 注意：LogBuffer 为单例跨测试共享，每个用例开头先 clear()
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  group('TEST-11: LogViewer 行为测试', () {
+    /// 按 tooltip 文本定位 IconButton（不依赖 Tooltip 与 IconButton 的树嵌套）。
+    IconButton iconButtonByTooltip(WidgetTester tester, String tooltip) =>
+        tester.widget<IconButton>(find
+            .byWidgetPredicate((w) => w is IconButton && w.tooltip == tooltip));
+
+    testWidgets('TEST-11-S1: 过滤关键字缩小日志列表', (tester) async {
+      LogBuffer.instance.clear();
+      LogBuffer.instance.add('[Player] started');
+      LogBuffer.instance.add('[Browser] loaded');
+      LogBuffer.instance.add('[Player] stopped');
+
+      await tester.pumpWidget(wrapLogViewer());
+      await tester.pump();
+
+      // Given: 过滤为空时显示全部（否定断言：不过滤时不隐藏任何条目）
+      expect(find.byType(SelectableText), findsNWidgets(3),
+          reason: '过滤为空时应显示全部 3 条日志');
+      expect(find.textContaining('共 3 条'), findsOneWidget,
+          reason: '不过滤时计数应显示 3 条');
+
+      // When: 在过滤输入框输入 'Player'
+      await tester.enterText(find.byType(TextField), 'Player');
+      await tester.pump();
+
+      // Then: 仅 2 条可见，'[Browser] loaded' 不显示，计数 '共 2 条'
+      expect(find.byType(SelectableText), findsNWidgets(2),
+          reason: '过滤 "Player" 后应只剩 2 条日志可见');
+      expect(find.textContaining('[Player] started'), findsOneWidget,
+          reason: '"[Player] started" 应仍可见');
+      expect(find.textContaining('[Player] stopped'), findsOneWidget,
+          reason: '"[Player] stopped" 应仍可见');
+      expect(find.textContaining('[Browser] loaded'), findsNothing,
+          reason: '"[Browser] loaded" 不应出现在过滤后的列表');
+      expect(find.textContaining('共 2 条'), findsOneWidget,
+          reason: '过滤后计数应显示 "共 2 条"');
+
+      // And: 过滤是纯视图操作，不改变 LogBuffer 数据源（TEST-11-INV1）
+      expect(LogBuffer.instance.entries.length, equals(3),
+          reason: '过滤不应修改 LogBuffer（entries 仍为 3 条）');
+
+      // And: 清空过滤 → 3 条全可见
+      await tester.enterText(find.byType(TextField), '');
+      await tester.pump();
+      expect(find.byType(SelectableText), findsNWidgets(3),
+          reason: '清空过滤后应恢复显示全部 3 条');
+      expect(find.textContaining('[Browser] loaded'), findsOneWidget,
+          reason: '清空过滤后 "[Browser] loaded" 应重新显示');
+
+      // And: 大小写不敏感（小写 'player' 同样匹配 2 条）
+      await tester.enterText(find.byType(TextField), 'player');
+      await tester.pump();
+      expect(find.byType(SelectableText), findsNWidgets(2),
+          reason: '小写 "player" 应同样匹配（大小写不敏感），仍显示 2 条');
+    });
+
+    testWidgets('TEST-11-S2: 复制全部 → SnackBar + 剪贴板内容匹配', (tester) async {
+      LogBuffer.instance.clear();
+      LogBuffer.instance.add('[Player] started');
+      LogBuffer.instance.add('[Browser] loaded');
+
+      // Mock Clipboard：拦截 SystemChannels.platform 的 'Clipboard.setData'
+      String? copiedText;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform,
+              (MethodCall call) async {
+        if (call.method == 'Clipboard.setData') {
+          copiedText =
+              (call.arguments as Map<dynamic, dynamic>)['text'] as String?;
+        }
+        return null;
+      });
+      addTearDown(() {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(SystemChannels.platform, null);
+      });
+
+      await tester.pumpWidget(wrapLogViewer());
+      await tester.pump();
+
+      // 记录渲染出的 formatted 文本（作为剪贴板预期内容）
+      final rendered = tester
+          .widgetList<SelectableText>(find.byType(SelectableText))
+          .map((w) => w.data ?? '')
+          .toList();
+      expect(rendered, hasLength(2), reason: '前置：2 条日志应渲染 2 个条目');
+
+      // When: 按"复制全部"
+      await tester.tap(find.byTooltip('复制全部'));
+      await tester.pump();
+
+      // Then: 出现 SnackBar '已复制 2 行'
+      expect(find.text('已复制 2 行'), findsOneWidget,
+          reason: '复制后应出现 SnackBar "已复制 2 行"');
+
+      // And: 剪贴板内容 = 2 条 formatted 文本以 '\n' 分隔
+      expect(copiedText, isNotNull, reason: '应调用 Clipboard.setData');
+      expect(copiedText, equals(rendered.join('\n')),
+          reason: '剪贴板文本应与可见日志的 formatted 文本以 \\n 分隔一致');
+      expect(copiedText, contains('[Player] started'),
+          reason: '剪贴板应包含 "[Player] started"');
+      expect(copiedText, contains('[Browser] loaded'),
+          reason: '剪贴板应包含 "[Browser] loaded"');
+
+      // And: 复制只读，不清除 LogBuffer
+      expect(LogBuffer.instance.entries.length, equals(2),
+          reason: '复制不应清除 LogBuffer（仍为 2 条）');
+
+      // 否定断言：空日志时"复制全部"按钮 disabled（TEST-11-INV2）
+      await tester.pumpWidget(const SizedBox());
+      LogBuffer.instance.clear();
+      await tester.pumpWidget(wrapLogViewer());
+      await tester.pump();
+      expect(iconButtonByTooltip(tester, '复制全部').onPressed, isNull,
+          reason: 'TEST-11-INV2: 日志为空时复制按钮应 disabled');
+      expect(find.text('暂无日志'), findsOneWidget, reason: '空日志时应显示 "暂无日志" 占位');
+    });
+
+    testWidgets('TEST-11-S3: 清空 → LogBuffer 空 + 空状态 + 按钮 disabled',
+        (tester) async {
+      LogBuffer.instance.clear();
+      LogBuffer.instance.add('[Player] started');
+      LogBuffer.instance.add('[Browser] loaded');
+      LogBuffer.instance.add('[Player] stopped');
+
+      await tester.pumpWidget(wrapLogViewer());
+      await tester.pump();
+      expect(find.byType(SelectableText), findsNWidgets(3),
+          reason: '前置：3 条日志应渲染 3 个条目');
+
+      // When: 按"清空"
+      await tester.tap(find.byTooltip('清空'));
+      await tester.pump();
+
+      // Then: LogBuffer 为空（clear() 必须实际执行）
+      expect(LogBuffer.instance.entries.isEmpty, isTrue,
+          reason: '清空后 LogBuffer.entries 应为空');
+
+      // And: UI 显示 '暂无日志' 占位，不再渲染日志条目
+      expect(find.text('暂无日志'), findsOneWidget, reason: '清空后应显示 "暂无日志" 占位文本');
+      expect(find.byType(SelectableText), findsNothing,
+          reason: '清空后不应再渲染任何日志条目');
+
+      // And: '复制全部' 和 '清空' 按钮均 disabled（TEST-11-INV2）
+      expect(iconButtonByTooltip(tester, '清空').onPressed, isNull,
+          reason: 'TEST-11-INV2: 日志为空时清空按钮应 disabled');
+      expect(iconButtonByTooltip(tester, '复制全部').onPressed, isNull,
+          reason: 'TEST-11-INV2: 日志为空时复制按钮应 disabled');
     });
   });
 }
