@@ -7,6 +7,8 @@
 //
 // 注意：实现尚未存在，测试必然 FAIL（缺 insertAfterCurrent 方法）。断言逻辑完整。
 
+import 'dart:math';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nas_audio_player/shared/models/play_queue.dart';
 
@@ -297,6 +299,62 @@ void main() {
       expect(restored.files[2].path, equals('/music/Y.mp3'));
       expect(restored.files[3].path, equals('/music/track_02.mp3'));
       expect(restored.files[4].path, equals('/music/track_03.mp3'));
+    });
+
+    // ── TEST-10-S7: insertAfterCurrent 不重算 shuffleOrder（MDL7）────────
+    // 固定 seed Random 构造 shuffleOrder=[2,0,3,1]（seed=37 的确定性 shuffle），
+    // shufflePosition=0，currentIndex=1，PlayMode.shuffle。
+    // 注意：生产行为对 > currentIndex 的索引做 +1 重映射（bug_bug04 ALG1：
+    // 保持排列的"逻辑序列"不变），故新队列 shuffleOrder == [3,0,4,1] 而非
+    // 原样 [2,0,3,1]（队尾插入才原样不变）。本测试的回归锚是：
+    //   a) shuffleOrder 不被置 null / 不重生成（重生成会含 Y 的索引 2）
+    //   b) 排列序列（按文件身份）insert 前后一致
+    //   c) shufflePosition 不变
+    test('TEST-10-S7: shuffle 插入不重算 shuffleOrder——序列与指针保持', () {
+      final order = [0, 1, 2, 3]..shuffle(Random(37));
+      expect(order, equals([2, 0, 3, 1]),
+          reason: '前置: 固定 seed 的确定性 shuffle 必须产出规划序 [2,0,3,1]');
+
+      final files = [
+        testAudio('track_01.mp3', '/music/track_01.mp3'),
+        testAudio('track_02.mp3', '/music/track_02.mp3'),
+        testAudio('track_03.mp3', '/music/track_03.mp3'),
+        testAudio('track_04.mp3', '/music/track_04.mp3'),
+      ];
+      final queue = PlayQueue(
+        files: files,
+        currentIndex: 1,
+        playMode: PlayMode.shuffle,
+        shuffleOrder: order,
+        shufflePosition: 0,
+      );
+      // insert 前: 当前曲 B(index 1)；排列（按文件身份）C→A→D→B
+      final beforeRound = order.map((i) => files[i].path).toList();
+      final nextBefore = queue.nextShuffleIndex();
+
+      final y = testAudio('Y.mp3', '/music/Y.mp3');
+      final inserted = queue.insertAfterCurrent(y);
+
+      // a) 否定断言: shuffleOrder 不得为 null / 不得重生成
+      final newOrderRaw = inserted.toMap()['shuffleOrder'];
+      expect(newOrderRaw, isNotNull,
+          reason: 'MDL7: shuffleOrder 不得被置 null（置 null 将触发重算，违反 BRW-09 INV2）');
+      final newOrder = (newOrderRaw as List).cast<int>();
+      expect(newOrder, equals([3, 0, 4, 1]),
+          reason: 'MDL7: 不得重生成排列——重生成的全排列会含新文件索引 2；'
+              '生产行为是对 >currentIndex 的索引 +1 重映射（bug_bug04 ALG1）');
+      expect(newOrder.contains(2), isFalse,
+          reason: '否定断言: Y（index 2）不入本轮排列，直到下次重算');
+      // b) 排列序列（按文件身份）与 insert 前一致
+      final afterRound = newOrder.map((i) => inserted.files[i].path).toList();
+      expect(afterRound, equals(beforeRound),
+          reason: '否定断言: 不改变已有 shuffle 序列的顺序（仅索引随插入移位）');
+      // c) shufflePosition 不变
+      expect(inserted.toMap()['shufflePosition'], equals(0),
+          reason: '否定断言: 不改变 shufflePosition');
+      // d) nextShuffleIndex 直接函数级一致
+      expect(inserted.nextShuffleIndex(), equals(nextBefore),
+          reason: 'nextShuffleIndex 在 insert 前后一致（同一逻辑下一曲）');
     });
   });
 }
