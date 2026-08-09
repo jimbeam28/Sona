@@ -121,16 +121,18 @@ manual_qa_required: false
   ```
   Code evidence: `webdav_client.dart:128`（`Throws [WebDavException] on auth failures (401) or network errors`）
 
-- **[TEST-07-S5]** MockClient listDirectory malformed body → WebDavException (`status: new`)
+- **[TEST-07-S5]** MockClient listDirectory malformed body → 返回空列表（不抛异常，`status: new`）
   ```
   Given MockClient 对 PROPFIND Depth:1 返回 207 + 无效 XML body
   When  WebDavClient.listDirectory(url, user, pass, path) 被调用
-  Then  抛出 WebDavException（XML 解析失败）
+  Then  返回空列表（regex 解析器（BUG-23）对垃圾/截断/空 body 一律静默空列表，从不抛异常——2026-08-09 对 5 种畸形 body 实测锚定）
   否定断言:
-    - 不在 XML 解析失败时返回空列表
-    - 不在 malformed body 时静默成功
+    - 不在 500 等错误状态码路径上返回空列表（S4 仍须抛 WebDavException）
+    - 不在有效 XML 时返回空列表（解析成功路径不受影响）
   ```
-  Code evidence: `webdav_client.dart` listDirectory XML 解析路径
+  Code evidence: `webdav_client.dart` listDirectory XML 解析路径（regex 解析器，BUG-23）
+  Test anchoring: `test/core/network/webdav_client_test.dart:117-133`（断言 isEmpty）
+  Note: 是否改为抛异常属设计决策，留待 dev-plan BUG 流程（数据丢失类隐患，同 BUG-15 家族）
 
 - **[TEST-07-S6]** FakeWebDavClient 注释修正 + 错误注入 (`status: new`)
   ```
@@ -197,7 +199,7 @@ TEST-07-INV2        # FakeSecureStorage 无平台通道
 | 未覆盖 ID | 现状 | 应补偿方式 |
 |---|---|---|
 | TEST-07-S1~S3 | 零 MockClient 使用 | 用 package:http/testing MockClient 覆盖 status 分支 + 超时 |
-| TEST-07-S4~S5 | listDirectory 错误路径未测 | MockClient 返回非 207 / malformed body → 断言 WebDavException |
+| TEST-07-S4~S5 | listDirectory 错误路径未测 | MockClient 返回非 207 → 断言 WebDavException；malformed body → 断言返回空列表（生产实测锚定，2026-08-09） |
 | TEST-07-S6 | fake 注释谎报 | 修正注释 + 添加 throwOnListDirectory 错误注入模式 |
 | TEST-07-S7 | containsKey 未覆写 | 添加 containsKey override 走内存 map |
 

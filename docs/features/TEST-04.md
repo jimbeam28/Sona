@@ -74,13 +74,15 @@ manual_qa_required: false
   Given currentPlayQueueProvider 返回非空队列，当前曲为 'Song A.mp3'
   When  pumpWidget(HomeScreen)
   Then  find.byType(MiniPlayerBar) 存在
-  And   find.text('Song A') 存在（显示曲名，不含扩展名）
+  And   find.text('Song A.mp3') 存在（显示曲名，含文件扩展名——生产实测 mini_player_bar 直取 fileName 未去扩展名，2026-08-09 锚定）
   否定断言:
     - 不在有队列时不显示 MiniPlayerBar（应展示）
     - 不在显示时不展示当前曲名（应显示曲名）
+    - 不在展示时误显示非当前曲目名称
     - 不改变无队列时的行为（应不显示或显示空状态）
   ```
   Code evidence: `lib/features/player/widgets/mini_player_bar.dart:231-234`（曲名展示）
+  Test anchoring: `test/features/playlist/test_04_list9_test.dart:86`（断言 `find.text('Song A.mp3')`，含扩展名）
   Mutation risk: 从 HomeScreen 删除 MiniPlayerBar → 测试当前全绿（零守护）
   Test anchoring: widget test — override currentPlayQueueProvider，pump HomeScreen，断言 find.byType(MiniPlayerBar)
 
