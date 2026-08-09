@@ -144,16 +144,18 @@ manual_qa_required: true
   ```
   Code evidence: `audio_handler.dart:174-191`（`AudioFocusState.lost → _player.pause()`）
 
-- **[TEST-08-S6]** IAudioHandler onAudioFocusChange gained → 恢复 (`status: new`)
+- **[TEST-08-S6]** IAudioHandler onAudioFocusChange gained → 仅更新 config，不自动恢复播放（`status: new`）
   ```
   Given NasAudioHandler 处于 paused 状态，config.isAudioActive == true
   When  onAudioFocusChange(AudioFocusState.gained) 被调用
-  Then  AudioPlayer.play() 被调用
+  Then  AudioPlayer.play() 不被调用（gained 分支已由 BUG-22 D1 删除恢复逻辑——2026-08-09 审计锚定，audio_handler.dart gained → break 无副作用）
+  And   isAudioActive 状态仍为 true
   否定断言:
-    - 不在 config.isAudioActive == false 时恢复播放
-    - 不在 already playing 时重复调用 play()
+    - 不在 config.isAudioActive == false 时触发任何播放动作
+    - 不在任何 gained 场景下重复调用 play()（验证 play 恰一次 = setup 装配次数）
   ```
-  Code evidence: `audio_handler.dart:185-189`（`gained → if (isAudioActive && !playing) play()`）
+  Code evidence: `audio_handler.dart:243-254`（`gained → break`，恢复分支被 BUG-22 D1 移除；原 :185-189 `if (isAudioActive && !playing) play()` 已不存在）
+  Test anchoring: `test/core/services/audio_handler_test.dart` TEST-08-S6 用例（verify play 恰一次 = setup 的，isAudioActive=false 时 verifyNever(play)）
 
 - **[TEST-08-S7]** safeStorageDelete 正常删除 (`status: new`)
   ```
@@ -273,3 +275,4 @@ TEST-08-INV2        # safeStorageDelete 超时 rethrow
 ## §10 changelog
 
 - 2026-07-27: 创建 TEST-08 spec（基于 cr-20260724-0110.md SVC8 + SVC9 + SVC10）
+- 2026-08-09: 审计同步 §3 S6——gained 恢复分支已被 BUG-22 D1 删除（生产 audio_handler.dart:243-254 `gained → break`），spec 断言改为"仅更新 config 不恢复播放"，与测试锚定一致（同 TEST-07-S5 617e874 先例）

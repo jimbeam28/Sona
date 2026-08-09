@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-08-07",
+    "last_updated": "2026-08-09",
     "total": 20,
     "pending": 20,
     "total_items": 49
@@ -1167,7 +1167,9 @@
         "test/features/settings/settings_test.dart",
         "test/helpers/fake_secure_storage.dart",
         "test/helpers/mock_audio_player.dart"
-      ]
+      ],
+      "check_status": "passed",
+      "last_checked_at": "2026-08-09"
     },
     "REF-02": {
       "id": "REF-02",
@@ -1224,7 +1226,9 @@
         "test/helpers/fake_secure_storage.dart",
         "test/helpers/mock_audio_player.dart",
         "test/helpers/test_database.dart"
-      ]
+      ],
+      "check_status": "passed",
+      "last_checked_at": "2026-08-09"
     },
     "REF-03": {
       "id": "REF-03",
@@ -1257,7 +1261,9 @@
         "test/features/progress/prg_test.dart",
         "test/features/progress/ref_25_test.dart",
         "test/helpers/test_database.dart"
-      ]
+      ],
+      "check_status": "passed",
+      "last_checked_at": "2026-08-09"
     },
     "REF-04": {
       "id": "REF-04",
@@ -1298,7 +1304,9 @@
         "test/features/player/ply_02_test.dart",
         "test/features/settings/ref_27_test.dart",
         "test/features/settings/settings_test.dart"
-      ]
+      ],
+      "check_status": "passed",
+      "last_checked_at": "2026-08-09"
     },
     "REF-05": {
       "id": "REF-05",
@@ -1326,11 +1334,15 @@
       "cross_module_impacts": [
         "PLY"
       ],
-      "impl_status": "done",
-      "test_status": "passed",
+      "impl_status": "pending",
+      "test_status": "pending",
       "test_files": [
         "test/features/timer/timer_test.dart"
-      ]
+      ],
+      "check_round": 1,
+      "check_status": "round_1",
+      "last_check_round_results": "见 docs/dev/check_log.md @ REF-05 第 1 轮",
+      "last_checked_at": "2026-08-09"
     },
     "REF-06": {
       "id": "REF-06",
@@ -1360,7 +1372,9 @@
         "test/features/browser/brw_03_test.dart",
         "test/features/browser/brw_07_test.dart",
         "test/features/browser/ref_19_test.dart"
-      ]
+      ],
+      "check_status": "passed",
+      "last_checked_at": "2026-08-09"
     },
     "REF-07": {
       "id": "REF-07",
@@ -1387,7 +1401,9 @@
       "test_status": "passed",
       "test_files": [
         "test/shared/model_equality_test.dart"
-      ]
+      ],
+      "check_status": "passed",
+      "last_checked_at": "2026-08-09"
     },
     "REF-08": {
       "id": "REF-08",
@@ -1411,7 +1427,9 @@
       "test_status": "passed",
       "test_files": [
         "test/core/services/log_buffer_test.dart"
-      ]
+      ],
+      "check_status": "passed",
+      "last_checked_at": "2026-08-09"
     },
     "REF-09": {
       "id": "REF-09",
@@ -1436,7 +1454,9 @@
       "test_status": "passed",
       "test_files": [
         "test/features/settings/settings_test.dart"
-      ]
+      ],
+      "check_status": "passed",
+      "last_checked_at": "2026-08-09"
     },
     "TEST-01": {
       "id": "TEST-01",
@@ -1478,7 +1498,9 @@
         "test/features/browser/test_01_brw09_test.dart",
         "test/features/browser/test_01_brw10_test.dart",
         "test/features/browser/test_01_brw11_test.dart"
-      ]
+      ],
+      "check_status": "passed",
+      "last_checked_at": "2026-08-09"
     },
     "TEST-02": {
       "id": "TEST-02",
@@ -1519,7 +1541,9 @@
         "test/features/connection/test_02_con11_test.dart",
         "test/features/connection/test_02_con12_test.dart",
         "test/features/connection/test_02_con13_test.dart"
-      ]
+      ],
+      "check_status": "passed",
+      "last_checked_at": "2026-08-09"
     },
     "TEST-03": {
       "id": "TEST-03",
@@ -1559,7 +1583,9 @@
         "test/features/home/test_03_home2_test.dart",
         "test/features/home/test_03_home3_test.dart",
         "test/features/home/test_03_home4_test.dart"
-      ]
+      ],
+      "check_status": "passed",
+      "last_checked_at": "2026-08-09"
     },
     "TEST-04": {
       "id": "TEST-04",
@@ -1596,7 +1622,9 @@
       "test_files": [
         "test/features/playlist/test_04_list10_test.dart",
         "test/features/playlist/test_04_list9_test.dart"
-      ]
+      ],
+      "check_status": "passed",
+      "last_checked_at": "2026-08-09"
     },
     "TEST-05": {
       "id": "TEST-05",
@@ -1630,7 +1658,9 @@
       "test_status": "passed",
       "test_files": [
         "test/features/progress/prg_test.dart"
-      ]
+      ],
+      "check_status": "passed",
+      "last_checked_at": "2026-08-09"
     },
     "TEST-06": {
       "id": "TEST-06",
@@ -1668,7 +1698,9 @@
       "test_status": "passed",
       "test_files": [
         "test/features/timer/timer_test.dart"
-      ]
+      ],
+      "check_status": "passed",
+      "last_checked_at": "2026-08-09"
     },
     "TEST-07": {
       "id": "TEST-07",
@@ -1710,7 +1742,9 @@
         "test/features/browser/brw_01_test.dart",
         "test/helpers/fake_secure_storage.dart",
         "test/helpers/fake_webdav_client.dart"
-      ]
+      ],
+      "check_status": "passed",
+      "last_checked_at": "2026-08-09"
     },
     "TEST-08": {
       "id": "TEST-08",
@@ -1754,7 +1788,9 @@
         "test/core/services/background_service_test.dart",
         "test/core/services/storage_utils_test.dart",
         "test/features/coverage/svc_storage_utils_test.dart"
-      ]
+      ],
+      "check_status": "passed",
+      "last_checked_at": "2026-08-09"
     },
     "TEST-09": {
       "id": "TEST-09",
@@ -1787,7 +1823,9 @@
       "test_status": "passed",
       "test_files": [
         "test/features/progress/test_09_integration_test.dart"
-      ]
+      ],
+      "check_status": "passed",
+      "last_checked_at": "2026-08-09"
     },
     "TEST-10": {
       "id": "TEST-10",
@@ -1824,12 +1862,16 @@
         "PRG",
         "PLY"
       ],
-      "impl_status": "done",
-      "test_status": "passed",
+      "impl_status": "pending",
+      "test_status": "pending",
       "test_files": [
         "test/shared/model_equality_test.dart",
         "test/shared/play_queue_insert_test.dart"
-      ]
+      ],
+      "check_round": 1,
+      "check_status": "round_1",
+      "last_check_round_results": "见 docs/dev/check_log.md @ TEST-10 第 1 轮",
+      "last_checked_at": "2026-08-09"
     },
     "TEST-11": {
       "id": "TEST-11",
@@ -1859,7 +1901,9 @@
       "test_status": "passed",
       "test_files": [
         "test/features/settings/log_viewer_test.dart"
-      ]
+      ],
+      "check_status": "passed",
+      "last_checked_at": "2026-08-09"
     }
   }
 }
