@@ -108,7 +108,8 @@ void main() {
 
   // ═══════════════════════════════════════════════════════════════════════
   // TEST-10-S2: NasFile == / hashCode 正负测试
-  // 字段: name, path, isDirectory, size, audioType（spec §2.2）
+  // 字段: name, path, isDirectory, size, modifiedAt, audioType
+  // （spec §2.2 + BUG-30 modifiedAt 字段，== :203-210/hashCode :213）
   // ═══════════════════════════════════════════════════════════════════════
   group('TEST-10-S2: NasFile ==/hashCode', () {
     NasFile base() => testAudio('song.mp3', '/music/song.mp3',
@@ -139,7 +140,16 @@ void main() {
     });
 
     test('TEST-10-S2: isDirectory 不同 → 不等', () {
-      expect(base() == testDir('song.mp3', '/music/song.mp3'), isFalse);
+      // 两侧 audioType 相同（type: music），仅 isDirectory 单独差异
+      expect(
+          base() ==
+              const NasFile(
+                name: 'song.mp3',
+                path: '/music/song.mp3',
+                isDirectory: true,
+                audioType: AudioFileType.music,
+              ),
+          isFalse);
     });
 
     test('TEST-10-S2: size 不同 → 不等', () {
@@ -156,6 +166,16 @@ void main() {
               testAudio('song.mp3', '/music/song.mp3',
                   size: 1024, type: AudioFileType.audiobook),
           isFalse);
+    });
+
+    test('TEST-10-S2: modifiedAt 不同 → 不等', () {
+      final other = testAudio('song.mp3', '/music/song.mp3',
+          size: 1024,
+          type: AudioFileType.music,
+          modifiedAt: DateTime(2026, 1, 2));
+      expect(base() == other, isFalse,
+          reason: 'BUG-30 加入 modifiedAt 字段，负面测试必须锚定（TEST-10-INV1）');
+      expect(base().hashCode, isNot(equals(other.hashCode)));
     });
   });
 
@@ -322,6 +342,7 @@ void main() {
           isNot(equals(PlayQueue(
             files: [testAudio('x.mp3', '/music/x.mp3')],
             currentIndex: 0,
+            startPositionMs: 0,
             playMode: PlayMode.sequential,
           ).hashCode)));
     });
@@ -332,6 +353,7 @@ void main() {
           isNot(equals(PlayQueue(
             files: files(),
             currentIndex: 1,
+            startPositionMs: 0,
             playMode: PlayMode.sequential,
           ).hashCode)));
     });
@@ -353,6 +375,7 @@ void main() {
           isNot(equals(PlayQueue(
             files: files(),
             currentIndex: 0,
+            startPositionMs: 0,
             playMode: PlayMode.repeatAll,
           ).hashCode)));
     });

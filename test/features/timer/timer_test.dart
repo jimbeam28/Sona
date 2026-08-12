@@ -950,6 +950,38 @@ void main() {
       expect(state, isNotNull);
       expect(state!.mode, equals(TimerMode.duration));
     });
+
+    test('REF-05-S4: 自定义确认写入 30 后预设 5 分钟启动不覆盖（正向路径）', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+
+      final container = ProviderContainer(
+        overrides: [
+          timerServiceProvider.overrideWith((ref) => TimerService()),
+          sharedPreferencesProvider.overrideWith((ref) => prefs),
+          ...noopRemainingTimeOverride(),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      expect(container.read(lastCustomTimerMinutesProvider), isNull,
+          reason: '初始无自定义记忆');
+
+      // 自定义确认路径：timer_button.dart 自定义确认 → setLastCustomTimerMinutesProvider(30)
+      container.read(setLastCustomTimerMinutesProvider)(30);
+      expect(container.read(lastCustomTimerMinutesProvider), 30,
+          reason: '自定义确认 30 分钟写入后读回应为 30');
+      expect(prefs.getInt(lastCustomTimerMinutesKey), 30,
+          reason: '自定义确认 30 分钟写入底层 prefs');
+
+      // 预设路径：直接调 startDuration(5) 模拟预设按钮，不得覆盖自定义记忆
+      container.read(startDurationTimerProvider)(5);
+
+      expect(container.read(lastCustomTimerMinutesProvider), 30,
+          reason: 'REF-05-S4: 自定义 30 分钟后选预设 5 分钟，"上次时长"仍为 30');
+      expect(prefs.getInt(lastCustomTimerMinutesKey), 30,
+          reason: 'REF-05-S4: 预设启动不得改写 lastCustomTimerMinutes');
+    });
   });
 
   // ═══════════════════════════════════════════════════════════════════════════════

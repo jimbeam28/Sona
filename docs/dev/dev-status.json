@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-08-09",
+    "last_updated": "2026-08-12",
     "total": 20,
     "pending": 20,
     "total_items": 49
@@ -1334,8 +1334,8 @@
       "cross_module_impacts": [
         "PLY"
       ],
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "test_files": [
         "test/features/timer/timer_test.dart"
       ],
@@ -1862,8 +1862,8 @@
         "PRG",
         "PLY"
       ],
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "test_files": [
         "test/shared/model_equality_test.dart",
         "test/shared/play_queue_insert_test.dart"
