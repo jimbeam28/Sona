@@ -37,7 +37,6 @@ import 'package:nas_audio_player/features/connection/connection_list_screen.dart
 import 'package:nas_audio_player/features/connection/connection_provider.dart';
 import 'package:nas_audio_player/shared/models/connection_config.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../../helpers/fake_secure_storage.dart';
 import '../../helpers/fake_webdav_client.dart';
