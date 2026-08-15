@@ -322,3 +322,36 @@ Design 观察（不阻断，供 dev-plan 处理）：
 - REF-05、TEST-10：`bump-round`（impl 回 pending），需 dev-exe 重做
 - TEST-08 spec §3 S6 与生产矛盾：同 617e874 先例，修订 spec 锚定生产（BUG-22 D1 已删 gained 恢复分支）
 - 其余 PASS 项建议执行 `dev-status.sh pass`（REF-04/06/07/08/09、TEST-01~09/11）
+
+---
+
+## [2026-08-14 00:56] REF-05 + TEST-10 - 第 2 轮 dev-check
+
+> 输入：round-1 FAIL 打回后 dev-exe 重做（d9a1a92，仅 test/ 与 status 变更，零 lib/ 改动）。机械项全绿：spec-scan REF-05/TEST-10 rc=0（含 --gate §5.4 存在性硬校验）、cross-imports impact/all clean、coverage-check check-check rc=0 无漂移、cov-gate --only test 全量 2284 PASS。
+
+### REF-05 — 第 2 轮 verdict: PASS
+
+| 检查 | verdict | 要点 |
+|---|---|---|
+| 1. 测试空壳审计 | PASS | round-1 TEST-GAP（S4 正向）已补：timer_test.dart:954-984 走真实接线（setLastCustomTimerMinutesProvider(30) → 断言 lastCustom==30 且 prefs==30 → startDurationTimerProvider(5) → 断言两者仍 30）。删掉 startDuration 内写入守卫或丢失 setLastCustom 的 prefs 写都会炸：真断言。:924-952 负向用例保留；S1/S2/S3/INV1-3 静态断言 :991-1054 未动 |
+| 2. 实现语义忠实 | PASS | timer_provider.dart:43-86 notifier 仅 startDuration/startAfterCurrent/cancel/checkExpired/onTrackCompleted，无 pause/resume；:49-53 startDuration 不再写 lastCustom（INV3 唯一写入点 grep 实证 timer_button.dart）；TimerService.pause/resume 保留（:1004-1005 静态断言） |
+| 3. 跨模块破坏 | PASS | round-2 零 lib/ 改动；全量 2284 PASS |
+
+### TEST-10 — 第 2 轮 verdict: FAIL
+
+| 检查 | verdict | 要点 |
+|---|---|---|
+| 1. 测试空壳审计 | FAIL | S2 modifiedAt 负面（:171-179）真断言 == false + hashCode 不同，单字段差异 ✓；S6 三处 hashCode 负面补传 startPositionMs:0 后单字段差异 ✓（:342-347/:353-358/:375-380）；**S2 isDirectory 负面（:142-153）仍双字段差异（见下）** |
+| 2. 实现语义忠实 | FAIL | INV1 存在可违反代码路径：nas_file.dart:221 删除 `isDirectory == other.isDirectory` 后现有测试全绿 |
+| 3. 跨模块破坏 | PASS | 零 lib/ 改动，全量 2284 PASS |
+
+### FAIL 问题清单
+
+1. **S2 isDirectory 负面测试仍非单字段差异**（检查项 1+2，@TEST-10-S2 / TEST-10-INV1）
+   - 证据：model_equality_test.dart:142-153 — base 为 testAudio(size: 1024)（:116），负面侧 `const NasFile(..., isDirectory: true, audioType: AudioFileType.music)` 未传 size → null。两实例差异字段 = isDirectory **且** size（1024 vs null）。:143 注释"仅 isDirectory 单独差异"与实际不符。
+   - 现象：round-1 修复指令"(isDirectory:true, size:null, type:music)"只解决了 audioType 混淆，size 混淆仍在；若 nas_file.dart:221 漏掉 isDirectory 参与 ==，本测试因 size 不同依旧返回 false 而全绿——TEST-10-S2"每个字段单独变动"与 INV1 的 isDirectory 守卫未真正锚定。
+   - 修复指令：model_equality_test.dart:146 的 `const NasFile(...)` 补传 `size: 1024`，使负面侧仅 isDirectory 与 base 不同（size/modifiedAt/audioType 全部对齐）；同时把 :143 注释改为"两侧 size/modifiedAt/audioType 相同，仅 isDirectory 单独差异"。其余修复（modifiedAt 负面、S6 三处 startPositionMs:0）均正确，勿动。
+
+### 行动
+- REF-05 判 PASS → 执行 `dev-status.sh pass REF-05` + `coverage-check.sh refresh`
+- TEST-10 判 FAIL → 执行 `dev-status.sh bump-round TEST-10`（impl 回 pending），请手动启动 dev-exe TEST-10 重做

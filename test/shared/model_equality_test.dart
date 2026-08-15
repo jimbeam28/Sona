@@ -140,13 +140,14 @@ void main() {
     });
 
     test('TEST-10-S2: isDirectory 不同 → 不等', () {
-      // 两侧 audioType 相同（type: music），仅 isDirectory 单独差异
+      // 两侧 size/modifiedAt/audioType 相同，仅 isDirectory 单独差异
       expect(
           base() ==
               const NasFile(
                 name: 'song.mp3',
                 path: '/music/song.mp3',
                 isDirectory: true,
+                size: 1024,
                 audioType: AudioFileType.music,
               ),
           isFalse);

@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-08-12",
+    "last_updated": "2026-08-15",
     "total": 20,
     "pending": 20,
     "total_items": 49
@@ -1340,9 +1340,9 @@
         "test/features/timer/timer_test.dart"
       ],
       "check_round": 1,
-      "check_status": "round_1",
+      "check_status": "passed",
       "last_check_round_results": "见 docs/dev/check_log.md @ REF-05 第 1 轮",
-      "last_checked_at": "2026-08-09"
+      "last_checked_at": "2026-08-14"
     },
     "REF-06": {
       "id": "REF-06",
@@ -1868,10 +1868,10 @@
         "test/shared/model_equality_test.dart",
         "test/shared/play_queue_insert_test.dart"
       ],
-      "check_round": 1,
-      "check_status": "round_1",
-      "last_check_round_results": "见 docs/dev/check_log.md @ TEST-10 第 1 轮",
-      "last_checked_at": "2026-08-09"
+      "check_round": 2,
+      "check_status": "round_2",
+      "last_check_round_results": "见 docs/dev/check_log.md @ TEST-10 第 2 轮",
+      "last_checked_at": "2026-08-14"
     },
     "TEST-11": {
       "id": "TEST-11",
