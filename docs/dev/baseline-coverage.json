@@ -1,7 +1,7 @@
 {
   "_comment": "由 docs/dev/scripts/coverage-check.sh refresh 自动生成——dev-check PASS 后刷新。",
   "_status": "active",
-  "last_updated": "2026-08-14",
+  "last_updated": "2026-08-15",
   "last_passed_feature": null,
   "baseline_overall": 86.61,
   "tolerance_overall_drop": 1.0,
@@ -34,7 +34,7 @@
  "lib/shared/models/nas_file.dart": 78.69,
  "lib/shared/webdav_paths.dart": 92.00,
  "lib/features/browser/browser_provider.dart": 88.70,
- "lib/features/connection/connection_provider.dart": 90.76,
+ "lib/features/connection/connection_provider.dart": 91.60,
  "lib/shared/models/connection_config.dart": 92.31,
  "lib/shared/models/play_progress.dart": 84.00,
  "lib/shared/models/playlist.dart": 91.67,
@@ -54,6 +54,7 @@
  "lib/features/browser/browser_screen.dart": 93.92,
  "lib/features/browser/widgets/file_list_item.dart": 91.67,
  "lib/features/browser/widgets/breadcrumb_bar.dart": 83.33,
+ "lib/features/connection/connection_list_screen.dart": 66.67,
  "lib/features/connection/domain/connection_service.dart": 100.00,
  "lib/features/player/background_playback_notifier.dart": 75.76,
  "lib/features/player/domain/play_mode.dart": 96.77,
@@ -98,7 +99,6 @@
  "lib/features/connection/connection_screen.dart": 95.50,
  "lib/features/connection/widgets/connection_form.dart": 91.36,
  "lib/features/connection/connection_edit_screen.dart": 83.54,
- "lib/features/connection/connection_list_screen.dart": 67.41,
  "lib/app/onboarding.dart": 96.36
   }
 }

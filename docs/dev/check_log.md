@@ -355,3 +355,93 @@ Design 观察（不阻断，供 dev-plan 处理）：
 ### 行动
 - REF-05 判 PASS → 执行 `dev-status.sh pass REF-05` + `coverage-check.sh refresh`
 - TEST-10 判 FAIL → 执行 `dev-status.sh bump-round TEST-10`（impl 回 pending），请手动启动 dev-exe TEST-10 重做
+
+---
+
+## [2026-08-15] TEST-10 - 第 3 轮 dev-check
+
+> 输入：round-2 FAIL 打回后 dev-exe 重做（dfdacd7，仅 model_equality_test.dart 3 行 + status/check_log/baseline 变更，零 lib/ 改动）。机械项全绿：spec-scan TEST-10 rc=0（含 --gate）、cross-imports all clean、cov-gate --only test 全量 2284 PASS、coverage-check check-check rc=0 无漂移。
+
+### TEST-10 — 第 3 轮 verdict: PASS
+
+| 检查 | verdict | 要点 |
+|---|---|---|
+| 1. 测试空壳审计 | PASS | round-2 唯一 FAIL 项已修复：model_equality_test.dart:142-153 isDirectory 负面现与 base 仅 isDirectory 单字段差异（size:1024 补传、modifiedAt 两侧均 null、audioType 相同），:143 注释同步正确。S1 全 8 字段 == 负面 + 正面 hashCode（REF-07 组，两 spec 共享文件的既有安排）；S2 6 负面含 modifiedAt hashCode 负面（:172-180）；S3/S4/S5 每字段单变 + id/addedAt 排除否定断言真断言；S6 == 六字段负面（bug_bug01） + hashCode 六字段负面（新组 4 处单字段 + bug_bug01 2 处）；S7 固定 seed 前置断言（:315）+ shuffleOrder 非 null + 精确重映射 [3,0,4,1] + Y 不入轮 + 身份序列一致 + shufflePosition 不变 + nextShuffleIndex 等价。无空壳 |
+| 2. 实现语义忠实 | PASS | 本轮零 lib/ 改动。S7 期望 [3,0,4,1]（>currentIndex 索引 +1 重映射、shufflePosition 保留、不置 null）与 play_queue.dart:226-240 逐行一致；S1 实现（connection_config.dart:90-105）与 spec §3.1 修改指令逐字一致；INV1 == 侧全部字段有单字段负面锚定，找不到测试全绿的可违反 == 代码路径 |
+| 3. 跨模块破坏 | PASS | 零 lib/ 改动；全量 2284 PASS；cross-imports clean；覆盖率基线无漂移 |
+
+### 非阻断问题登记（不阻断 PASS，供后续轮次处理）
+
+1. **hashCode 负面锚定不对称**（TEST-GAP 低）：S1/S3/S4/S5 及 S2 除 modifiedAt 外无"字段不同 → hashCode 不同"负面——删除任一模型 hashCode 中某个字段（如 ConnectionConfig.updatedAt）现有测试仍全绿。P12 原话仅要求 == 侧"每字段单独变 → not equal"，spec §5.3 盲点表同；实际发生碰撞 bug 的 PlayQueue 已全锚定。建议后续仿 S6 模式为其余模型补 hashCode 负面（改到 `Object.hash(...)` 参数列表即炸）。
+
+### 行动
+- TEST-10 判 PASS → 执行 `dev-status.sh pass TEST-10` + `coverage-check.sh refresh`（基线单调上行）
+
+---
+
+## [2026-08-15] BUG-04~32 批量 dev-check（29 项，round-1）
+
+> 输入：清理产物任务（D1 全清）前置的批量审计。机械项：spec-scan --gate 28/29 OK（仅 BUG-10 缺门禁测试文件，spec 声明欠账）、--neg 全 OK、cross-imports all clean、cov-gate --only test 全量 2284 PASS、coverage-check check-check rc=0 无漂移。
+> 判定方式：6 个独立 agent 逐项读 spec + 修复 commit diff（git show）+ 门禁测试文件，按三项判断检查（测试空壳 / 实现语义忠实 / 跨模块破坏）独立裁决。
+
+### 结果总表
+
+| ID | verdict | 要点 |
+|---|---|---|
+| BUG-04 | PASS | 两轮 commit 补齐 S1-S4+INV+ALG；17a9010 修正 S4 偏离并补 PLY3；观察：spec n=2 数学瑕疵、合批 commit |
+| BUG-05 | PASS | cbb3098 内层 try/catch 修正 seek 失败阻塞 play；verifyInOrder + 超时/异常双否定断言 |
+| BUG-06 | PASS | stream 事件驱动真 widget 测试；S2 否定断言（点击不触发 provider） |
+| BUG-07 | PASS | tap+swipe 双路径真菜单断言 + 持久化否定断言 |
+| BUG-08 | PASS | 14 用例全分支 tiebreak + 单调时间戳 + provider/DAO 双层 INV1 锚定 |
+| BUG-09 | PASS | 5 条 widget 用例真断言，跨目录全选/取消全选/空目录边界 + INV1 |
+| BUG-10 | **FAIL** | 实现忠实（connection_provider.dart:381-383 if (wasActive) 守卫正确，唯一入口）；**门禁测试 bug_bug10_repro_test.dart 缺失**（dev-status test_files=[]、gaps 记账属实、spec-scan --gate FAIL） |
+| BUG-11 | PASS | 8 条锚定 parsePropfindResponse；五实体 + 不二次解码 + href 不 URL 解码 |
+| BUG-12 | PASS | 7 条畸形输入 returnsNormally + 端到端 validateUrl 友好文案 |
+| BUG-13 | PASS | 5 条走真实生产链，两调用方正向 + 否定（其他文件保留）+ 边界（resume==null） |
+| BUG-14 | PASS | 8 用例 persistedOrder/position 真断言 + fromMap OOB 五态 |
+| BUG-15 | PASS | 17 用例含 displayname 带扩展名必须 null 的否定断言 + 端到端 PROPFIND |
+| BUG-16 | PASS | 真实文件库 close→reopen 重启模拟 + 级联/孤儿断言 + 测试库 FK 生效 |
+| BUG-17 | PASS | FakeAsync 真实计时 + INV1 六方法超时全扫描 |
+| BUG-18 | PASS | fast path/50ms 即时/16s 慢 NAS 否定 verifyNever(stop)/30s 超时分层 |
+| BUG-19 | PASS | 真断言 + dispose 窗口否定断言；catchError 记日志不静默（0607ee3） |
+| BUG-20 | PASS | 23 条黄金/边界/异常三档 + 双态门禁实证（回退固定窗口 13 条 FAIL） |
+| BUG-21 | PASS | 变异实证（还原破损模式即 FAIL）；onDispose 局部句柄必要修正 |
+| BUG-22 | PASS | 行为 + 静态守卫 + 事件流级测试；观察：gained 分支删除为后续用户裁决，spec 未同步 |
+| BUG-23 | PASS | 18 条三复现路径 + INV1 全库核对无 $e 插值 |
+| BUG-24 | PASS | S1-T01 真实 GateableDao 窗口 + S2 回滚否定断言（storage.read == old-pw） |
+| BUG-25 | PASS | S1 六档 + S4 Completer 门控退页 + S5 FlutterMemoryAllocations 泄漏对账 |
+| BUG-26 | PASS | "视图冒充表"错误注入 + 事务回滚断言 + S4 五处时钟注入 |
+| BUG-27 | PASS | superseded 三重否定断言 + RED 实证；S2 死代码清理彻底（源码扫描） |
+| BUG-28 | PASS | 复现路径 + 非法值集合 + 双守卫对齐；观察：U3 null-prefs 语义被 REF-04 改写，spec 待补 |
+| BUG-29 | PASS | 14 条 frozen '04:35' 真断言 + 首发 1 帧 + 取消/到期无残留 |
+| BUG-30 | PASS | S1/S2 单字段差异真断言；minor：单边 null modifiedAt 无直接用例 |
+| BUG-31 | PASS | ValueKey 双 tile 断言 + 注入时钟 TTL 三边界；drift：S2 已被 REF-06 删除 DirectoryService（sanctioned） |
+| BUG-32 | PASS | S1 五档 + INV2 六条覆盖全部 4 调用方 + S2 无 unhandled 异常 |
+
+### FAIL 问题清单
+
+1. **BUG-10 缺门禁测试**（检查项 1 @BUG-10-S1 / BUG-10-INV1）
+   - 证据：dev-status.json test_files=[]，test_coverage_gaps=[BUG-10-S1, BUG-10-INV1]；spec §5.4 指定 `test/features/connection/bug_bug10_repro_test.dart` 不存在（spec-scan --gate exit=1）。
+   - 实现已忠实：connection_service.dart:118-132 delete 返回 wasActive；connection_provider.dart:369-375 捕获返回值、:381-383 `if (wasActive) resetBrowserStateOnActiveConnectionChange(ref)`；非活跃删除/LastConnectionException 不触发重置。
+   - 修复指令：新建 `test/features/connection/bug_bug10_repro_test.dart`（spec §5.3 双态门禁）——正向：删除活跃连接后 navigationStackProvider/directoryCacheProvider 被 invalidate（导航栈复位）；否定：删除非活跃连接不触发 reset；回退 `connection_provider.dart:381-383` 的 if (wasActive) 分支应 FAIL。测试走真实生产链（连接列表页删除按钮 → connectionService.delete → provider 分支），用 fake DAO/storage（test/helpers/）。不得为平账造空壳（spec §5.3 明文）。
+
+### 行动
+- 28 项判 PASS → 已执行 `dev-status.sh pass`（批量）
+- BUG-10 判 FAIL → 已执行 `dev-status.sh bump-round BUG-10`（round-1，impl 回 pending），请手动启动 dev-exe BUG-10 重做
+
+---
+
+## [2026-08-15] BUG-10 - 第 2 轮 dev-check
+
+> 输入：round-1 FAIL 打回后 dev-exe 重做（仅新增 test/features/connection/bug_bug10_repro_test.dart，零 lib/ 改动）。机械项全绿：spec-scan --gate BUG-10 rc=0、spec-scan 覆盖矩阵 S1/INV1 命中、cov-gate 全量 2287 PASS（2284+3）、coverage-check check-check rc=0 无漂移。
+
+### BUG-10 — 第 2 轮 verdict: PASS
+
+| 检查 | verdict | 要点 |
+|---|---|---|
+| 1. 测试空壳审计 | PASS | 3 用例全真断言：S1 正向（真实 ffi DAO + SpyWebDavClient，删活跃 A 后 directoryCacheProvider isEmpty + navigationStackProvider == ['/'] + 重浏览 PROPFIND 1→2）；S1 否定（删非活跃 B：缓存同实例 + 条目保留 + 栈原样 + PROPFIND 计数保持 0）；INV1（同 container 三入口切换/编辑/删除各断言缓存空 + 栈回根）。无占位断言 |
+| 2. 实现语义忠实 | PASS | 本轮零 lib/ 改动；双态实证已做：临时回退 connection_provider.dart:381-383 `if (wasActive)` 分支 → S1 正向 + INV1 两用例 FAIL、否定用例绿（符合语义），恢复后全绿 |
+| 3. 跨模块破坏 | PASS | 仅新增 test 文件；全量 2287 PASS；cross-imports clean；覆盖率基线无漂移 |
+
+### 行动
+- BUG-10 判 PASS → 执行 `dev-status.sh pass BUG-10` + `coverage-check.sh refresh`（基线单调上行）
