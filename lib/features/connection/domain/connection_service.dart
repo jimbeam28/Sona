@@ -30,9 +30,13 @@ class ConnectionService {
   /// Saves [config] + [password] atomically:
   /// 1. Insert row with a temporary password key.
   /// 2. Write password to secure storage under the permanent key.
-  /// 3. If step 2 fails, delete the DB row (rollback) and rethrow.
+  /// 3. If step 2 fails, delete the DB row (unguarded rollback) and rethrow.
   /// 4. Update the row to reference the permanent password key.
   /// 5. Set the saved connection as the only active one.
+  ///
+  /// Steps 4/5 share a rollback (BUG-17): on failure delete the DB row
+  /// (unguarded) + delete the permanent key so no orphan row referencing the
+  /// shared temp key survives, then rethrow the original error.
   ///
   /// Returns the saved [ConnectionConfig] with its database id set.
   Future<ConnectionConfig> save({
@@ -50,18 +54,48 @@ class ConnectionService {
       await safeStorageWrite(_storage, key: permanentKey, value: password);
     } catch (_) {
       // Step 3: rollback — remove the DB row if secure-storage write fails.
-      await _dao.delete(id);
+      // BUG-17: 用无守卫删行 —— 首次添加连接（0→1）时 count()==1，
+      // 守卫版 delete 会抛 LastConnectionException 使回滚失效。
+      await _deleteRowForRollback(id);
       rethrow;
     }
 
     // Step 4: update the row to reference the permanent key.
     final savedConfig = config.copyWith(id: id, isActive: true);
-    await _dao.update(savedConfig, passwordKey: permanentKey);
-
-    // Step 5: mark as active (clears any previous active flag).
-    await _dao.setActive(id);
+    try {
+      await _dao.update(savedConfig, passwordKey: permanentKey);
+      // Step 5: mark as active (clears any previous active flag).
+      await _dao.setActive(id);
+    } catch (_) {
+      // BUG-17（cr-20260816-0804 F4）：步骤 4/5 失败全量回滚 —— 删行 +
+      // 删永久 key，不留引用共享 temp key 的孤儿行（对齐 BUG-24-S2）。
+      await _rollbackSave(id, permanentKey);
+      rethrow;
+    }
 
     return savedConfig;
+  }
+
+  /// BUG-17 回滚补偿：删 DB 行（无守卫）+ 删永久 key。best-effort 但必须
+  /// 留日志；不 rethrow —— 补偿失败不得掩盖原异常（原异常已在调用方继续
+  /// 上抛）。两个补偿步骤独立 try（删行失败也要尝试删 key）。
+  Future<void> _rollbackSave(int id, String permanentKey) async {
+    await _deleteRowForRollback(id);
+    try {
+      await safeStorageDelete(_storage, key: permanentKey);
+    } catch (e) {
+      debugLog('[Conn] save rollback: storage cleanup failed for id=$id: $e');
+    }
+  }
+
+  /// 回滚删行的 service 私有封装：失败留日志、不掩盖原异常。用无守卫
+  /// deleteWithoutGuard（CON-T32 只适用于用户路径删除，BUG-17-INV3）。
+  Future<void> _deleteRowForRollback(int id) async {
+    try {
+      await _dao.deleteWithoutGuard(id);
+    } catch (e) {
+      debugLog('[Conn] save rollback: row delete failed for id=$id: $e');
+    }
   }
 
   // ── Update ────────────────────────────────────────────────────────────────

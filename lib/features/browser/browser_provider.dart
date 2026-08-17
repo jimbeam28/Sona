@@ -239,7 +239,16 @@ final restoreQueueFromPrefsProvider = FutureProvider<void>((ref) async {
             filePath: files[idx].path,
             username: conn.username,
             player: ref.read(audioPlayerProvider),
-            startPositionMs: posMs);
+            startPositionMs: posMs,
+            // BUG-06：晚到即弃——preload 期间用户已选其它曲目（队列 current
+            // 变）或清空队列 → 放弃剩余步骤。preload 与用户加载共用同一播放器
+            // 且无串行化（P14），守卫以"恢复的曲目是否仍是当前曲目"为准绳。
+            shouldAbandon: () {
+              final q = ref.read(currentPlayQueueProvider);
+              return q == null ||
+                  q.length == 0 ||
+                  q.current.path != files[idx].path;
+            });
       } catch (e) {
         debugPrint('[Browser] restoreQueue: pre-load failed: $e');
       }

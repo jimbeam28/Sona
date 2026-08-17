@@ -101,6 +101,13 @@ class DatabaseHelper {
     ''');
   }
 
+  // Exposed for testing (BUG-19): runs the production v2 schema creation
+  // (onCreate) against any database handle, so test helpers can build the
+  // exact production schema without re-declaring DDL.
+  Future<void> createSchema(Database db) async {
+    await _onCreate(db, _dbVersion);
+  }
+
   // Exposed for testing (e.g. sqflite_ffi in-memory db)
   void overrideDatabase(Database db) {
     _db = db;

@@ -9,6 +9,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/contracts/audio_handler_contract.dart';
 import '../../core/services/audio_handler.dart';
+import '../../core/services/log_forwarder.dart';
 import '../../core/services/audio_player_adapter.dart';
 import '../../shared/models/connection_config.dart';
 import '../../shared/models/nas_file.dart';
@@ -22,10 +23,7 @@ import 'domain/request_gate.dart';
 import 'domain/speed_manager.dart' as sm;
 
 export 'background_playback_notifier.dart'
-    show
-        BackgroundPlaybackNotifier,
-        backgroundPlaybackProvider,
-        mapLifecycleState;
+    show BackgroundPlaybackNotifier, backgroundPlaybackProvider;
 export 'domain/background_playback.dart'
     show
         AppLifecyclePhase,
@@ -128,6 +126,8 @@ final playbackOrchestratorProvider = Provider<PlaybackOrchestrator>((ref) {
       // BaseAudioHandler (not part of the contract surface), so the wiring
       // point casts back to the concrete handler.
       (ref.read(audioHandlerProvider) as NasAudioHandler?)?.mediaItem.add(null);
+    } else {
+      _syncMediaItemToHandler(ref);
     }
   };
   // Sync Riverpod state → orchestrator queue (external mutations only).
@@ -216,7 +216,6 @@ PlayQueue? applyLatestProgressToQueue({
       latestProgress.positionMs, latestProgress.durationMs));
 }
 
-final backgroundPlaybackEnabledProvider = StateProvider<bool>((ref) => true);
 final restoreStartupProgressProvider = FutureProvider<void>((ref) async {
   await ref.read(restoreQueueFromPrefsProvider.future);
   final q = ref.read(currentPlayQueueProvider);
@@ -242,7 +241,21 @@ final backgroundPlaybackSyncProvider = Provider<void>((ref) {
   final h = ref.read(audioHandlerProvider);
   final n = ref.read(backgroundPlaybackProvider.notifier);
   h?.onConfigChanged = n.syncFromHandler;
-  ref.onDispose(() => h?.onConfigChanged = null);
+  // BUG-02: skip 回调归应用级接线（P8 踩坑：播放生命周期资源严禁绑定
+  // 页面 dispose）。通知栏/耳机 skip → 编排层推进队列；空队列下
+  // orchestrator 安全返回 failed（playback_orchestrator.dart:253-255），
+  // 无副作用。接线时机 = home_screen.dart:80 的 eager-read。
+  h?.onSkipToNextRequested = () {
+    unawaited(ref.read(skipToNextProvider)());
+  };
+  h?.onSkipToPreviousRequested = () {
+    unawaited(ref.read(skipToPreviousProvider)());
+  };
+  ref.onDispose(() {
+    h?.onConfigChanged = null;
+    h?.onSkipToNextRequested = null;
+    h?.onSkipToPreviousRequested = null;
+  });
 });
 
 final _processingSubProvider =
@@ -330,6 +343,7 @@ final startProcessingListenerProvider = Provider<void Function()>((ref) {
 /// Starts playback listeners after a successful track load.
 /// Shared by loadAndPlayProvider and queue-navigation providers.
 void _startPlaybackListeners(Ref ref) {
+  _syncMediaItemToHandler(ref);
   ref.read(startProcessingListenerProvider)();
   ref.read(_startAutoSaveProvider)();
   ref.read(_startPauseSaveProvider)(ref.read(audioPlayerProvider));
@@ -338,49 +352,75 @@ void _startPlaybackListeners(Ref ref) {
     ref.read(currentSpeedProvider.notifier).state = ds;
 }
 
+/// BUG-04（cr-20260816-0802 B2）：加载成功/队列变更时把当前曲目推送到
+/// audio_service mediaItem 流，通知栏/锁屏才能显示曲名与时长。
+/// handler 为 null（AudioService.init 失败）时空操作。
+void _syncMediaItemToHandler(Ref ref) {
+  final h = ref.read(audioHandlerProvider);
+  if (h == null) return;
+  final q = ref.read(currentPlayQueueProvider);
+  if (q == null || q.length == 0) return;
+  h.setMediaItemFromPath(q.current.path);
+}
+
+/// BUG-03（cr-20260816-0802 B1）：gate 超时/平台错误经异常路径抛回
+/// （request_gate.dart completeError）。守卫必须无条件复位（try/finally
+/// 语义），异常记日志后吞掉——completed 监听器 unawaited 无错误处理，放任
+/// 传播即 unhandled async error，且守卫卡 true 会让自动切歌永久失效。
+Future<TrackLoadResult> _runLoadOrchestrated(
+  Ref ref,
+  Future<TrackLoadResult> Function() action,
+) async {
+  TrackLoadResult r;
+  try {
+    r = await action();
+  } catch (e, st) {
+    debugLog('[Player] loadAndPlay failed: $e\n$st');
+    return const TrackLoadResult.failed();
+  } finally {
+    ref.read(_completingProvider.notifier).state = false;
+  }
+  if (r.isLoaded) _startPlaybackListeners(ref);
+  return r;
+}
+
 final Provider<Future<TrackLoadResult> Function()> loadAndPlayProvider =
     Provider<Future<TrackLoadResult> Function()>((ref) => () async {
-          final r = await ref.read(playbackOrchestratorProvider).loadAndPlay();
-          if (r.isLoaded) _startPlaybackListeners(ref);
-          ref.read(_completingProvider.notifier).state = false;
-          return r;
+          return _runLoadOrchestrated(
+              ref, () => ref.read(playbackOrchestratorProvider).loadAndPlay());
         });
 
 final Provider<Future<TrackLoadResult> Function()> skipToNextProvider =
     Provider<Future<TrackLoadResult> Function()>((ref) => () async {
-          final r = await ref.read(playbackOrchestratorProvider).skipToNext();
-          if (r.isLoaded) _startPlaybackListeners(ref);
-          ref.read(_completingProvider.notifier).state = false;
-          return r;
+          return _runLoadOrchestrated(
+              ref, () => ref.read(playbackOrchestratorProvider).skipToNext());
         });
 
 final skipToPreviousProvider =
     Provider<Future<TrackLoadResult> Function()>((ref) => () async {
-          final r =
-              await ref.read(playbackOrchestratorProvider).skipToPrevious();
-          if (r.isLoaded) _startPlaybackListeners(ref);
-          ref.read(_completingProvider.notifier).state = false;
-          return r;
+          return _runLoadOrchestrated(ref,
+              () => ref.read(playbackOrchestratorProvider).skipToPrevious());
         });
 
 final selectQueueIndexProvider =
     Provider<Future<TrackLoadResult> Function(int)>((ref) => (i) async {
-          final r =
-              await ref.read(playbackOrchestratorProvider).selectQueueIndex(i);
-          if (r.isLoaded) _startPlaybackListeners(ref);
-          ref.read(_completingProvider.notifier).state = false;
-          return r;
+          return _runLoadOrchestrated(ref,
+              () => ref.read(playbackOrchestratorProvider).selectQueueIndex(i));
         });
 
 final removeTrackFromQueueProvider =
     Provider<Future<void> Function(int)>((ref) => (i) async {
           final q = ref.read(currentPlayQueueProvider);
           if (q == null || i < 0 || i >= q.length) return;
-          await ref.read(playbackOrchestratorProvider).removeTrack(i);
-          // removeTrack may have loaded a new track (if wasCurrent).
-          // Check if the player is now playing to decide if listeners are needed.
-          final player = ref.read(audioPlayerProvider);
-          if (player.playing) _startPlaybackListeners(ref);
+          final wasCurrent = i == q.currentIndex;
+          final result =
+              await ref.read(playbackOrchestratorProvider).removeTrack(i);
+          // BUG-07（cr-20260816-0802 F3）：wasCurrent 删除 + 加载成功即
+          // 无条件启动监听器，不依赖同步读 player.playing（P3：加载期间
+          // 暂停/playing 不传播 → 旧条件判定漏启 → 自动切歌/自动保存缺失）。
+          if (wasCurrent && result != null && result.isLoaded) {
+            _startPlaybackListeners(ref);
+          }
         });
 
 final insertAfterCurrentProvider =

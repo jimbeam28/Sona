@@ -18,7 +18,6 @@ import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../../../shared/di/providers.dart';
-import '../../../shared/models/play_queue.dart';
 
 import '../player_provider.dart';
 import 'queue_sheet.dart';
@@ -118,7 +117,7 @@ class MiniPlayerBar extends ConsumerWidget {
                         _PlayPauseButton(player: player),
                         // Queue list button
                         IconButton(
-                          onPressed: () => _showQueueSheet(context, ref, queue),
+                          onPressed: () => _showQueueSheet(context, ref),
                           icon: const Icon(Icons.queue_music),
                           iconSize: 28,
                           tooltip: '播放列表',
@@ -139,12 +138,11 @@ class MiniPlayerBar extends ConsumerWidget {
 
 // ── Queue sheet ─────────────────────────────────────────────────────────────
 
-void _showQueueSheet(BuildContext context, WidgetRef ref, PlayQueue queue) {
+void _showQueueSheet(BuildContext context, WidgetRef ref) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
     builder: (ctx) => QueueSheet(
-      queue: queue,
       errorMessage: '无法加载音频，请检查连接配置',
       onSelectIndex: (index) async {
         final loaded = await ref.read(selectQueueIndexProvider)(index);

@@ -54,25 +54,38 @@ class AudioPlayerAdapter implements IAudioPlayer {
   AudioSource? get audioSource => _impl.audioSource;
 
   // ── Actions ─────────────────────────────────────────────────────────────
+  // BUG-08（cr-20260816-0802 F4）：P17 分层表 5s 平台层补齐到 IAudioPlayer
+  // 通道。语义分层：
+  //   setAudioSource —— 加载成败判定点，超时必须以 TimeoutException 结束
+  //     （orchestrator catch → failed → 不 play，杜绝 ghost）；
+  //   seek/setSpeed/play/pause/stop —— 超时静默返回（BUG-17 同款裁决，
+  //     P4：平台调用失败不向用户冒泡；seek 另因 restore 路径
+  //     player_provider.dart:237 无 try 包裹，抛错即 unhandled）。
+  static const _platformTimeout = Duration(seconds: 5);
 
   @override
   Future<Duration?> setAudioSource(AudioSource source) =>
-      _impl.setAudioSource(source);
+      _impl.setAudioSource(source).timeout(_platformTimeout);
 
   @override
-  Future<void> play() => _impl.play();
+  Future<void> play() =>
+      _impl.play().timeout(_platformTimeout, onTimeout: () {});
 
   @override
-  Future<void> pause() => _impl.pause();
+  Future<void> pause() =>
+      _impl.pause().timeout(_platformTimeout, onTimeout: () {});
 
   @override
-  Future<void> stop() => _impl.stop();
+  Future<void> stop() =>
+      _impl.stop().timeout(_platformTimeout, onTimeout: () {});
 
   @override
-  Future<void> seek(Duration position) => _impl.seek(position);
+  Future<void> seek(Duration position) =>
+      _impl.seek(position).timeout(_platformTimeout, onTimeout: () {});
 
   @override
-  Future<void> setSpeed(double speed) => _impl.setSpeed(speed);
+  Future<void> setSpeed(double speed) =>
+      _impl.setSpeed(speed).timeout(_platformTimeout, onTimeout: () {});
 
   @override
   Future<void> dispose() => _impl.dispose();

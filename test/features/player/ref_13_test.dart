@@ -9,8 +9,11 @@
 // REF-13-T02: Audio focus gained/lost/transient transitions
 // REF-13-T03: Foreground/background lifecycle transitions
 // REF-13-T04: isAudioActive / showPauseAction derived properties
+//
+// REF-03 (cr-20260816-0802 D1 裁决 A): Notifier 已缩为只读镜像（单入口
+// syncFromHandler），驱动方法为死面删除——所有 notifier 驱动用例同步删除，
+// 保留纯值对象 / 纯函数锚定。
 
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nas_audio_player/features/player/background_playback_notifier.dart';
@@ -111,58 +114,6 @@ void main() {
       expect(after.backgroundEnabled, isTrue);
       expect(after.isInForeground, isFalse);
     });
-
-    // Notifier integration
-    test('Notifier: onMediaControl(play) transitions paused to playing', () {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-      final notifier = container.read(backgroundPlaybackProvider.notifier);
-
-      notifier.startPlayback();
-      notifier.onMediaControl(MediaControlAction.pause);
-      expect(
-        container.read(backgroundPlaybackProvider).playbackState,
-        equals(BackgroundPlaybackState.paused),
-      );
-
-      notifier.onMediaControl(MediaControlAction.play);
-      expect(
-        container.read(backgroundPlaybackProvider).playbackState,
-        equals(BackgroundPlaybackState.playing),
-      );
-    });
-
-    test('Notifier: onMediaControl(stop) transitions to stopped', () {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-      final notifier = container.read(backgroundPlaybackProvider.notifier);
-
-      notifier.startPlayback();
-      notifier.onMediaControl(MediaControlAction.stop);
-      expect(
-        container.read(backgroundPlaybackProvider).playbackState,
-        equals(BackgroundPlaybackState.stopped),
-      );
-    });
-
-    test('Notifier: onMediaControl(togglePlayPause) toggles correctly', () {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-      final notifier = container.read(backgroundPlaybackProvider.notifier);
-
-      notifier.startPlayback();
-      notifier.onMediaControl(MediaControlAction.togglePlayPause);
-      expect(
-        container.read(backgroundPlaybackProvider).playbackState,
-        equals(BackgroundPlaybackState.paused),
-      );
-
-      notifier.onMediaControl(MediaControlAction.togglePlayPause);
-      expect(
-        container.read(backgroundPlaybackProvider).playbackState,
-        equals(BackgroundPlaybackState.playing),
-      );
-    });
   });
 
   // ── REF-13-T02: Audio focus gained/lost/transient transitions ────────────
@@ -226,48 +177,6 @@ void main() {
       final after = state.updateAudioFocus(AudioFocusState.lost);
       expect(after.backgroundEnabled, isTrue);
       expect(after.isInForeground, isFalse);
-    });
-
-    // Notifier integration
-    test('Notifier: onAudioFocusChange(lost) pauses playback', () {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-      final notifier = container.read(backgroundPlaybackProvider.notifier);
-
-      notifier.startPlayback();
-      notifier.onAudioFocusChange(AudioFocusState.lost);
-
-      final state = container.read(backgroundPlaybackProvider);
-      expect(state.playbackState, equals(BackgroundPlaybackState.paused));
-      expect(state.audioFocus, equals(AudioFocusState.lost));
-      expect(state.isAudioActive, isFalse);
-    });
-
-    test('Notifier: onAudioFocusChange(transient) keeps playing', () {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-      final notifier = container.read(backgroundPlaybackProvider.notifier);
-
-      notifier.startPlayback();
-      notifier.onAudioFocusChange(AudioFocusState.transient);
-
-      final state = container.read(backgroundPlaybackProvider);
-      expect(state.playbackState, equals(BackgroundPlaybackState.playing));
-      expect(state.audioFocus, equals(AudioFocusState.transient));
-    });
-
-    test('Notifier: lost then gained stays paused', () {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-      final notifier = container.read(backgroundPlaybackProvider.notifier);
-
-      notifier.startPlayback();
-      notifier.onAudioFocusChange(AudioFocusState.lost);
-      notifier.onAudioFocusChange(AudioFocusState.gained);
-
-      final state = container.read(backgroundPlaybackProvider);
-      expect(state.audioFocus, equals(AudioFocusState.gained));
-      expect(state.playbackState, equals(BackgroundPlaybackState.paused));
     });
   });
 
@@ -395,79 +304,6 @@ void main() {
         ),
         isFalse,
       );
-    });
-
-    // Notifier integration
-    test('Notifier: onAppLifecycleChange(paused) keeps playing', () {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-      final notifier = container.read(backgroundPlaybackProvider.notifier);
-
-      notifier.startPlayback();
-      notifier.onAppLifecycleChange(AppLifecycleState.paused);
-
-      final state = container.read(backgroundPlaybackProvider);
-      expect(state.playbackState, equals(BackgroundPlaybackState.playing));
-      expect(state.isInForeground, isFalse);
-    });
-
-    test('Notifier: onAppLifecycleChange(resumed) restores foreground', () {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-      final notifier = container.read(backgroundPlaybackProvider.notifier);
-
-      notifier.startPlayback();
-      notifier.onAppLifecycleChange(AppLifecycleState.paused);
-      notifier.onAppLifecycleChange(AppLifecycleState.resumed);
-
-      final state = container.read(backgroundPlaybackProvider);
-      expect(state.isInForeground, isTrue);
-      expect(state.playbackState, equals(BackgroundPlaybackState.playing));
-    });
-
-    test('Notifier: onAppLifecycleChange(detached) stops playback', () {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-      final notifier = container.read(backgroundPlaybackProvider.notifier);
-
-      notifier.startPlayback();
-      notifier.onAppLifecycleChange(AppLifecycleState.detached);
-
-      final state = container.read(backgroundPlaybackProvider);
-      expect(state.playbackState, equals(BackgroundPlaybackState.stopped));
-      expect(state.isInForeground, isFalse);
-    });
-
-    test('Notifier: full lifecycle sequence hidden->inactive->paused->resumed',
-        () {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-      final notifier = container.read(backgroundPlaybackProvider.notifier);
-
-      notifier.startPlayback();
-
-      notifier.onAppLifecycleChange(AppLifecycleState.hidden);
-      expect(
-          container.read(backgroundPlaybackProvider).isInForeground, isFalse);
-      expect(container.read(backgroundPlaybackProvider).playbackState,
-          equals(BackgroundPlaybackState.playing));
-
-      notifier.onAppLifecycleChange(AppLifecycleState.inactive);
-      expect(
-          container.read(backgroundPlaybackProvider).isInForeground, isFalse);
-      expect(container.read(backgroundPlaybackProvider).playbackState,
-          equals(BackgroundPlaybackState.playing));
-
-      notifier.onAppLifecycleChange(AppLifecycleState.paused);
-      expect(
-          container.read(backgroundPlaybackProvider).isInForeground, isFalse);
-      expect(container.read(backgroundPlaybackProvider).playbackState,
-          equals(BackgroundPlaybackState.playing));
-
-      notifier.onAppLifecycleChange(AppLifecycleState.resumed);
-      expect(container.read(backgroundPlaybackProvider).isInForeground, isTrue);
-      expect(container.read(backgroundPlaybackProvider).playbackState,
-          equals(BackgroundPlaybackState.playing));
     });
   });
 
@@ -678,39 +514,8 @@ void main() {
       expect(state.playbackState, equals(BackgroundPlaybackState.stopped));
       expect(state.audioFocus, equals(AudioFocusState.gained));
     });
-
-    test('startPlayback, pausePlayback, stopPlayback transitions', () {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-      final notifier = container.read(backgroundPlaybackProvider.notifier);
-
-      notifier.startPlayback();
-      expect(container.read(backgroundPlaybackProvider).playbackState,
-          equals(BackgroundPlaybackState.playing));
-
-      notifier.pausePlayback();
-      expect(container.read(backgroundPlaybackProvider).playbackState,
-          equals(BackgroundPlaybackState.paused));
-
-      notifier.stopPlayback();
-      expect(container.read(backgroundPlaybackProvider).playbackState,
-          equals(BackgroundPlaybackState.stopped));
-    });
-
-    test('setBackgroundEnabled toggles the flag', () {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-      final notifier = container.read(backgroundPlaybackProvider.notifier);
-
-      expect(
-          container.read(backgroundPlaybackProvider).backgroundEnabled, isTrue);
-      notifier.setBackgroundEnabled(false);
-      expect(container.read(backgroundPlaybackProvider).backgroundEnabled,
-          isFalse);
-      notifier.setBackgroundEnabled(true);
-      expect(
-          container.read(backgroundPlaybackProvider).backgroundEnabled, isTrue);
-    });
+    // REF-03: startPlayback / pausePlayback / stopPlayback /
+    // setBackgroundEnabled 为死面驱动方法，已删除，对应测试同步删除。
   });
 
   group('Enum coverage', () {

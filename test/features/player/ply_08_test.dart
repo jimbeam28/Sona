@@ -13,11 +13,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:mockito/mockito.dart';
 import 'package:nas_audio_player/features/player/widgets/mini_player_bar.dart';
 import 'package:nas_audio_player/features/player/widgets/queue_sheet.dart';
+import 'package:nas_audio_player/shared/di/providers.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:nas_audio_player/shared/models/play_queue.dart';
 
@@ -39,25 +41,32 @@ Widget _wrapQueueSheetLauncher({
   required PlayQueue queue,
   required Future<bool> Function(int index) onSelectIndex,
 }) {
-  return MaterialApp(
-    home: Scaffold(
-      body: Builder(
-        builder: (context) {
-          return ElevatedButton(
-            onPressed: () {
-              showModalBottomSheet<void>(
-                context: context,
-                builder: (_) => QueueSheet(
-                  queue: queue,
-                  errorMessage: '加载失败',
-                  onSelectIndex: onSelectIndex,
-                  onRemoveIndex: (_) {},
-                ),
-              );
-            },
-            child: const Text('Open Queue'),
-          );
-        },
+  // REF-05-S7: QueueSheet 改为 live 数据源（watch currentPlayQueueProvider）——
+  // 装配从构造参数快照改为 ProviderScope + currentPlayQueueProvider.overrideWith
+  // （仿 ply_14_test.dart 既有 override 机制）。
+  return ProviderScope(
+    overrides: [
+      currentPlayQueueProvider.overrideWith((ref) => queue),
+    ],
+    child: MaterialApp(
+      home: Scaffold(
+        body: Builder(
+          builder: (context) {
+            return ElevatedButton(
+              onPressed: () {
+                showModalBottomSheet<void>(
+                  context: context,
+                  builder: (_) => QueueSheet(
+                    errorMessage: '加载失败',
+                    onSelectIndex: onSelectIndex,
+                    onRemoveIndex: (_) {},
+                  ),
+                );
+              },
+              child: const Text('Open Queue'),
+            );
+          },
+        ),
       ),
     ),
   );

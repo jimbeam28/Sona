@@ -361,9 +361,11 @@ class WebDavClient implements WebDavClientInterface {
       // receive paths relative to the connection root (avoids the self-ref
       // ghost entry and the /dav/dav double-prefix on navigation / playback).
       final decodedBase = basePath.isEmpty ? '' : Uri.decodeFull(basePath);
-      final result = decodedBase.isEmpty
-          ? parsed
-          : parsed.map((f) => _relativisePath(f, decodedBase)).toList();
+      // REF-01: 无条件 relativise —— 根挂载时绝对 URL href 也要剥 authority
+      // （cr-20260816-0801 D1）。targetUri 的 authority 是"本服务器"判定基准。
+      final result = parsed
+          .map((f) => _relativisePath(f, decodedBase, targetUri))
+          .toList();
       debugPrint('[WebDAV] listDirectory: got ${result.length} entries');
       return result;
     } on WebDavException {
@@ -433,15 +435,19 @@ class WebDavClient implements WebDavClientInterface {
   /// The directory self-reference (path == base) becomes `/`. Paths not under
   /// the base are returned unchanged (defensive — should not happen for a
   /// well-formed PROPFIND response).
-  static NasFile _relativisePath(NasFile file, String decodedBase) {
+  static NasFile _relativisePath(
+      NasFile file, String decodedBase, Uri requestUri) {
     final p = file.path;
+    // REF-01: 绝对 URL href 先剥 authority（host 同本连接才剥），再走既有前缀剥离。
+    final pathOnly = _stripHrefAuthority(p, requestUri);
+    final base = pathOnly ?? p; // null → 非绝对 URL 或外部 host，保持原样
     String rel;
-    if (p == decodedBase) {
+    if (base == decodedBase) {
       rel = '/';
-    } else if (p.startsWith('$decodedBase/')) {
-      rel = p.substring(decodedBase.length);
+    } else if (base.startsWith('$decodedBase/')) {
+      rel = base.substring(decodedBase.length);
     } else {
-      rel = p;
+      rel = base;
     }
     return NasFile(
       name: file.name,
@@ -451,6 +457,21 @@ class WebDavClient implements WebDavClientInterface {
       modifiedAt: file.modifiedAt,
       audioType: file.audioType,
     );
+  }
+
+  /// REF-01: 返回 [hrefPath] 的路径形态（剥掉 scheme+authority），当且仅当
+  /// [hrefPath] 是绝对 URL（scheme 非空且 host 非空）且其 host 与 [requestUri]
+  /// 的 host 相同（大小写不敏感）。端口与 scheme 不参与判定（反代/端口改写
+  /// 场景下服务器可能以不同端口/scheme 自报，下游重拼 URL 用连接 URL 的
+  /// 端口与 scheme，剥掉 authority 后拼接仍正确）。非绝对 URL 或 host 不同
+  /// 返回 null —— 调用方保持原样（外部引用不被相对化吞掉）。
+  /// 剥后 path 为空（根自引用 `http://host:5005`）→ 归一为 '/'。
+  static String? _stripHrefAuthority(String hrefPath, Uri requestUri) {
+    final uri = Uri.tryParse(hrefPath);
+    if (uri == null || uri.scheme.isEmpty || uri.host.isEmpty) return null;
+    if (uri.host.toLowerCase() != requestUri.host.toLowerCase()) return null;
+    final path = uri.path;
+    return path.isEmpty ? '/' : path;
   }
 
   /// Extracts the text content of the first XML element matching [tagName]

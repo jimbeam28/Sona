@@ -1,9 +1,14 @@
 // lib/core/services/audio_handler.dart
 // Android audio_service handler for background playback and media controls.
 //
-// Implements [BaseAudioHandler] with [QueueHandler] and [SeekHandler]
-// mixins so that notification / lock-screen controls, headphone buttons,
-// and Android system media commands all work through a single entry point.
+// Implements [BaseAudioHandler] with [SeekHandler] mixins so that
+// notification / lock-screen controls, headphone buttons, and Android
+// system media commands all work through a single entry point.
+//
+// NOTE (BUG-01): [QueueHandler] is intentionally NOT mixed in — this app
+// manages its own play queue and never calls updateQueue/skipToQueueItem.
+// QueueHandler._skip asserts `playbackState.nvalue!.queueIndex!` and would
+// throw a TypeError on every skip because queueIndex is permanently null.
 //
 // The handler is created by [AudioService.init] in [main] and receives
 // the application-wide [AudioPlayer] instance directly.  State is synced
@@ -41,8 +46,15 @@ typedef AudioSessionProvider = Future<AudioSession> Function();
 /// are reflected in the notification via [playbackState] and [mediaItem]
 /// streams.
 class NasAudioHandler extends BaseAudioHandler
-    with QueueHandler, SeekHandler
-    implements IAudioHandler {
+    // BUG-01: 移除 QueueHandler —— 本应用自管队列，audio_service 队列
+    // 能力完全未用；QueueHandler._skip 对 queueIndex 的 `!` 解包
+    // （audio_service.dart:3374）在生产常态（queueIndex 恒 null）下
+    // 每次 skip 都抛 TypeError（cr-20260816-0801 B1）。super 落到
+    // BaseAudioHandler no-op（audio_service.dart:3142/3145）。
+    with
+        SeekHandler
+    implements
+        IAudioHandler {
   final AudioPlayer _player;
 
   /// Injectable audio-session supplier (testability injection, same style as

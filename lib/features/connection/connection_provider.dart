@@ -109,6 +109,8 @@ class ConnectionValidatorNotifier
     extends StateNotifier<ConnectionValidationState> {
   final WebDavClientInterface _client;
 
+  int _validationEpoch = 0;
+
   ConnectionValidatorNotifier(this._client) : super(const ValidationIdle());
 
   /// Performs the WebDAV PROPFIND validation.
@@ -122,6 +124,7 @@ class ConnectionValidatorNotifier
     String basePath = '/',
   }) async {
     if (state is ValidationLoading) return; // re-entry guard
+    final epoch = ++_validationEpoch; // BUG-14: 本次请求的 epoch
     state = const ValidationLoading();
     // CON2/NET7: strip any user:pass@ before logging (LogBuffer mirror).
     debugPrint(
@@ -133,6 +136,7 @@ class ConnectionValidatorNotifier
       password: password,
       basePath: basePath,
     );
+    if (epoch != _validationEpoch) return; // BUG-14: 过期结果丢弃（不落地）
     debugPrint('[Conn] validation result: ${result.status}');
     if (result.isSuccess) {
       state = const ValidationSuccess();
@@ -141,7 +145,10 @@ class ConnectionValidatorNotifier
     }
   }
 
-  void reset() => state = const ValidationIdle();
+  void reset() {
+    _validationEpoch++; // BUG-14: 使所有 in-flight 请求失效
+    state = const ValidationIdle();
+  }
 }
 
 final connectionValidatorProvider = StateNotifierProvider<
@@ -220,6 +227,10 @@ final switchActiveConnectionProvider =
   await service.setActive(id);
   ref.invalidate(activeConnectionProvider);
   ref.invalidate(connectionListProvider);
+  // BUG-16: switch 路径收敛进 CON3 钩子 —— 浏览器状态复位从 widget 层
+  // （connection_list_screen.dart，随页面销毁丢失）上移到 provider 层，
+  // 切换期间退出列表页不再丢复位（cr-20260816-0804 F3）。
+  resetBrowserStateOnActiveConnectionChange(ref);
   debugPrint('[Conn] switch: done id=$id');
 });
 
@@ -304,11 +315,11 @@ class ConnectionUpdater {
 ///
 /// Callers (must run AFTER the underlying DB write succeeds):
 /// - edit/update — [_UpdateAndRefreshUpdater] below (CON3)
-/// - delete — CON4 will extend this same hook in [deleteConnectionProvider]
-///
-/// (The switch path performs the identical two invalidates from
-/// connection_list_screen.dart's widget layer; converging it onto this hook
-/// is deliberately out of CON3's scope.)
+/// - delete — [deleteConnectionProvider] (CON3)
+/// - switch — [switchActiveConnectionProvider] (BUG-16, converged onto this
+///   hook 2026-08-16; previously the widget layer in connection_list_screen
+///   performed the identical two invalidates and lost them when the page was
+///   disposed mid-switch).
 ///
 /// Both browser providers must go: the directory cache is keyed
 /// `'${conn.id}:$path'` — id-only — so an edit that keeps the id would hit

@@ -4,6 +4,9 @@
 // Merged from con_03_test.dart, con_04_test.dart, con_05_test.dart,
 // con_06_test.dart, con_09_test.dart, prg_test.dart, ply_10_test.dart,
 // ply_11_test.dart.
+//
+// Schema 由生产 DatabaseHelper.createSchema（database_helper.dart _onCreate）
+// 单一来源构建（BUG-19），本文件不声明任何 CREATE 语句。
 
 import 'package:nas_audio_player/core/database/dao/progress_dao.dart';
 import 'package:nas_audio_player/core/database/database_helper.dart';
@@ -25,58 +28,6 @@ enum TestSchema {
   full,
 }
 
-/// SQL fragments for each logical schema unit.
-
-const _createConnectionsTable = '''
-  CREATE TABLE connections (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    name        TEXT NOT NULL,
-    url         TEXT NOT NULL,
-    username    TEXT NOT NULL,
-    password    TEXT NOT NULL,
-    base_path   TEXT NOT NULL DEFAULT '/',
-    is_active   INTEGER NOT NULL DEFAULT 0,
-    created_at  INTEGER NOT NULL,
-    updated_at  INTEGER NOT NULL
-  )
-''';
-
-const _createPlayProgressTable = '''
-  CREATE TABLE play_progress (
-    id             INTEGER PRIMARY KEY AUTOINCREMENT,
-    connection_id  INTEGER NOT NULL,
-    file_path      TEXT NOT NULL,
-    position_ms    INTEGER NOT NULL DEFAULT 0,
-    duration_ms    INTEGER,
-    last_played_at INTEGER NOT NULL,
-    UNIQUE(connection_id, file_path),
-    FOREIGN KEY(connection_id) REFERENCES connections(id) ON DELETE CASCADE
-  )
-''';
-
-const _createProgressIndex = '''
-  CREATE INDEX idx_progress_lookup
-  ON play_progress(connection_id, file_path)
-''';
-
-const _createPlaylistTables = '''
-  CREATE TABLE playlists (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL
-  );
-  CREATE TABLE playlist_tracks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    playlist_id INTEGER NOT NULL,
-    file_path TEXT NOT NULL,
-    file_name TEXT NOT NULL,
-    added_at INTEGER NOT NULL,
-    FOREIGN KEY(playlist_id) REFERENCES playlists(id) ON DELETE CASCADE
-  );
-  CREATE INDEX idx_playlist_tracks_playlist_id ON playlist_tracks(playlist_id)
-''';
-
 /// Initializes `sqflite_ffi`. Call once in `setUpAll`.
 void initSqfliteFfi() {
   sqfliteFfiInit();
@@ -88,6 +39,13 @@ void initSqfliteFfi() {
 /// `PRAGMA foreign_keys = ON` runs in `onConfigure` on every open — the same
 /// mechanism as the production [DatabaseHelper] open path (BUG-16-S2). FK
 /// enforcement therefore applies to every schema, matching production.
+///
+/// The full production v2 schema is built once via
+/// [DatabaseHelper.instance.createSchema] (BUG-19: single authoritative DDL
+/// source — no inline copy lives here), then tables outside the requested
+/// subset are dropped. Drop order obeys FK dependencies (playlist_tracks
+/// before playlists; play_progress before connections); indexes drop with
+/// their tables automatically.
 ///
 /// [TestSchema.connections] — connections table only.
 /// [TestSchema.progress] — connections + play_progress + index.
@@ -103,26 +61,28 @@ Future<Database> openTestDatabase(TestSchema schema) async {
     ),
   );
 
+  // 生产 v2 schema（database_helper.dart _onCreate）——单一权威来源
+  // （BUG-19：修复前内联 DDL 副本与生产双份手工同步，无比对机制）。
+  await DatabaseHelper.instance.createSchema(db);
+
+  // 子集语义：DROP 掉不属于本 schema 的表。顺序必须满足 FK 依赖
+  // （playlist_tracks 先于 playlists；play_progress 先于 connections），
+  // 索引随表自动删除。
   switch (schema) {
     case TestSchema.connections:
-      await db.execute(_createConnectionsTable);
+      await db.execute('DROP TABLE IF EXISTS playlist_tracks');
+      await db.execute('DROP TABLE IF EXISTS playlists');
+      await db.execute('DROP TABLE IF EXISTS play_progress');
       break;
-
     case TestSchema.progress:
-      await db.execute(_createConnectionsTable);
-      await db.execute(_createPlayProgressTable);
-      await db.execute(_createProgressIndex);
+      await db.execute('DROP TABLE IF EXISTS playlist_tracks');
+      await db.execute('DROP TABLE IF EXISTS playlists');
       break;
-
     case TestSchema.playlist:
-      await db.execute(_createPlaylistTables);
+      await db.execute('DROP TABLE IF EXISTS play_progress');
+      await db.execute('DROP TABLE IF EXISTS connections');
       break;
-
     case TestSchema.full:
-      await db.execute(_createConnectionsTable);
-      await db.execute(_createPlayProgressTable);
-      await db.execute(_createProgressIndex);
-      await db.execute(_createPlaylistTables);
       break;
   }
 

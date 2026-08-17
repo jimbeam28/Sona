@@ -146,6 +146,10 @@ Future<void> preloadAudioSource({
   required String username,
   required AudioPlayer player,
   int? startPositionMs,
+  // BUG-06（cr-20260816-0802 F2）：晚到即弃守卫——每个 player 调用前
+  // 检查队列时效性。用户已在 preload 未完成时选了其它曲目 → 放弃剩余
+  // 步骤，防止旧曲进度 seek 落到用户新选的曲目上（P14 绕门补口）。
+  bool Function()? shouldAbandon,
 }) async {
   String? pw;
   try {
@@ -157,12 +161,33 @@ Future<void> preloadAudioSource({
     return;
   }
   if (pw == null || pw.isEmpty) return;
+  if (shouldAbandon?.call() ?? false) return;
   final src = AudioSourceBuilder.buildWithBasePath(
       baseUrl: baseUrl, filePath: filePath, username: username, password: pw);
   await player.setAudioSource(src).timeout(const Duration(seconds: 10));
+  // BUG-06（cr-20260816-0802 F2）二道闸：preload 的 setAudioSource 晚到完成
+  // 时，比对播放器当前 source 是否仍是本次发出的 src——用户在 preload 挂起
+  // 期间已通过加载门选中其它曲目（后发调用先完成）时，旧曲的 seek 必须放弃，
+  // 防止把用户新歌的位置拨乱（P14 补口）。仅"以 shouldAbandon 启动的 preload"
+  // （启动恢复路径）做此比对；无该参数的既有直接调用方保持旧行为。
+  if (shouldAbandon != null && !_sourceStillIssued(player, src)) return;
+  if (shouldAbandon?.call() ?? false) return;
   if (startPositionMs != null) {
     await player
         .seek(Duration(milliseconds: startPositionMs))
         .timeout(const Duration(seconds: 10));
+  }
+}
+
+/// True when [player]'s current source is still the [issued] one (identity:
+/// the same object passed to setAudioSource).  A source that cannot be read
+/// back (test doubles that don't stub `audioSource`) counts as replaced so the
+/// late preload abandons instead of seeking onto the user's track.
+bool _sourceStillIssued(AudioPlayer player, AudioSource issued) {
+  try {
+    return identical(player.audioSource, issued);
+  } on Object catch (e) {
+    debugPrint('[AudioSource] preload: cannot introspect current source: $e');
+    return false;
   }
 }

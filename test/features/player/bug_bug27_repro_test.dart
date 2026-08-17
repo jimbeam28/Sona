@@ -152,7 +152,11 @@ void main() {
       final src = File('lib/features/player/domain/playback_orchestrator.dart')
           .readAsStringSync();
 
-      final removeTrackAt = src.indexOf('Future<void> removeTrack(');
+      // BUG-07（2026-08-17 §7 补记）：removeTrack 签名按 spec 改为
+      // Future<TrackLoadResult?>，扫描字面量同步；测试意图（beginRequest 先于
+      // player.stop）不变。
+      final removeTrackAt =
+          src.indexOf('Future<TrackLoadResult?> removeTrack(');
       expect(removeTrackAt, greaterThanOrEqualTo(0),
           reason: 'removeTrack 方法必须存在');
       final emptyBranchAt = src.indexOf('newQueue.length == 0', removeTrackAt);

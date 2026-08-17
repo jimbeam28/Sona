@@ -1,14 +1,21 @@
 // test/features/coverage/db_migration_test.dart
 // TREF-06: DatabaseHelper migration specialist test suite
 //
-// Tests database schema creation and migration using sqflite_ffi in-memory
-// databases.  Each test opens its own database so tests are fully independent.
-// Does NOT rely on DatabaseHelper singleton -- exercises raw SQL directly.
+// Tests schema creation and migration using sqflite_ffi. v1 schema is
+// rebuilt locally (historical input); v2 schema and the v1→v2 upgrade are
+// driven through the real DatabaseHelper open path (BUG-19).
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nas_audio_player/core/database/database_helper.dart';
+import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import '../../helpers/test_database.dart';
+
 // ── SQL fragments ─────────────────────────────────────────────────────────────
+
+// v1 是历史遗留形态（迁移输入），重建它是迁移测试的必要输入，
+// 不构成漂移面（BUG-19：生产迁移逻辑才是权威，v1 无生产锚点可循）。
 
 const _v1Connections = '''
   CREATE TABLE connections (
@@ -42,31 +49,6 @@ const _v1ProgressIndex = '''
   ON play_progress(connection_id, file_path)
 ''';
 
-const _v2Playlists = '''
-  CREATE TABLE IF NOT EXISTS playlists (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL
-  )
-''';
-
-const _v2PlaylistTracks = '''
-  CREATE TABLE IF NOT EXISTS playlist_tracks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    playlist_id INTEGER NOT NULL,
-    file_path TEXT NOT NULL,
-    file_name TEXT NOT NULL,
-    added_at INTEGER NOT NULL,
-    FOREIGN KEY(playlist_id) REFERENCES playlists(id) ON DELETE CASCADE
-  )
-''';
-
-const _v2PlaylistIndex = '''
-  CREATE INDEX IF NOT EXISTS idx_playlist_tracks_playlist_id
-  ON playlist_tracks(playlist_id)
-''';
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /// Build a v1 schema (connections + play_progress only, no playlists).
@@ -80,18 +62,30 @@ Future<Database> _openV1Database() async {
   return db;
 }
 
-/// Build a full v2 schema (all 4 tables + indexes).
-Future<Database> _openV2Database() async {
-  final db = await databaseFactoryFfi.openDatabase(inMemoryDatabasePath);
+/// 建一个 version=1 的磁盘库（connections + play_progress + 索引），并插入
+/// 一行连接作为"升级后数据必须保留"的哨兵。返回插入行 id（DB-MIG-03 断言用）。
+Future<int> _createV1DatabaseWithSentinel(String path) async {
+  final db = await databaseFactoryFfi.openDatabase(path);
   await db.execute('PRAGMA foreign_keys = ON');
   await db.execute(_v1Connections);
   await db.execute(_v1PlayProgress);
   await db.execute(_v1ProgressIndex);
-  await db.execute(_v2Playlists);
-  await db.execute(_v2PlaylistTracks);
-  await db.execute(_v2PlaylistIndex);
-  await db.setVersion(2);
-  return db;
+  await db.setVersion(1);
+
+  final now = DateTime.now().millisecondsSinceEpoch;
+  final connId = await db.insert('connections', {
+    'name': 'Test NAS',
+    'url': 'https://nas.example.com/dav',
+    'username': 'admin',
+    'password': 'secret',
+    'base_path': '/music',
+    'is_active': 1,
+    'created_at': now,
+    'updated_at': now,
+  });
+
+  await db.close();
+  return connId;
 }
 
 /// Return table names from sqlite_master.
@@ -110,13 +104,26 @@ Future<List<String>> _indexNames(Database db) async {
   return rows.map((r) => r['name'] as String).toList();
 }
 
-/// Run the same upgrade logic as DatabaseHelper._onUpgrade.
-Future<void> _runV1ToV2Upgrade(Database db) async {
-  // Equivalent to: if (oldVersion < 2) _createPlaylistTables(db);
-  await db.execute(_v2Playlists);
-  await db.execute(_v2PlaylistTracks);
-  await db.execute(_v2PlaylistIndex);
-  await db.setVersion(2);
+/// 经 DatabaseHelper 真实 open 路径触发生产 _onUpgrade（BUG-19）：
+/// 以 version:2 打开一个 user_version=1 的库文件 → sqflite 调
+/// _onUpgrade(1, 2) → _createPlaylistTables。
+///
+/// 返回迁移完成的库句柄；调用方负责 addTearDown(db.close)。
+Future<Database> _runRealV1ToV2Migration() async {
+  // 镜像 DatabaseHelper._dbName（私有常量）。
+  const dbFileName = 'nas_audio_player.db';
+  DatabaseHelper.instance.resetForTest();
+  final dbPath = p.join(await getDatabasesPath(), dbFileName);
+  await deleteDatabase(dbPath);
+  final v1 = await databaseFactoryFfi.openDatabase(dbPath);
+  await v1.execute('PRAGMA foreign_keys = ON');
+  await v1.execute(_v1Connections);
+  await v1.execute(_v1PlayProgress);
+  await v1.execute(_v1ProgressIndex);
+  await v1.setVersion(1);
+  await v1.close();
+  DatabaseHelper.instance.resetForTest();
+  return DatabaseHelper.instance.database;
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -126,6 +133,9 @@ Future<void> _runV1ToV2Upgrade(Database db) async {
 void main() {
   setUpAll(() {
     sqfliteFfiInit();
+    // 磁盘 open 路径（getDatabasesPath / deleteDatabase / DatabaseHelper
+    // ._openDatabase）用全局 databaseFactory（同 bug_19_repro_test.dart）。
+    databaseFactory = databaseFactoryFfi;
   });
 
   group('TREF-06 DatabaseHelper migration', () {
@@ -148,7 +158,9 @@ void main() {
     // ── TREF-06-T02 (DB-MIG-02): v2 schema has all 4 tables ────────────────
 
     test('DB-MIG-02: v2 schema has all 4 tables', () async {
-      final db = await _openV2Database();
+      // BUG-19：经生产 DatabaseHelper.createSchema（_onCreate）建库，
+      // 不再有内联 v2 DDL 副本。
+      final db = await openTestDatabase(TestSchema.full);
       addTearDown(db.close);
 
       final tables = await _tableNames(db);
@@ -162,23 +174,17 @@ void main() {
     // ── TREF-06-T03 (DB-MIG-03): v1->v2 upgrade preserves connections data ─
 
     test('DB-MIG-03: v1-to-v2 upgrade preserves connections data', () async {
-      final db = await _openV1Database();
+      // BUG-19 内联三步：v1 建库+插哨兵 → resetForTest → 真实 open 触发
+      // 生产 _onUpgrade（不再有 _runV1ToV2Upgrade 副本）。
+      const dbFileName = 'nas_audio_player.db';
+      DatabaseHelper.instance.resetForTest();
+      final dbPath = p.join(await getDatabasesPath(), dbFileName);
+      await deleteDatabase(dbPath); // 卫生：确保裸建 v1 库是干净的
 
-      // Insert a connection row into v1 schema.
-      final now = DateTime.now().millisecondsSinceEpoch;
-      final connId = await db.insert('connections', {
-        'name': 'Test NAS',
-        'url': 'https://nas.example.com/dav',
-        'username': 'admin',
-        'password': 'secret',
-        'base_path': '/music',
-        'is_active': 1,
-        'created_at': now,
-        'updated_at': now,
-      });
+      final connId = await _createV1DatabaseWithSentinel(dbPath);
 
-      // Perform upgrade.
-      await _runV1ToV2Upgrade(db);
+      DatabaseHelper.instance.resetForTest();
+      final db = await DatabaseHelper.instance.database;
       addTearDown(db.close);
 
       // Verify data survived the migration.
@@ -196,10 +202,8 @@ void main() {
     // ── TREF-06-T04 (DB-MIG-04): v1->v2 upgrade creates playlist index ─────
 
     test('DB-MIG-04: v1-to-v2 upgrade creates playlist index', () async {
-      final db = await _openV1Database();
-
-      // Perform upgrade.
-      await _runV1ToV2Upgrade(db);
+      // BUG-19：真实 open 路径触发生产 _onUpgrade → _createPlaylistTables。
+      final db = await _runRealV1ToV2Migration();
       addTearDown(db.close);
 
       final indexes = await _indexNames(db);
@@ -209,7 +213,8 @@ void main() {
     // ── TREF-06-T05 (DB-MIG-05): v2 fresh install contains all indexes ─────
 
     test('DB-MIG-05: v2 fresh install contains all indexes', () async {
-      final db = await _openV2Database();
+      // BUG-19：经生产 DatabaseHelper.createSchema（_onCreate）建库。
+      final db = await openTestDatabase(TestSchema.full);
       addTearDown(db.close);
 
       final indexes = await _indexNames(db);
@@ -221,7 +226,9 @@ void main() {
     // ── TREF-06-T06 (DB-MIG-06): foreign_keys is enabled on creation ────────
 
     test('DB-MIG-06: foreign_keys is enabled on creation', () async {
-      final db = await _openV2Database();
+      // PRAGMA 断言与 schema 来源无关；openTestDatabase 的 onConfigure 与
+      // 生产 onConfigure 均为 FK=ON（BUG-19）。
+      final db = await openTestDatabase(TestSchema.full);
       addTearDown(db.close);
 
       final result = await db.rawQuery('PRAGMA foreign_keys');

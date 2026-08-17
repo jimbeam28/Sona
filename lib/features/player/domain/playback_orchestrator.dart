@@ -239,6 +239,11 @@ class PlaybackOrchestrator {
 
           return const TrackLoadResult.loaded();
         } catch (e) {
+          // BUG-05（cr-20260816-0802 B3）：catch-log 全局裁决（SCHEMA.md §5）——
+          // 任何 catch 必须先留日志才允许吞掉异常。对照 saveProgress 正确写法
+          // （:407-413）。异常文本不含凭证（连接密码只经 PasswordReader 传递，
+          // 不进任务体异常）。
+          debugLog('[Player] loadAndPlay failed: $e');
           return const TrackLoadResult.failed();
         }
       },
@@ -333,12 +338,15 @@ class PlaybackOrchestrator {
 
   /// Removes the track at [index] from the queue.
   ///
-  /// - If the queue becomes empty, stops playback.
-  /// - If the removed track was the current one, loads the next track.
-  /// - If the removed track was not the current one, just updates the queue.
-  Future<void> removeTrack(int index) async {
+  /// - If the queue becomes empty, stops playback and returns `null`.
+  /// - If the removed track was the current one, loads the next track and
+  ///   returns its [TrackLoadResult] so the caller can start playback
+  ///   listeners on success (BUG-07 — load outcome, not `player.playing`).
+  /// - If the removed track was not the current one, just updates the queue
+  ///   and returns `null` (no load).
+  Future<TrackLoadResult?> removeTrack(int index) async {
     final q = queue;
-    if (q == null || index < 0 || index >= q.length) return;
+    if (q == null || index < 0 || index >= q.length) return null;
 
     final wasCurrent = index == q.currentIndex;
     final newQueue = q.withoutIndex(index);
@@ -351,7 +359,7 @@ class PlaybackOrchestrator {
       _gate.beginRequest();
       await player.stop();
       queue = null;
-      return;
+      return null;
     }
 
     if (wasCurrent) {
@@ -362,9 +370,10 @@ class PlaybackOrchestrator {
       // NEXT track's path (进度张冠李戴 → wrong resume position later).
       saveProgress();
       queue = newQueue;
-      await loadAndPlay();
+      return await loadAndPlay();
     } else {
       queue = newQueue;
+      return null;
     }
   }
 

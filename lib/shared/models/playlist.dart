@@ -1,5 +1,6 @@
 // lib/shared/models/playlist.dart
 // Data models for playlists and their tracks.
+// 相等性规则与登记：见 equality_registry.dart（REF-02）
 
 import 'nas_file.dart';
 

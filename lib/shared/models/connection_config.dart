@@ -1,6 +1,7 @@
 // lib/shared/models/connection_config.dart
 // Data model for WebDAV connection configuration.
 // Password is NOT stored here — it is kept in flutter_secure_storage.
+// 相等性规则与登记：见 equality_registry.dart（REF-02）
 
 class ConnectionConfig {
   final int? id;

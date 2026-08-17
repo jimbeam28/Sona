@@ -4,6 +4,7 @@
 // Each record tracks where the user left off in a given file so that
 // playback can be resumed later (Progress module).  For BRW-04 the model is
 // used to decide whether to show a resume dialog when a file is tapped.
+// 相等性规则与登记：见 equality_registry.dart（REF-02）
 
 /// Saved playback position for a specific file on a specific connection.
 class PlayProgress {

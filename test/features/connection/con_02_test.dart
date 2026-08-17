@@ -98,6 +98,10 @@ class FakeConnectionDao implements ConnectionDao {
       throw UnimplementedError('delete not needed for CON-02 tests');
 
   @override
+  Future<bool> deleteWithoutGuard(int id) => throw UnimplementedError(
+      'deleteWithoutGuard not needed for CON-02 tests');
+
+  @override
   Future<int> count() =>
       throw UnimplementedError('count not needed for CON-02 tests');
 }

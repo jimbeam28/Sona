@@ -112,8 +112,10 @@ String webDavConnectionRoot(String url, String basePath) {
 /// normalised here (leading `/` ensured, trailing `/` stripped), so callers
 /// may pass either form.
 ///
-/// Semantics (identical to `WebDavClient._relativisePath`, so normalised
-/// values are indistinguishable from current `listDirectory` output):
+/// Semantics (identical to `WebDavClient._relativisePath` for *path-form*
+/// inputs only — REF-01: `_relativisePath` additionally strips an absolute-URL
+/// authority while this helper never does, so only paths produced by this app
+/// are guaranteed indistinguishable from current `listDirectory` output):
 /// * root empty or `/` (server-root mount) → [stored] returned unchanged —
 ///   the legacy absolute form already equals the connection-root-relative
 ///   form;

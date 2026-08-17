@@ -25,6 +25,13 @@ class ConnectionListScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('NAS 连接管理'),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            tooltip: '添加连接',
+            onPressed: () => context.push('/connection'),
+          ),
+        ],
       ),
       body: listAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -75,9 +82,9 @@ class ConnectionListScreen extends ConsumerWidget {
 
       await ref.read(switchActiveConnectionProvider(id).future);
 
-      // B-1: clear browser cache so the old connection's data isn't shown.
-      ref.invalidate(directoryCacheProvider);
-      ref.invalidate(navigationStackProvider);
+      // BUG-16: 浏览器状态复位（cache 清空 + 导航栈回根）已并入 provider
+      // 层 CON3 钩子（switchActiveConnectionProvider）——widget 层 invalidate
+      // 在页面销毁后会抛 StateError 且复位随页面丢失（cr-20260816-0804 F3）。
 
       if (context.mounted) {
         final name = config?.name ?? '连接 $id';
@@ -97,6 +104,10 @@ class ConnectionListScreen extends ConsumerWidget {
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
+      } else {
+        // BUG-16（cr-20260816-0804 F3）：catch-log 纪律 —— 页面已销毁
+        // 无 UI 可反馈，但错误不得静默消失。
+        debugPrint('[Conn] switch failed after page disposed: $e');
       }
     }
   }
@@ -353,6 +364,12 @@ class _EmptyState extends StatelessWidget {
             Text(
               '添加一个 WebDAV 连接即可开始',
               style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: () => context.push('/connection'),
+              icon: const Icon(Icons.add),
+              label: const Text('添加连接'),
             ),
           ],
         ),

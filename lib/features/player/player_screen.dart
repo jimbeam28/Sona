@@ -5,10 +5,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../../core/services/storage_utils.dart';
-import '../../shared/models/play_queue.dart';
 import '../../shared/di/providers.dart';
 
 import 'domain/player_screen_logic.dart';
@@ -70,13 +70,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         ref.read(audioPlayerProvider).pause();
       }
     });
-
-    // A-1: wire up the AudioHandler's skip-to-next/previous callbacks.
-    final handler = ref.read(audioHandlerProvider);
-    if (handler != null) {
-      handler.onSkipToNextRequested = _playNext;
-      handler.onSkipToPreviousRequested = _playPrevious;
-    }
   }
 
   @override
@@ -108,12 +101,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _timerExpiryChecker?.cancel();
     _container.read(cancelPlaybackSubscriptionsProvider)();
     WidgetsBinding.instance.removeObserver(this);
-
-    final handler = _container.read(audioHandlerProvider);
-    if (handler != null) {
-      handler.onSkipToNextRequested = null;
-      handler.onSkipToPreviousRequested = null;
-    }
 
     super.dispose();
   }
@@ -184,10 +171,27 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         debugPrint('[Player] _runSerializedLoad: → ready');
         _safeSetState(() => _loadState = PlayerLoadState.ready);
       } else if (loaded.isSuperseded) {
+        // REF-04 (cr-20260816-0802 D2): superseded 是 gate 串行化的正常竞态结果，
+        // 不渲染错误态。若播放器已与当前队列对齐（外部请求已落地，如通知栏 skip/
+        // 自动切歌/删除当前曲），直接转 ready 避免闪断；否则保持 loading 并自动
+        // 重发加载，使页面状态收敛到 gate 的最新请求。
         debugPrint('[Player] _runSerializedLoad: → superseded');
-        _safeSetState(() {
-          _loadState = PlayerLoadState.error('加载已被新的播放请求替换');
-        });
+        final p = ref.read(audioPlayerProvider);
+        final cur = ref.read(currentPlayQueueProvider);
+        if (cur != null && cur.length > 0) {
+          final src = _extractCurrentSourcePath(p);
+          final aligned = p.sequenceState != null &&
+              sourceMatchesQueue(src, cur) &&
+              p.processingState != ProcessingState.idle;
+          if (aligned) {
+            _safeSetState(() => _loadState = PlayerLoadState.ready);
+          } else {
+            debugPrint(
+                '[Player] superseded: player not aligned, re-running load');
+            unawaited(_loadAndPlay());
+          }
+        }
+        // queue null/empty: 保持 loading，页面 build 层自动 pop（build 空队列兜底）。
       } else {
         debugPrint('[Player] _runSerializedLoad: → failed, checking reason');
         final activeConn = ref.read(activeConnectionProvider).valueOrNull;
@@ -234,12 +238,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     unawaited(_runSerializedLoad(() => ref.read(skipToPreviousProvider)()));
   }
 
-  void _showQueueSheet(BuildContext context, PlayQueue queue) {
+  void _showQueueSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       builder: (ctx) => QueueSheet(
-        queue: queue,
         errorMessage: '无法加载音频，请检查连接配置',
         onSelectIndex: (index) async {
           unawaited(
@@ -353,7 +356,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
               const SpeedControl(),
               const TimerControl(),
               const PlayModeControl(),
-              QueueButton(onTap: () => _showQueueSheet(context, playQueue)),
+              QueueButton(onTap: () => _showQueueSheet(context)),
             ],
           ),
           const SizedBox(height: 16),
@@ -415,8 +418,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                   const SizedBox(width: 16),
                   FilledButton.icon(
                     onPressed: () {
-                      Navigator.of(context).pop();
-                      Navigator.of(context).pushNamed('/connection');
+                      context.pop();
+                      context.push('/connection');
                     },
                     icon: const Icon(Icons.settings),
                     label: const Text('检查连接'),

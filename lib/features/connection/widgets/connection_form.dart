@@ -231,6 +231,7 @@ class _ConnectionFormState extends State<ConnectionForm> {
             ),
             textInputAction: TextInputAction.done,
             autocorrect: false,
+            validator: (v) => validateBasePath(v).error,
           ),
         ],
       ),

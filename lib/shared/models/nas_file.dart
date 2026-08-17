@@ -1,5 +1,6 @@
 // lib/shared/models/nas_file.dart
 // Data model for NAS file / directory entries returned by WebDAV PROPFIND.
+// 相等性规则与登记：见 equality_registry.dart（REF-02）
 
 /// Audio file type classification used for display icons in the browser.
 enum AudioFileType { music, audiobook }

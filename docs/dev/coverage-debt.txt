@@ -6,6 +6,38 @@
 #
 # 由 2026-07-23 coverage-check.sh load_critical_files 修复后首次真实扫描产出
 # （旧版 eval 数组塌缩 bug 导致 per-file 门禁从未真实执行）：
-
+#
+# ─────────────────────────────────────────────
+# TEST-GAP 登记（2026-08-16 cr 复核分流，cr-20260816-0801~0806）
+# 去向：多数为对应 BUG 条目（BUG-01~19）的行为锚，dev-exe 补 spec 测试时自然覆盖；
+#       其余为壳测试清理 / 独立补锚，作 dev-exe 任务处理。
+# ─────────────────────────────────────────────
+# cr-0801 T1  audio_handler 通知栏 skip 链路（queueIndex=null/callback=null）零覆盖 → BUG-01/02 锚
+# cr-0801 T2  AudioPlayerAdapter 无直接测试 → BUG-08 锚
+# cr-0801 T3  _relativisePath 绝对 URL href/根挂载无锚定 → BUG-01 修复后补
+# cr-0802 T1  gate 超时守卫复位锚定缺失 → BUG-03 锚
+# cr-0802 T2  通知曲名接线锚定缺失 → BUG-04 锚
+# cr-0802 T3  removeTrack 监听器启动锚定缺失 → BUG-07 锚
+# cr-0802 T4  通知 skip 回调生命周期锚定缺失 → BUG-02 锚
+# cr-0802 T5  preload 与用户加载并发锚定缺失 → BUG-06 锚
+# cr-0803 T1  home_screen_test TST-T144 壳测试（从不 pump HomeScreen）→ 补真实 widget 锚
+# cr-0803 T2  brw_04 TST-T126/T127 恒真/恒假壳测试 → 删壳或改真实断言
+# cr-0803 T3  sortFiles modifiedDesc 空值分支零覆盖（directory_service.dart:70-73）→ 补单测
+# cr-0804 T1  save 步骤 4/5 失败注入测试缺失 → BUG-17 锚
+# cr-0804 T2  基础路径 widget 级校验锚定缺失 → BUG-12 锚
+# cr-0804 T3  验证竞态锚定缺失 → BUG-14 锚
+# cr-0804 T4  检查连接按钮导航锚定缺失 → BUG-13 锚（与 cr-0805 T1 同点，去重）
+# cr-0805 T2  TimerBottomSheet tile 集合无 widget 锚定 → 补 widget 锚（15 分钟项）
+# cr-0806 T1  aud_01 PLY-G01 生产 completed 处理零锚定（测试内重实现）→ 删重实现改锚生产
+# cr-0806 T2  aud_01 同义反复/isNotNull/注释代断言约 25 用例 → 删壳或改真实断言
+# cr-0806 T3  aud_02 T08/T09 测错对象 + T09 真实睡眠 15.1s → 删/改 fake 时钟
+# cr-0806 T4  aud_05 空测试体/expect(true,true) 约 20 用例 → 删壳或改真实断言
+# cr-0806 T5  int_g01/int_g05 生产守卫被内联模拟 → 改锚生产 provider
+# cr-0806 T6  int_g06 T02 后台存进度零锚定 → 改锚生产 saveProgressProvider
+# cr-0806 T7  aud_03 T01 rollback 测 _TestConnectionService 副本 → 改锚生产 ConnectionService.save
+# cr-0806 T8  aud_03 T03-2 测试名与断言不匹配（"calls stop"未 verify）→ 修正断言或改名
+#
+# 注意：本文件末尾必须为数据行（load_debt 的 while 以最后一次迭代状态为退出码，
+# 注释/空行结尾会在 set -e 下使 coverage-check.sh 误判失败）。
 lib/features/timer/domain/timer_service.dart 79.0    # 暂停/恢复边界与 custom 时长分支测试缺口（BUG-03 后未补齐）
 lib/features/player/domain/playback_orchestrator.dart 87.5  # player bug 高发区；与 arch-baseline 中 just_audio 直接耦合相关，补测试需先理清 fake 边界

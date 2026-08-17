@@ -106,7 +106,6 @@ export '../../features/player/player_provider.dart'
         cancelPlaybackSubscriptionsProvider,
         // Startup restore
         restoreStartupProgressProvider,
-        backgroundPlaybackEnabledProvider,
         backgroundPlaybackSyncProvider,
         // Pure functions
         sanitizeResumePosition,

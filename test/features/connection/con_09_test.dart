@@ -181,7 +181,7 @@ void main() {
       await db.close();
     });
 
-    test('test_TST_T93_switchConnection_otherCacheUnaffected', () async {
+    test('test_TST_T93_switchConnection_clearsWholeCache', () async {
       final container = ProviderContainer(overrides: [
         connectionDaoProvider.overrideWithValue(dao),
       ]);
@@ -202,23 +202,13 @@ void main() {
       // Switch to connection 2
       await container.read(switchActiveConnectionProvider(conn2Id).future);
 
-      // Clear only stale conn1 entries from the cache (targeted cleanup)
-      container.read(directoryCacheProvider.notifier).update((state) {
-        final updated = Map<String, CacheEntry<List<NasFile>>>.from(state);
-        updated.removeWhere((key, _) => key.startsWith('$conn1Id:'));
-        return updated;
-      });
-
-      // Verify: conn1 entries are gone
+      // Verify: whole cache is cleared (BUG-16 裁决 A：全清语义，与旧生产
+      // connection_list_screen.dart:79-80 一致；TST-T93 修订 2026-08-17）。
+      // 缓存 key 带 connectionId，切换后重新浏览自会按新连接重建。
       final cache = container.read(directoryCacheProvider);
-      expect(cache.containsKey('$conn1Id:/music'), isFalse,
-          reason: '连接 1 的缓存条目应被清除');
-
-      // Verify: conn2 entries remain untouched
-      expect(cache.containsKey('$conn2Id:/books'), isTrue,
-          reason: 'TST-T93: 连接 2 的缓存条目应不受影响');
-      expect(cache['$conn2Id:/books']!.value.first.name, equals('book.m4b'),
-          reason: 'TST-T93: 连接 2 的缓存数据应完整保留');
+      expect(cache, isEmpty,
+          reason: 'TST-T93: 切换连接后整个目录缓存清空（全清语义，'
+              '含 conn1 与 conn2 条目）');
     });
   });
 

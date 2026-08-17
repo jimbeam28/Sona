@@ -82,7 +82,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         canPop: false,
         onPopInvokedWithResult: (didPop, _) {
           if (!didPop) {
-            moveTaskToBack();
+            // BUG-09（cr-20260816-0803-browser-home.md B1）：嵌套 PopScope
+            // 在 doNotPop 时同一路由上全部 PopScope 都以 didPop=false 收到
+            // 回调。浏览器子目录深度时把返回键让给 BrowserScreen 的 handler
+            //（仅回退一级目录），只有浏览器 Tab 可见且目录栈在根时才退后台。
+            final browserVisible = _tabController.index == 1;
+            final browserStackDeep =
+                ref.read(navigationStackProvider).length > 1;
+            if (!(browserVisible && browserStackDeep)) {
+              moveTaskToBack();
+            }
           }
         },
         child: Scaffold(

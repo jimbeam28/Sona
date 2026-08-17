@@ -1,5 +1,6 @@
 // lib/shared/models/play_queue.dart
 // Data model for the audio playback queue.
+// 相等性规则与登记：见 equality_registry.dart（REF-02）
 //
 // The queue holds an ordered list of audio files and tracks which file is
 // currently being played.  It is built by the Browser module (BRW-04) when

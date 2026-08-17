@@ -163,11 +163,27 @@ class _CreatePlaylistDialogState extends ConsumerState<_CreatePlaylistDialog> {
           child: const Text('取消'),
         ),
         TextButton(
-          onPressed: () {
+          onPressed: () async {
             final name = _controller.text.trim();
             if (name.isEmpty) return;
-            ref.read(createPlaylistProvider)(name);
-            Navigator.of(context).pop();
+            String? error;
+            try {
+              await ref.read(createPlaylistProvider)(name);
+            } catch (e) {
+              // BUG-25-S3 同款纪律：DB 失败不得静默消失。
+              debugPrint('[Playlist] create failed: $e');
+              error = '$e';
+            } finally {
+              if (context.mounted) Navigator.of(context).pop();
+            }
+            if (error != null && context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('创建失败：$error'),
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                ),
+              );
+            }
           },
           child: const Text('创建'),
         ),

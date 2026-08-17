@@ -44,6 +44,12 @@ abstract class IConnectionDao {
   /// Throws [LastConnectionException] when only one connection remains.
   Future<bool> delete(int id);
 
+  /// Deletes the connection row with [id] WITHOUT the CON-T32 last-connection
+  /// guard. Compensation-only method: MUST NOT be used for user-facing
+  /// deletes (only for service-layer rollback of a row just inserted by
+  /// the same call).
+  Future<bool> deleteWithoutGuard(int id);
+
   /// Returns the total number of connections.
   Future<int> count();
 }

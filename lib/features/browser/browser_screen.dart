@@ -18,6 +18,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/network/webdav_client.dart';
 import '../../shared/models/nas_file.dart';
+import '../../shared/models/play_progress.dart';
 import '../../shared/models/play_queue.dart';
 import '../../shared/di/providers.dart';
 import 'widgets/file_list_item.dart';
@@ -54,13 +55,22 @@ class BrowserScreen extends ConsumerWidget {
           Expanded(
             child: contentsAsync.when(
               loading: () => const _LoadingView(),
-              error: (error, _) => _ErrorView(
-                message:
-                    error is WebDavException ? error.message : '加载失败：$error',
-                onRetry: () {
-                  ref.invalidate(directoryContentsProvider(currentPath));
-                },
-              ),
+              error: (error, _) {
+                // BUG-10（cr-20260816-0803 F1）：错误卫生——非 WebDavException
+                // 一律固定兜底文案，原始异常只经 debugPrint 进 LogBuffer
+                //（对齐 BUG-23-S5 裁决；redactUrlForLog 剥离 URL userinfo）。
+                if (error is! WebDavException) {
+                  debugPrint('[Browser] directory load error: '
+                      '${redactUrlForLog(error.toString())}');
+                }
+                return _ErrorView(
+                  message:
+                      error is WebDavException ? error.message : '加载失败，请稍后重试',
+                  onRetry: () {
+                    ref.invalidate(directoryContentsProvider(currentPath));
+                  },
+                );
+              },
               data: (files) {
                 if (files.isEmpty) {
                   return const _EmptyView();
@@ -113,24 +123,38 @@ class BrowserScreen extends ConsumerWidget {
                       final conn =
                           ref.read(activeConnectionProvider).valueOrNull;
                       if (conn != null && conn.id != null) {
-                        final progress =
-                            await ref.read(progressForFileProvider((
-                          connectionId: conn.id!,
-                          filePath: tappedFile.path,
-                        )).future);
-                        if (!context.mounted) return;
-                        if (progress != null && progress.positionMs >= 5000) {
-                          final container = ProviderScope.containerOf(context);
-                          final resume = await showProgressResumeDialog(
-                              context, container, progress);
-                          if (resume == true) {
-                            startPositionMs = progress.positionMs;
-                          } else if (resume == false) {
-                            ref.read(clearProgressProvider)(
-                              connectionId: conn.id!,
-                              filePath: tappedFile.path,
-                            );
+                        // BUG-18: progressForFileProvider 的 future 抛错
+                        // （SQLite 读异常）时不得冒未处理异常中断播放流程——
+                        // catch + 日志，按无进度播放（对齐
+                        // playlist_detail_screen.dart:48-75；SCHEMA.md §5
+                        // catch-log 裁决）。
+                        try {
+                          final progress =
+                              await ref.read(progressForFileProvider((
+                            connectionId: conn.id!,
+                            filePath: tappedFile.path,
+                          )).future);
+                          if (!context.mounted) return;
+                          if (progress != null && progress.positionMs >= 5000) {
+                            final container =
+                                ProviderScope.containerOf(context);
+                            final resume = await showProgressResumeDialog(
+                                context, container, progress);
+                            if (resume == true) {
+                              startPositionMs = progress.positionMs;
+                            } else if (resume == false) {
+                              ref.read(clearProgressProvider)(
+                                connectionId: conn.id!,
+                                filePath: tappedFile.path,
+                              );
+                            }
                           }
+                        } catch (e) {
+                          // On error, play from beginning — but do not
+                          // swallow silently (catch-log criterion, SCHEMA.md
+                          // §5, same as playlist_detail).
+                          debugPrint('[Browser] play: progress resume lookup '
+                              'failed, playing from beginning: $e');
                         }
                       }
 
@@ -164,11 +188,25 @@ class BrowserScreen extends ConsumerWidget {
                       final conn =
                           ref.read(activeConnectionProvider).valueOrNull;
                       if (conn == null || conn.id == null) return;
-                      final progress = await ref.read(progressForFileProvider((
-                        connectionId: conn.id!,
-                        filePath: tappedFile.path,
-                      )).future);
+                      // BUG-18: 同类裸奔点加固（cr-0805 F1 勘察补充）。
+                      PlayProgress? progress;
+                      try {
+                        progress = await ref.read(progressForFileProvider((
+                          connectionId: conn.id!,
+                          filePath: tappedFile.path,
+                        )).future);
+                      } catch (e) {
+                        // 查询失败 → 无进度可展示，静默返回（catch-log
+                        // 裁决，日志照留）。
+                        debugPrint(
+                            '[Browser] long-press: progress resume lookup '
+                            'failed: $e');
+                        return;
+                      }
                       if (progress == null || !context.mounted) return;
+                      // 类型提升锚点：局部可变变量在下方 bottom sheet 闭包内
+                      // 不提升，先落到 stable final 供闭包读取（BUG-18）。
+                      final resolvedProgress = progress;
 
                       showModalBottomSheet(
                         context: context,
@@ -193,14 +231,15 @@ class BrowserScreen extends ConsumerWidget {
                                       color: Colors.red),
                                   title: const Text('清除播放进度'),
                                   subtitle: Text(
-                                    '已保存进度 ${progress.formattedPosition}',
+                                    '已保存进度 ${resolvedProgress.formattedPosition}',
                                     style:
                                         Theme.of(context).textTheme.bodySmall,
                                   ),
                                   onTap: () {
                                     ref.read(clearProgressProvider)(
-                                      connectionId: progress.connectionId,
-                                      filePath: progress.filePath,
+                                      connectionId:
+                                          resolvedProgress.connectionId,
+                                      filePath: resolvedProgress.filePath,
                                     );
                                     Navigator.of(ctx).pop();
                                     ScaffoldMessenger.of(context).showSnackBar(

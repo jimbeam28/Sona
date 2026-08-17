@@ -151,6 +151,36 @@ class ConnectionDao implements IConnectionDao {
     return wasActive;
   }
 
+  /// Deletes the connection row with [id] WITHOUT the CON-T32 last-connection
+  /// guard (BUG-17). Compensation-only method: used by the service layer to
+  /// roll back a row just inserted by the same save() call — the count-guard
+  /// must not block that rollback (a first-ever connection that fails to save
+  /// has exactly 1 row and would trip the guard).
+  ///
+  /// Returns `true` if the deleted connection was the active one (BUG-17-S4
+  /// keeps CON-T34 semantics for parity with [delete]).
+  Future<bool> deleteWithoutGuard(int id) async {
+    final db = await _db;
+    final config = await findById(id);
+    final wasActive = config?.isActive ?? false;
+    await db.transaction((txn) async {
+      try {
+        await txn.delete('play_progress',
+            where: 'connection_id = ?', whereArgs: [id]);
+      } on DatabaseException catch (e) {
+        if (!e.isNoSuchTableError()) rethrow;
+      }
+      await txn.delete('connections', where: 'id = ?', whereArgs: [id]);
+    });
+    if (wasActive) {
+      final remainingConfigs = await findAll();
+      if (remainingConfigs.isNotEmpty) {
+        await setActive(remainingConfigs.first.id!);
+      }
+    }
+    return wasActive;
+  }
+
   Future<int> count() async {
     final db = await _db;
     final result = await db.rawQuery('SELECT COUNT(*) as cnt FROM connections');

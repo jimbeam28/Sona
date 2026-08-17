@@ -129,6 +129,17 @@ class _GateableDao extends ConnectionDao {
     return true;
   }
 
+  /// BUG-17: rollback uses the unguarded delete — same behaviour on the fake
+  /// (remove the row from [rows]); without this override the rollback would
+  /// fall through to the real DAO and touch a database this test never opens.
+  @override
+  Future<bool> deleteWithoutGuard(int id) async {
+    final idx = rows.indexWhere((r) => r.id == id);
+    if (idx < 0) return false;
+    rows.removeAt(idx);
+    return true;
+  }
+
   @override
   Future<int> count() async => rows.length;
 }
