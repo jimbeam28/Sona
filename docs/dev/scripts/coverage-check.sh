@@ -27,7 +27,7 @@ DEFAULT_CRITICAL=(
   "lib/features/player/domain/speed_manager.dart"
   "lib/features/browser/domain/cache_policy.dart"
   "lib/features/browser/domain/navigation_stack.dart"
-  "lib/features/progress/domain/progress_policy.dart"
+  "lib/core/contracts/progress_policy.dart"
   "lib/features/connection/domain/connection_validator.dart"
   "lib/features/playlist/domain/playlist_service.dart"
   "lib/features/timer/domain/timer_service.dart"
@@ -89,6 +89,9 @@ load_debt() {
   while read -r f v _; do
     [[ -n "$f" && "$f" != \#* && -n "$v" ]] && COV_DEBT[$f]=$v
   done < "$DEBT_FILE"
+  # REF-16: 登记簿可能被清空（全条目达标删除后无数据行）——注释/空行结尾的
+  # while 循环退出码非 0，set -e 下会误判 check-exe 失败；显式归零。
+  return 0
 }
 
 # ---- check-exe 子命令 ----

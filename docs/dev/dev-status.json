@@ -1046,14 +1046,18 @@
       "algorithms": [
         "REF-06-ALG1-resolveRemoveKeys"
       ],
-      "test_files": [],
+      "test_files": [
+        "test/features/browser/brw_05_test.dart",
+        "test/features/browser/ref_06_cache_clear_test.dart",
+        "test/features/settings/set_01_test.dart"
+      ],
       "test_coverage_gaps": [],
       "cross_module_impacts": [],
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/REF-06.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -1087,14 +1091,17 @@
       "algorithms": [
         "REF-07-ALG1-normalizeImportName"
       ],
-      "test_files": [],
+      "test_files": [
+        "test/features/playlist/ref_07_import_name_test.dart",
+        "test/features/playlist/ref_26_test.dart"
+      ],
       "test_coverage_gaps": [],
       "cross_module_impacts": [],
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/REF-07.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -1124,14 +1131,17 @@
         "REF-08-INV2"
       ],
       "algorithms": [],
-      "test_files": [],
+      "test_files": [
+        "test/features/playlist/bug_08_sort_timestamp_test.dart",
+        "test/features/playlist/ref_08_clock_injection_test.dart"
+      ],
       "test_coverage_gaps": [],
       "cross_module_impacts": [],
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/REF-08.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -1171,14 +1181,20 @@
       "algorithms": [
         "REF-09-ALG1-crossImportResolve"
       ],
-      "test_files": [],
+      "test_files": [
+        "test/core/ref_09_core_feature_decouple_test.dart",
+        "test/features/player/ply_04_test.dart",
+        "test/features/player/ref_12_test.dart",
+        "test/features/progress/bug_bug20_repro_test.dart",
+        "test/features/progress/ref_24_test.dart"
+      ],
       "test_coverage_gaps": [],
       "cross_module_impacts": [],
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/REF-09.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -1212,14 +1228,18 @@
         "REF-10-INV3"
       ],
       "algorithms": [],
-      "test_files": [],
+      "test_files": [
+        "test/features/settings/ref_10_unify_test.dart",
+        "test/features/settings/ref_27_test.dart",
+        "test/features/settings/settings_test.dart"
+      ],
       "test_coverage_gaps": [],
       "cross_module_impacts": [],
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/REF-10.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -1253,14 +1273,16 @@
         "REF-11-INV3"
       ],
       "algorithms": [],
-      "test_files": [],
+      "test_files": [
+        "test/features/timer/ref_11_timer_sheet_test.dart"
+      ],
       "test_coverage_gaps": [],
       "cross_module_impacts": [],
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/REF-11.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -1298,14 +1320,19 @@
         "REF-12-INV3"
       ],
       "algorithms": [],
-      "test_files": [],
+      "test_files": [
+        "test/features/player/ply_07_test.dart",
+        "test/features/player/ref_12_speed_gate_test.dart",
+        "test/features/settings/bug_bug28_repro_test.dart",
+        "test/features/settings/settings_test.dart"
+      ],
       "test_coverage_gaps": [],
       "cross_module_impacts": [],
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/REF-12.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -1337,14 +1364,16 @@
         "REF-13-INV2"
       ],
       "algorithms": [],
-      "test_files": [],
+      "test_files": [
+        "test/features/progress/ref_13_recently_played_test.dart"
+      ],
       "test_coverage_gaps": [],
       "cross_module_impacts": [],
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/REF-13.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -1377,14 +1406,20 @@
         "REF-14-INV2"
       ],
       "algorithms": [],
-      "test_files": [],
+      "test_files": [
+        "test/features/bug_10_test.dart",
+        "test/features/coverage/bug_bug32_repro_test.dart",
+        "test/features/coverage/svc_storage_utils_test.dart",
+        "test/helpers/fake_helpers_test.dart",
+        "test/helpers/hanging_secure_storage_test.dart"
+      ],
       "test_coverage_gaps": [],
       "cross_module_impacts": [],
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/REF-14.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -1408,14 +1443,16 @@
         "REF-15-INV1"
       ],
       "algorithms": [],
-      "test_files": [],
+      "test_files": [
+        "test/features/coverage/int_g06_lifecycle_test.dart"
+      ],
       "test_coverage_gaps": [],
       "cross_module_impacts": [],
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/REF-15.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -1442,14 +1479,17 @@
         "REF-16-INV1"
       ],
       "algorithms": [],
-      "test_files": [],
+      "test_files": [
+        "test/features/player/bug_08_repro_test.dart",
+        "test/features/timer/timer_test.dart"
+      ],
       "test_coverage_gaps": [],
       "cross_module_impacts": [],
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/REF-16.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",

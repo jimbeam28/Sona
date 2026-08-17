@@ -175,10 +175,7 @@ final setDefaultSpeedProvider = Provider<void Function(double)>((ref) => (s) {
       if (!sm.isValidSpeed(s)) return;
       ref.read(sharedPreferencesProvider)?.setDouble(sm.defaultSpeedKey, s);
       ref.invalidate(defaultSpeedProvider);
-      ref.read(currentSpeedProvider.notifier).state = s;
     });
-final currentSpeedProvider =
-    StateProvider<double>((ref) => ref.read(defaultSpeedProvider));
 
 int sanitizeResumePosition(int pos, int? dur) => pos < 0
     ? 0
@@ -347,9 +344,6 @@ void _startPlaybackListeners(Ref ref) {
   ref.read(startProcessingListenerProvider)();
   ref.read(_startAutoSaveProvider)();
   ref.read(_startPauseSaveProvider)(ref.read(audioPlayerProvider));
-  final ds = ref.read(defaultSpeedProvider);
-  if ((ds - 1.0).abs() > 0.01)
-    ref.read(currentSpeedProvider.notifier).state = ds;
 }
 
 /// BUG-04（cr-20260816-0802 B2）：加载成功/队列变更时把当前曲目推送到

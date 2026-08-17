@@ -230,7 +230,7 @@ class _ClearCacheTile extends ConsumerWidget {
       title: const Text('清除目录缓存'),
       subtitle: Text('当前缓存 $cacheCount 条目录'),
       onTap: () {
-        final removed = ref.read(clearDirectoryCacheProvider)(null);
+        final removed = ref.read(clearDirectoryCacheProvider)(null, null);
         final message = removed > 0 ? '已清除 $removed 条目录缓存' : '没有可清除的缓存';
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(message)));

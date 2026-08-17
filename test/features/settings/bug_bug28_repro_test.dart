@@ -151,8 +151,6 @@ void main() {
           reason: '非法速度不得写入 SharedPreferences');
       expect(container.read(defaultSpeedProvider), equals(1.0),
           reason: '非法速度不得更新 defaultSpeedProvider');
-      expect(container.read(currentSpeedProvider), equals(1.0),
-          reason: '非法速度不得更新运行时 currentSpeedProvider');
     });
 
     test('非法 seek step 20 → seekStepSettingProvider 不变（与 speed 守卫对齐）',
@@ -181,7 +179,9 @@ void main() {
       container.read(setDefaultSpeedProvider)(1.5);
       container.read(setSeekStepSettingProvider)(30);
 
-      expect(container.read(currentSpeedProvider), equals(1.5));
+      expect(container.read(defaultSpeedProvider), equals(1.5));
+      expect(prefs.getDouble('default_playback_speed'), equals(1.5),
+          reason: '合法速度应持久化到 prefs');
       expect(container.read(seekStepSettingProvider), equals(30));
     });
   });

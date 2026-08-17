@@ -1,8 +1,10 @@
-// lib/features/progress/domain/progress_policy.dart
+// lib/core/contracts/progress_policy.dart
 // Pure-function policy for deciding when to save or clear playback progress.
 //
-// Extracted from ProgressDao to keep the decision logic testable
-// independently of the database layer.  Zero Flutter dependencies.
+// Moved from lib/features/progress/domain/progress_policy.dart (REF-09):
+// the data layer (ProgressDao) consumes this policy, so it must live in the
+// core layer to keep core→feature dependency direction clean.  Zero Flutter
+// dependencies.
 
 /// Returns `true` when [positionMs] is >= 5 000 ms.
 ///

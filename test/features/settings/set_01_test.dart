@@ -90,7 +90,7 @@ void main() {
 
   group('SET-01-S1/S2/S3: 清除缓存 provider 层', () {
     // ── SET-01-S1 ─────────────────────────────────────────────────────────────
-    test('SET-01-S1: 全量清除返回条数并使缓存清空', () {
+    test('SET-01-S1 (REF-06-S2): 全量清除返回条数并使缓存清空', () {
       // 否定断言"不发起网络请求"的落地：把 SpyWebDavClient 接线为 WebDAV client，
       // 清除后断言 listDirectory 调用次数为 0。
       final spy = SpyWebDavClient();
@@ -112,7 +112,7 @@ void main() {
       final navBefore = container.read(navigationStackProvider);
 
       // When 调用 ref.read(clearDirectoryCacheProvider)(null)
-      final removed = container.read(clearDirectoryCacheProvider)(null);
+      final removed = container.read(clearDirectoryCacheProvider)(null, null);
 
       // Then 调用返回 N（int）
       expect(removed, equals(3), reason: '全量清除应返回被清除的缓存条数 N=3');
@@ -145,7 +145,7 @@ void main() {
       };
 
       // When 调用 clearDirectoryCacheProvider('/music')
-      final removed = container.read(clearDirectoryCacheProvider)('/music');
+      final removed = container.read(clearDirectoryCacheProvider)(1, '/music');
 
       // Then 返回 1（仅 "1:/music" 被删）
       expect(removed, equals(1), reason: '按路径 /music 清除应只命中并返回 1 条');
@@ -176,7 +176,7 @@ void main() {
 
       // When 调用 clearDirectoryCacheProvider(null)
       // 否定断言"不抛异常"：调用正常完成即满足（若抛异常本用例会直接失败）。
-      final removed = container.read(clearDirectoryCacheProvider)(null);
+      final removed = container.read(clearDirectoryCacheProvider)(null, null);
 
       // Then 返回 0
       expect(removed, equals(0), reason: '空缓存清除应返回 0');
@@ -194,7 +194,7 @@ void main() {
 
   group('SET-01-S4/S5: 设置页清除目录缓存入口', () {
     // ── SET-01-S4 ─────────────────────────────────────────────────────────────
-    testWidgets('SET-01-S4: 设置页"清除目录缓存"项显示条数并执行清除', (tester) async {
+    testWidgets('SET-01-S4 (REF-06-S9): 设置页"清除目录缓存"项显示条数并执行清除', (tester) async {
       // Given directoryCacheProvider 有 3 条缓存
       final container = await _pumpSettings(tester, cache: {
         '1:/a': _entry([testDir('a', '/a')]),
@@ -340,11 +340,11 @@ void main() {
       final sortBefore = container.read(sortOptionProvider);
 
       // 走两个分支：path==null 全量清 + path 非空按后缀清
-      container.read(clearDirectoryCacheProvider)(null);
+      container.read(clearDirectoryCacheProvider)(null, null);
       container.read(directoryCacheProvider.notifier).state = {
         '1:/a': _entry([testDir('a', '/a')]),
       };
-      container.read(clearDirectoryCacheProvider)('/a');
+      container.read(clearDirectoryCacheProvider)(1, '/a');
 
       // 四个 provider 均不变
       expect(container.read(currentPlayQueueProvider), equals(queueBefore),
@@ -387,7 +387,7 @@ void main() {
       expect(spy.listDirectoryCallCount, equals(0), reason: '命中缓存不发网络');
 
       // path==null 清除 → 缓存清空 + family 全量 invalidate
-      final removed = container.read(clearDirectoryCacheProvider)(null);
+      final removed = container.read(clearDirectoryCacheProvider)(null, null);
       expect(removed, equals(1));
       expect(container.read(directoryCacheProvider), isEmpty);
 

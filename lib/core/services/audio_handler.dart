@@ -26,7 +26,7 @@ import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 
-import '../../features/player/media_control_model.dart' hide MediaAction;
+import '../../shared/media_title.dart';
 import '../contracts/audio_handler_contract.dart';
 import '../contracts/background_playback_contract.dart';
 

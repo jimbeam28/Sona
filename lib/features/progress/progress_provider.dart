@@ -99,7 +99,6 @@ final upsertProgressProvider = Provider<
       connectionId: connectionId,
       filePath: filePath,
     )));
-    ref.invalidate(recentlyPlayedProvider(null));
     ref.invalidate(latestPlayedProgressProvider);
   };
 });
@@ -127,7 +126,6 @@ final clearProgressProvider = Provider<
       connectionId: connectionId,
       filePath: filePath,
     )));
-    ref.invalidate(recentlyPlayedProvider(null));
     ref.invalidate(latestPlayedProgressProvider);
   };
 });

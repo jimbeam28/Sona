@@ -52,32 +52,39 @@ final directoryCacheProvider =
 final browserClockProvider =
     Provider<DateTime Function()>((ref) => DateTime.now);
 
-final clearDirectoryCacheProvider = Provider<int Function(String? path)>((ref) {
-  return (String? path) {
+final clearDirectoryCacheProvider =
+    Provider<int Function(int? connectionId, String? path)>((ref) {
+  return (int? connectionId, String? path) {
     if (path == null) {
+      // 全量清除：与修复前语义一致（REF-06-S2），connectionId 忽略。
       final count = ref.read(directoryCacheProvider).length;
       ref.read(directoryCacheProvider.notifier).state = {};
       ref.invalidate(directoryContentsProvider);
       return count;
-    } else {
-      final suffix = ':$path';
-      final toRemove = ref
-          .read(directoryCacheProvider)
-          .keys
-          .where((k) => k.endsWith(suffix))
-          .toList();
-      if (toRemove.isNotEmpty) {
-        ref.read(directoryCacheProvider.notifier).update((s) {
-          final u = Map<String, CacheEntry<List<NasFile>>>.from(s);
-          for (final k in toRemove) {
-            u.remove(k);
-          }
-          return u;
-        });
-      }
-      ref.invalidate(directoryContentsProvider(path));
-      return toRemove.length;
     }
+    // REF-06: 连接 id 非空 → 精确全等匹配（cr-20260816-0803 D1）；
+    // 连接 id 为空 → 降级旧后缀匹配（保守回退，生产调用方不走此形状）。
+    final exactKey = connectionId == null ? null : '$connectionId:$path';
+    final toRemove = exactKey == null
+        ? ref
+            .read(directoryCacheProvider)
+            .keys
+            .where((k) => k.endsWith(':$path'))
+            .toList()
+        : (ref.read(directoryCacheProvider).containsKey(exactKey)
+            ? [exactKey]
+            : <String>[]);
+    if (toRemove.isNotEmpty) {
+      ref.read(directoryCacheProvider.notifier).update((s) {
+        final u = Map<String, CacheEntry<List<NasFile>>>.from(s);
+        for (final k in toRemove) {
+          u.remove(k);
+        }
+        return u;
+      });
+    }
+    ref.invalidate(directoryContentsProvider(path));
+    return toRemove.length;
   };
 });
 

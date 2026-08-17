@@ -219,7 +219,7 @@ void main() {
 
       // Simulate pull-to-refresh: clear the cache for /music
       final clearCache = container.read(clearDirectoryCacheProvider);
-      clearCache('/music');
+      clearCache(1, '/music');
 
       // Verify cache is cleared for this entry
       final cacheAfterClear = container.read(directoryCacheProvider);
@@ -465,7 +465,7 @@ void main() {
 
       // Pull-to-refresh: clear the cache for /music
       final clearCache = container.read(clearDirectoryCacheProvider);
-      clearCache('/music');
+      clearCache(1, '/music');
 
       // Verify cache is cleared
       final cacheAfterClear = container.read(directoryCacheProvider);

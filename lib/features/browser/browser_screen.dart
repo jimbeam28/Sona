@@ -78,7 +78,11 @@ class BrowserScreen extends ConsumerWidget {
                 return RefreshIndicator(
                   onRefresh: () async {
                     final currentPath = ref.read(navigationStackProvider).last;
-                    ref.read(clearDirectoryCacheProvider)(currentPath);
+                    // REF-06: 传活跃连接 id，清除只命中本连接的缓存
+                    // （cr-20260816-0803 D1）。
+                    final connId =
+                        ref.read(activeConnectionProvider).valueOrNull?.id;
+                    ref.read(clearDirectoryCacheProvider)(connId, currentPath);
                     final _ = await ref
                         .refresh(directoryContentsProvider(currentPath).future);
                   },

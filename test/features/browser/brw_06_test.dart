@@ -122,7 +122,7 @@ void main() {
 
       // Simulate pull-to-refresh: clear cache and refresh provider
       final clearCache = container.read(clearDirectoryCacheProvider);
-      clearCache('/music');
+      clearCache(1, '/music');
 
       // Verify cache entry is removed
       final cacheAfterClear = container.read(directoryCacheProvider);
@@ -179,7 +179,7 @@ void main() {
 
       // Simulate pull-to-refresh: clear cache
       final clearCache = container.read(clearDirectoryCacheProvider);
-      clearCache('/music');
+      clearCache(1, '/music');
 
       // Now configure the mock to throw a network error
       mockClient.throwError(
@@ -246,7 +246,7 @@ void main() {
 
       // Simulate pull-to-refresh
       final clearCache = container.read(clearDirectoryCacheProvider);
-      clearCache('/music');
+      clearCache(1, '/music');
 
       // Refresh the provider
       final refreshedResult =

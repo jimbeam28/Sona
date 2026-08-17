@@ -5,8 +5,7 @@
 // progress_policy.dart.  Zero Flutter dependencies.
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nas_audio_player/features/progress/domain/progress_policy.dart'
-    as policy;
+import 'package:nas_audio_player/core/contracts/progress_policy.dart' as policy;
 
 void main() {
   // ── REF-24-T01: shouldSave boundary test (4999/5000) ─────────────────────

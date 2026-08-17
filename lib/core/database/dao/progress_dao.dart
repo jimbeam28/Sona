@@ -9,11 +9,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import '../../contracts/database_contract.dart';
+import '../../contracts/progress_policy.dart' as progress_policy;
 import '../../database/database_helper.dart';
 import '../../../shared/models/play_progress.dart';
 import '../../../shared/webdav_paths.dart';
-import '../../../features/progress/domain/progress_policy.dart'
-    as progress_policy;
 
 class ProgressDao implements IProgressDao {
   final DatabaseHelper _helper;

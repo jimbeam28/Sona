@@ -14,19 +14,21 @@ import 'package:fake_async/fake_async.dart';
 import 'package:nas_audio_player/core/contracts/storage_contract.dart';
 import 'package:nas_audio_player/core/services/storage_utils.dart';
 
+import '../helpers/fake_secure_storage.dart';
+
 void main() {
   // ═══════════════════════════════════════════════════════════════════════════
   // Test cases — BUG-10-T01 ~ T04
   // ═══════════════════════════════════════════════════════════════════════════
 
-  group('BUG-10: SecureStorage timeout protection', () {
+  group('BUG-10 (REF-14-S8): SecureStorage timeout protection', () {
     // ── BUG-10-T01: storage.read hangs -> 5 seconds later returns null ──────
 
     test(
         'BUG-10-T01: storage.read hangs -> throws SecureStorageTimeoutException after 5s',
         () {
       FakeAsync().run((async) {
-        final storage = _HangingSecureStorage();
+        final storage = HangingFakeSecureStorage(hangRead: true);
 
         Object? caughtError;
         var completed = false;
@@ -56,7 +58,7 @@ void main() {
 
     test('BUG-10-T02: storage.write hangs -> throws after 5s timeout', () {
       FakeAsync().run((async) {
-        final storage = _HangingWriteSecureStorage();
+        final storage = HangingFakeSecureStorage(hangWrite: true);
 
         Object? caughtError;
         var completed = false;
@@ -151,42 +153,5 @@ class _FakeWriteSecureStorage implements ISecureStorage {
   }) async {
     lastWrittenKey = key;
     lastWrittenValue = value;
-  }
-}
-
-/// Fake [FlutterSecureStorage] whose [read] never completes (simulates hung storage).
-class _HangingSecureStorage implements ISecureStorage {
-  @override
-  Future<void> write({required String key, required String? value}) async {}
-  @override
-  Future<void> delete({required String key}) async {}
-
-  @override
-  Future<bool> containsKey({required String key}) async => false;
-  @override
-  Future<String?> read({
-    required String key,
-  }) {
-    // Return a future that never completes.
-    return Completer<String?>().future;
-  }
-}
-
-/// Fake [FlutterSecureStorage] whose [write] never completes (simulates hung storage).
-class _HangingWriteSecureStorage implements ISecureStorage {
-  @override
-  Future<String?> read({required String key}) async => null;
-  @override
-  Future<void> delete({required String key}) async {}
-
-  @override
-  Future<bool> containsKey({required String key}) async => false;
-  @override
-  Future<void> write({
-    required String key,
-    required String? value,
-  }) {
-    // Return a future that never completes.
-    return Completer<void>().future;
   }
 }

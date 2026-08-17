@@ -25,7 +25,16 @@ import '../../../shared/models/playlist.dart';
 class PlaylistService {
   final IPlaylistDao _dao;
 
-  PlaylistService({IPlaylistDao? dao}) : _dao = dao ?? PlaylistDao();
+  /// Injectable "now" provider (REF-08, BUG-26-S4 同款模式). Defaults to
+  /// [DateTime.now] so production behaviour is unchanged; tests may inject
+  /// a fixed clock. Insert-path timestamps (createdAt/addedAt) are decided
+  /// HERE — the DAO's own clock only covers update/reorder paths
+  /// (playlist_dao.dart:81/:193).
+  final DateTime Function() _clock;
+
+  PlaylistService({IPlaylistDao? dao, DateTime Function()? clock})
+      : _dao = dao ?? PlaylistDao(),
+        _clock = clock ?? DateTime.now;
 
   // ── Playlist CRUD ─────────────────────────────────────────────────────────
 
@@ -33,7 +42,7 @@ class PlaylistService {
   ///
   /// Returns the new playlist's database ID.
   Future<int> createPlaylist(String name) {
-    final now = DateTime.now();
+    final now = _clock();
     return _dao.insertPlaylist(Playlist(
       name: name,
       createdAt: now,
@@ -67,7 +76,7 @@ class PlaylistService {
     // baseTime + n ms (n = number of tracks inserted so far), so batch
     // timestamps are strictly monotonic. Dedup-skipped files do not consume
     // an index because `tracks.length` only counts inserted tracks.
-    final baseTime = DateTime.now();
+    final baseTime = _clock();
     final seen = <String>{};
     final tracks = <PlaylistTrack>[];
     for (final file in files) {
@@ -159,11 +168,14 @@ class PlaylistService {
     // valid JSON (non-string name / filePath / fileName, non-array tracks,
     // non-map track elements) must never surface as TypeError /
     // NoSuchMethodError (BUG-25-INV1).
-    final name = data['name'] is String ? data['name'] as String : '导入的播放单';
+    // REF-07: 空串/纯空白名归默认名（与"缺失"同语义，cr-20260816-0804 D1）。
+    final rawName = data['name'];
+    final name =
+        (rawName is String && rawName.trim().isNotEmpty) ? rawName : '导入的播放单';
     final rawTracks = data['tracks'];
     final trackList = rawTracks is List ? rawTracks : <dynamic>[];
 
-    final now = DateTime.now();
+    final now = _clock();
 
     final seen = <String>{};
     final tracks = <PlaylistTrack>[];

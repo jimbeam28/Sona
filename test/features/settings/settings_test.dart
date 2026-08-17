@@ -141,15 +141,14 @@ void main() {
       final container = createContainer(prefs: prefs);
       addTearDown(container.dispose);
 
-      // Simulate player speed change
-      container.read(currentSpeedProvider.notifier).state = 2.0;
-
-      expect(container.read(currentSpeedProvider), equals(2.0),
-          reason: '播放器当前速度应变更为 2.0x');
+      // REF-12: currentSpeedProvider 已删除。运行时速归 player.speedStream 唯一
+      // 真理源；Settings 默认速度只经 setDefaultSpeedProvider 写路径。
+      // 语义：不调用 setDefaultSpeedProvider → default/prefs 不变。
       expect(container.read(defaultSpeedProvider), equals(1.0),
           reason: 'Settings 默认速度应保持 1.0x 不变');
       expect(prefs.getDouble('default_playback_speed'), equals(1.0),
           reason: 'SharedPreferences 中的值应保持不变');
+      expect(container.read(sharedPreferencesProvider), equals(prefs));
     });
 
     test('SET-T06: 打开新文件时速度从 Settings.defaultSpeed 初始化', () async {
@@ -161,10 +160,8 @@ void main() {
       final container = createContainer(prefs: prefs);
       addTearDown(container.dispose);
 
-      expect(container.read(defaultSpeedProvider), equals(1.25));
-      // currentSpeed is initialized from defaultSpeed on first read
-      expect(container.read(currentSpeedProvider), equals(1.25),
-          reason: '新文件打开时播放速度应从 Settings 默认速度 1.25x 初始化');
+      expect(container.read(defaultSpeedProvider), equals(1.25),
+          reason: '新文件打开时默认速度应从 Settings 默认速度 1.25x 读取');
     });
   });
 
@@ -526,25 +523,29 @@ void main() {
   // ═══════════════════════════════════════════════════════════════════════════════
 
   group('REF-01-S1: settings_service ThemeMode→String 解耦', () {
+    // REF-10: 统一到实例方法单份（顶层版已删除，settings_test 迁移为
+    // SettingsService 实例方法调用——断言值/字符串字面量逐字保留）。
+    const settings_service = settings_domain.SettingsService();
+
     test('REF-01-S1: getThemeMode 返回 String, prefs 为 null 时返回 system', () {
-      expect(settings_domain.getThemeMode(null), equals('system'),
+      expect(settings_service.getThemeMode(null), equals('system'),
           reason: 'prefs 为 null 时 domain 层应返回字符串 system');
     });
 
     test('REF-01-S1: getThemeMode 无存储时返回 system, 有存储返回对应 String', () async {
       SharedPreferences.setMockInitialValues({});
       final emptyPrefs = await SharedPreferences.getInstance();
-      expect(settings_domain.getThemeMode(emptyPrefs), equals('system'),
+      expect(settings_service.getThemeMode(emptyPrefs), equals('system'),
           reason: '无存储时 domain 层应返回字符串 system');
 
       SharedPreferences.setMockInitialValues({'theme_mode': 'dark'});
       final darkPrefs = await SharedPreferences.getInstance();
-      expect(settings_domain.getThemeMode(darkPrefs), equals('dark'),
+      expect(settings_service.getThemeMode(darkPrefs), equals('dark'),
           reason: '存储 dark 时 domain 层应返回字符串 dark');
 
       SharedPreferences.setMockInitialValues({'theme_mode': 'light'});
       final lightPrefs = await SharedPreferences.getInstance();
-      expect(settings_domain.getThemeMode(lightPrefs), equals('light'),
+      expect(settings_service.getThemeMode(lightPrefs), equals('light'),
           reason: '存储 light 时 domain 层应返回字符串 light');
     });
 
@@ -552,24 +553,24 @@ void main() {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
 
-      settings_domain.setThemeMode(prefs, 'dark');
+      settings_service.setThemeMode(prefs, 'dark');
       expect(prefs.getString('theme_mode'), equals('dark'),
           reason: '存储 key 仍为 theme_mode, 值格式不变');
     });
 
     test('REF-01-S1: labelForThemeMode 接受 String 且输出不变', () {
-      expect(settings_domain.labelForThemeMode('light'), equals('亮色'),
+      expect(settings_service.labelForThemeMode('light'), equals('亮色'),
           reason: "'light' 应映射为 '亮色'");
-      expect(settings_domain.labelForThemeMode('dark'), equals('暗色'),
+      expect(settings_service.labelForThemeMode('dark'), equals('暗色'),
           reason: "'dark' 应映射为 '暗色'");
-      expect(settings_domain.labelForThemeMode('system'), equals('跟随系统'),
+      expect(settings_service.labelForThemeMode('system'), equals('跟随系统'),
           reason: "'system' 应映射为 '跟随系统'");
     });
 
     test('REF-01-S1: labelForThemeMode 未知 String 回退到跟随系统', () {
-      expect(settings_domain.labelForThemeMode('unknown'), equals('跟随系统'),
+      expect(settings_service.labelForThemeMode('unknown'), equals('跟随系统'),
           reason: '未知模式应回退到"跟随系统"');
-      expect(settings_domain.labelForThemeMode(''), equals('跟随系统'),
+      expect(settings_service.labelForThemeMode(''), equals('跟随系统'),
           reason: '空字符串应回退到"跟随系统"');
     });
   });

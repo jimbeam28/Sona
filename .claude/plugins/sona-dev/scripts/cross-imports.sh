@@ -107,6 +107,38 @@ check_secret_logs() {
   fi
 }
 
+# ── 维度 4: Core 层零 feature 依赖 — core 不得反向 import feature → Major ──
+# 实现：扫描 lib/core/ 全部 import 语句 → 解析目标路径 → 落在 lib/features/** 下即违规
+# （REF-09：数据层被 feature 反向依赖会连带击穿 core/database 与 core/services）。
+check_core_feature() {
+  local before=$VIOLATIONS
+  while IFS= read -r hit; do
+    [[ -z "$hit" ]] && continue
+    local file lineno import_path resolved
+    file="${hit%%:*}"
+    lineno="${hit#*:}"; lineno="${lineno%%:*}"
+    import_path=$(sed -n "s/.*import[[:space:]]*['\"]\([^'\"]*\)['\"].*/\1/p" <<<"$hit")
+    [[ -z "$import_path" ]] && continue
+    # 解析 import 目标到 lib/ 相对路径
+    if [[ "$import_path" == dart:* ]]; then
+      continue
+    elif [[ "$import_path" == package:"$PKG"/* ]]; then
+      resolved="lib/${import_path#package:$PKG/}"
+    elif [[ "$import_path" == package:* ]]; then
+      continue   # 外部包
+    else
+      resolved=$(realpath -m "$(dirname "$file")/$import_path" 2>/dev/null || true)
+      resolved="${resolved#"$(pwd)/"}"
+    fi
+    case "$resolved" in
+      lib/features/*)
+        emit "core-feature" "Major" "$file:$lineno" "core 层反向依赖 feature（须下沉到 core/contracts 或 shared）: $import_path"
+        ;;
+    esac
+  done < <(grep -rnE --include='*.dart' "^[[:space:]]*import[[:space:]]+['\"]" lib/core/ 2>/dev/null || true)
+  [[ $VIOLATIONS -eq $before ]] && echo "core-feature: clean" >&2
+}
+
 # ── impact 模式: 反查引用方 ──
 # 对每个目标文件，找 lib/ 下所有 import 行中引用其 lib 相对路径或文件名的，按来源区域分组。
 cmd_impact() {
@@ -144,10 +176,12 @@ main() {
       domain-flutter)    check_domain_flutter ;;
       feature-isolation) check_feature_isolation ;;
       secret-logs)       check_secret_logs ;;
+      core-feature)      check_core_feature ;;
       all)
         check_domain_flutter
         check_feature_isolation
         check_secret_logs
+        check_core_feature
         ;;
       *) echo "unknown kind: $k" >&2; exit 2 ;;
     esac

@@ -34,63 +34,12 @@ import 'package:nas_audio_player/features/player/player_screen.dart';
 import 'package:nas_audio_player/shared/models/connection_config.dart';
 import 'package:nas_audio_player/shared/models/play_queue.dart';
 
+import '../../helpers/fake_secure_storage.dart';
 import '../../helpers/fake_webdav_client.dart';
 import '../../helpers/mock_audio_player.dart';
 import '../../helpers/test_factories.dart';
 
 // ── Fakes ────────────────────────────────────────────────────────────────────
-
-/// Fake [FlutterSecureStorage] whose [read] never completes (hung Keystore).
-class _HangingReadStorage implements ISecureStorage {
-  @override
-  Future<void> write({required String key, required String? value}) async {}
-  @override
-  Future<void> delete({required String key}) async {}
-
-  @override
-  Future<bool> containsKey({required String key}) async => false;
-  @override
-  Future<String?> read({
-    required String key,
-  }) {
-    return Completer<String?>().future;
-  }
-}
-
-/// Fake [FlutterSecureStorage] whose [write] never completes.
-class _HangingWriteStorage implements ISecureStorage {
-  @override
-  Future<String?> read({required String key}) async => null;
-  @override
-  Future<void> delete({required String key}) async {}
-
-  @override
-  Future<bool> containsKey({required String key}) async => false;
-  @override
-  Future<void> write({
-    required String key,
-    required String? value,
-  }) {
-    return Completer<void>().future;
-  }
-}
-
-/// Fake [FlutterSecureStorage] whose [delete] never completes.
-class _HangingDeleteStorage implements ISecureStorage {
-  @override
-  Future<String?> read({required String key}) async => null;
-  @override
-  Future<void> write({required String key, required String? value}) async {}
-
-  @override
-  Future<bool> containsKey({required String key}) async => false;
-  @override
-  Future<void> delete({
-    required String key,
-  }) {
-    return Completer<void>().future;
-  }
-}
 
 /// Fake [FlutterSecureStorage] backed by an in-memory map (null = no value).
 class _MapStorage implements ISecureStorage {
@@ -219,7 +168,7 @@ void main() {
   // BUG-32-S1 / INV1: safeStorageRead 超时抛异常，无值返回 null，两者可区分
   // ═══════════════════════════════════════════════════════════════════════════
 
-  group('BUG-32-S1 / INV1: safeStorageRead timeout vs no-value', () {
+  group('REF-14-S9: BUG-32-S1 / INV1: safeStorageRead timeout vs no-value', () {
     test('S1-T01: read hangs -> throws SecureStorageTimeoutException after 5s',
         () {
       FakeAsync().run((async) {
@@ -227,7 +176,8 @@ void main() {
         String? value;
         var done = false;
 
-        safeStorageRead(_HangingReadStorage(), key: 'connection_password_1')
+        safeStorageRead(HangingFakeSecureStorage(hangRead: true),
+                key: 'connection_password_1')
             .then((v) {
           value = v;
           done = true;
@@ -287,11 +237,13 @@ void main() {
         Object? writeError;
         Object? deleteError;
 
-        safeStorageWrite(_HangingWriteStorage(), key: 'k', value: 'v')
+        safeStorageWrite(HangingFakeSecureStorage(hangWrite: true),
+                key: 'k', value: 'v')
             .catchError((e) {
           writeError = e;
         });
-        safeStorageDelete(_HangingDeleteStorage(), key: 'k').catchError((e) {
+        safeStorageDelete(HangingFakeSecureStorage(hangDelete: true), key: 'k')
+            .catchError((e) {
           deleteError = e;
         });
 
@@ -322,7 +274,7 @@ void main() {
           var done = false;
 
           preloadAudioSource(
-            storage: _HangingReadStorage(),
+            storage: HangingFakeSecureStorage(hangRead: true),
             connectionId: 1,
             baseUrl: 'http://nas.example.com',
             filePath: '/music/song.mp3',
@@ -361,7 +313,8 @@ void main() {
       FakeAsync().run((async) {
         final container = ProviderContainer(overrides: [
           activeConnectionProvider.overrideWith((ref) async => _conn),
-          secureStorageProvider.overrideWithValue(_HangingReadStorage()),
+          secureStorageProvider
+              .overrideWithValue(HangingFakeSecureStorage(hangRead: true)),
           webDavClientProvider.overrideWithValue(MockWebDavClient()),
         ]);
 
@@ -424,7 +377,8 @@ void main() {
         FakeAsync().run((async) {
           final container = ProviderContainer(overrides: [
             activeConnectionProvider.overrideWith((ref) async => _conn),
-            secureStorageProvider.overrideWithValue(_HangingReadStorage()),
+            secureStorageProvider
+                .overrideWithValue(HangingFakeSecureStorage(hangRead: true)),
             webDavClientProvider.overrideWithValue(MockWebDavClient()),
           ]);
 
@@ -543,7 +497,8 @@ void main() {
               loadAndPlayProvider.overrideWith(
                 (ref) => () async => const TrackLoadResult.failed(),
               ),
-              secureStorageProvider.overrideWithValue(_HangingReadStorage()),
+              secureStorageProvider
+                  .overrideWithValue(HangingFakeSecureStorage(hangRead: true)),
             ],
             child: const MaterialApp(home: PlayerScreen()),
           ),

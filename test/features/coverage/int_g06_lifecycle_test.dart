@@ -134,7 +134,7 @@ void main() {
           audioPlayerProvider.overrideWithValue(player),
         ],
       );
-      addTearDown(() => container.dispose);
+      addTearDown(container.dispose);
 
       // Read the checkTimerExpiryProvider.
       final checkExpired = container.read(checkTimerExpiryProvider);
@@ -161,7 +161,7 @@ void main() {
           timerServiceProvider.overrideWithValue(service),
         ],
       );
-      addTearDown(() => container.dispose);
+      addTearDown(container.dispose);
 
       final checkExpired = container.read(checkTimerExpiryProvider);
       final result = checkExpired();
@@ -219,7 +219,7 @@ void main() {
               }),
         ],
       );
-      addTearDown(() => container.dispose);
+      addTearDown(container.dispose);
 
       // Simulate app going to background: call saveProgress.
       final saveFn = container.read(saveProgressProvider);
@@ -239,7 +239,7 @@ void main() {
               }),
         ],
       );
-      addTearDown(() => container.dispose);
+      addTearDown(container.dispose);
 
       // Multiple background transitions should each trigger save.
       final saveFn = container.read(saveProgressProvider);
@@ -293,7 +293,7 @@ void main() {
               }),
         ],
       );
-      addTearDown(() => container.dispose);
+      addTearDown(container.dispose);
 
       // Simulate the auto-save timer logic:
       // Timer.periodic(Duration(seconds: 10), (_) => saveProgress())
@@ -318,7 +318,7 @@ void main() {
               }),
         ],
       );
-      addTearDown(() => container.dispose);
+      addTearDown(container.dispose);
 
       // Simulate the pause-save logic:
       // When player transitions from playing=true to playing=false, save.
@@ -451,7 +451,7 @@ void main() {
           timerServiceProvider.overrideWithValue(service),
         ],
       );
-      addTearDown(() => container.dispose);
+      addTearDown(container.dispose);
 
       final onCompleted = container.read(onTrackCompletedProvider);
       final result = onCompleted();
@@ -475,7 +475,7 @@ void main() {
           timerServiceProvider.overrideWithValue(service),
         ],
       );
-      addTearDown(() => container.dispose);
+      addTearDown(container.dispose);
 
       final onCompleted = container.read(onTrackCompletedProvider);
       final result = onCompleted();

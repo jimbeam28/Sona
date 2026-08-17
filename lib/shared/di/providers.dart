@@ -94,7 +94,6 @@ export '../../features/player/player_provider.dart'
         // Speed
         defaultSpeedProvider,
         setDefaultSpeedProvider,
-        currentSpeedProvider,
         // Play mode
         playModeProvider,
         nextPlayModeProvider,

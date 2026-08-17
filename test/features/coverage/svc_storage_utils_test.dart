@@ -3,28 +3,14 @@
 // test/core/services/storage_utils_test.dart，本文件按 TEST-08 §5.4
 // 门禁路径登记，覆盖 read 的错误/超时降级语义）。
 
-import 'dart:async';
-
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nas_audio_player/core/services/storage_utils.dart';
 
 import '../../helpers/fake_secure_storage.dart';
 
-/// A [FakeSecureStorage] whose [read] never completes.
-class _HangingReadStorage extends FakeSecureStorage {
-  final Completer<String?> gate = Completer<String?>();
-  int readCalls = 0;
-
-  @override
-  Future<String?> read({required String key}) {
-    readCalls++;
-    return gate.future;
-  }
-}
-
 void main() {
-  group('SVC10: safeStorageRead 错误/超时降级', () {
+  group('SVC10 (REF-14-S10): safeStorageRead 错误/超时降级', () {
     test('read 抛异常 → 返回 null 并落日志（不向上抛）', () async {
       final storage = ReadThrowingFakeSecureStorage();
       final result = await safeStorageRead(storage, key: 'test_key');
@@ -33,7 +19,7 @@ void main() {
 
     test('read 超时 5s → 抛 SecureStorageTimeoutException', () {
       fakeAsync((async) {
-        final storage = _HangingReadStorage();
+        final storage = HangingFakeSecureStorage(hangRead: true);
         Object? error;
         safeStorageRead(storage, key: 'test_key').then((v) {
           error = 'unexpected success';

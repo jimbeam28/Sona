@@ -39,5 +39,3 @@
 #
 # 注意：本文件末尾必须为数据行（load_debt 的 while 以最后一次迭代状态为退出码，
 # 注释/空行结尾会在 set -e 下使 coverage-check.sh 误判失败）。
-lib/features/timer/domain/timer_service.dart 79.0    # 暂停/恢复边界与 custom 时长分支测试缺口（BUG-03 后未补齐）
-lib/features/player/domain/playback_orchestrator.dart 87.5  # player bug 高发区；与 arch-baseline 中 just_audio 直接耦合相关，补测试需先理清 fake 边界

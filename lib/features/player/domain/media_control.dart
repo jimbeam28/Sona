@@ -3,11 +3,14 @@
 // media_control_model.dart and player_provider.dart.
 //
 // Contains:
-//   - extractTitleFromPath()  — file path → display title
+//   - extractTitleFromPath()  — file path → display title (re-exported from
+//     shared/media_title.dart, REF-09)
 //   - mapHeadphoneAction()    — HeadphoneAction → MediaAction
 //   - formatDuration()        — Duration → "MM:SS" / "H:MM:SS"
 //
 // Zero Flutter dependencies — fully testable in plain Dart.
+
+export '../../../shared/media_title.dart' show extractTitleFromPath;
 
 /// Headphone / headset button click actions.
 ///
@@ -59,27 +62,6 @@ MediaAction mapHeadphoneAction(HeadphoneAction action) {
     case HeadphoneAction.tripleClick:
       return MediaAction.skipToPrevious;
   }
-}
-
-/// Extracts the display title from a file path by taking the last path
-/// segment and stripping the file extension.
-///
-/// This produces the title value displayed in the notification and
-/// lock-screen controls (PLY-T24).
-///
-/// Examples:
-/// ```dart
-/// extractTitleFromPath('/music/01 - Song.mp3')    // → '01 - Song'
-/// extractTitleFromPath('/music/有声书.m4b')       // → '有声书'
-/// extractTitleFromPath('README')                   // → 'README'
-/// extractTitleFromPath('/a/b/c.tar.gz')            // → 'c.tar'
-/// extractTitleFromPath('')                         // → ''
-/// ```
-String extractTitleFromPath(String filePath) {
-  final name = filePath.split('/').last;
-  final dotIndex = name.lastIndexOf('.');
-  if (dotIndex <= 0) return name;
-  return name.substring(0, dotIndex);
 }
 
 /// Formats a [Duration] as a human-readable timestamp.

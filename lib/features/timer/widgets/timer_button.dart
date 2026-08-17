@@ -70,6 +70,14 @@ class TimerBottomSheet extends ConsumerWidget {
                 },
               ),
               _TimerOptionTile(
+                icon: Icons.timer,
+                label: '15 分钟',
+                onTap: () {
+                  ref.read(startDurationTimerProvider)(15);
+                  Navigator.of(context).pop();
+                },
+              ),
+              _TimerOptionTile(
                 icon: Icons.skip_next,
                 label: '播完当前',
                 onTap: () {

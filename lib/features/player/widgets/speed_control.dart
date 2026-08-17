@@ -77,7 +77,6 @@ class SpeedControl extends ConsumerWidget {
                       : null,
                   onTap: () {
                     player.setSpeed(speed);
-                    ref.read(currentSpeedProvider.notifier).state = speed;
                     // F-4: if "remember speed" is on, update the default too.
                     if (ref.read(rememberSpeedProvider)) {
                       ref.read(setDefaultSpeedProvider)(speed);

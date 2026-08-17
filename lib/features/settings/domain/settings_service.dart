@@ -18,33 +18,6 @@ import '../../../shared/preferences_bridge.dart';
 const _themeModeKey = 'theme_mode';
 const _rememberSpeedKey = 'remember_playback_speed';
 
-/// Reads the theme mode stored in [prefs] as a String
-/// (`'system'`/`'light'`/`'dark'`), or `'system'` when not set (REF-01-A1).
-String getThemeMode(SharedPreferences? prefs) {
-  if (prefs == null) return 'system';
-  final raw = prefs.getString(_themeModeKey);
-  if (raw != 'system' && raw != 'light' && raw != 'dark') return 'system';
-  return raw!;
-}
-
-/// Persists the theme mode [mode] (a String: `'system'`/`'light'`/`'dark'`)
-/// to [prefs] (REF-01-A1).
-void setThemeMode(SharedPreferences? prefs, String mode) {
-  prefs?.setString(_themeModeKey, mode);
-}
-
-/// Human-readable Chinese label for a theme mode String (REF-01-A1).
-String labelForThemeMode(String mode) {
-  switch (mode) {
-    case 'light':
-      return '亮色';
-    case 'dark':
-      return '暗色';
-    default:
-      return '跟随系统';
-  }
-}
-
 /// Pure Dart service for reading and writing settings to SharedPreferences.
 ///
 /// All methods are instance-level and accept a [SharedPreferences] instance

@@ -5,6 +5,8 @@
 // REF-01-A2: implements ISecureStorage (contract layer) instead of extending
 // the FlutterSecureStorage concrete class — domain layer 零 Flutter 依赖。
 
+import 'dart:async';
+
 import 'package:nas_audio_player/core/contracts/storage_contract.dart';
 
 /// Minimal fake [ISecureStorage] backed by an in-memory map.
@@ -74,5 +76,55 @@ class ReadThrowingFakeSecureStorage extends FakeSecureStorage {
   @override
   Future<String?> read({required String key}) async {
     throw Exception('Simulated secure storage read failure');
+  }
+}
+
+/// A [FakeSecureStorage] whose selected methods never complete
+/// (simulates a hung Keystore / flutter_secure_storage).
+///
+/// Configure per-method hanging via [hangRead] / [hangWrite] / [hangDelete]
+/// (default false = delegate to the normal in-memory implementation).
+/// Call counters increment on every invocation (hanging or not) — asserted
+/// by callers such as svc_storage_utils_test.
+class HangingFakeSecureStorage extends FakeSecureStorage {
+  HangingFakeSecureStorage({
+    this.hangRead = false,
+    this.hangWrite = false,
+    this.hangDelete = false,
+  });
+
+  final bool hangRead;
+  final bool hangWrite;
+  final bool hangDelete;
+
+  int readCalls = 0;
+  int writeCalls = 0;
+  int deleteCalls = 0;
+
+  @override
+  Future<String?> read({required String key}) {
+    readCalls++;
+    if (hangRead) {
+      return Completer<String?>().future;
+    }
+    return super.read(key: key);
+  }
+
+  @override
+  Future<void> write({required String key, required String? value}) {
+    writeCalls++;
+    if (hangWrite) {
+      return Completer<void>().future;
+    }
+    return super.write(key: key, value: value);
+  }
+
+  @override
+  Future<void> delete({required String key}) {
+    deleteCalls++;
+    if (hangDelete) {
+      return Completer<void>().future;
+    }
+    return super.delete(key: key);
   }
 }

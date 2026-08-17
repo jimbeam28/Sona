@@ -15,8 +15,7 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nas_audio_player/core/database/dao/progress_dao.dart';
-import 'package:nas_audio_player/features/progress/domain/progress_policy.dart'
-    as policy;
+import 'package:nas_audio_player/core/contracts/progress_policy.dart' as policy;
 
 void main() {
   // ═══════════════════════════════════════════════════════════════════════════
