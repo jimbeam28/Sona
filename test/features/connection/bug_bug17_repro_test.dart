@@ -27,6 +27,7 @@ import 'package:nas_audio_player/shared/models/connection_config.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../../helpers/fake_secure_storage.dart';
+// ThrowingFakeSecureStorage（步骤 2 失败注入）也来自 fake_secure_storage.dart。
 import '../../helpers/test_database.dart';
 import '../../helpers/test_factories.dart';
 
@@ -118,5 +119,107 @@ void main() {
     expect(ctx.storage.peek('connection_password_2'), isNull,
         reason: 'BUG-17：步骤 5（_dao.setActive :62）失败无回滚 —— 同 S1'
             '的孤儿行问题，且 is_active 未置位。');
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BUG-17-S4 / INV3：首次添加（0→1）边界 —— spec §3.2-S4、§4 INV3、§5.2/§5.3
+  //
+  // deleteWithoutGuard 的存在意义：首次添加时 DB 恰好只有本次插入的 1 行
+  // （count()==1），守卫版 delete 会抛 LastConnectionException 使回滚失效，
+  // 孤儿行照样残留且用户看到误导性的"至少保留一个连接"文案。以下三用例
+  // 均不预置任何连接（0→1），断言 save 失败后重抛的是【原异常】而非
+  // LastConnectionException，且回滚后无孤儿行、无永久 key、count()==0。
+  // 每条用例本地构造 dao/storage/service，不复用 _setup 的 seed。
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  test('BUG-17-S4: 首次添加（0→1）步骤 2（storage 写）失败 → 重抛原异常，无孤儿行', () async {
+    final db = await openTestDatabase(TestSchema.connections);
+    addTearDown(db.close);
+
+    final dao = ConnectionDao();
+    final storage = ThrowingFakeSecureStorage();
+    final service = ConnectionService(dao, storage);
+
+    // When: 保存唯一一条新连接，步骤 2（safeStorageWrite :54）抛错。
+    await expectLater(
+      service.save(
+          config: testConfig(name: 'First NAS', url: 'http://first.local:5005'),
+          password: 'secret'),
+      throwsA(isNot(isA<LastConnectionException>())),
+      reason: 'BUG-17-S4/INV3：回滚删行必须走 deleteWithoutGuard —— '
+          '0→1 时 count()==1，守卫版 delete 会抛 LastConnectionException '
+          '使回滚失效；用户必须看到原异常（保存失败），'
+          '而非"至少保留一个连接"。',
+    );
+
+    // Then: 回滚成功 —— 无孤儿行、无永久 key。
+    final all = await dao.findAll();
+    expect(all, isEmpty, reason: '步骤 2 失败回滚后不得残留本次新建的行');
+    expect(storage.peek('connection_password_1'), isNull,
+        reason: '永久 key 未写入（写入即抛），也不得有任何残留');
+
+    // 否定面：DB 中不存在引用共享 temp key 'connection_password_temp' 的孤儿行。
+    expect(await dao.count(), equals(0),
+        reason: 'INV2：temp key 是共享常量，任何 save 失败路径都不得在 DB 中'
+            '留下引用它的孤儿行');
+  });
+
+  test('BUG-17-S4: 首次添加（0→1）步骤 4（update）失败 → 重抛原异常，无孤儿行', () async {
+    final db = await openTestDatabase(TestSchema.connections);
+    addTearDown(db.close);
+
+    final dao = _ThrowingDao()..throwOnUpdate = true;
+    final storage = FakeSecureStorage();
+    final service = ConnectionService(dao, storage);
+
+    // When: 步骤 1/2 成功（storage 已写入 connection_password_1），随后
+    // 步骤 4（_dao.update :66）抛错 → 全量回滚（删行 + 删永久 key）。
+    await expectLater(
+      service.save(
+          config: testConfig(name: 'First NAS', url: 'http://first.local:5005'),
+          password: 'secret'),
+      throwsA(isNot(isA<LastConnectionException>())),
+      reason: 'BUG-17-S4/INV3：0→1 边界回滚删行走 deleteWithoutGuard，'
+          '不得被 CON-T32 守卫拦截改抛 LastConnectionException',
+    );
+
+    // Then: 回滚成功 —— 无孤儿行、无永久 key 残留。
+    final all = await dao.findAll();
+    expect(all, isEmpty,
+        reason: '缺陷态（守卫版 delete）：0→1 时 count()==1 触发守卫，'
+            'LastConnectionException 使回滚失效 → 孤儿行残留');
+    expect(storage.peek('connection_password_1'), isNull,
+        reason: '步骤 2 已写入的永久 key 必须随回滚一并删除');
+
+    expect(await dao.count(), equals(0),
+        reason: '否定面：DB 中不存在引用 connection_password_temp 的孤儿行');
+  });
+
+  test('BUG-17-S4: 首次添加（0→1）步骤 5（setActive）失败 → 重抛原异常，无孤儿行', () async {
+    final db = await openTestDatabase(TestSchema.connections);
+    addTearDown(db.close);
+
+    final dao = _ThrowingDao()..throwOnSetActive = true;
+    final storage = FakeSecureStorage();
+    final service = ConnectionService(dao, storage);
+
+    // When: 步骤 1/2/4 成功（storage 已写、update 已换 permanentKey），
+    // 步骤 5（_dao.setActive :68）抛错 → 全量回滚（删行 + 删永久 key）。
+    await expectLater(
+      service.save(
+          config: testConfig(name: 'First NAS', url: 'http://first.local:5005'),
+          password: 'secret'),
+      throwsA(isNot(isA<LastConnectionException>())),
+      reason: 'BUG-17-S4/INV3：同 S4 步骤 4 用例 —— 回滚不受 CON-T32 守约束',
+    );
+
+    // Then: 回滚成功 —— 无孤儿行、无永久 key 残留。
+    final all = await dao.findAll();
+    expect(all, isEmpty, reason: '步骤 5 失败回滚后不得残留本次新建的行');
+    expect(storage.peek('connection_password_1'), isNull,
+        reason: '步骤 2 已写入的永久 key 必须随回滚一并删除');
+
+    expect(await dao.count(), equals(0),
+        reason: '否定面：DB 中不存在引用 connection_password_temp 的孤儿行');
   });
 }

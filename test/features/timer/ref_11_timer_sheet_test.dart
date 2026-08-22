@@ -214,6 +214,36 @@ void main() {
     // 确认按钮存在（默认 0h5m → 5 分钟 → 可确认）
     final confirm = find.widgetWithText(TextButton, '确认');
     expect(confirm, findsOneWidget);
+    expect(tester.widget<TextButton>(confirm).onPressed, isNotNull,
+        reason: 'S3：默认 0h5m 共 5 分钟 > 0，确认必须可用');
+
+    // S3/S6 靶点：分钟轮滚到 0 → 总时长 0 → 确认必须禁用（onPressed == null）。
+    final wheels = find.byType(ListWheelScrollView);
+    expect(wheels, findsNWidgets(2), reason: '前置：picker 含时/分两个滚轮');
+    final minuteController = tester
+        .widget<ListWheelScrollView>(wheels.at(1))
+        .controller as FixedExtentScrollController;
+    minuteController.jumpToItem(0);
+    await tester.pumpAndSettle();
+
+    expect(
+        tester
+            .widget<TextButton>(find.widgetWithText(TextButton, '确认'))
+            .onPressed,
+        isNull,
+        reason: 'REF-11-S3/S6：0h0m 总时长为 0 时确认必须禁用'
+            '（timer_button.dart `_totalMinutes == 0 ? null : ...` 分支——'
+            '若该守卫被删，本断言失败）');
+
+    // 恢复非零分钟 → 确认恢复可用。
+    minuteController.jumpToItem(3);
+    await tester.pumpAndSettle();
+    expect(
+        tester
+            .widget<TextButton>(find.widgetWithText(TextButton, '确认'))
+            .onPressed,
+        isNotNull,
+        reason: 'S6 回归面：滚回非零后确认必须恢复可用');
   });
 
   testWidgets('REF-11-S4 REF-11-S5 否定: 15 分钟 tile 不重复（文档漂移收敛）', (tester) async {

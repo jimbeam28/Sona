@@ -11,7 +11,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fake_async/fake_async.dart';
 import 'package:nas_audio_player/core/database/dao/playlist_dao.dart';
-import 'package:nas_audio_player/core/database/database_helper.dart';
 import 'package:nas_audio_player/features/playlist/playlist_detail_screen.dart';
 import 'package:nas_audio_player/features/playlist/playlist_provider.dart';
 import 'package:nas_audio_player/features/playlist/widgets/playlist_track_item.dart';
@@ -23,6 +22,7 @@ import 'package:nas_audio_player/shared/models/connection_config.dart';
 import 'package:nas_audio_player/shared/models/play_progress.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import '../../helpers/test_database.dart';
 import '../../helpers/widget_helpers.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -775,33 +775,15 @@ void main() {
 
   // ── TST-T82: reorder persistence ─────────────────────────────────────
 
-  const tst11CreateTables = '''
-    CREATE TABLE playlists (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      created_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL
-    );
-    CREATE TABLE playlist_tracks (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      playlist_id INTEGER NOT NULL,
-      file_path TEXT NOT NULL,
-      file_name TEXT NOT NULL,
-      added_at INTEGER NOT NULL,
-      FOREIGN KEY(playlist_id) REFERENCES playlists(id) ON DELETE CASCADE
-    );
-    CREATE INDEX idx_playlist_tracks_playlist_id ON playlist_tracks(playlist_id);
-  ''';
-
   group('TST-T82 reorder persistence', () {
     late Database db;
     late ProviderContainer container;
 
     setUp(() async {
-      db = await databaseFactoryFfi.openDatabase(inMemoryDatabasePath);
-      await db.execute('PRAGMA foreign_keys = ON');
-      await db.execute(tst11CreateTables);
-      DatabaseHelper.instance.overrideDatabase(db);
+      // BUG-19-INV1：schema 由生产 createSchema 单一权威来源构建
+      // （openTestDatabase 内部已 overrideDatabase + PRAGMA foreign_keys=ON），
+      // 不再内联 DDL 副本。
+      db = await openTestDatabase(TestSchema.playlist);
 
       container = ProviderContainer(overrides: [
         playlistDaoProvider.overrideWith((ref) => PlaylistDao()),

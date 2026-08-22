@@ -1,3 +1,65 @@
 # dev-check 评审日志
 
 每轮评审追加一节，最末条为最新一轮。dev-exe 被打回重做时必须读本文件最末条作为修复靶点清单。
+
+## [2026-08-21 19:32] BUG-01~19 + REF-01~16 批量审计（35 项） - 第 1 轮 dev-check
+
+### 总 verdict: FAIL（28 PASS / 7 FAIL）
+
+机械项：spec-scan 35/35 rc=0；cross-imports all 绿；cov-gate --only test 全绿（2430 tests）；coverage-check check-check **红**——REF-09 将 `lib/features/progress/domain/progress_policy.dart` 迁至 `lib/core/contracts/` 后基线残留旧路径两条（baseline-coverage.json:18/:45），新路径未登记。属改名簿记残留而非覆盖率回归（总覆盖 91.01% > 基线 86.61%），随本轮 PASS 刷新基线消除。
+
+### FAIL 问题清单（7 项，全部为测试侧缺口——无需改 lib/ 生产代码）
+
+1. **BUG-03-S6 手动切歌异常路径零测试锚定，§5.4 门禁虚标**（检查1，@BUG-03-S6）
+   - 证据：docs/features/BUG-03.md:261 声明 bug_03_repro_test.dart 覆盖 S5/S6；实测该文件仅 1 用例（test/features/player/bug_03_repro_test.dart:101），只驱动 loadAndPlayProvider，从未调 skipToNextProvider/skipToPreviousProvider/selectQueueIndexProvider 异常路径；全库无 throwing orchestrator 注入。
+   - 现象：S6 的 Then（守卫复位+日志+返回 failed）对三个手动切歌入口零 expect 支撑；拆回裸 await 门禁仍绿。
+   - 自检：实现经共享 helper `_runLoadOrchestrated` 结构等价（player_provider.dart:364-379），缺陷纯在测试面。
+   - 修复指令：bug_03_repro_test.dart 补一条用例——override playbackOrchestratorProvider 为 skipToNext 抛 TimeoutException 的 stub，依次调用三个切歌 provider，逐个 expect：返回 isLoaded==false、调用后 _completingProvider==false、日志含 `[Player]`、Zone 内无 unhandled error。
+2. **BUG-04-S7 时长更新恢复生效零测试锚定，§5.4 门禁虚标**（检查1，@BUG-04-S7）
+   - 证据：docs/features/BUG-04.md:241 声明门禁覆盖 S5~S7；实测 bug_04_repro_test.dart 三用例只断言 title/id/null（:86-89/:148/:200），无 duration 断言；audio_handler_test.dart:327-348 也未测 `_onDurationChanged` copyWith 分支（audio_handler.dart:174-178）。
+   - 现象：「mediaItem 非空后时长更新自然生效」（U5）与「时长更新不得改 title/id/artUri」均无处落地。
+   - 修复指令：bug_04_repro_test.dart 补一条用例——MockAudioPlayer.durationStream 桩改 StreamController，T1 式加载成功后 emit Duration(minutes:5)，expect handler.mediaItem.value!.duration==Duration(minutes:5) 且 title/id 不变、artUri 仍 null（顺带锚 INV3）。
+3. **BUG-17 首次添加（0→1）边界零覆盖，S4 与 INV3 无任何测试触达**（检查1，@BUG-17-S4 / BUG-17-INV3）
+   - 证据：spec §5.2 明文"含首次添加边界"、§5.3 再令追加 0 连接失败用例；实测 bug_bug17_repro_test.dart:44-47 两用例都预置一条连接；grep 全库 deleteWithoutGuard 无任何测试触达 count==1 场景。
+   - 现象：deleteWithoutGuard 的存在意义（0→1 时守卫版 delete 抛 LastConnectionException 使回滚失效）零守护；把 connection_service.dart:95 改回 `_dao.delete(id)` 一行，现有测试照样全绿。
+   - 自检：dev-exe 只实现了 S4 代码面、漏了 spec 两处明文派发的测试面。
+   - 修复指令：bug_bug17_repro_test.dart 删除 _setup() 预置 insert 后追加三用例（步骤 2 storage 写失败 / 步骤 4 update 失败 / 步骤 5 setActive 失败各一）：expectLater(service.save(...), throwsA(isNot(isA<LastConnectionException>)))，随后断言 findAll() isEmpty 且 storage.peek('connection_password_1') isNull。
+4. **BUG-19-INV1 全库清场承诺未兑现——test/ 下仍有 6 处内联 CREATE 副本，其中 ply_10 是活跃的迁移逻辑重实现**（检查2，@BUG-19-INV1 / BUG-19-S6 否定断言3）
+   - 证据：INV1 声称修复后 grep 除 v1 历史输入外 0 命中，实测命中：ply_10_test.dart:363-385（PLY-T55 注释自述 "as the migration would"，手写 CREATE TABLE playlists/playlist_tracks + INDEX，且从未触发真实 onUpgrade）、ply_13_test.dart:778-794/:803、ply_14_test.dart:286-302/:311、brw_04_test.dart:291-310、brw_07_test.dart:356-375、con_06_test.dart:65-73（CON-T31 "simplified version" schema 已漂移实证）。
+   - 现象：cr 原文复现路径在这 6 个文件原样成立——改坏生产 DDL 或副本彼此漂移，相关测试依旧全绿；spec §7 inventory 漏登它们的自建库段落。
+   - 自检：§5.3 派给 dev-exe 的"手动 grep 一次性核对"未执行或漏检（均为本次 commit 未触及的既有代码）。
+   - 修复指令：ply_10 PLY-T55 改经真实 open 路径驱动（复用 db_migration_test.dart:107 `_runRealV1ToV2Migration` 模式）或删除该用例（意图已被 DB-MIG-03/04 覆盖）；ply_13 TST-T82、ply_14 TST-T87、brw_04 TST-T128、brw_07 TST-16 改用 `openTestDatabase(TestSchema.playlist / .full)`；con_06 CON-T31 改 `openTestDatabase(TestSchema.progress)`；确属历史形态输入的按 dev-plan 流程补登记豁免，不得静默保留。
+5. **REF-05-S4 「删除当前曲→高亮跟随」核心状态变化未被真正锚定，isNotNull 占位**（检查1，@REF-05-S4/U2）
+   - 证据：test/features/player/ref_05_queue_sheet_live_test.dart:133-140 —— `expect(currentTile.title, isNotNull)` 占位；若高亮错误地留在旧 index（c.mp3 行），本用例依然全绿。
+   - 现象：Scenario U2/S4 核心变化（『当前』标记移到新当前曲目行）不可判伪。
+   - 修复指令：将 ref_05_queue_sheet_live_test.dart:140 的 `expect(currentTile.title, isNotNull)` 替换为 `expect((currentTile.title as Text).data, 'a.mp3')`（或 find.descendant 定位断言）。
+6. **REF-06-S8 否定断言「生产调用必须传活跃连接 id」零回归护栏，门禁仅模拟不锚定**（检查1，@REF-06-S8）
+   - 证据：ref_06_cache_clear_test.dart:198-205 测试自己手工传 id，从未执行 browser_screen.dart:83-85 真实 onRefresh 体；若 :85 被改回传 null，编译过、静默降级后缀匹配，全仓无一测试失败。
+   - 自检：盲点源于 spec §5.4 规定的模拟式覆盖手法（同 brw_05/set_01），属 dev-plan 设计缺口，打回对象需裁。
+   - 修复指令：ref_06_cache_clear_test.dart 追加静态源断言用例（仿 ref_10_unify_test.dart:97-117 File 读源模式）：读 lib/features/browser/browser_screen.dart 源码，expect contains `'clearDirectoryCacheProvider)(connId, currentPath)'` 且 isNot contains `'clearDirectoryCacheProvider)(null,'`。
+7. **REF-11 门禁测试名承诺「0 分钟禁用确认」但无任何对应断言**（检查1，@REF-11-S3/S6）
+   - 证据：ref_11_timer_sheet_test.dart:200-217 函数体仅断言『自定义时长』与确认 TextButton 存在；全程未滚到 0h0m，也未断言 onPressed==null。timer_button.dart:184-185 禁用分支若被删，本门禁仍绿。
+   - 修复指令：该测试内追加：drag ListWheelScrollView 至 hour=0/minute=0，pumpAndSettle 后 `expect(tester.widget<TextButton>(find.widgetWithText(TextButton, '确认')).onPressed, isNull)`，再滚回非零断言非 null。
+
+### PASS 附带低危备注（不阻断，登记备查）
+
+- REF-02：equality_registry 测试 ConnectionConfig 用例循环体近似退化（实际防护由 model_equality_test 承担）。
+- REF-03：mirror 测试 public-method 正则匹配不到 `Future<void>` 形态声明（死符号黑名单已补偿指定符号）。
+- REF-04：S4 否定断言「不调 player.stop/pause/seek」无 verifyNever（人工核读确认只读状态）。
+- REF-12：S6/S7 未直接断言 defaultSpeedProvider 值（ply_07/set_01 已补偿该面）；TST-T73~78 保留容器形态与 §3.2 措辞张力。
+- REF-14：S8/S9 明令移除的 `import 'dart:async';` 仍在 bug_10_test.dart:10 与 bug_bug32_repro_test.dart:16（有显式 Future 引用故 analyze 不报；零行为影响，dev-exe 重做时可顺手删）；范围外 storage_utils_test/bug_07_test 仍有本地挂起 fake，建议后续 REF 收敛。
+- REF-16：coverage-check.sh 新增 load_debt 尾部 `return 0` 与 spec"零改动"字面冲突——实为化解 spec 内部矛盾（登记簿变纯注释结尾会使 check-exe 假失败）的最小必要修复，已在代码注释+commit message 双重登记；**需 dev-plan 增量补一条 Scenario 回写 spec，严禁直接改 features 文档**。
+- REF-08：spec REF-08-S4 否定断言第 3 条与 §3.2 表自相矛盾（实现取"循环前取时一次"符合主导裁决，不改判）。
+- BUG-01：S5 第二否定断言（skip 不动 playbackState 其它字段）无用例锚定；测试组名 S1/S2 实为 S4/S5 内容（cosmetic）。
+- BUG-02：只断言回调非 null，未驱动回调触发行为面；onDispose 清线分支无断言（接线体 4 行，风险低）。
+- BUG-06：实现新增第三道闸 `_sourceStillIssed`（audio_source_builder.dart:173/:186-193）超出 §3 文本——判定为良性增强（正是 §5.3 盲点表点名的补口），已核实 identical 语义与 pub 缓存源码。
+- BUG-08：INV3「<5s 正常完成不变」无直接用例（SDK .timeout 透传语义，风险极低）；P17 表回写 platform-pitfalls.md 未见记录 [待复核]。
+- BUG-11：点击导航未驱动（onPressed 1 行 context.push 同款既有模式）；S4/S5 二级否定断言（PopupMenu 不变/不触发 setActive）未落地。
+- BUG-12：S3 否定断言「不得发起 PROPFIND」未以 mock 调用数落地（validator false → screen 提前 return 属既有结构，风险低）。
+- BUG-15/16/18：部分二级否定断言由结构或既有测试间接承载，materiality 低。
+- BUG-03/07 共性既有暴露面：removeTrackFromQueueProvider 内部 loadAndPlay 抛错浮出 fire-and-forget 调用点（player_screen.dart:254 / mini_player_bar.dart:152）——修复前即存在，建议后续 cr 登记 FRAGILE。
+
+### 结论与行动
+
+- 28 项 PASS → `dev-status.sh pass <ID>`（BUG-01/02/05/06/07/08/09/10/11/12/13/14/15/16/18 + REF-01/02/03/04/07/08/09/10/12/13/14/15/16）+ coverage-check refresh（消 REF-09 改名基线残留，总覆盖 91.01% 单调上行）。
+- 7 项 FAIL（BUG-03/04/17/19、REF-05/06/11）→ `bump-round`，impl/test 回 pending；全部为测试侧缺口，dev-exe 重做不需触碰 lib/（REF-06 打回对象含 dev-plan 补 Scenario 裁决项）。请手动启动 dev-exe 逐项重做。

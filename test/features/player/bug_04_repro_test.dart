@@ -201,4 +201,69 @@ void main() {
         reason: 'BUG-04-T3（否定面）：队列清空后通知栏必须清空曲目信息'
             '（现有 player_provider.dart:130 行为不得被修复破坏）');
   });
+
+  // ── BUG-04-S7 + INV3 ───────────────────────────────────────────────────────
+  test('BUG-04-T4: mediaItem 非空后 duration 更新生效，且不改 title/id/artUri', () async {
+    final player = MockAudioPlayer();
+    when(player.playing).thenReturn(true);
+    when(player.positionStream)
+        .thenAnswer((_) => Stream.value(const Duration(seconds: 30)));
+    // duration 改为可控流：加载成功后再 emit，验证 S7 的"恢复生效"语义。
+    final durationController = StreamController<Duration?>();
+    addTearDown(durationController.close);
+    when(player.durationStream).thenAnswer((_) => durationController.stream);
+    when(player.speedStream).thenAnswer((_) => const Stream<double>.empty());
+    when(player.processingStateStream)
+        .thenAnswer((_) => const Stream<ProcessingState>.empty());
+
+    final handler = NasAudioHandler(player);
+    addTearDown(handler.dispose);
+
+    final container = ProviderContainer(overrides: [
+      audioPlayerProvider.overrideWithValue(player),
+      audioHandlerProvider.overrideWithValue(handler),
+      onTrackCompletedProvider.overrideWithValue(() => false),
+      secureStorageProvider
+          .overrideWithValue(FakeSecureStorage()..setPassword(1, 'secret')),
+      activeConnectionProvider.overrideWith((ref) async => ConnectionConfig(
+            id: 1,
+            name: 'test',
+            url: 'http://localhost:8080',
+            username: 'user',
+            createdAt: DateTime(2024),
+            updatedAt: DateTime(2024),
+          )),
+      upsertProgressProvider.overrideWithValue((
+          {required int connectionId,
+          required String filePath,
+          required int positionMs,
+          int? durationMs}) async {}),
+    ]);
+    addTearDown(container.dispose);
+
+    container.read(currentPlayQueueProvider.notifier).state = PlayQueue(
+      files: [testAudio('Test Song.mp3', '/music/Test Song.mp3')],
+      currentIndex: 0,
+    );
+
+    final r = await container.read(loadAndPlayProvider)();
+    expect(r.isLoaded, isTrue, reason: '前置：加载必须成功（mediaItem 已非空）');
+    expect(handler.mediaItem.value!.duration, isNull,
+        reason: '前置：加载时尚未收到 duration 流事件');
+
+    // S7 靶点：mediaItem 非空后时长流事件必须同步到通知栏 mediaItem。
+    durationController.add(const Duration(minutes: 5));
+    await pumpEventQueue();
+
+    expect(handler.mediaItem.value!.duration, const Duration(minutes: 5),
+        reason: 'BUG-04-S7：加载成功后 mediaItem 非空，_onDurationChanged 的 '
+            'copyWith(duration) 分支必须生效（U5：通知栏/锁屏显示正确时长）');
+    // 否定断言（INV1 面）：时长更新不得改写其它字段。
+    expect(handler.mediaItem.value!.title, 'Test Song',
+        reason: '否定断言：时长更新不得改 title');
+    expect(handler.mediaItem.value!.id, '/music/Test Song.mp3',
+        reason: '否定断言：时长更新不得改 id');
+    expect(handler.mediaItem.value!.artUri, isNull,
+        reason: 'BUG-04-INV3：artUri 唯一写入为硬编码 null，时长更新不得引入封面值');
+  });
 }

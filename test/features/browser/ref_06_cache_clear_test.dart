@@ -11,6 +11,8 @@
 //   - S8 browser_screen 下拉刷新传活跃连接 id（通过浏览器 provider 直接断言）
 //   - INV1 缓存 key 恒为 '${conn.id}:$path'；INV2 清父不删子
 
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
@@ -306,5 +308,20 @@ void main() {
       expect(container.read(directoryCacheProvider).containsKey('1:/music/sub'),
           isFalse);
     });
+  });
+
+  // REF-06-S8 否定断言静态护栏：生产调用必须传活跃连接 id。
+  // 既有 S8 用例为模拟式覆盖（测试自传 id），若 browser_screen onRefresh 被
+  // 改回传 null，编译过、静默降级后缀匹配，无任何测试失败——此静态断言补口。
+  test('REF-06-S8 否定断言护栏: browser_screen 生产调用传活跃连接 id（源码静态断言）', () {
+    final content = File(
+            '${Directory.current.path}/lib/features/browser/browser_screen.dart')
+        .readAsStringSync();
+
+    expect(
+        content, contains('clearDirectoryCacheProvider)(connId, currentPath)'),
+        reason: 'S8: 下拉刷新生产调用必须是双参形态 (connId, currentPath)');
+    expect(content, isNot(contains('clearDirectoryCacheProvider)(null,')),
+        reason: 'S8 否定断言: 生产调用不得以 null 连接 id 调用清除函数');
   });
 }

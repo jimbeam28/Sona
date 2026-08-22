@@ -13,8 +13,8 @@ import 'package:nas_audio_player/features/browser/domain/directory_service.dart'
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../helpers/test_database.dart';
 import '../../helpers/test_factories.dart';
-import 'package:nas_audio_player/core/database/database_helper.dart';
 import 'package:nas_audio_player/core/database/dao/progress_dao.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -351,30 +351,12 @@ void main() {
 
     setUp(() async {
       sqfliteFfiInit();
-      db = await databaseFactoryFfi.openDatabase(inMemoryDatabasePath);
-
-      await db.execute('''
-        CREATE TABLE IF NOT EXISTS connections (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT NOT NULL, url TEXT NOT NULL, username TEXT NOT NULL,
-          password TEXT NOT NULL, is_active INTEGER NOT NULL DEFAULT 0,
-          created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
-        )
-      ''');
-      await db.execute('''
-        CREATE TABLE IF NOT EXISTS play_progress (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          connection_id INTEGER NOT NULL,
-          file_path TEXT NOT NULL,
-          position_ms INTEGER NOT NULL DEFAULT 0,
-          duration_ms INTEGER,
-          last_played_at INTEGER NOT NULL,
-          UNIQUE(connection_id, file_path),
-          FOREIGN KEY(connection_id) REFERENCES connections(id) ON DELETE CASCADE
-        )
-      ''');
-
-      DatabaseHelper.instance.overrideDatabase(db);
+      // BUG-19-INV1：schema 由生产 createSchema 单一权威来源构建
+      // （openTestDatabase 内部已 overrideDatabase + PRAGMA foreign_keys=ON），
+      // 不再内联 DDL 副本。
+      db = await openTestDatabase(TestSchema.progress);
+      // FK 约束对所有 schema 生效（BUG-16-S2）：progress 行须引用已存在的连接
+      await seedConnection(db);
       dao = ProgressDao();
     });
 

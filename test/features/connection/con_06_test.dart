@@ -60,23 +60,10 @@ class FakeSecureStorage implements ISecureStorage {
 
 // testConfig() is imported from test_factories.dart as testConfig().
 
-/// SQL for the play_progress table used in CON-T31 cascade-delete tests.
-/// This is a simplified version (no FK constraint) matching the original test.
-const _createPlayProgressTable = '''
-  CREATE TABLE play_progress (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    connection_id INTEGER NOT NULL,
-    file_path     TEXT NOT NULL,
-    position_ms   INTEGER NOT NULL DEFAULT 0,
-    updated_at    INTEGER NOT NULL
-  )
-''';
-
-/// Creates the play_progress table in [db] and returns [db] for chaining.
-Future<Database> _withPlayProgressTable(Database db) async {
-  await db.execute(_createPlayProgressTable);
-  return db;
-}
+// BUG-19-INV1：CON-T31 原自建 "simplified version" play_progress 表
+// （updated_at 替代 duration_ms/last_played_at，schema 已漂移）已删除——
+// 改用 openTestDatabase(TestSchema.progress)（生产 createSchema 单一权威
+// 来源：connections + play_progress），插入/断言列名对齐生产 schema。
 
 // ═════════════════════════════════════════════════════════════════════════════════
 // Unit tests — CON-T31~T34
@@ -92,8 +79,8 @@ void main() {
     late ConnectionDao dao;
 
     setUp(() async {
-      db = await openTestDatabase(TestSchema.connections);
-      await _withPlayProgressTable(db);
+      // 生产 schema：connections + play_progress（含 FK，BUG-16-S2）
+      db = await openTestDatabase(TestSchema.progress);
       dao = ConnectionDao();
     });
 
@@ -111,24 +98,28 @@ void main() {
       final id2 = await dao.insert(c2, passwordKey: 'key_2');
 
       // Insert some play_progress records for both connections
+      // （列名对齐生产 schema：duration_ms / last_played_at）
       final now = DateTime.now().millisecondsSinceEpoch;
       await db.insert('play_progress', {
         'connection_id': id1,
         'file_path': '/music/song1.mp3',
         'position_ms': 120000,
-        'updated_at': now,
+        'duration_ms': 240000,
+        'last_played_at': now,
       });
       await db.insert('play_progress', {
         'connection_id': id1,
         'file_path': '/music/song2.mp3',
         'position_ms': 45000,
-        'updated_at': now,
+        'duration_ms': null,
+        'last_played_at': now,
       });
       await db.insert('play_progress', {
         'connection_id': id2,
         'file_path': '/music/song3.mp3',
         'position_ms': 0,
-        'updated_at': now,
+        'duration_ms': 1000,
+        'last_played_at': now,
       });
 
       // Delete connection 1

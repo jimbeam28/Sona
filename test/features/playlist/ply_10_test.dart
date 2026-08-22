@@ -8,7 +8,6 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nas_audio_player/core/database/dao/playlist_dao.dart';
-import 'package:nas_audio_player/core/database/database_helper.dart';
 import 'package:nas_audio_player/features/playlist/playlist_provider.dart';
 import 'package:nas_audio_player/shared/models/playlist.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
@@ -316,87 +315,13 @@ void main() {
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Migration test — PLY-T55
+  // Migration test — PLY-T55 已删除（BUG-19-INV1 清场）：
+  // 原用例手写 CREATE TABLE playlists/playlist_tracks "as the migration
+  // would"，从未触发真实 onUpgrade。其迁移意图（v1→v2 建表/建索引）已由
+  // test/features/coverage/db_migration_test.dart DB-MIG-03/DB-MIG-04 经生产
+  // _onUpgrade 真实驱动覆盖；insert/query 行为由本文件 PLY-T40~T48 对生产
+  // schema（openTestDatabase）覆盖。
   // ═══════════════════════════════════════════════════════════════════════════
-
-  group('PLY-T55 migration', () {
-    test('test_PLY_T55_migration_v1_to_v2_createsPlaylistTables', () async {
-      // Simulate a v1 database with only the connections table
-      final db = await databaseFactoryFfi.openDatabase(inMemoryDatabasePath);
-      await db.execute('''
-        CREATE TABLE connections (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT NOT NULL,
-          url TEXT NOT NULL,
-          username TEXT NOT NULL,
-          password TEXT NOT NULL,
-          base_path TEXT NOT NULL DEFAULT '/',
-          is_active INTEGER NOT NULL DEFAULT 0,
-          created_at INTEGER NOT NULL,
-          updated_at INTEGER NOT NULL
-        )
-      ''');
-      await db.setVersion(1);
-
-      // Now run the v1 → v2 upgrade
-      final helper = DatabaseHelper.instance;
-      helper.overrideDatabase(db);
-      await db.setVersion(1); // re-set after override
-      // Trigger onUpgrade by opening at v2
-      await db.close();
-
-      // Re-open via the helper which should run onCreate with v2 tables
-      final db2 = await databaseFactoryFfi.openDatabase(inMemoryDatabasePath);
-      await db2.execute('''
-        CREATE TABLE connections (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT NOT NULL,
-          url TEXT NOT NULL,
-          username TEXT NOT NULL,
-          password TEXT NOT NULL,
-          base_path TEXT NOT NULL DEFAULT '/',
-          is_active INTEGER NOT NULL DEFAULT 0,
-          created_at INTEGER NOT NULL,
-          updated_at INTEGER NOT NULL
-        )
-      ''');
-      // Create the playlist tables as the migration would
-      await db2.execute('''
-        CREATE TABLE playlists (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT NOT NULL,
-          created_at INTEGER NOT NULL,
-          updated_at INTEGER NOT NULL
-        )
-      ''');
-      await db2.execute('''
-        CREATE TABLE playlist_tracks (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          playlist_id INTEGER NOT NULL,
-          file_path TEXT NOT NULL,
-          file_name TEXT NOT NULL,
-          added_at INTEGER NOT NULL,
-          FOREIGN KEY(playlist_id) REFERENCES playlists(id) ON DELETE CASCADE
-        )
-      ''');
-      await db2.execute('''
-        CREATE INDEX idx_playlist_tracks_playlist_id
-        ON playlist_tracks(playlist_id)
-      ''');
-
-      // Verify we can insert and query
-      await db2.insert('playlists', {
-        'name': 'Migrated',
-        'created_at': DateTime.now().millisecondsSinceEpoch,
-        'updated_at': DateTime.now().millisecondsSinceEpoch,
-      });
-      final rows = await db2.query('playlists');
-      expect(rows.length, 1);
-      expect(rows.first['name'], 'Migrated');
-
-      await db2.close();
-    });
-  });
 
   // ═══════════════════════════════════════════════════════════════════════════
   // TST-06: Export / Import Provider tests — TST-T35~T42

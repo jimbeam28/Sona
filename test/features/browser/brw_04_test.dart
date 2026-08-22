@@ -9,7 +9,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nas_audio_player/features/progress/progress_provider.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:nas_audio_player/shared/models/play_queue.dart';
-import 'package:nas_audio_player/core/database/database_helper.dart';
 import 'package:nas_audio_player/core/database/dao/progress_dao.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -285,31 +284,13 @@ void main() {
 
     test('TST-T128: clear-progress calls DAO delete', () async {
       sqfliteFfiInit();
-      final db = await databaseFactoryFfi.openDatabase(inMemoryDatabasePath);
-
-      // Create minimal schema
-      await db.execute('''
-        CREATE TABLE IF NOT EXISTS connections (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT NOT NULL, url TEXT NOT NULL, username TEXT NOT NULL,
-          password TEXT NOT NULL, is_active INTEGER NOT NULL DEFAULT 0,
-          created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
-        )
-      ''');
-      await db.execute('''
-        CREATE TABLE IF NOT EXISTS play_progress (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          connection_id INTEGER NOT NULL,
-          file_path TEXT NOT NULL,
-          position_ms INTEGER NOT NULL DEFAULT 0,
-          duration_ms INTEGER,
-          last_played_at INTEGER NOT NULL,
-          UNIQUE(connection_id, file_path),
-          FOREIGN KEY(connection_id) REFERENCES connections(id) ON DELETE CASCADE
-        )
-      ''');
-
-      DatabaseHelper.instance.overrideDatabase(db);
+      // BUG-19-INV1：schema 由生产 createSchema 单一权威来源构建
+      // （openTestDatabase 内部已 overrideDatabase + PRAGMA foreign_keys=ON），
+      // 不再内联 DDL 副本。
+      final db = await openTestDatabase(TestSchema.progress);
+      addTearDown(db.close);
+      // FK 约束对所有 schema 生效（BUG-16-S2）：progress 行须引用已存在的连接
+      await seedConnection(db);
       final dao = ProgressDao();
 
       await dao.upsert(
@@ -325,8 +306,6 @@ void main() {
       // Verify it is gone
       found = await dao.find(1, '/music/song.mp3');
       expect(found, isNull, reason: 'TST-T128: 清除后 DAO 记录应被删除');
-
-      await db.close();
     });
   });
 }

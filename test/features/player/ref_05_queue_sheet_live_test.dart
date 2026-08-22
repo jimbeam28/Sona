@@ -137,7 +137,10 @@ void main() {
           matching: find.byType(ListTile),
         ),
       );
-      expect(currentTile.title, isNotNull);
+      // 定位断言：高亮必须落在新当前曲目行（a.mp3, index 0），
+      // 而非旧 index 行——高亮留在 c.mp3 时本断言 FAIL。
+      expect((currentTile.title as Text).data, 'a.mp3',
+          reason: 'S4: 高亮跟随新的当前曲目行');
     });
   });
 
