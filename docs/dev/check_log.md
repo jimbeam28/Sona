@@ -63,3 +63,33 @@
 
 - 28 项 PASS → `dev-status.sh pass <ID>`（BUG-01/02/05/06/07/08/09/10/11/12/13/14/15/16/18 + REF-01/02/03/04/07/08/09/10/12/13/14/15/16）+ coverage-check refresh（消 REF-09 改名基线残留，总覆盖 91.01% 单调上行）。
 - 7 项 FAIL（BUG-03/04/17/19、REF-05/06/11）→ `bump-round`，impl/test 回 pending；全部为测试侧缺口，dev-exe 重做不需触碰 lib/（REF-06 打回对象含 dev-plan 补 Scenario 裁决项）。请手动启动 dev-exe 逐项重做。
+
+## [2026-08-22 12:47] BUG-03/04/17/19 + REF-05/06/11 返工复审 - 第 2 轮 dev-check
+
+### 总 verdict: PASS（7/7）
+
+审计对象：commit 71ce62e（纯测试侧 delta，lib/ 零改动）。逐项核对第 1 轮修复靶点落地情况：
+
+| ID | 靶点 | 落地证据 | verdict |
+|---|---|---|---|
+| BUG-03 | S6 三入口异常路径 | bug_03_repro_test.dart 新用例：throwing orchestrator stub → 三 provider 各返回 isLoaded==false + `[Player] loadAndPlay failed` 日志捕获 + 第二次 completed 正常 pause（守卫复位行为面，pauseCalls==1）+ 挂起 Completer 清理 | PASS |
+| BUG-04 | S7 时长更新 + INV3 | bug_04_repro_test.dart T4：durationStream 改 StreamController，加载成功后 emit Duration(minutes:5) → mediaItem.duration 等值断言 + title/id 不变 + artUri isNull | PASS |
+| BUG-17 | S4/INV3 首次添加边界 | bug_bug17_repro_test.dart 三条 0→1 用例（步骤 2/4/5 失败各一）：throwsA(isNot(LastConnectionException)) + findAll isEmpty + permanent key peek isNull + count()==0 否定面；真 DAO + openTestDatabase 生产路径；既有 S1/S2 未动 | PASS |
+| BUG-19 | INV1 六处清场 | ply_10 PLY-T55 删除（迁移意图已由 DB-MIG-03/04 真实驱动覆盖，留档注释）；ply_13/ply_14 → openTestDatabase(TestSchema.playlist)；brw_04/brw_07 → TestSchema.progress + FK 感知 seedConnection；con_06 漂移 schema 删除、列名对齐生产（duration_ms/last_played_at）。六文件 grep CREATE TABLE 零可执行命中 | PASS |
+| REF-05 | 高亮跟随判别力 | 占位 `isNotNull` 替换为 `(currentTile.title as Text).data == 'a.mp3'` 定位断言——高亮留旧 index 行时 FAIL | PASS |
+| REF-06 | S8 静态护栏 | 新增源码静态断言：contains `(connId, currentPath)` + isNot contains `(null,`——onRefresh 改回传 null 时必红 | PASS |
+| REF-11 | S3/S6 归零禁用 | 默认态确认 onPressed isNotNull + jumpToItem(0) 后 onPressed isNull + 回滚非零恢复 isNotNull——禁用分支被删时必红 | PASS |
+
+### 机械项
+
+spec-scan --gate ×7 / repro-test ×4 / 覆盖矩阵 ×7 / cross-imports all 全绿；cov-gate ALL PASS（全量 2435 tests，pre-push hook 复跑再证）；coverage-check check-check 绿（基线 91.20%）。
+
+### 基础设施备注（不属任何 ID，不阻断）
+
+1. **基线陈旧键死循环修复**：refresh 的 critical 文件清单从旧基线 critical_files 键回读，REF-09 改名遗留的 `lib/features/progress/domain/progress_policy.dart` 键（值 0）自我永续导致 check-check 恒红。本轮手工删除该键后 refresh 重生成（91.01→91.20% 单调上行）。若后续再有文件改名，同样需手动清键。
+2. cov-gate.sh DEFAULT_CRITICAL 仍含旧路径（运行时 [SKIP] 不致命），建议下次触及该脚本时顺手同步。
+3. REF-11 采用 FixedExtentScrollController.jumpToItem 替代 drag 驱动滚轮——经真实 onSelectedItemChanged 通知路径，判别力等价且确定性更强。
+
+### 行动
+
+7 项全部 `dev-status.sh pass` + coverage-check refresh。队列清空。
