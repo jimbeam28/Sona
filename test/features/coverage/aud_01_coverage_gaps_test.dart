@@ -929,7 +929,7 @@ void main() {
           files: [testAudio('song.mp3', '/music/song.mp3')], currentIndex: 0);
       container.read(lastQueueConnectionIdProvider.notifier).state = conn2.id;
 
-      await container.read(switchActiveConnectionProvider(conn1.id!).future);
+      await container.read(switchActiveConnectionProvider)(conn1.id!);
       // 生产中 home/BrowserScreen 常驻 watch 活跃连接；显式重读触发
       // invalidate 后的重建，clearQueue 监听器才会收到新值。
       final rebuilt = await container.read(activeConnectionProvider.future);
@@ -961,7 +961,7 @@ void main() {
       container.read(currentPlayQueueProvider.notifier).state = queue;
       // lastQueueConnectionIdProvider 保持 null（无归属记录）→ 不清
 
-      await container.read(switchActiveConnectionProvider(conn2.id!).future);
+      await container.read(switchActiveConnectionProvider)(conn2.id!);
       await container.read(activeConnectionProvider.future);
 
       final q = container.read(currentPlayQueueProvider);

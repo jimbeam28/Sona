@@ -308,7 +308,7 @@ void main() {
       expect(pwBefore, equals('secret1'), reason: '删除前密码应存在于 secure storage');
 
       // Execute delete via provider
-      await container.read(deleteConnectionProvider(id1).future);
+      await container.read(deleteConnectionProvider)(id1);
 
       // Assert: connection is gone from DB
       final conn = await dao.findById(id1);
@@ -367,15 +367,12 @@ void main() {
       addTearDown(container.dispose);
 
       // Delete non-last connection (2 remain after insert, so safe)
-      await container.read(deleteConnectionProvider(id2).future);
+      await container.read(deleteConnectionProvider)(id2);
 
       // Verify: deleted
       expect(await dao.findById(id2), isNull);
       // Verify: other connection still exists
       expect(await dao.findById(id1), isNotNull);
-      // Verify: provider didn't throw
-      final state = container.read(deleteConnectionProvider(id2));
-      expect(state.hasError, isFalse, reason: '删除非最后一个连接不应触发错误');
     });
 
     // ── CON-FIX-T08: 只有一个连接时删除 → provider catch 异常 → 不 crash ──
@@ -396,7 +393,7 @@ void main() {
       // Attempt to delete the sole connection via provider
       // The provider should catch LastConnectionException and surface it
       try {
-        await container.read(deleteConnectionProvider(id).future);
+        await container.read(deleteConnectionProvider)(id);
         fail('Expected deleteConnectionProvider to throw');
       } catch (e) {
         expect(e, isA<LastConnectionException>(),

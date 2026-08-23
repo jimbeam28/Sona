@@ -127,3 +127,17 @@ abstract class IPlaylistDao {
   /// Reorders a track within a playlist.
   Future<void> reorderTrack(int playlistId, int oldIndex, int newIndex);
 }
+
+/// Thrown when attempting to delete the last remaining connection (CON-T32).
+///
+/// REF-17-S2 (cr-20260822-2051 D1): definition lifted from
+/// `core/database/dao/connection_dao.dart` so feature-layer code catches it via
+/// this contract file instead of importing a data-layer implementation file.
+/// The DAO re-exports the symbol, so existing imports keep resolving.
+class LastConnectionException implements Exception {
+  final String message;
+  const LastConnectionException(this.message);
+
+  @override
+  String toString() => message;
+}

@@ -101,6 +101,8 @@ manual_qa_required: false
 | test/features/connection/con_06_test.dart:377 | `read(deleteConnectionProvider(id2))` 读 AsyncValue 态 | 删除该断言行（回调形态无 AsyncValue 快照；其意图由 :370 后续行为断言覆盖） |
 | test/features/connection/bug_bug10_repro_test.dart:196,269,389 | `.future` 形态 | 直调形态 |
 
+> **dev-exe round-1 补登（2026-08-23）**：§5.1 原清单漏 5 处同型调用点，已一并机械更新（不改断言）：con_06_test.dart:311（id1 变体）、test/features/coverage/int_g01_connection_switch_test.dart:70,101、test/features/coverage/aud_01_coverage_gaps_test.dart:932,964。
+
 ### 5.2 测试 ID 派生清单
 
 ```
@@ -118,7 +120,11 @@ REF-18-S1, REF-18-S2, REF-18-INV1
 
 | 测试文件 | 覆盖 ID | 说明 |
 |---|---|---|
-| （无新测试文件——§5.1 清单内的既有测试更新后全绿即为门禁） | — | dev-status test_coverage_gaps 记空 |
+| test/features/connection/con_04_test.dart | REF-18-S1 | **dev-exe round-1 补登（2026-08-23）**：--gate 要求实体路径。即 §5.1 清单文件，调用形态已更新，全绿即证 S1 运行时语义逐字保留 |
+| test/features/connection/con_09_test.dart | REF-18-S0、REF-18-S1 | 同上（switch 全场景） |
+| test/features/connection/con_06_test.dart | REF-18-S2 | delete 回调形态 + LastConnectionException 转译 |
+| test/features/connection/bug_bug10_repro_test.dart | REF-18-S2 | delete 守卫复现测试 |
+| test/features/coverage/int_g01_connection_switch_test.dart | REF-18-INV1 | 切换连接用户可见行为（active 生效 + 浏览器复位） |
 
 ---
 

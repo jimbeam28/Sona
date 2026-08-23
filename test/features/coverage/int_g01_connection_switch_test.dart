@@ -67,7 +67,7 @@ void main() {
           PlayQueue(files: files, currentIndex: 0);
       container.read(lastQueueConnectionIdProvider.notifier).state = conn2.id;
 
-      await container.read(switchActiveConnectionProvider(conn1.id!).future);
+      await container.read(switchActiveConnectionProvider)(conn1.id!);
 
       // 生产中 home/BrowserScreen 常驻 watch 活跃连接；测试须显式重读触发
       // invalidate 后的重建（AsyncLoading→AsyncData），clearQueue 监听器
@@ -98,7 +98,7 @@ void main() {
           PlayQueue(files: files, currentIndex: 0);
       container.read(lastQueueConnectionIdProvider.notifier).state = conn1.id;
 
-      await container.read(switchActiveConnectionProvider(conn1.id!).future);
+      await container.read(switchActiveConnectionProvider)(conn1.id!);
       await container.read(activeConnectionProvider.future);
 
       final q = container.read(currentPlayQueueProvider);

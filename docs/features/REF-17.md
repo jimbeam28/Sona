@@ -44,7 +44,7 @@ manual_qa_required: false
 | Contract | lib/core/contracts/audio_player_contract.dart:15 | PlayerState/ProcessingState 的合法 re-export 桥 |
 | Contract | lib/core/contracts/database_contract.dart | IConnectionDao 等接口所在；LastConnectionException 目标迁入地 |
 | Provider | lib/features/player/player_provider.dart:8,:53-57,:285,:317 | just_audio import：AudioPlayer 构造（组合根）+ ProcessingState 引用 |
-| Provider | lib/features/connection/connection_provider.dart:11,:15,:34-55 | flutter_secure_storage import（Adapter 装配点）；DAO 实现文件 import（仅为捕 LastConnectionException :383） |
+| Provider | lib/features/connection/connection_provider.dart:11,:15,:34-55 | flutter_secure_storage import（Adapter 装配点）；DAO 实现文件 import（**修订（dev-exe round-1，2026-08-23）**：该 import 不止为捕异常 :383，还承担 :24 组合根构造 `ConnectionDao()`——S2③"删除 :15"不可整行删；落地为 `show ConnectionDao` 收窄 + 注释说明唯一用途） |
 | 门禁 | .claude/plugins/sona-dev/scripts/cross-imports.sh | 四检查项不含 provider 层平台包扫描；arch-baseline.txt 为空白抑制清单 |
 
 ---
@@ -129,7 +129,10 @@ REF-17-INV1           # dev-exe 以 cross-imports.sh all EXIT=0 锚定
 
 | 测试文件 | 覆盖 ID | 说明 |
 |---|---|---|
-| （无新测试文件——S2 复用既有回归，S3 以 `bash cross-imports.sh all` EXIT=0 为门禁） | — | dev-status test_coverage_gaps 记空 |
+| test/features/connection/con_06_test.dart | REF-17-S2 | **dev-exe round-1 补登（2026-08-23）**：--gate 要求实体路径。本文件即 §5.1 所述"经 dao re-export 捕获异常"的既有回归锚，零改动全绿即证 S2 兼容性 |
+| test/features/connection/bug_bug10_repro_test.dart | REF-17-S2 | 同上（delete 守卫路径 catch LastConnectionException 的复现测试） |
+
+> S1（文档措辞）由 cr-dimensions.md §0.3 豁免条款承载；S3 与 INV1 由 `bash cross-imports.sh all` EXIT=0 承载——均非 dart 测试，不列入本表。
 
 ---
 
@@ -147,6 +150,8 @@ impact 反查（2026-08-22）：player_provider ← main/onboarding/home；conne
 |---|---|---|---|
 | CON | delete 流程 catch LastConnectionException | S2 仅移动定义位置，type identical | con_06 / bug_bug10 全绿即证 |
 | PLY | player_provider import 面 | S1/S3 不改运行时行为 | ply 全量绿 |
+
+**dev-exe round-1 补登记（2026-08-23）**：修改点 3 原文"删除 :15 行"不可行——该 import 同时提供 :24 组合根构造所需的 ConnectionDao 具体类。落地改为 `import ... show ConnectionDao;` 收窄（异常类型不再经实现文件获得，S2 语义达成；组合根构造用途与 S1 豁免同类）。其余修改点照单执行。
 
 **修改点（弱模型照单执行）**：
 1. `lib/core/contracts/database_contract.dart` — 文件末尾追加 LastConnectionException 类定义（从 connection_dao.dart 原样搬移类声明与文档注释，const 构造保留）。

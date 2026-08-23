@@ -10,6 +10,7 @@
 1. **分层**：UI → Provider → Domain → Contract → Data。Domain 层零 Flutter 依赖，可独立单元测试。
 2. **Feature 隔离**：跨 feature 依赖必须经 `shared/di/providers.dart` 桥接，禁止 feature 间直接 import。
 3. **契约层不可绕过**：数据源访问必须经 `core/contracts/` 六大接口（IAudioPlayer / IAudioHandler / IConnectionDao / IProgressDao / IPlaylistDao / ISecureStorage），Domain/Provider 不得直接用 just_audio / audio_service / sqflite / flutter_secure_storage。
+   **组合根装配点豁免（REF-17-S1，2026-08-23）**：audioPlayerProvider（player_provider.dart，构造 just_audio AudioPlayer 实例的唯一合法点）与 FlutterSecureStorageAdapter（connection_provider.dart，包装 flutter_secure_storage 的唯一合法点）。两处之外的 Domain/Provider 层类型引用一律经 core/contracts/。由 cross-imports.sh `provider-platform` 检查强制（基线白名单登记这两处）。
 4. **密码安全**：明文密码只能存 flutter_secure_storage，key 格式 `connection_password_{id}`；严禁进 SQLite、日志、print/debugPrint。
 5. **Basic Auth**：URL 构建时凭证编码不得落日志。
 

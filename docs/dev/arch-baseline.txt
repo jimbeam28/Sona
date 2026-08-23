@@ -7,3 +7,11 @@
 #
 # 由 2026-07-23 cross-imports.sh 修复后首次全量扫描产出（旧版脚本 domain-flutter /
 # feature-isolation 检查因 rg 正则不兼容常年假 PASS，这些违规此前从未被检出）：
+#
+# —— REF-17-S1 装配点豁免（2026-08-23）——
+# 以下 provider-platform 两行不是债务：它们是 CLAUDE.md/cr-dimensions §0.3 组合根
+# 豁免条款登记的合法装配点（audioPlayerProvider 构造 just_audio AudioPlayer；
+# FlutterSecureStorageAdapter 包装 flutter_secure_storage）。随豁免条款存在，
+# 条款废止时才可删。
+provider-platform	lib/features/player/player_provider.dart	# 组合根 AudioPlayer 构造（REF-17-S1 豁免）
+provider-platform	lib/features/connection/connection_provider.dart	# FlutterSecureStorageAdapter 装配点（REF-17-S1 豁免）

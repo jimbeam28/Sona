@@ -124,7 +124,7 @@ void main() {
       expect(first!.id, equals(id1), reason: '初始活跃连接应为 NAS Alpha');
 
       // Switch active connection via the switchActiveConnectionProvider
-      await container.read(switchActiveConnectionProvider(id2).future);
+      await container.read(switchActiveConnectionProvider)(id2);
 
       // After switch, the activeConnectionProvider was invalidated.
       // Re-reading should return the new active connection.

@@ -12,7 +12,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../core/contracts/database_contract.dart';
 import '../../core/contracts/storage_contract.dart';
-import '../../core/database/dao/connection_dao.dart';
+// REF-17-S2: 异常类型改经 database_contract 获得；本 import 仅剩组合根
+// 构造 ConnectionDao 具体类一处用途（show 收窄）。
+import '../../core/database/dao/connection_dao.dart' show ConnectionDao;
 import '../../core/network/webdav_client.dart';
 import '../../core/services/storage_utils.dart';
 import '../../shared/di/providers.dart'
@@ -220,18 +222,24 @@ final startupValidationProvider =
 /// Switches the active connection to the connection with the given [id].
 /// Invalidates [activeConnectionProvider] and [connectionListProvider] so the
 /// UI reacts immediately.
+///
+/// REF-18-S1 (cr-20260822-2051 D2): P11 收敛 —— 写动作改回调形态（同
+/// setDefaultSpeedProvider），build 体只剩闭包构造；任何元素重建不再隐式重放
+/// 数据库写。调用方 `ref.read(switchActiveConnectionProvider)(id)` 直调。
 final switchActiveConnectionProvider =
-    FutureProvider.family<void, int>((ref, id) async {
+    Provider<Future<void> Function(int)>((ref) {
   final service = ref.watch(connectionServiceProvider);
-  debugPrint('[Conn] switch: id=$id');
-  await service.setActive(id);
-  ref.invalidate(activeConnectionProvider);
-  ref.invalidate(connectionListProvider);
-  // BUG-16: switch 路径收敛进 CON3 钩子 —— 浏览器状态复位从 widget 层
-  // （connection_list_screen.dart，随页面销毁丢失）上移到 provider 层，
-  // 切换期间退出列表页不再丢复位（cr-20260816-0804 F3）。
-  resetBrowserStateOnActiveConnectionChange(ref);
-  debugPrint('[Conn] switch: done id=$id');
+  return (int id) async {
+    debugPrint('[Conn] switch: id=$id');
+    await service.setActive(id);
+    ref.invalidate(activeConnectionProvider);
+    ref.invalidate(connectionListProvider);
+    // BUG-16: switch 路径收敛进 CON3 钩子 —— 浏览器状态复位从 widget 层
+    // （connection_list_screen.dart，随页面销毁丢失）上移到 provider 层，
+    // 切换期间退出列表页不再丢复位（cr-20260816-0804 F3）。
+    resetBrowserStateOnActiveConnectionChange(ref);
+    debugPrint('[Conn] switch: done id=$id');
+  };
 });
 
 // ── Save connection use-case ──────────────────────────────────────────────────
@@ -372,24 +380,26 @@ final connectionUpdaterProvider = Provider<ConnectionUpdater>((ref) {
 /// Throws [LastConnectionException] when only one connection remains (CON-T32).
 /// Cascades to play_progress records and secure-storage password entry (CON-T31).
 /// Auto-activates another connection if the deleted one was active (CON-T34).
-final deleteConnectionProvider =
-    FutureProvider.family<void, int>((ref, id) async {
+///
+/// REF-18-S2: 回调形态（同 S1），写副作用全部移入闭包。
+final deleteConnectionProvider = Provider<Future<void> Function(int)>((ref) {
   final service = ref.watch(connectionServiceProvider);
+  return (int id) async {
+    debugPrint('[Conn] delete: id=$id');
+    bool wasActive = false;
+    try {
+      wasActive = await service.delete(id);
+    } on LastConnectionException {
+      debugPrint('[Conn] delete: blocked — last connection');
+      throw const LastConnectionException('无法删除最后一个连接');
+    }
+    debugPrint('[Conn] delete: done id=$id');
 
-  debugPrint('[Conn] delete: id=$id');
-  bool wasActive = false;
-  try {
-    wasActive = await service.delete(id);
-  } on LastConnectionException {
-    debugPrint('[Conn] delete: blocked — last connection');
-    throw const LastConnectionException('无法删除最后一个连接');
-  }
-  debugPrint('[Conn] delete: done id=$id');
+    ref.invalidate(activeConnectionProvider);
+    ref.invalidate(connectionListProvider);
 
-  ref.invalidate(activeConnectionProvider);
-  ref.invalidate(connectionListProvider);
-
-  if (wasActive) {
-    resetBrowserStateOnActiveConnectionChange(ref);
-  }
+    if (wasActive) {
+      resetBrowserStateOnActiveConnectionChange(ref);
+    }
+  };
 });

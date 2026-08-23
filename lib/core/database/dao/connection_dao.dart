@@ -7,14 +7,9 @@ import '../../contracts/database_contract.dart';
 import '../../database/database_helper.dart';
 import '../../../shared/models/connection_config.dart';
 
-/// Thrown when attempting to delete the last remaining connection (CON-T32).
-class LastConnectionException implements Exception {
-  final String message;
-  const LastConnectionException(this.message);
-
-  @override
-  String toString() => message;
-}
+// REF-17-S2: LastConnectionException 定义上提至 contracts；
+// re-export 保证既有经本文件导入该异常的调用方零改动。
+export '../../contracts/database_contract.dart' show LastConnectionException;
 
 class ConnectionDao implements IConnectionDao {
   final DatabaseHelper _helper;

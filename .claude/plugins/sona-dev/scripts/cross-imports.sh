@@ -3,7 +3,7 @@
 #
 # 用法:
 #   cross-imports.sh [kind...]
-#     kind = domain-flutter | feature-isolation | secret-logs | all(默认)
+#     kind = domain-flutter | feature-isolation | secret-logs | provider-platform | all(默认)
 #   cross-imports.sh impact <file...>
 #     反查引用方：列出哪些 feature/层 import 了给定文件（dev-plan §7 / dev-check 跨模块检查用）
 #
@@ -139,6 +139,23 @@ check_core_feature() {
   [[ $VIOLATIONS -eq $before ]] && echo "core-feature: clean" >&2
 }
 
+# ── 维度 5: Provider 层平台包直引 — 装配点之外禁止直引平台包（REF-17-S3）→ Major ──
+# 扫描 lib/features/**/*_provider*.dart 的平台包 import 行；
+# 两处合法装配点（S1 豁免）按 kind+file 登记 arch-baseline.txt。
+check_provider_platform() {
+  local out
+  out=$(grep -rnE --include='*_provider*.dart' \
+    "import[[:space:]]*['\"]package:(just_audio|audio_service|sqflite|flutter_secure_storage|dio)/" \
+    lib/features/ 2>/dev/null || true)
+  if [[ -n "$out" ]]; then
+    while IFS= read -r line; do
+      emit "provider-platform" "Major" "$line" "Provider 层平台包直引（仅 REF-17-S1 两装配点豁免，经 core/contracts/）"
+    done <<<"$out"
+  else
+    echo "provider-platform: clean" >&2
+  fi
+}
+
 # ── impact 模式: 反查引用方 ──
 # 对每个目标文件，找 lib/ 下所有 import 行中引用其 lib 相对路径或文件名的，按来源区域分组。
 cmd_impact() {
@@ -177,10 +194,12 @@ main() {
       feature-isolation) check_feature_isolation ;;
       secret-logs)       check_secret_logs ;;
       core-feature)      check_core_feature ;;
+      provider-platform) check_provider_platform ;;
       all)
         check_domain_flutter
         check_feature_isolation
         check_secret_logs
+        check_provider_platform
         check_core_feature
         ;;
       *) echo "unknown kind: $k" >&2; exit 2 ;;

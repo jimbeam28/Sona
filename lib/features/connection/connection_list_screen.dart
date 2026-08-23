@@ -80,7 +80,7 @@ class ConnectionListScreen extends ConsumerWidget {
       final dao = ref.read(connectionDaoProvider);
       final config = await dao.findById(id);
 
-      await ref.read(switchActiveConnectionProvider(id).future);
+      await ref.read(switchActiveConnectionProvider)(id);
 
       // BUG-16: 浏览器状态复位（cache 清空 + 导航栈回根）已并入 provider
       // 层 CON3 钩子（switchActiveConnectionProvider）——widget 层 invalidate
@@ -160,7 +160,7 @@ class ConnectionListScreen extends ConsumerWidget {
     if (confirmed != true || !context.mounted) return;
 
     try {
-      await ref.read(deleteConnectionProvider(id).future);
+      await ref.read(deleteConnectionProvider)(id);
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

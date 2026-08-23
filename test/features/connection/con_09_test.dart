@@ -71,7 +71,7 @@ void main() {
       };
 
       // Switch the active connection to conn2
-      await container.read(switchActiveConnectionProvider(conn2Id).future);
+      await container.read(switchActiveConnectionProvider)(conn2Id);
 
       // Clear stale cache entries whose key starts with the old connection id
       container.read(directoryCacheProvider.notifier).update((state) {
@@ -145,7 +145,7 @@ void main() {
           reason: '切换前 lastQueueConnectionIdProvider 应为 conn1 的 id');
 
       // Switch to connection 2
-      await container.read(switchActiveConnectionProvider(conn2Id).future);
+      await container.read(switchActiveConnectionProvider)(conn2Id);
 
       // Trigger activeConnectionProvider re-fetch so the ref.listen callback
       // sees the connection change and clears the queue.
@@ -200,7 +200,7 @@ void main() {
       };
 
       // Switch to connection 2
-      await container.read(switchActiveConnectionProvider(conn2Id).future);
+      await container.read(switchActiveConnectionProvider)(conn2Id);
 
       // Verify: whole cache is cleared (BUG-16 裁决 A：全清语义，与旧生产
       // connection_list_screen.dart:79-80 一致；TST-T93 修订 2026-08-17）。
@@ -351,7 +351,7 @@ void main() {
           reason: '切换前活跃连接应为 NAS-A');
 
       // Switch to conn2
-      await container.read(switchActiveConnectionProvider(conn2Id).future);
+      await container.read(switchActiveConnectionProvider)(conn2Id);
 
       // Re-read so activeConnectionProvider resolves the new active connection
       await container.read(activeConnectionProvider.future);
@@ -400,7 +400,7 @@ void main() {
       addTearDown(container.dispose);
 
       // Switch to conn2
-      await container.read(switchActiveConnectionProvider(conn2Id).future);
+      await container.read(switchActiveConnectionProvider)(conn2Id);
 
       // Read activeConnectionProvider — must return conn2
       final active = await container.read(activeConnectionProvider.future);
@@ -452,7 +452,7 @@ void main() {
       expect(beforeConn2.isActive, isFalse, reason: '切换前连接 2 应为非活跃');
 
       // Switch to conn2
-      await container.read(switchActiveConnectionProvider(conn2Id).future);
+      await container.read(switchActiveConnectionProvider)(conn2Id);
 
       // connectionListProvider was invalidated — re-read for fresh data
       final afterList = await container.read(connectionListProvider.future);

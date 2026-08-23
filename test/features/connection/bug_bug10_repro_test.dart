@@ -193,7 +193,7 @@ void main() {
         reason: '前置：导航栈应处于 3 层深');
 
     // When：删除活跃连接 A → DAO 自动激活 B（CON-T34）。
-    await container.read(deleteConnectionProvider(idA).future);
+    await container.read(deleteConnectionProvider)(idA);
 
     // Then ── 核心断言（回退 connection_provider.dart:355-357 的 if (wasActive)
     // 分支 → 缓存不清/栈不复位 → 本用例红）────────────────────────────
@@ -266,7 +266,7 @@ void main() {
         reason: '前置：导航栈应处于 3 层深');
 
     // When：删除非活跃连接 B（真实 DAO 返回 wasActive=false，CON-T33）。
-    await container.read(deleteConnectionProvider(idB).future);
+    await container.read(deleteConnectionProvider)(idB);
 
     // Then ── 否定断言：浏览器状态必须原样保留 ────────────────────────────
     expect(container.read(directoryCacheProvider), same(cacheBefore),
@@ -386,7 +386,7 @@ void main() {
 
     // ── 入口 3：删除（BUG-10 修复目标，connection_provider.dart:355-357）──
     armBrowser();
-    await container.read(deleteConnectionProvider(2).future);
+    await container.read(deleteConnectionProvider)(2);
     expectReset('删除');
     expect(await dao.findById(2), isNull, reason: '前置：连接 B 应已被删除');
   });
