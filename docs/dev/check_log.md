@@ -93,3 +93,52 @@ spec-scan --gate ×7 / repro-test ×4 / 覆盖矩阵 ×7 / cross-imports all 全
 ### 行动
 
 7 项全部 `dev-status.sh pass` + coverage-check refresh。队列清空。
+
+## [2026-08-23 13:07] BUG-20/21/22 + REF-17/18 - 第 1 轮 dev-check
+
+### 总 verdict: PASS（5/5）
+
+审计对象：commit f1e1419（BUG-20/21/22）+ 4921131（REF-17/18）。从 §1.0 用户原话推回：U1-U3 期待（后台进度不丢/末曲拖动可用/删单无幽灵/装配点显式化/重建不重放写库）均有对应 Scenario 且实现落地。
+
+**检查 1 测试空壳审计 — 全 PASS**
+
+| ID | 门禁测试 | 判定 |
+|---|---|---|
+| BUG-20 | bug_bug20_repro_test.dart | 真断言：S1 对照组恒真锚定 + S2-T01 计数 3（修复前停 2）+ S2-T02 ≥4（修复前停 2）；脚手架修订（UncontrolledProviderScope 保活退页）合理——整树 pumpWidget(SizedBox) 会连带销毁根容器、与 INV1 自身机制混淆，spec §2/§5.4 已追认，断言逐字未动 |
+| BUG-21 | bug_bug21_completed_seek_test.dart | verify(seek(0)).called(1)+verify(pause).called(1)；否定面 `same(before)` 对象同一性 + verifyNever(play()) |
+| BUG-22 | bug_bug22_repro_test.dart | 真 SQLite 预热缓存→删→空；否定面 idB 删除后 idA 内容逐项不变 |
+| REF-17 | con_06 / bug_bug10 零断言改动全绿 | re-export 兼容性成立 |
+| REF-18 | con_04/06/09 + bug_bug10 + int_g01 调用形态纯机械替换 | 唯一删行 con_06:377 有 spec §5.1 明文授权 |
+
+**检查 2 实现语义忠实 — 全 PASS**
+
+- BUG-20：player_screen.dart dispose 仅移除 cancelPlaybackSubscriptionsProvider() 调用，INV2 收尾保存 `_saveProgressWithContainer` 保留在位；cancelPlaybackSubscriptionsProvider 定义未删（prg_test 引用不受影响）
+- BUG-21：nq==null 分支 `unawaited(player.seek(Duration.zero))` 插于 pause 之前，dart:async import 在位（player_provider.dart:4），守卫复位行未动
+- BUG-22：invalidate(tracks(id)) 先于 list，顺序同 spec 修改点
+- REF-17-S2：异常类体原样上提 database_contract.dart（const 构造+toString 一致）；dao 改 re-export show；connection_provider :15 按 round-1 补登记收窄为 `show ConnectionDao`（spec §7 已授权该修订）
+- REF-17-S3：cross-imports.sh provider-platform 检查并入 all，扫描模式含五平台包，白名单两行 kind+file 登记 arch-baseline
+- REF-18：两 provider 闭包体语句与 S0 逆抽序列逐字一致（debugPrint→setActive/delete→invalidate×2→CON3 条件钩子）；build 体零写副作用零 invalidate
+- 未发现给 INV 找到可违反路径；未发现 spec 外自由发挥的 lib/ 改动
+
+**检查 3 跨模块破坏 — PASS**
+
+cross-imports.sh all EXIT=0（provider-platform 生效，两 BASELINED 行命中豁免）；impact 反查与各 spec §7 声明一致；cov-gate --only test ALL PASS（2442 tests, 261s, EXIT=0）。
+
+**机械项**
+
+spec-scan ×5 EXIT=0；repro-test pass ×3 ✓；coverage-check check-check OK（总覆盖 91.19%，漂移 0.01% ≤ 容忍）。
+
+### 非阻断问题（随 PASS 登记，不回退本轮 verdict）
+
+1. **TEST-GAP/Minor**：bug_bug20_repro_test.dart 头注释 L21 与 group 名把 10s 自动保存用例误标为 "BUG-20-S2-T02"（应为 BUG-20-S3-T01），致 spec-scan BUG-20-S3 行 gate 文件显示 "-"。修复指令：将该文件 L21 注释与对应 group/test 标签改为 BUG-20-S3-T01。
+2. **FRAGILE/Minor**：ID 复用撞车——旧批次遗留 test/features/progress/bug_bug20_repro_test.dart（progress 清除窗口）与 test/features/player/bug_bug22_interruption_stream_test.dart（音频中断流）仍以同 ID 命名留存，新批次 BUG-20/22 spec 复用 ID 后 spec-scan 模糊匹配将新 INV 映射到旧目录文件。修复指令：两遗留文件头注释首行追加"[历史批次 BUG-20/22，ID 已被新 spec 复用，本文件属已归档旧项]"消歧标注。
+3. **INFO**：REF-17-S1 豁免条款落点为 cr-dimensions.md 维度3（硬约束第3条实际宿主，措辞与 spec 逐字一致），非 spec 字面的 CLAUDE.md §0.3——CLAUDE.md 现文并无该节，属 dev-plan 引用错位，实质合规。
+4. **INFO**：f1e1419 携带超范围测试加强（int_g01/aud_01/aud_05 自演自证壳改为真实驱动生产路径，溯源 cr-20260822-2051 T1/T2），方向正确但 commit message 未逐字声明。
+
+### 行动
+
+5 项全部 `dev-status.sh pass` + coverage-check refresh。
+
+### 第 1 轮问题收尾（2026-08-23）
+
+非阻断问题 1/2 已修复：bug_bug20_repro_test.dart 用例标签改为 BUG-20-S3-T01（spec-scan S3 行恢复 gate 映射）；两个历史批次遗留文件头加 ID 复用消歧标注。受影响 3 个测试文件 32 用例全绿，analyze 零新增（208 条 info 为 HEAD 存量）。问题 3/4 属 INFO 记录性条目，无需动作。

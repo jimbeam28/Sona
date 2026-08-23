@@ -1,4 +1,6 @@
 // test/features/player/bug_bug22_interruption_stream_test.dart
+// [历史批次 BUG-22（音频会话中断），该 ID 已被新 spec 复用为 playlist 项
+//  docs/features/BUG-22.md——本文件属已归档旧项，勿与新门禁混淆]
 // BUG-22 后续 T1（cr-20260728-1700）：音频会话中断的事件流级测试。
 //
 // 背景：2f946ff 的原门禁（bug_bug22_repro_test.dart）只有源码静态守卫 +

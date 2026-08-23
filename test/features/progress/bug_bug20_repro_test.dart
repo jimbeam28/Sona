@@ -1,4 +1,6 @@
 // test/features/progress/bug_bug20_repro_test.dart
+// [历史批次 BUG-20（progress 清除窗口），该 ID 已被新 spec 复用为 player 项
+//  docs/features/BUG-20.md——本文件属已归档旧项，勿与新门禁混淆]
 // BUG-20 门禁测试（spec docs/features/BUG-20.md §5.4 指定文件）。
 //
 // 锚定 cr-2026-06-28 FRAGILE-06 / cr-20260724-0110 PRG6（同根因）：

@@ -18,7 +18,7 @@
 // 覆盖:
 // BUG-20-S1-T01: 对照组 —— 页面存活期间暂停保存与自动保存均正常（恒真锚定）
 // BUG-20-S2-T01: 退出页面后，playing→paused 暂停转换仍必须触发保存（修复前 FAIL）
-// BUG-20-S2-T02: 退出页面后，10s 周期自动保存仍必须持续触发（修复前 FAIL）
+// BUG-20-S3-T01: 退出页面后，10s 周期自动保存仍必须持续触发（修复前 FAIL）
 
 import 'dart:async';
 
@@ -166,7 +166,7 @@ void main() {
       container.dispose();
     });
 
-    testWidgets('BUG-20-S2-T02: 退出页面后，10s 自动保存仍必须持续', (tester) async {
+    testWidgets('BUG-20-S3-T01: 退出页面后，10s 自动保存仍必须持续', (tester) async {
       final saves = <String>[];
       final container = _makeContainer(player, queue, saves);
       await _pumpReady(tester, _scope(container));
