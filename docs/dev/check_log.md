@@ -142,3 +142,54 @@ spec-scan ×5 EXIT=0；repro-test pass ×3 ✓；coverage-check check-check OK�
 ### 第 1 轮问题收尾（2026-08-23）
 
 非阻断问题 1/2 已修复：bug_bug20_repro_test.dart 用例标签改为 BUG-20-S3-T01（spec-scan S3 行恢复 gate 映射）；两个历史批次遗留文件头加 ID 复用消歧标注。受影响 3 个测试文件 32 用例全绿，analyze 零新增（208 条 info 为 HEAD 存量）。问题 3/4 属 INFO 记录性条目，无需动作。
+
+## [2026-08-23 20:19] BUG-23/24/25/26/27/28 + REF-19 - 第 1 轮 dev-check
+
+### 总 verdict: PASS（7/7）
+
+审计对象：commit 01a97e2。从各 spec §1.0 用户原话推回：U 系期待（重试不被旧任务打断/随机轮次删曲不断裂/重复曲目面板正常渲染/依赖显式声明/启动恢复让位用户选曲/删连接切换原子化/阈值单源）均有对应 Scenario 且实现落地。
+
+**检查 1 测试空壳审计 — 全 PASS**
+
+| ID | 门禁测试 | 判定 |
+|---|---|---|
+| BUG-23 | bug_bug23_timeout_stop_guard_test.dart | 真断言：前置 errorA isA\<TimeoutException\>（外层语义保留）+ 关键窗口 verifyNever(stop) + resultB.isLoaded + 收尾再 verifyNever(stop)；broadcast stream 桩属脚手架修订（单订阅流二次 listen 抛错被 catch 吞为 failed），断言逐字未动，合理 |
+| BUG-24 | bug_bug24_shuffle_without_index_test.dart | P1 完备置换/P2 映射保序/P3 不重访三命题 × 20 种子 × 2 场景；否定面 isNot(contains) + sequential 回归守卫 + n-1==1 边界 + INV1 advance/retreat 互逆；头注释如实记录初版门禁与 spec Given 自相矛盾的重写过程，现版忠实编码 S1/S2 |
+| BUG-25 | bug_bug25_queue_sheet_dup_key_test.dart | 键集合唯一性 toSet().length == length（修复前 2≠3 缩水 FAIL）+ 渲染完整性 findsNWidgets(3) + "当前"标记唯一；头注释如实说明 sliver 惰性列表无 duplicate-key 异常信号、故锚定 INV1 本体 |
+| BUG-26 | bug_bug26_pubspec_state_notifier_test.dart | 主依赖段正则锚定 + 前置非空守卫防门禁空转（结构断言先例合规） |
+| BUG-27 | bug_bug27_restore_race_test.dart | 可控 Completer DAO 确定性开窗 + same(userQueue) 对象同一性核心断言 + verifyNever(seek) + restoreError isNull 前置 |
+| BUG-28 | bug_bug28_txn_activate_test.dart | 结构代理门禁（§5.3 明文授权：崩溃注入不可行）——is_active 处理在事务闭包内 + 事务外无 findAll/setActive 残留 + deleteWithoutGuard 保持无 CON-T32 守卫；行为回归真 SQLite 终态恰一活跃 |
+| REF-19 | ref_19_threshold_single_source_test.dart | lib/ 全量扫描 >= 5000 零命中 + 前置 policy 定义存在防空转 |
+
+**检查 2 实现语义忠实 — 全 PASS**
+
+- BUG-23：playback_orchestrator.dart:233-235 与 spec §7 修改点逐字一致（isLatest→superseded / stop+failed 二分）；成功路径 :204/:239 既有守卫未动
+- BUG-24：ALG1 映射式重写 play_queue.dart:212-225 与 §6 伪码一致；anchor<0 兜底 newOrder.length-1 与 withIndex :155 既有的"排除曲退化到队尾"约定同构，非自由发挥；边界裁决表五行全部落实（sequential 不入分支、n-1==1 双 null、startPositionMs 规则保留）
+- BUG-25：queue_sheet.dart 复合键 '$index:$path' 逐字符合 spec；insertAfterCurrent 不去重语义与按索引删除契约零触碰
+- BUG-26：pubspec.yaml dependencies 段 http 之后追加 state_notifier ^1.0.0（含溯源注释），pubspec.lock 同步 "direct main"，riverpod 条目零变更
+- BUG-27：player_provider.dart:233-235 identical 复核插于写回前，abandon 分支零写入零 seek，与 §7 修改点逐字一致
+- BUG-28：delete/deleteWithoutGuard 双方法同事务内联 txn.query(created_at ASC limit 1)+txn.update，无 setActive 嵌套；CON-T32 守卫位置与 wasActive 返回值不变；findAll :43 orderBy 'created_at ASC' 证实激活目标排序声明成立。实现省去 spec 文字中的"清零全部 is_active"步骤——≤1 活跃不变量下该步恒为 no-op，终态逐状态等价，不构成偏离
+- REF-19：两处 UI 表达式替换 + show ProgressDao import，policy 本体与 dialog 零变更
+- 对抗检索：未发现任何一条 INV 存在可违反路径；lib/ 改动无 spec 外自由发挥
+
+**既有测试改动审查（2 处，均放行）**
+
+1. ref_05_queue_sheet_live_test INV2 断言改写：BUG-25 spec 有意取代 ValueKey(path) 契约，旧断言与新规约直接冲突必须同步；新断言保留 P13 意图（ValueKey\<String\> + 锚定业务 path 后缀 + 集合唯一）。REF-05.md 措辞漂移已由测试注释登记"待 dev-plan 增量补"，符合 CLAUDE.md 文档滞后条款。
+2. bug_bug24 门禁测试自修：初版与 spec 自身 Given 矛盾（裸构造器指针锚槽位 0 / advanceShuffle 单向遍历数学不可达），现版经上表判定忠实。
+
+**检查 3 跨模块破坏 — PASS**
+
+cross-imports.sh all EXIT=0（仅 2 条 BASELINED legacy）；impact 反查 play_queue 引用方（browser/browser_provider/playlist_detail/player_provider/playback_controls/player_screen_logic/playback_orchestrator）均在 BUG-24 §7 反查文本内；cov-gate --only test ALL PASS（2496 tests, 268s, EXIT=0）。
+
+**机械项**
+
+spec-scan ×7 矩阵全命中；repro-test pass ×7 ✓；coverage-check check-check OK（零漂移）。
+
+### 非阻断观察（随 PASS 登记，无需动作）
+
+1. **INFO**：loadAndPlay 的 startPositionMs seek（playback_orchestrator.dart:195）位于 :204 isLatest 守卫之前——被取代任务的 setup 型 seek 理论上可落在后继请求加载窗口内。属本批 spec S0/S0b 明文锚定的现状（修改点仅为 ：229-231），非本轮引入；若未来走查升级 INV1 到"setup 动作全覆盖"需另行 dev-plan。
+2. **INFO**：bug_bug25 测试未直测 U2"删除第 N 行只移除该位置条目"——删除链路契约按 spec 否定断言要求保持不变，由 ref_05 S6 回调接线用例承载，可接受。
+
+### 行动
+
+7 项全部 `dev-status.sh pass` + coverage-check refresh。
