@@ -399,6 +399,28 @@ class PlaybackOrchestrator {
     return true;
   }
 
+  /// Reorders the queue by moving the track at [from] to index [to].
+  ///
+  /// PLY-01-S5: pure order change — writes back through the [queue] setter
+  /// (which fires [onQueueChanged] for Riverpod sync) and returns `true`.
+  /// Never calls saveProgress / loadAndPlay / _gate.beginRequest or any
+  /// player method: no track switch happens and in-flight loads stay valid
+  /// (PLY-01-S11).
+  ///
+  /// PLY-01-S6: returns `false` without any callback when there is no active
+  /// queue, when the indices are out of range / equal (model short-circuit
+  /// yields an identical instance), or when the queue is in shuffle mode
+  /// (PLY-01-INV3 model gate).  The only production caller of
+  /// [PlayQueue.move] (PLY-01-INV2 single-writer discipline).
+  Future<bool> moveTrack(int from, int to) async {
+    final q = queue;
+    if (q == null) return false;
+    final moved = q.move(from, to);
+    if (identical(moved, q)) return false;
+    queue = moved;
+    return true;
+  }
+
   // ── saveProgress ────────────────────────────────────────────────────────
 
   /// Saves the current playback position to the database.

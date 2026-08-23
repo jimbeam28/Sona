@@ -430,6 +430,13 @@ final insertAfterCurrentProvider =
           return ref.read(playbackOrchestratorProvider).insertAfterCurrent(f);
         });
 
+/// PLY-01: queue drag-reorder — single delegation to
+/// [PlaybackOrchestrator.moveTrack] (PLY-01-INV2 single write source).
+final moveTrackFromQueueProvider =
+    Provider<Future<bool> Function(int, int)>((ref) => (from, to) async {
+          return ref.read(playbackOrchestratorProvider).moveTrack(from, to);
+        });
+
 final reconnectPlaybackListenersProvider =
     Provider<void Function()>((ref) => () {
           ref.read(startProcessingListenerProvider)();

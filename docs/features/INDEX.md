@@ -24,6 +24,12 @@
 
 | ID | 名称 | 状态 | 最近更新 | 主锚点文件 | S/INV/ALG | impl / test / check | MQA | 在 status.json |
 |---|---|---|---|---|---|---|---|---|
+| PLY-01 | 播放队列拖动重排 | active | 2026-08-23 | lib/features/player/widgets/queue_sheet.dart | 11/3/2 | pending / pending / pending | false（手势体验 1 条进 backlog） | ✅ |
+| TMR-01 | 定时停止音量淡出 | active | 2026-08-23 | lib/features/player/player_provider.dart | 7/4/1 | pending / pending / pending | true | ✅ |
+| BRW-01 | 文件夹级操作（递归播放与加入播放单） | active | 2026-08-23 | lib/features/browser/browser_screen.dart | 9/4/1 | pending / pending / pending | false（扫描耗时/限速 2 条进 backlog） | ✅ |
+| SRCH-01 | 文件搜索（子树 · 立即播放/下一曲） | active | 2026-08-23 | lib/features/browser/browser_screen.dart | 11/4/1 | pending / pending / pending | false（扫描耗时 1 条进 backlog） | ✅ |
+| MSEL-01 | 批量多选（跨目录勾选） | active | 2026-08-23 | lib/features/browser/browser_screen.dart | 8/4/1 | pending / pending / pending | false | ✅ |
+| DL-01 | 离线下载（串行队列 · 本地播放） | active | 2026-08-23 | lib/features/player/domain/playback_orchestrator.dart | 10/5/2 | pending / pending / pending | true | ✅ |
 
 ## Refactoring 文档
 
@@ -42,11 +48,11 @@
 
 ## 状态汇总
 
-- 功能文档：0 份
+- 功能文档：6 份（PLY-01 / TMR-01 / BRW-01 / SRCH-01 / MSEL-01 / DL-01）
 - Refactoring 文档：0 份
 - Bug 文档：0 份
 - TEST-GAP 文档：0 份
-- 待 dev-exe：0 份（队列已清空，2026-08-23 归档）
+- 待 dev-exe：6 份（依赖序：PLY-01 → TMR-01 → BRW-01 → SRCH-01 → MSEL-01 → DL-01；SRCH/MSEL/DL 均依赖 BRW-01 的收集器与菜单）
 
 ## 折叠归并备注（cr-20260816-0802 F1）
 
@@ -59,6 +65,9 @@
 
 ## changelog
 
+- 2026-08-23（第二批）: 新增 SRCH-01 / MSEL-01 / DL-01 三份功能 spec（B 批功能，访谈裁决全部按推荐执行）。SRCH-01：folder_searcher 纯 Dart 流式扫描（事件流 HitFound/ScanProgress/ScanDone，200 目录上限截断、**单层失败跳过不整体终止——与 BRW-01 整体失败语义有意相反** §3.0）、行点击=立即播放（收集器建队+进度恢复对话框三分支复刻 onFileTap :139-176）、「下一首播」复用 insertAfterCurrentProvider 带同款置灰门禁；MSEL-01：跨目录勾选 store=插入序 Map（组间序=首次进入序、组内序=当前排序快照、快照淘汰回退字典序 ALG1），以此播放 startPositionMs 恒 null，加入播放单单点复用 BRW-01 picker，退出多选模式即清空；DL-01：DB v3 downloads 表 + IDownloadDao + WebDavClient.downloadFile（GET 流式、chunk 30s 静默超时、.part 原子改名）+ 串行泵状态机（ALG1 迁移表穷举）+ loadAndPlay 注入 localSourceResolver 本地优先（命中免密码读，缺失静默回退远程标 failed）+ /downloads 管理页与启动孤儿恢复。**入口变更声明待用户复核**：文件下载入口从"行按钮"移入长按菜单（trailing 被下一首播常驻占用）。DL-01 §8-R2 AudioSource.file 需 dev-exe 最小冒烟验证后回填。spec-scan --neg 全 0；六条目依赖链 PLY→TMR→BRW→SRCH→MSEL→DL。
+
+- 2026-08-23: 新增 PLY-01 / TMR-01 / BRW-01 三份功能 spec（用户采纳建议批次 A2/A3/A4；A1「继续收听」经访谈裁决砍掉——冷启动恢复链路 browser_provider.dart:191-266 + player_provider.dart:216-242 + audio_source_builder.dart:167/177 已覆盖单本续听场景，增量仅剩"多内容并行切换"非用户模式）。PLY-01：QueueSheet 加 ReorderableListView 拖动重排（shuffle 双闸禁用 S4/S8）+ PlayQueue.move 纯模型方法（ALG1 含 currentIndex 跟随映射表）；TMR-01：IAudioPlayer 契约扩 setVolume（adapter/mockito 依据登记 §8-R1/R2）+ fade_policy 纯函数 + timerTickWithFadeProvider 合并四驱动点（S6），到期单 tick 完成 setVolume(0)→pause→setVolume(1.0)（S3/INV4）；BRW-01：folder_collector DFS 先序收集（上限 kFolderScanMaxFiles=500，S2 截断/S3 错误透传整体失败）+ 目录长按双入口（从此处播放复刻 onFileTap 建队形态 startPositionMs=null / 加入播放单含新建即加入路径，createPlaylist 经 playlistServiceProvider 直连取 id——createPlaylistProvider 包装丢 id 的勘察发现）。三份 spec-scan --neg 全 0，dev-status 三条目 pending 入队。
 - 2026-08-23: 全部 47 项（BUG-01~28 + REF-01~19）已 impl/test/check 全闭环（末批 BUG-23~28 + REF-19 dev-check 于 2026-08-23 全 PASS），随清理任务归档删除（git 历史保留）。dev-status.json 同步清空。REF-05 键契约措辞漂移（check_log 2026-08-23 登记）未及增量补即随归档消失，如需恢复从 git 历史取回后走 dev-plan。
 - 2026-08-23: cr-20260823-1421 复核分流落地（全量走查 10 条：FRAGILE×5 / DESIGN×2 / TEST-GAP×3）。**新增 BUG-23~BUG-28**（F1-F5 + D2 用户裁决"修"；六条门禁均以 repro-test.sh fail 确认真实 FAIL——bug_bug23_timeout_stop_guard_test.dart fakeAsync 驱动 A/B 两请求交错实证 30s 兜底 stop 无 isLatest 守卫、bug_bug24_shuffle_without_index_test.dart 公开 API walkRound 行为锚定 20 种子实证删曲后当前曲本轮重访（模型无公开排列 getter，编译级复现不可用，行为等价锚定）、bug_bug25_queue_sheet_dup_key_test.dart widget 级实证重复 path 队列 duplicate-key 断言、bug_bug26_pubspec_state_notifier_test.dart 结构断言实证主依赖缺声明、bug_bug27_restore_race_test.dart 可控 Completer DAO 实证恢复窗口覆盖用户队列并错位 seek（勘察补强：restore 路径经 connectionDaoProvider.findById，须 stub 否则 sqflite 工厂未初始化提前中止；player.audioSource 缺 stub 会以 MissingStubError 抢占失败信号）、bug_bug28_txn_activate_test.dart 结构断言+行为回归实证自动激活在事务外。命名：bug_bug23/26/27_repro_test.dart 等已被旧轮占用，全部门禁用描述性后缀（BUG-21 completed_seek 先例）。TEST-GAP T1/T2/T3 并入 BUG-24/23/25 门禁。**新增 REF-19**（D1 用户裁决"修"→ 转 REF 需求流程；DESIGN 条目无 repro 门禁要求）。dev-plan 勘察超出 cr 原文两处：① BUG-24 修复语义升级为"排列 remap + 指针锚定"而非仅文档豁免（与 insertAfterCurrent BUG-04-S1 对称）；② BUG-27 边界表固化 :217 await 阶段天然安全序不被破坏。
 - 2026-08-22: cr-20260822-2051 复核分流落地。**新增 BUG-20/21/22**（F1/F2/F4 用户选定第一批；三条 repro 门禁均以 repro-test.sh fail 确认真实 FAIL——bug_bug20_repro_test.dart widget 级实证 dispose 取消监听后暂停不再保存、bug_bug21_completed_seek_test.dart 实证 nq==null 分支缺 seek(0)、bug_bug22_repro_test.dart 真 SQLite 实证删除后曲目 family 缓存滞留；BUG-21 门禁文件名带描述后缀避开既有 bug_bug21_repro_test.dart，SCHEMA §1.3）。**新增 REF-17/REF-18**（D1/D2 用户裁决"修"→ 转 REF 需求流程；DESIGN 条目无 repro 门禁要求）。**T1/T2/T3 补测完成**（aud_05 八个纯注释空壳改真实驱动：browser 六态经 _FakeDav 注入 + gate superseded + orchestrator 四条 failed 短路；int_g01 与 aud_01 INT-G01 自演组改生产监听器+switch 路径真实驱动——关键发现：ref.listen 须在 invalidate 后显式重读 activeConnectionProvider 才收到通知（生产等价于 home/BrowserScreen 常驻 watch），测试已加注释锚定该语义；aud_01 LOG-G01 十一个 isNotNull 用例改 buildUriWithBasePath/buildAuthHeader 精确断言——顺带实证 Dart Uri 不转义撇号（RFC3986 sub-delim）与 query 空串返回 '' 非 null 两处平台行为）。**T4-T8 登记、F5-F9 待批次二**（见 docs/dev/cr-backlog.md）。**D3 关单**（记录裁决理由不建条目）。三文件补测后 flutter test 241 全绿。

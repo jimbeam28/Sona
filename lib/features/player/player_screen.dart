@@ -255,6 +255,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         onRemoveIndex: (index) {
           ref.read(removeTrackFromQueueProvider)(index);
         },
+        onReorderIndex: (oldIndex, newIndex) {
+          unawaited(
+            ref.read(moveTrackFromQueueProvider)(oldIndex, newIndex),
+          );
+        },
       ),
     );
   }

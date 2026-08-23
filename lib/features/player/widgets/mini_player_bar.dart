@@ -151,6 +151,9 @@ void _showQueueSheet(BuildContext context, WidgetRef ref) {
       onRemoveIndex: (index) {
         ref.read(removeTrackFromQueueProvider)(index);
       },
+      onReorderIndex: (oldIndex, newIndex) {
+        ref.read(moveTrackFromQueueProvider)(oldIndex, newIndex);
+      },
     ),
   );
 }

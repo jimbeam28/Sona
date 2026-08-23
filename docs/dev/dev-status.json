@@ -2,10 +2,334 @@
   "metadata": {
     "last_updated": "2026-08-23",
     "note": "全部 47 项（BUG-01~28 + REF-01~19）已 impl/test/check 全闭环，2026-08-23 清理归档（git 历史保留 spec 与条目）。下次 dev-plan 从空队列开始。",
-    "total": 0,
-    "pending": 0,
+    "total": 6,
+    "pending": 6,
     "total_items": 0
   },
-  "order": [],
-  "items": {}
+  "order": [
+    "PLY-01",
+    "TMR-01",
+    "BRW-01",
+    "SRCH-01",
+    "MSEL-01",
+    "DL-01"
+  ],
+  "items": {
+    "PLY-01": {
+      "name": "播放队列拖动重排",
+      "spec_file": "docs/features/PLY-01.md",
+      "spec_anchored_files": [
+        "lib/features/player/widgets/queue_sheet.dart",
+        "lib/features/player/player_screen.dart",
+        "lib/features/player/widgets/mini_player_bar.dart",
+        "lib/shared/models/play_queue.dart",
+        "lib/features/player/domain/playback_orchestrator.dart",
+        "lib/features/browser/browser_provider.dart"
+      ],
+      "scenarios": [
+        "PLY-01-S1",
+        "PLY-01-S2",
+        "PLY-01-S3",
+        "PLY-01-S4",
+        "PLY-01-S5",
+        "PLY-01-S6",
+        "PLY-01-S7",
+        "PLY-01-S8",
+        "PLY-01-S9",
+        "PLY-01-S10",
+        "PLY-01-S11"
+      ],
+      "invariants": [
+        "PLY-01-INV1",
+        "PLY-01-INV2",
+        "PLY-01-INV3"
+      ],
+      "algorithms": [
+        "PLY-01-ALG1-move",
+        "PLY-01-ALG2-onReorder-correction"
+      ],
+      "test_files": [
+        "test/features/player/ply_01_queue_reorder_test.dart"
+      ],
+      "test_coverage_gaps": [],
+      "cross_module_impacts": [
+        "BRW"
+      ],
+      "manual_qa_required": false,
+      "manual_qa_file": null,
+      "user_acceptance_text": "见 docs/features/PLY-01.md §1.2",
+      "impl_status": "done",
+      "test_status": "passed",
+      "check_status": "pending",
+      "check_round": 0,
+      "last_check_round_results": "",
+      "last_checked_at": "",
+      "dependencies": [],
+      "retry_count": 0,
+      "last_error": "",
+      "last_updated": "2026-08-23"
+    },
+    "TMR-01": {
+      "name": "定时停止音量淡出",
+      "spec_file": "docs/features/TMR-01.md",
+      "spec_anchored_files": [
+        "lib/features/timer/domain/timer_service.dart",
+        "lib/features/timer/timer_provider.dart",
+        "lib/features/player/player_provider.dart",
+        "lib/core/contracts/audio_player_contract.dart",
+        "lib/core/services/audio_player_adapter.dart",
+        "lib/features/home/home_screen.dart",
+        "lib/features/player/player_screen.dart"
+      ],
+      "scenarios": [
+        "TMR-01-S1",
+        "TMR-01-S2",
+        "TMR-01-S3",
+        "TMR-01-S4",
+        "TMR-01-S5",
+        "TMR-01-S6",
+        "TMR-01-S7"
+      ],
+      "invariants": [
+        "TMR-01-INV1",
+        "TMR-01-INV2",
+        "TMR-01-INV3",
+        "TMR-01-INV4"
+      ],
+      "algorithms": [
+        "TMR-01-ALG1-fadeVolumeForRemaining"
+      ],
+      "test_files": [],
+      "test_coverage_gaps": [],
+      "cross_module_impacts": [
+        "PLY",
+        "PRG"
+      ],
+      "manual_qa_required": false,
+      "manual_qa_file": null,
+      "user_acceptance_text": "见 docs/features/TMR-01.md §1.2",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "check_status": "pending",
+      "check_round": 0,
+      "last_check_round_results": "",
+      "last_checked_at": "",
+      "dependencies": [],
+      "retry_count": 0,
+      "last_error": "",
+      "last_updated": "2026-08-23"
+    },
+    "BRW-01": {
+      "name": "文件夹级操作",
+      "spec_file": "docs/features/BRW-01.md",
+      "spec_anchored_files": [
+        "lib/features/browser/browser_screen.dart",
+        "lib/features/browser/widgets/file_list_item.dart",
+        "lib/features/browser/browser_provider.dart",
+        "lib/features/playlist/domain/playlist_service.dart",
+        "lib/shared/models/play_queue.dart",
+        "lib/core/network/webdav_client.dart"
+      ],
+      "scenarios": [
+        "BRW-01-S1",
+        "BRW-01-S2",
+        "BRW-01-S3",
+        "BRW-01-S4",
+        "BRW-01-S5",
+        "BRW-01-S6",
+        "BRW-01-S7",
+        "BRW-01-S8",
+        "BRW-01-S9"
+      ],
+      "invariants": [
+        "BRW-01-INV1",
+        "BRW-01-INV2",
+        "BRW-01-INV3",
+        "BRW-01-INV4"
+      ],
+      "algorithms": [
+        "BRW-01-ALG1-collectFolderAudio"
+      ],
+      "test_files": [],
+      "test_coverage_gaps": [],
+      "cross_module_impacts": [
+        "PLY",
+        "PRG"
+      ],
+      "manual_qa_required": false,
+      "manual_qa_file": null,
+      "user_acceptance_text": "见 docs/features/BRW-01.md §1.2",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "check_status": "pending",
+      "check_round": 0,
+      "last_check_round_results": "",
+      "last_checked_at": "",
+      "dependencies": [],
+      "retry_count": 0,
+      "last_error": "",
+      "last_updated": "2026-08-23"
+    },
+    "SRCH-01": {
+      "name": "文件搜索",
+      "spec_file": "docs/features/SRCH-01.md",
+      "spec_anchored_files": [
+        "lib/features/browser/browser_screen.dart",
+        "lib/features/browser/widgets/breadcrumb_bar.dart",
+        "lib/features/browser/browser_provider.dart",
+        "lib/features/progress/progress_dialog.dart",
+        "lib/features/player/player_provider.dart",
+        "lib/features/player/domain/playback_orchestrator.dart"
+      ],
+      "scenarios": [
+        "SRCH-01-S1",
+        "SRCH-01-S2",
+        "SRCH-01-S3",
+        "SRCH-01-S4",
+        "SRCH-01-S5",
+        "SRCH-01-S6",
+        "SRCH-01-S7",
+        "SRCH-01-S8",
+        "SRCH-01-S9",
+        "SRCH-01-S10",
+        "SRCH-01-S11"
+      ],
+      "invariants": [
+        "SRCH-01-INV1",
+        "SRCH-01-INV2",
+        "SRCH-01-INV3",
+        "SRCH-01-INV4"
+      ],
+      "algorithms": [
+        "SRCH-01-ALG1-searchFolderSubtree"
+      ],
+      "test_files": [],
+      "test_coverage_gaps": [],
+      "cross_module_impacts": [
+        "PLY",
+        "PRG",
+        "BRW"
+      ],
+      "manual_qa_required": false,
+      "manual_qa_file": null,
+      "user_acceptance_text": "见 docs/features/SRCH-01.md §1.2",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "check_status": "pending",
+      "check_round": 0,
+      "last_check_round_results": "",
+      "last_checked_at": "",
+      "dependencies": [],
+      "retry_count": 0,
+      "last_error": "",
+      "last_updated": "2026-08-23"
+    },
+    "MSEL-01": {
+      "name": "批量多选",
+      "spec_file": "docs/features/MSEL-01.md",
+      "spec_anchored_files": [
+        "lib/features/browser/browser_screen.dart",
+        "lib/features/browser/widgets/file_list_item.dart",
+        "lib/features/browser/browser_provider.dart",
+        "lib/features/playlist/domain/playlist_service.dart",
+        "lib/shared/models/play_queue.dart"
+      ],
+      "scenarios": [
+        "MSEL-01-S1",
+        "MSEL-01-S2",
+        "MSEL-01-S3",
+        "MSEL-01-S4",
+        "MSEL-01-S5",
+        "MSEL-01-S6",
+        "MSEL-01-S7",
+        "MSEL-01-S8"
+      ],
+      "invariants": [
+        "MSEL-01-INV1",
+        "MSEL-01-INV2",
+        "MSEL-01-INV3",
+        "MSEL-01-INV4"
+      ],
+      "algorithms": [
+        "MSEL-01-ALG1-orderedSelectedFiles"
+      ],
+      "test_files": [],
+      "test_coverage_gaps": [],
+      "cross_module_impacts": [
+        "PLY",
+        "BRW",
+        "SRCH"
+      ],
+      "manual_qa_required": false,
+      "manual_qa_file": null,
+      "user_acceptance_text": "见 docs/features/MSEL-01.md §1.2",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "check_status": "pending",
+      "check_round": 0,
+      "last_check_round_results": "",
+      "last_checked_at": "",
+      "dependencies": [],
+      "retry_count": 0,
+      "last_error": "",
+      "last_updated": "2026-08-23"
+    },
+    "DL-01": {
+      "name": "离线下载",
+      "spec_file": "docs/features/DL-01.md",
+      "spec_anchored_files": [
+        "lib/core/database/database_helper.dart",
+        "lib/core/contracts/database_contract.dart",
+        "lib/core/network/webdav_client.dart",
+        "lib/features/player/domain/playback_orchestrator.dart",
+        "lib/core/services/audio_source_builder.dart",
+        "lib/app/router.dart",
+        "lib/features/settings/settings_screen.dart",
+        "lib/main.dart"
+      ],
+      "scenarios": [
+        "DL-01-S1",
+        "DL-01-S2",
+        "DL-01-S3",
+        "DL-01-S4",
+        "DL-01-S5",
+        "DL-01-S6",
+        "DL-01-S7",
+        "DL-01-S8",
+        "DL-01-S9",
+        "DL-01-S10"
+      ],
+      "invariants": [
+        "DL-01-INV1",
+        "DL-01-INV2",
+        "DL-01-INV3",
+        "DL-01-INV4",
+        "DL-01-INV5"
+      ],
+      "algorithms": [
+        "DL-01-ALG1-download-state-machine",
+        "DL-01-ALG2-resolveCollision"
+      ],
+      "test_files": [],
+      "test_coverage_gaps": [],
+      "cross_module_impacts": [
+        "PLY",
+        "BRW",
+        "SETTINGS"
+      ],
+      "manual_qa_required": false,
+      "manual_qa_file": null,
+      "user_acceptance_text": "见 docs/features/DL-01.md §1.2",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "check_status": "pending",
+      "check_round": 0,
+      "last_check_round_results": "",
+      "last_checked_at": "",
+      "dependencies": [],
+      "retry_count": 0,
+      "last_error": "",
+      "last_updated": "2026-08-23"
+    }
+  }
 }

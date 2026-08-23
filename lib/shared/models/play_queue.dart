@@ -259,6 +259,56 @@ class PlayQueue {
     );
   }
 
+  /// Returns a copy of this queue with the track at [from] relocated to
+  /// index [to].
+  ///
+  /// PLY-01: pure display-order reorder for non-shuffle queues. The current
+  /// track follows the move: relocating the current track itself moves the
+  /// pointer to [to]; otherwise the pointer compensates for the shift so it
+  /// keeps pointing at the same logical track (ALG1, docs/features/PLY-01.md
+  /// §6).
+  ///
+  /// Defensive short-circuits return `this` unchanged (zero-copy): from ==
+  /// to, out-of-range indices, single-track queue, and shuffle mode — the
+  /// shuffle permutation is a second coordinate system a display-order move
+  /// cannot remap consistently (PLY-01-INV3 model gate; UI gate = S8).
+  ///
+  /// Single-writer discipline (PLY-01-INV2): production callers must go
+  /// through `PlaybackOrchestrator.moveTrack`; UI code never calls this
+  /// directly (same constraint as [insertAfterCurrent]).
+  PlayQueue move(int from, int to) {
+    if (from == to ||
+        from < 0 ||
+        from >= files.length ||
+        to < 0 ||
+        to >= files.length ||
+        files.length <= 1 ||
+        playMode == PlayMode.shuffle) {
+      return this;
+    }
+    final movedFile = files[from];
+    final newFiles = files.toList()
+      ..removeAt(from)
+      ..insert(to, movedFile);
+    // ALG1: newList = files..removeAt(from)..insert(to,f);
+    // from==c → to; else tempC = c-(from<c?1:0), newC = tempC+(tempC>=to?1:0)
+    final int newCurrent;
+    if (from == currentIndex) {
+      newCurrent = to;
+    } else {
+      final tempC = currentIndex - (from < currentIndex ? 1 : 0);
+      newCurrent = tempC + (tempC >= to ? 1 : 0);
+    }
+    return PlayQueue(
+      files: newFiles,
+      currentIndex: newCurrent,
+      startPositionMs: startPositionMs,
+      playMode: playMode,
+      shuffleOrder: _shuffleOrder,
+      shufflePosition: _shufflePosition,
+    );
+  }
+
   // ── Queue navigation (PLY-05) ──────────────────────────────────────────
 
   /// Returns the index of the next track in shuffle order, or `null` when
