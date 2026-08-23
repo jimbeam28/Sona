@@ -47,6 +47,7 @@
 | REF-16 | coverage-debt.txt 过期登记移除（timer_service 97.30% / playback_orchestrator 98.39%） | active | 2026-08-16 | docs/dev/coverage-debt.txt | —（流程记账） | 6/1/0 | pending / pending / pending |
 | REF-17 | Provider 层平台包直引收敛（组合根豁免显式化 + LastConnectionException 上提 + 门禁盲区封堵） | active | 2026-08-22 | lib/features/connection/connection_provider.dart | PLY, CON, Core | 3/1/0 | pending / pending / pending |
 | REF-18 | switch/delete 连接写副作用移出 FutureProvider build 体（P11 模式收敛） | active | 2026-08-22 | lib/features/connection/connection_provider.dart | BRW, CON | 3/1/0 | pending / pending / pending |
+| REF-19 | 进度恢复判定阈值单源化（browser/playlist 两处魔数改引 shouldSave） | active | 2026-08-23 | lib/core/contracts/progress_policy.dart | BRW, PLT, PRG | 2/1/0 | pending / pending / pending |
 
 ## Bug 文档
 
@@ -74,6 +75,12 @@
 | BUG-20 | 退出播放页后自动保存/暂停保存监听被取消，后台收听进度丢失窗口 | active | 2026-08-22 | lib/features/player/player_screen.dart | Player | HOME, PRG | 3/2/0 | pending / pending / pending |
 | BUG-21 | 末曲播完缺 seek(0)，播放器滞留 completed 态（P2 部分合规） | active | 2026-08-22 | lib/features/player/player_provider.dart | Player | — | 2/1/0 | pending / pending / pending |
 | BUG-22 | deletePlaylist 漏 invalidate 曲目 family 缓存（幽灵数据滞留） | active | 2026-08-22 | lib/features/playlist/playlist_provider.dart | Playlist | — | 1/1/0 | pending / pending / pending |
+| BUG-23 | loadAndPlay 内层超时兜底 stop 无 isLatest 时效守卫，可打断后继请求加载现场 | active | 2026-08-23 | lib/features/player/domain/playback_orchestrator.dart | Player | — | 3/1/0 | pending / pending / pending |
+| BUG-24 | withoutIndex shuffle 指针不变量断裂（删曲后轮次重置/当前曲重复/上一首跳随机） | active | 2026-08-23 | lib/shared/models/play_queue.dart | PlayQueue（shared model） | PLY, BRW, PLT | 3/1/2 | pending / pending / pending |
+| BUG-25 | QueueSheet ValueKey(file.path) 与 insertAfterCurrent 允许重复曲目冲突 | active | 2026-08-23 | lib/features/player/widgets/queue_sheet.dart | Player | BRW | 2/1/0 | pending / pending / pending |
+| BUG-26 | state_notifier 被 domain 直接 import 但未声明于 pubspec dependencies | active | 2026-08-23 | pubspec.yaml | Browser（domain 基建） | — | 2/1/0 | pending / pending / pending |
+| BUG-27 | restoreStartupProgress 写回/seek 无时效复核，竞态窗口覆盖用户选曲 | active | 2026-08-23 | lib/features/player/player_provider.dart | Player | BRW | 2/1/0 | pending / pending / pending |
+| BUG-28 | ConnectionDao.delete 自动激活未与删行同事务（中断窗口致零活跃连接） | active | 2026-08-23 | lib/core/database/dao/connection_dao.dart | Connection | CON service | 3/1/0 | pending / pending / pending |
 
 ## TEST-GAP 文档
 
@@ -83,10 +90,10 @@
 ## 状态汇总
 
 - 功能文档：0 份
-- Refactoring 文档：18 份
-- Bug 文档：22 份
+- Refactoring 文档：19 份
+- Bug 文档：28 份
 - TEST-GAP 文档：0 份
-- 待 dev-exe：40 份（BUG-01 / BUG-02 / BUG-03 / BUG-04 / BUG-05 / BUG-06 / BUG-07 / BUG-08 / BUG-09 / BUG-10 / BUG-11 / BUG-12 / BUG-13 / BUG-14 / BUG-15 / BUG-16 / BUG-17 / BUG-18 / BUG-19 / BUG-20 / BUG-21 / BUG-22 / REF-01 / REF-02 / REF-03 / REF-04 / REF-05 / REF-06 / REF-07 / REF-08 / REF-09 / REF-10 / REF-11 / REF-12 / REF-13 / REF-14 / REF-15 / REF-16 / REF-17 / REF-18）
+- 待 dev-exe：47 份（BUG-01 / BUG-02 / BUG-03 / BUG-04 / BUG-05 / BUG-06 / BUG-07 / BUG-08 / BUG-09 / BUG-10 / BUG-11 / BUG-12 / BUG-13 / BUG-14 / BUG-15 / BUG-16 / BUG-17 / BUG-18 / BUG-19 / BUG-20 / BUG-21 / BUG-22 / BUG-23 / BUG-24 / BUG-25 / BUG-26 / BUG-27 / BUG-28 / REF-01 / REF-02 / REF-03 / REF-04 / REF-05 / REF-06 / REF-07 / REF-08 / REF-09 / REF-10 / REF-11 / REF-12 / REF-13 / REF-14 / REF-15 / REF-16 / REF-17 / REF-18 / REF-19）
 
 ## 折叠归并备注（cr-20260816-0802 F1）
 
@@ -99,6 +106,7 @@
 
 ## changelog
 
+- 2026-08-23: cr-20260823-1421 复核分流落地（全量走查 10 条：FRAGILE×5 / DESIGN×2 / TEST-GAP×3）。**新增 BUG-23~BUG-28**（F1-F5 + D2 用户裁决"修"；六条门禁均以 repro-test.sh fail 确认真实 FAIL——bug_bug23_timeout_stop_guard_test.dart fakeAsync 驱动 A/B 两请求交错实证 30s 兜底 stop 无 isLatest 守卫、bug_bug24_shuffle_without_index_test.dart 公开 API walkRound 行为锚定 20 种子实证删曲后当前曲本轮重访（模型无公开排列 getter，编译级复现不可用，行为等价锚定）、bug_bug25_queue_sheet_dup_key_test.dart widget 级实证重复 path 队列 duplicate-key 断言、bug_bug26_pubspec_state_notifier_test.dart 结构断言实证主依赖缺声明、bug_bug27_restore_race_test.dart 可控 Completer DAO 实证恢复窗口覆盖用户队列并错位 seek（勘察补强：restore 路径经 connectionDaoProvider.findById，须 stub 否则 sqflite 工厂未初始化提前中止；player.audioSource 缺 stub 会以 MissingStubError 抢占失败信号）、bug_bug28_txn_activate_test.dart 结构断言+行为回归实证自动激活在事务外。命名：bug_bug23/26/27_repro_test.dart 等已被旧轮占用，全部门禁用描述性后缀（BUG-21 completed_seek 先例）。TEST-GAP T1/T2/T3 并入 BUG-24/23/25 门禁。**新增 REF-19**（D1 用户裁决"修"→ 转 REF 需求流程；DESIGN 条目无 repro 门禁要求）。dev-plan 勘察超出 cr 原文两处：① BUG-24 修复语义升级为"排列 remap + 指针锚定"而非仅文档豁免（与 insertAfterCurrent BUG-04-S1 对称）；② BUG-27 边界表固化 :217 await 阶段天然安全序不被破坏。
 - 2026-08-22: cr-20260822-2051 复核分流落地。**新增 BUG-20/21/22**（F1/F2/F4 用户选定第一批；三条 repro 门禁均以 repro-test.sh fail 确认真实 FAIL——bug_bug20_repro_test.dart widget 级实证 dispose 取消监听后暂停不再保存、bug_bug21_completed_seek_test.dart 实证 nq==null 分支缺 seek(0)、bug_bug22_repro_test.dart 真 SQLite 实证删除后曲目 family 缓存滞留；BUG-21 门禁文件名带描述后缀避开既有 bug_bug21_repro_test.dart，SCHEMA §1.3）。**新增 REF-17/REF-18**（D1/D2 用户裁决"修"→ 转 REF 需求流程；DESIGN 条目无 repro 门禁要求）。**T1/T2/T3 补测完成**（aud_05 八个纯注释空壳改真实驱动：browser 六态经 _FakeDav 注入 + gate superseded + orchestrator 四条 failed 短路；int_g01 与 aud_01 INT-G01 自演组改生产监听器+switch 路径真实驱动——关键发现：ref.listen 须在 invalidate 后显式重读 activeConnectionProvider 才收到通知（生产等价于 home/BrowserScreen 常驻 watch），测试已加注释锚定该语义；aud_01 LOG-G01 十一个 isNotNull 用例改 buildUriWithBasePath/buildAuthHeader 精确断言——顺带实证 Dart Uri 不转义撇号（RFC3986 sub-delim）与 query 空串返回 '' 非 null 两处平台行为）。**T4-T8 登记、F5-F9 待批次二**（见 docs/dev/cr-backlog.md）。**D3 关单**（记录裁决理由不建条目）。三文件补测后 flutter test 241 全绿。
 - 2026-08-16: cr-20260816-0801~0806 复核 DESIGN 裁决关闭 5 条（用户按推荐裁决，记录理由不建条目）：① cr-0801 D3（normaliseWebDavUrl 对无端口 https 强制补 5005）——特定 NAS 环境约定，非通用缺陷；② cr-0801 D4（PlaylistDao.reorderTrack 同毫秒碰撞）——added_at base+i 偏移已保证同批序，跨批碰撞不改变相对顺序；③ cr-0805 D4（Timer paused 模式 UI 生产不可达）——服务层 pause/resume 保留供测试与未来 UI 用；④ cr-0806 D4（bug_10_test.dart 命名/位置偏离约定）——已知债务 INDEX 已登记，迁移成本高于收益；⑤ cr-0806 D5（本地 mock 变体扩散）——渐进迁移，不强制一轮收敛
 - 2026-08-16: 新增 REF-14、REF-15、REF-16（cr-20260816-0806-test-helpers.md DESIGN 条目用户裁决"修"→ 转 REF 需求流程落地；DESIGN 条目无 repro 门禁要求）。**编号归属勘误**：任务下达将 REF-16 标为"cr-0806 D5"，但内容（coverage-debt.txt 两条登记过期）与 cr 报告 D2 逐字一致，D5 实为"本地 mock 变体扩散"——按内容归属 D2 落地，D5 不在本次 3 条内。REF-14 设计裁决（D1）：共享 helper 新增单一类 `HangingFakeSecureStorage extends FakeSecureStorage`（构造参 hangRead/hangWrite/hangDelete 默认 false，per-method 可配对齐 cr 修复建议原文）+ readCalls/writeCalls/deleteCalls 计数器（支撑 svc_storage_utils_test.dart:46 `readCalls == 1` 断言；计数在挂起短路前递增）；挂起机制 `Completer<T>().future` 与三处本地实现逐字节同构（bug_10:171 / bug_bug32:56/74/91 / svc:22 实证，非新模式）；bug_bug32 的 `_MapStorage`/`_ThrowingReadStorage` 保留不迁（非挂起家族，防语义漂移）；三文件删类后 `import 'dart:async'` 一并移除（dart:core core.dart:167 再导出 Future/Stream 实证，Completer 仅存在于被删类）。迁移点：bug_10_test.dart 删 157-192（调用点 :29/:59 换 hangRead/hangWrite）、bug_bug32 删 44-93（调用点 :230/:290/:294/:325/:364/:427/:546）、svc_storage_utils 删 14-24（调用点 :36，断言 :46 不变）。REF-15 设计裁决（D3）：8 处坏形态 `addTearDown(() => container.dispose)`（:137/:164/:222/:239/:296/:321/:454/:478）逐行改 `addTearDown(container.dispose)`；可行性依据（铁律 6 实证）：riverpod 2.6.1 container.dart:625 `void dispose()` 同步非 Future，tear-off `void Function()` 可赋值 `AsyncCallback`，仓库 10+ 处编译实证（bug_13_repro_test:233/256、o3:68、bug_bug31:99/149/179、bug_06:178、brw_04:167/238、brw_05:55）；await 形态不需要（dispose 为 void）；断言零改动。REF-16 设计裁决（D2）：实测两文件（lcov.info 2026-08-15 23:26 + check-check EXIT=0 + awk 独立核对）——timer_service 72/74=97.30%、playback_orchestrator 122/124=98.39%，均 ≥90% → **删除 coverage-debt.txt:10-11 两条登记**（符合"只减不增"规则，coverage-debt.txt:5）；头部注释与 TEST-GAP 区（13-41）保留；check-exe 验证 floor 回落 90 硬阈仍 EXIT=0；baseline-coverage.json 不 refresh（check-check 无耦合，刷新归 dev-check PASS 职责）

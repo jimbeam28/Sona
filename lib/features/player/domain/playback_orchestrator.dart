@@ -227,6 +227,12 @@ class PlaybackOrchestrator {
             }
           }
           if (!playStarted) {
+            // BUG-23 (cr-20260823-1421 F1): 被取代的任务不得停掉后继请求的
+            // 加载现场——removeTrack（BUG-27-S1）同款时效纪律：对共享 player
+            // 做破坏性收尾前必须确认自己仍是 latest。
+            if (!_gate.isLatest(requestId)) {
+              return const TrackLoadResult.superseded();
+            }
             await player.stop();
             return const TrackLoadResult.failed();
           }

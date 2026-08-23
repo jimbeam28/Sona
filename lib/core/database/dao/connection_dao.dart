@@ -133,15 +133,26 @@ class ConnectionDao implements IConnectionDao {
 
       // Delete the connection row itself
       await txn.delete('connections', where: 'id = ?', whereArgs: [id]);
-    });
 
-    // CON-T34: if the deleted connection was active, auto-activate another
-    if (wasActive) {
-      final remainingConfigs = await findAll();
-      if (remainingConfigs.isNotEmpty) {
-        await setActive(remainingConfigs.first.id!);
+      // CON-T34 / BUG-28 (cr-20260823-1421 D2): auto-activate inside the SAME
+      // transaction so an interrupted process can never persist the
+      // zero-active intermediate state.  Inlined txn.query/txn.update instead
+      // of setActive() — nesting db.transaction inside this closure would
+      // escape the outer transaction.  Activation target = first remaining
+      // row by created_at ASC (same ordering as findAll().first).
+      if (wasActive) {
+        final remaining =
+            await txn.query('connections', orderBy: 'created_at ASC', limit: 1);
+        if (remaining.isNotEmpty) {
+          await txn.update(
+            'connections',
+            {'is_active': 1, 'updated_at': _clock().millisecondsSinceEpoch},
+            where: 'id = ?',
+            whereArgs: [remaining.first['id']],
+          );
+        }
       }
-    }
+    });
 
     return wasActive;
   }
@@ -166,13 +177,23 @@ class ConnectionDao implements IConnectionDao {
         if (!e.isNoSuchTableError()) rethrow;
       }
       await txn.delete('connections', where: 'id = ?', whereArgs: [id]);
-    });
-    if (wasActive) {
-      final remainingConfigs = await findAll();
-      if (remainingConfigs.isNotEmpty) {
-        await setActive(remainingConfigs.first.id!);
+
+      // BUG-28-S2: same-transaction auto-activation as [delete] — the
+      // compensation/rollback path must not leave a zero-active window
+      // either.  BUG-17 semantics kept: no CON-T32 count guard here.
+      if (wasActive) {
+        final remaining =
+            await txn.query('connections', orderBy: 'created_at ASC', limit: 1);
+        if (remaining.isNotEmpty) {
+          await txn.update(
+            'connections',
+            {'is_active': 1, 'updated_at': _clock().millisecondsSinceEpoch},
+            where: 'id = ?',
+            whereArgs: [remaining.first['id']],
+          );
+        }
       }
-    }
+    });
     return wasActive;
   }
 

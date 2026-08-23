@@ -27,6 +27,11 @@ dependencies:
   flutter_secure_storage: ^9.0.0
   flutter_slidable: ^4.0.3
   http: ^1.2.1
+  # BUG-26: directly imported by lib/features/browser/domain/
+  # directory_service.dart and navigation_stack.dart (SortOptionNotifier /
+  # NavigationStackNotifier extend StateNotifier) — must be a declared main
+  # dependency, not a flutter_riverpod transitive exposure.
+  state_notifier: ^1.0.0
 
   meta: any
 dev_dependencies:

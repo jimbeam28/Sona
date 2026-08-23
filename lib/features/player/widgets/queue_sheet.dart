@@ -53,7 +53,11 @@ class QueueSheet extends ConsumerWidget {
                     final file = queue.files[index];
                     final isCurrent = index == queue.currentIndex;
                     return ListTile(
-                      key: ValueKey(file.path),
+                      // BUG-25 (cr-20260823-1421 F3): the queue legally holds
+                      // duplicate paths (insertAfterCurrent does not
+                      // de-duplicate), so the key must compound the position
+                      // to stay unique within the list (INV1).
+                      key: ValueKey('$index:${file.path}'),
                       leading: Icon(
                         isCurrent
                             ? Icons.play_arrow

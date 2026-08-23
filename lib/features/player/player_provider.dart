@@ -227,6 +227,12 @@ final restoreStartupProgressProvider = FutureProvider<void>((ref) async {
       connectionRoot:
           c == null ? null : webDavConnectionRoot(c.url, c.basePath));
   if (r != null && r != q) {
+    // BUG-27 (cr-20260823-1421 F5): 晚到即弃——await 间隙内队列已被用户或
+    // 其它入口改写时整个写回+seek 让位（BUG-06 preload abandon 同款纪律，
+    // audio_source_builder.dart:149-179 先例）。
+    if (!identical(ref.read(currentPlayQueueProvider), q)) {
+      return;
+    }
     ref.read(currentPlayQueueProvider.notifier).state = r;
     final pl = ref.read(audioPlayerProvider);
     if (pl.audioSource != null) {

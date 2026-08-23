@@ -182,7 +182,14 @@ class PlayQueue {
   /// - If the removed track IS [currentIndex], keep the same index (the next
   ///   track shifts into this position) unless it was the last track
   ///
-  /// Shuffle order is regenerated if in shuffle mode and a track is removed.
+  /// BUG-24 (cr-20260823-1421 F2): in shuffle mode the running permutation is
+  /// REMAPPED, not regenerated — every surviving index is shifted so it keeps
+  /// pointing at the same logical track, and the pointer stays anchored on
+  /// [currentIndex] (`order[pos] == currentIndex`, the same invariant kept by
+  /// [withIndex]/[fromMap]/[insertAfterCurrent]).  The old regenerate-on-
+  /// remove behaviour desynchronised the pointer (fresh order with position
+  /// 0), making "next" replay the current track and "previous" jump randomly.
+  /// Single-track remnants keep the no-permutation convention.
   PlayQueue withoutIndex(int index) {
     final newList = files.toList();
     newList.removeAt(index);
@@ -202,15 +209,27 @@ class PlayQueue {
         newIndex = newList.length - 1;
       }
     }
+    List<int>? newOrder;
+    int? newPos;
+    if (playMode == PlayMode.shuffle &&
+        newList.length > 1 &&
+        _shuffleOrder != null) {
+      // BUG-24-ALG1: drop the removed slot, shift every surviving index that
+      // sat right of it, then re-anchor the pointer on the new current slot.
+      newOrder = _shuffleOrder
+          .where((i) => i != index)
+          .map((i) => i > index ? i - 1 : i)
+          .toList();
+      final anchor = newOrder.indexOf(newIndex);
+      newPos = anchor >= 0 ? anchor : newOrder.length - 1;
+    }
     return PlayQueue(
       files: newList,
       currentIndex: newIndex,
       startPositionMs: index == currentIndex ? null : startPositionMs,
       playMode: playMode,
-      // Regenerate shuffle order after removal (must be null to trigger
-      // fresh generation in constructor)
-      shuffleOrder: null,
-      shufflePosition: null,
+      shuffleOrder: newOrder,
+      shufflePosition: newPos,
     );
   }
 

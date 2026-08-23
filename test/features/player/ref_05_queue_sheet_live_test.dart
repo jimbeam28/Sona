@@ -8,7 +8,8 @@
 //   S5  — 调用方不传快照参数（compile-time，本文件消费 QueueSheet 构造）
 //   S6  — 点击/删除行为语义保持（live index 有效；回调接线）
 //   INV1 — 面板打开期间列表恒等于 provider 当前值
-//   INV2 — 每条 ListTile key == ValueKey(file.path)
+//   INV2 — 每条 ListTile 带稳定唯一键（BUG-25 后为复合键 '$index:$path'，
+//           字面 ValueKey(path) 被取代；REF-05.md 措辞待 dev-plan 增量补）
 //
 // 装配：ProviderContainer + currentPlayQueueProvider.overrideWith +
 // UncontrolledProviderScope（provider 由容器读写，测试可动态改队列）。
@@ -186,12 +187,16 @@ void main() {
 
       final tiles = tester.widgetList<ListTile>(find.byType(ListTile)).toList();
       final keys = tiles.map((t) => t.key).toList();
-      expect(keys, contains(const ValueKey('/music/a.mp3')));
-      expect(keys, contains(const ValueKey('/music/b.mp3')));
-      expect(keys, contains(const ValueKey('/music/c.mp3')));
-      for (final k in keys) {
-        expect(k, isA<ValueKey<String>>(),
-            reason: 'INV2: 列表项一律 ValueKey(业务 ID)');
+      // BUG-25（2026-08-23）取代字面 ValueKey(path)：insertAfterCurrent 合法
+      // 持有重复 path，键必须复合位置信息保同层唯一（BUG-25-INV1）。INV2 的
+      // P13 意图（条目带稳定唯一键防错配）由「ValueKey<String> 且值锚定
+      // 业务 path 且键集合无重复」承载。
+      expect(keys.every((k) => k is ValueKey<String>), isTrue,
+          reason: 'INV2: 列表项一律带 ValueKey<String>');
+      final values = keys.cast<ValueKey<String>>().map((k) => k.value).toList();
+      for (final p in const ['/music/a.mp3', '/music/b.mp3', '/music/c.mp3']) {
+        expect(values.where((v) => v.endsWith(p)), hasLength(1),
+            reason: 'INV2+BUG-25-INV1: 键值复合位置与业务 path 且唯一（$p）');
       }
     });
   });

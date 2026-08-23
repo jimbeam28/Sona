@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/database/dao/progress_dao.dart' show ProgressDao;
 import '../../shared/models/play_queue.dart';
 import '../../shared/models/playlist.dart';
 import '../../shared/di/providers.dart';
@@ -52,7 +53,7 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
         // `context` getter itself throws once the State is defunct, so a
         // context-based check cannot guard the very case it exists for.
         if (!mounted) return;
-        if (progress != null && progress.positionMs >= 5000) {
+        if (progress != null && ProgressDao.shouldSave(progress.positionMs)) {
           final resume = await showProgressResumeDialog(
             context,
             ProviderScope.containerOf(context),

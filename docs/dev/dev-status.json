@@ -2,8 +2,8 @@
   "metadata": {
     "last_updated": "2026-08-23",
     "note": "全部 49 项（BUG-04~32 + REF-01~09 + TEST-01~11）已 impl/test/check 全闭环，2026-08-15 清理归档（git 历史保留 spec 与条目）。下次 dev-plan 从空队列开始。",
-    "total": 40,
-    "pending": 5,
+    "total": 47,
+    "pending": 7,
     "total_items": 0
   },
   "order": [
@@ -46,7 +46,14 @@
     "BUG-21",
     "BUG-22",
     "REF-17",
-    "REF-18"
+    "REF-18",
+    "BUG-23",
+    "BUG-24",
+    "BUG-25",
+    "BUG-26",
+    "BUG-27",
+    "BUG-28",
+    "REF-19"
   ],
   "items": {
     "BUG-01": {
@@ -1680,6 +1687,239 @@
       "check_round": 0,
       "last_check_round_results": "",
       "last_checked_at": "2026-08-23",
+      "dependencies": [],
+      "retry_count": 0,
+      "last_error": "",
+      "last_updated": "2026-08-23"
+    },
+    "BUG-23": {
+      "name": "loadAndPlay 内层超时兜底 stop 无时效守卫",
+      "spec_file": "docs/features/BUG-23.md",
+      "spec_anchored_files": [
+        "lib/features/player/domain/playback_orchestrator.dart"
+      ],
+      "scenarios": [
+        "BUG-23-S1",
+        "BUG-23-S2"
+      ],
+      "invariants": [
+        "BUG-23-INV1"
+      ],
+      "algorithms": [],
+      "test_files": [
+        "test/features/player/bug_bug23_timeout_stop_guard_test.dart"
+      ],
+      "test_coverage_gaps": [],
+      "cross_module_impacts": [],
+      "manual_qa_required": false,
+      "manual_qa_file": null,
+      "user_acceptance_text": "见 docs/features/BUG-23.md §1.2",
+      "impl_status": "done",
+      "test_status": "passed",
+      "check_status": "pending",
+      "check_round": 0,
+      "last_check_round_results": "",
+      "last_checked_at": "",
+      "dependencies": [],
+      "retry_count": 0,
+      "last_error": "",
+      "last_updated": "2026-08-23"
+    },
+    "BUG-24": {
+      "name": "withoutIndex shuffle 指针不变量断裂",
+      "spec_file": "docs/features/BUG-24.md",
+      "spec_anchored_files": [
+        "lib/shared/models/play_queue.dart"
+      ],
+      "scenarios": [
+        "BUG-24-S1",
+        "BUG-24-S2"
+      ],
+      "invariants": [
+        "BUG-24-INV1"
+      ],
+      "algorithms": [
+        "BUG-24-ALG1"
+      ],
+      "test_files": [
+        "test/shared/bug_bug24_shuffle_without_index_test.dart"
+      ],
+      "test_coverage_gaps": [],
+      "cross_module_impacts": [],
+      "manual_qa_required": false,
+      "manual_qa_file": null,
+      "user_acceptance_text": "见 docs/features/BUG-24.md §1.2",
+      "impl_status": "done",
+      "test_status": "passed",
+      "check_status": "pending",
+      "check_round": 0,
+      "last_check_round_results": "",
+      "last_checked_at": "",
+      "dependencies": [],
+      "retry_count": 0,
+      "last_error": "",
+      "last_updated": "2026-08-23"
+    },
+    "BUG-25": {
+      "name": "QueueSheet ValueKey 与重复曲目键冲突",
+      "spec_file": "docs/features/BUG-25.md",
+      "spec_anchored_files": [
+        "lib/features/player/widgets/queue_sheet.dart"
+      ],
+      "scenarios": [
+        "BUG-25-S1"
+      ],
+      "invariants": [
+        "BUG-25-INV1"
+      ],
+      "algorithms": [],
+      "test_files": [
+        "test/features/player/bug_bug25_queue_sheet_dup_key_test.dart"
+      ],
+      "test_coverage_gaps": [],
+      "cross_module_impacts": [],
+      "manual_qa_required": false,
+      "manual_qa_file": null,
+      "user_acceptance_text": "见 docs/features/BUG-25.md §1.2",
+      "impl_status": "done",
+      "test_status": "passed",
+      "check_status": "pending",
+      "check_round": 0,
+      "last_check_round_results": "",
+      "last_checked_at": "",
+      "dependencies": [],
+      "retry_count": 0,
+      "last_error": "",
+      "last_updated": "2026-08-23"
+    },
+    "BUG-26": {
+      "name": "state_notifier 未声明于 pubspec dependencies",
+      "spec_file": "docs/features/BUG-26.md",
+      "spec_anchored_files": [
+        "pubspec.yaml",
+        "lib/features/browser/domain/directory_service.dart",
+        "lib/features/browser/domain/navigation_stack.dart"
+      ],
+      "scenarios": [
+        "BUG-26-S1"
+      ],
+      "invariants": [
+        "BUG-26-INV1"
+      ],
+      "algorithms": [],
+      "test_files": [
+        "test/core/bug_bug26_pubspec_state_notifier_test.dart"
+      ],
+      "test_coverage_gaps": [],
+      "cross_module_impacts": [],
+      "manual_qa_required": false,
+      "manual_qa_file": null,
+      "user_acceptance_text": "见 docs/features/BUG-26.md §1.2",
+      "impl_status": "done",
+      "test_status": "passed",
+      "check_status": "pending",
+      "check_round": 0,
+      "last_check_round_results": "",
+      "last_checked_at": "",
+      "dependencies": [],
+      "retry_count": 0,
+      "last_error": "",
+      "last_updated": "2026-08-23"
+    },
+    "BUG-27": {
+      "name": "restoreStartupProgress 竞态覆盖用户选曲",
+      "spec_file": "docs/features/BUG-27.md",
+      "spec_anchored_files": [
+        "lib/features/player/player_provider.dart"
+      ],
+      "scenarios": [
+        "BUG-27-S1"
+      ],
+      "invariants": [
+        "BUG-27-INV1"
+      ],
+      "algorithms": [],
+      "test_files": [
+        "test/features/player/bug_bug27_restore_race_test.dart"
+      ],
+      "test_coverage_gaps": [],
+      "cross_module_impacts": [],
+      "manual_qa_required": false,
+      "manual_qa_file": null,
+      "user_acceptance_text": "见 docs/features/BUG-27.md §1.2",
+      "impl_status": "done",
+      "test_status": "passed",
+      "check_status": "pending",
+      "check_round": 0,
+      "last_check_round_results": "",
+      "last_checked_at": "",
+      "dependencies": [],
+      "retry_count": 0,
+      "last_error": "",
+      "last_updated": "2026-08-23"
+    },
+    "BUG-28": {
+      "name": "delete 自动激活未与删行同事务",
+      "spec_file": "docs/features/BUG-28.md",
+      "spec_anchored_files": [
+        "lib/core/database/dao/connection_dao.dart"
+      ],
+      "scenarios": [
+        "BUG-28-S1",
+        "BUG-28-S2"
+      ],
+      "invariants": [
+        "BUG-28-INV1"
+      ],
+      "algorithms": [],
+      "test_files": [
+        "test/features/connection/bug_bug28_txn_activate_test.dart"
+      ],
+      "test_coverage_gaps": [],
+      "cross_module_impacts": [],
+      "manual_qa_required": false,
+      "manual_qa_file": null,
+      "user_acceptance_text": "见 docs/features/BUG-28.md §1.2",
+      "impl_status": "done",
+      "test_status": "passed",
+      "check_status": "pending",
+      "check_round": 0,
+      "last_check_round_results": "",
+      "last_checked_at": "",
+      "dependencies": [],
+      "retry_count": 0,
+      "last_error": "",
+      "last_updated": "2026-08-23"
+    },
+    "REF-19": {
+      "name": "进度恢复判定阈值单源化",
+      "spec_file": "docs/features/REF-19.md",
+      "spec_anchored_files": [
+        "lib/core/contracts/progress_policy.dart",
+        "lib/features/browser/browser_screen.dart",
+        "lib/features/playlist/playlist_detail_screen.dart"
+      ],
+      "scenarios": [
+        "REF-19-S1"
+      ],
+      "invariants": [
+        "REF-19-INV1"
+      ],
+      "algorithms": [],
+      "test_files": [
+        "test/features/progress/ref_19_threshold_single_source_test.dart"
+      ],
+      "test_coverage_gaps": [],
+      "cross_module_impacts": [],
+      "manual_qa_required": false,
+      "manual_qa_file": null,
+      "user_acceptance_text": "见 docs/features/REF-19.md §1.2",
+      "impl_status": "done",
+      "test_status": "passed",
+      "check_status": "pending",
+      "check_round": 0,
+      "last_check_round_results": "",
+      "last_checked_at": "",
       "dependencies": [],
       "retry_count": 0,
       "last_error": "",

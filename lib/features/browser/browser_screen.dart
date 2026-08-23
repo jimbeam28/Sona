@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/database/dao/progress_dao.dart' show ProgressDao;
 import '../../core/network/webdav_client.dart';
 import '../../shared/models/nas_file.dart';
 import '../../shared/models/play_progress.dart';
@@ -139,7 +140,10 @@ class BrowserScreen extends ConsumerWidget {
                             filePath: tappedFile.path,
                           )).future);
                           if (!context.mounted) return;
-                          if (progress != null && progress.positionMs >= 5000) {
+                          // REF-19: threshold single-sourced via
+                          // ProgressDao.shouldSave (PRG-T03 policy).
+                          if (progress != null &&
+                              ProgressDao.shouldSave(progress.positionMs)) {
                             final container =
                                 ProviderScope.containerOf(context);
                             final resume = await showProgressResumeDialog(
