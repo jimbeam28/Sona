@@ -74,6 +74,8 @@ abstract class IAudioPlayer {
   /// Sets the playback speed.
   Future<void> setSpeed(double speed);
 
+  Future<void> setVolume(double volume);
+
   /// Releases all resources.
   Future<void> dispose();
 }

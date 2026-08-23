@@ -65,10 +65,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
     // TMR-05: check for duration-timer expiry every second.
     _timerExpiryChecker = Timer.periodic(const Duration(seconds: 1), (_) {
-      final expired = ref.read(checkTimerExpiryProvider)();
-      if (expired && mounted) {
-        ref.read(audioPlayerProvider).pause();
-      }
+      unawaited(ref.read(timerTickWithFadeProvider)());
     });
   }
 
@@ -79,10 +76,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       _saveProgress();
     } else if (state == AppLifecycleState.resumed) {
       // TMR-02: check timer expiry immediately on resume.
-      final expired = ref.read(checkTimerExpiryProvider)();
-      if (expired) {
-        ref.read(audioPlayerProvider).pause();
-      }
+      unawaited(ref.read(timerTickWithFadeProvider)());
     }
   }
 

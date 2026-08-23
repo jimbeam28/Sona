@@ -66,6 +66,28 @@ final audioPlayingProvider = StreamProvider<bool>((ref) {
 });
 final audioHandlerProvider = Provider<IAudioHandler?>((ref) => null);
 
+final timerTickWithFadeProvider = Provider<Future<void> Function()>((ref) {
+  var lastWritten = 1.0; // 闭包持有"最后一次写入的淡出音量"，避免冗余平台调用
+  return () async {
+    final st = ref.read(timerStateProvider);
+    final active = st != null && st.mode == TimerMode.duration;
+    final target = active ? fadeVolumeForRemaining(st.remainingTime) : 1.0;
+    if (target != lastWritten) {
+      await ref.read(audioPlayerProvider).setVolume(target);
+      lastWritten = target;
+    }
+    if (!active) return;
+    final expired = ref.read(timerStateProvider.notifier).checkExpired();
+    if (expired) {
+      await ref.read(audioPlayerProvider).pause();
+      if (lastWritten < 1.0) {
+        await ref.read(audioPlayerProvider).setVolume(1.0);
+        lastWritten = 1.0;
+      }
+    }
+  };
+});
+
 class _Deps
     implements
         ActiveConnectionProvider,

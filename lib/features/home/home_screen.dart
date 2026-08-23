@@ -49,20 +49,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     // TMR-05: check for duration-timer expiry every second so the countdown
     // works even when the full PlayerScreen is not visible.
     _timerExpiryChecker = Timer.periodic(const Duration(seconds: 1), (_) {
-      final expired = ref.read(checkTimerExpiryProvider)();
-      if (expired) {
-        ref.read(audioPlayerProvider).pause();
-      }
+      unawaited(ref.read(timerTickWithFadeProvider)());
     });
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      final expired = ref.read(checkTimerExpiryProvider)();
-      if (expired) {
-        ref.read(audioPlayerProvider).pause();
-      }
+      unawaited(ref.read(timerTickWithFadeProvider)());
     }
   }
 

@@ -82,6 +82,7 @@ export '../../features/player/player_provider.dart'
         audioPlayerProvider,
         audioPlayingProvider,
         audioHandlerProvider,
+        timerTickWithFadeProvider,
         playbackOrchestratorProvider,
         // Queue navigation
         loadAndPlayProvider,
@@ -178,6 +179,9 @@ export '../../features/timer/timer_provider.dart'
         setLastCustomTimerMinutesProvider;
 
 export '../../features/timer/widgets/timer_button.dart' show TimerBottomSheet;
+
+export '../../features/timer/domain/fade_policy.dart'
+    show fadeVolumeForRemaining, kTimerFadeWindow;
 
 // ── 6. Settings ─────────────────────────────────────────────────────────────
 

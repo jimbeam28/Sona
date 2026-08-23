@@ -88,5 +88,8 @@ class AudioPlayerAdapter implements IAudioPlayer {
       _impl.setSpeed(speed).timeout(_platformTimeout, onTimeout: () {});
 
   @override
+  Future<void> setVolume(double volume) => _impl.setVolume(volume);
+
+  @override
   Future<void> dispose() => _impl.dispose();
 }

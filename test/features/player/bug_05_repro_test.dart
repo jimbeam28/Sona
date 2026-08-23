@@ -99,6 +99,8 @@ class _StubPlayer implements IAudioPlayer {
   @override
   Future<void> setSpeed(double speed) async {}
   @override
+  Future<void> setVolume(double volume) async {}
+  @override
   Future<void> dispose() async {}
 }
 
