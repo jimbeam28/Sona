@@ -152,7 +152,9 @@
       "algorithms": [
         "BRW-01-ALG1-collectFolderAudio"
       ],
-      "test_files": [],
+      "test_files": [
+        "test/features/browser/brw_01_folder_actions_test.dart"
+      ],
       "test_coverage_gaps": [],
       "cross_module_impacts": [
         "PLY",
@@ -161,8 +163,8 @@
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/BRW-01.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",

@@ -17,11 +17,13 @@ typedef FileItemTapCallback = void Function(NasFile file);
 class DirectoryListTile extends StatelessWidget {
   final NasFile file;
   final FileItemTapCallback? onTap;
+  final VoidCallback? onLongPress;
 
   const DirectoryListTile({
     super.key,
     required this.file,
     this.onTap,
+    this.onLongPress,
   });
 
   @override
@@ -35,6 +37,9 @@ class DirectoryListTile extends StatelessWidget {
       ),
       trailing: const Icon(Icons.chevron_right),
       onTap: onTap != null ? () => onTap!(file) : null,
+      // No explicit long-press handler → swallow the gesture instead of let
+      // stock ListTile misfire onTap after a long hold.
+      onLongPress: onLongPress ?? (onTap != null ? () {} : null),
     );
   }
 }

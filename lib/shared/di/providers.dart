@@ -210,6 +210,7 @@ export '../../features/playlist/playlist_provider.dart'
     show
         // Infrastructure
         playlistDaoProvider,
+        playlistServiceProvider,
         // Sort
         PlaylistSortOption,
         TrackSortOption,

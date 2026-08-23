@@ -22,6 +22,7 @@ import '../../shared/models/nas_file.dart';
 import '../../shared/models/play_progress.dart';
 import '../../shared/models/play_queue.dart';
 import '../../shared/di/providers.dart';
+import 'domain/folder_collector.dart';
 import 'widgets/file_list_item.dart';
 
 class BrowserScreen extends ConsumerWidget {
@@ -107,6 +108,8 @@ class BrowserScreen extends ConsumerWidget {
                     onDirectoryTap: (dirPath) {
                       ref.read(navigationStackProvider.notifier).push(dirPath);
                     },
+                    onDirectoryLongPress: (dir) =>
+                        _showFolderActionsSheet(context, ref, dir),
                     onFileTap: (tappedFile) async {
                       debugPrint('[Browser] onFileTap: ${tappedFile.path}');
                       final contents = ref
@@ -391,6 +394,7 @@ class _EmptyView extends StatelessWidget {
 class _FileList extends StatelessWidget {
   final List<NasFile> files;
   final void Function(String dirPath)? onDirectoryTap;
+  final void Function(NasFile dir)? onDirectoryLongPress;
   final void Function(NasFile file) onFileTap;
   final void Function(NasFile file)? onFileLongPress;
   final void Function(NasFile file)? onPlayNext;
@@ -399,6 +403,7 @@ class _FileList extends StatelessWidget {
   const _FileList({
     required this.files,
     this.onDirectoryTap,
+    this.onDirectoryLongPress,
     required this.onFileTap,
     this.onFileLongPress,
     this.onPlayNext,
@@ -420,6 +425,9 @@ class _FileList extends StatelessWidget {
             onTap: onDirectoryTap != null
                 ? (_) => onDirectoryTap!(file.path)
                 : null,
+            onLongPress: onDirectoryLongPress != null
+                ? () => onDirectoryLongPress!(file)
+                : null,
           );
         }
         return AudioFileListTile(
@@ -435,6 +443,315 @@ class _FileList extends StatelessWidget {
           playNextEnabled: playNextEnabled,
         );
       },
+    );
+  }
+}
+
+// ── Folder-level actions (BRW-01) ───────────────────────────────────────────────
+
+void _showFolderActionsSheet(BuildContext context, WidgetRef ref, NasFile dir) {
+  showModalBottomSheet<void>(
+    context: context,
+    builder: (sheetContext) {
+      return SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.play_circle_outline),
+              title: const Text('从此处播放'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                // ignore: discarded_futures
+                _playFromFolder(context, ref, dir);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.playlist_add),
+              title: const Text('加入播放单…'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                // ignore: discarded_futures
+                _addToPlaylistFlow(context, ref, dir);
+              },
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+/// Scans [dir]'s subtree with a non-dismissable loading dialog.
+///
+/// Returns null (after showing the fixed-error SnackBar) when any layer of
+/// [collectFolderAudio] throws; never leaks partial results (BRW-01-S3/S6).
+Future<FolderScanResult?> _scanFolderWithLoading(
+  BuildContext context,
+  WidgetRef ref,
+  NasFile dir,
+) async {
+  final navigator = Navigator.of(context);
+  final messenger = ScaffoldMessenger.of(context);
+  showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => const AlertDialog(
+      content: Row(
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(width: 16),
+          Expanded(child: Text('正在扫描文件夹…')),
+        ],
+      ),
+    ),
+  );
+  try {
+    final result = await collectFolderAudio(
+      rootPath: dir.path,
+      fetchDir: (p) => ref.read(directoryContentsProvider(p).future),
+    );
+    navigator.pop();
+    return result;
+  } catch (e) {
+    debugPrint('[Browser] folder scan failed: $e');
+    navigator.pop();
+    messenger.showSnackBar(
+      const SnackBar(content: Text('无法读取文件夹内容，请检查连接')),
+    );
+    return null;
+  }
+}
+
+Future<void> _playFromFolder(
+  BuildContext context,
+  WidgetRef ref,
+  NasFile dir,
+) async {
+  final goRouter = GoRouter.of(context);
+  final messenger = ScaffoldMessenger.of(context);
+  final result = await _scanFolderWithLoading(context, ref, dir);
+  if (result == null) return;
+  if (!context.mounted) return;
+  if (result.files.isEmpty) {
+    messenger.showSnackBar(
+      const SnackBar(content: Text('该文件夹没有音频文件')),
+    );
+    return;
+  }
+  // Mirrors onFileTap queue construction; folder entry always plays from the
+  // start of the first track, so startPositionMs stays null (BRW-01-INV3).
+  final queue = PlayQueue(files: result.files, currentIndex: 0)
+      .withMode(ref.read(playModeProvider));
+  ref.read(currentPlayQueueProvider.notifier).state = queue;
+  ref.read(lastQueueConnectionIdProvider.notifier).state =
+      ref.read(activeConnectionProvider).valueOrNull?.id;
+  if (result.truncated) {
+    messenger.showSnackBar(
+      const SnackBar(content: Text('文件夹较大，已截取前 $kFolderScanMaxFiles 首')),
+    );
+  }
+  await goRouter.push('/player');
+}
+
+Future<void> _addToPlaylistFlow(
+  BuildContext context,
+  WidgetRef ref,
+  NasFile dir,
+) async {
+  final result = await _scanFolderWithLoading(context, ref, dir);
+  if (result == null) return;
+  if (!context.mounted) return;
+  if (result.files.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('该文件夹没有音频文件')),
+    );
+    return;
+  }
+  showModalBottomSheet<void>(
+    context: context,
+    builder: (sheetContext) =>
+        _PlaylistPickerSheet(dirName: dir.name, files: result.files),
+  );
+}
+
+class _PlaylistPickerSheet extends ConsumerWidget {
+  final String dirName;
+  final List<NasFile> files;
+
+  const _PlaylistPickerSheet({
+    required this.dirName,
+    required this.files,
+  });
+
+  Future<void> _addFiles(
+    BuildContext context,
+    WidgetRef ref,
+    int playlistId,
+  ) async {
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(addTracksToPlaylistProvider)(playlistId, files);
+    } catch (e) {
+      debugPrint('[Browser] folder add-to-playlist failed: $e');
+      messenger.showSnackBar(
+        const SnackBar(content: Text('添加失败，请重试')),
+      );
+      return;
+    }
+    navigator.pop();
+    messenger.showSnackBar(
+      SnackBar(content: Text('已添加 ${files.length} 首')),
+    );
+  }
+
+  Future<void> _showCreateAndAddDialog(
+    BuildContext sheetContext,
+    WidgetRef ref,
+  ) async {
+    final controller = TextEditingController();
+    var created = false;
+    await showDialog<void>(
+      context: sheetContext,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (ctx, setState) {
+          final canConfirm = controller.text.trim().isNotEmpty;
+          return AlertDialog(
+            title: const Text('新建播放单'),
+            content: TextField(
+              controller: controller,
+              autofocus: true,
+              onChanged: (_) => setState(() {}),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: canConfirm
+                    ? () async {
+                        final navigator = Navigator.of(ctx);
+                        final messenger = ScaffoldMessenger.of(ctx);
+                        try {
+                          // REF-07: only emptiness is validated here — the
+                          // raw name (leading/trailing spaces included) goes
+                          // to storage untouched. Service direct call so the
+                          // returned id feeds addTracks (createPlaylistProvider
+                          // wraps it as Future<void> and drops the id).
+                          final newId = await ref
+                              .read(playlistServiceProvider)
+                              .createPlaylist(controller.text);
+                          await ref.read(addTracksToPlaylistProvider)(
+                              newId, files);
+                        } catch (e) {
+                          debugPrint(
+                              '[Browser] folder create-playlist failed: $e');
+                          messenger.showSnackBar(
+                            const SnackBar(content: Text('创建失败，请重试')),
+                          );
+                          return;
+                        }
+                        created = true;
+                        messenger.showSnackBar(
+                          SnackBar(content: Text('已添加 ${files.length} 首')),
+                        );
+                        navigator.pop();
+                      }
+                    : null,
+                child: const Text('创建'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    if (!created || !sheetContext.mounted) return;
+    Navigator.of(sheetContext).pop();
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final playlistsAsync = ref.watch(playlistListProvider);
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              dirName,
+              style: Theme.of(context).textTheme.titleMedium,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const Divider(height: 1),
+          Flexible(
+            child: playlistsAsync.when(
+              loading: () => const Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (_, __) => Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('加载播放单失败，请重试'),
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: () => ref.invalidate(playlistListProvider),
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('重试'),
+                    ),
+                  ],
+                ),
+              ),
+              data: (playlists) {
+                if (playlists.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(child: Text('还没有播放单')),
+                  );
+                }
+                return ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: playlists.length,
+                  itemBuilder: (context, index) {
+                    final playlist = playlists[index];
+                    return ListTile(
+                      leading: const Icon(Icons.queue_music),
+                      title: Text(
+                        playlist.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      onTap: () {
+                        final playlistId = playlist.id;
+                        if (playlistId == null) return;
+                        // ignore: discarded_futures
+                        _addFiles(context, ref, playlistId);
+                      },
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.add),
+            title: const Text('新建播放单'),
+            onTap: () {
+              // ignore: discarded_futures
+              _showCreateAndAddDialog(context, ref);
+            },
+          ),
+        ],
+      ),
     );
   }
 }
