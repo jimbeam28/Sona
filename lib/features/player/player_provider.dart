@@ -325,6 +325,8 @@ final startProcessingListenerProvider = Provider<void Function()>((ref) {
       final o = ref.read(playbackOrchestratorProvider);
       final nq = o.computeNextQueue();
       if (nq == null) {
+        // P2: Android completed 态忽略后续 seek/play —— 必须显式 seek(0) 退出该态
+        unawaited(player.seek(Duration.zero));
         player.pause();
         ref.read(_completingProvider.notifier).state = false;
         return;

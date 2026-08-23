@@ -24,11 +24,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:mockito/mockito.dart';
+import 'package:nas_audio_player/core/database/dao/connection_dao.dart';
 import 'package:nas_audio_player/core/database/dao/progress_dao.dart';
 import 'package:nas_audio_player/core/services/audio_source_builder.dart';
 import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/features/browser/domain/cache_policy.dart';
 import 'package:nas_audio_player/features/connection/connection_provider.dart';
+import 'package:nas_audio_player/features/connection/domain/connection_service.dart';
 import 'package:nas_audio_player/features/player/player_provider.dart';
 import 'package:nas_audio_player/features/player/domain/speed_manager.dart'
     as sm;
@@ -38,7 +40,10 @@ import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:nas_audio_player/shared/models/play_queue.dart';
 import 'package:nas_audio_player/shared/models/playlist.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite/sqflite.dart';
 
+import '../../helpers/fake_secure_storage.dart';
+import '../../helpers/test_database.dart';
 import '../../helpers/test_factories.dart';
 import '../../helpers/mock_audio_player.dart';
 
@@ -886,65 +891,82 @@ void main() {
   // ═══════════════════════════════════════════════════════════════════════════════
 
   group('INT-G01: Connection switch clears queue', () {
-    test('when active connection changes, queue is cleared if IDs differ',
+    // cr-20260822-2051 T2：原三用例把 clearQueueOnConnectionSwitchProvider 的
+    // 逻辑复制进测试体自演自证（删除生产 provider 照样绿）。收敛为经生产
+    // 监听器 + 生产 switch 路径的真实驱动（完整版见
+    // int_g01_connection_switch_test.dart）。
+    late Database db;
+
+    setUpAll(() {
+      initSqfliteFfi();
+    });
+
+    setUp(() async {
+      db = await openTestDatabase(TestSchema.connections);
+    });
+
+    tearDown(() async {
+      await db.close();
+    });
+
+    test('switch clears queue via production listener when IDs differ',
         () async {
-      final files = [testAudio('a.mp3', '/a.mp3')];
-      final queue = PlayQueue(files: files, currentIndex: 0);
+      final storage = FakeSecureStorage();
+      final service = ConnectionService(ConnectionDao(), storage);
+      final conn1 = await service.save(
+          config: testConfig(name: 'NAS-A', url: 'http://nas-a:5005'),
+          password: 'pass1');
+      final conn2 = await service.save(
+          config: testConfig(name: 'NAS-B', url: 'http://nas-b:5005'),
+          password: 'pass2');
+      await service.setActive(conn2.id!);
 
-      // Simulate the clearQueueOnConnectionSwitchProvider logic
-      int? lastQueueConnectionId = 1; // queue was created with connection 1
-      PlayQueue? currentQueue = queue;
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      container.read(clearQueueOnConnectionSwitchProvider);
+      await container.read(activeConnectionProvider.future);
+      container.read(currentPlayQueueProvider.notifier).state = PlayQueue(
+          files: [testAudio('song.mp3', '/music/song.mp3')], currentIndex: 0);
+      container.read(lastQueueConnectionIdProvider.notifier).state = conn2.id;
 
-      // Connection switches to ID 2
-      final newActiveId = 2;
-      if (newActiveId != lastQueueConnectionId) {
-        currentQueue = null;
-        lastQueueConnectionId = null;
-      }
+      await container.read(switchActiveConnectionProvider(conn1.id!).future);
+      // 生产中 home/BrowserScreen 常驻 watch 活跃连接；显式重读触发
+      // invalidate 后的重建，clearQueue 监听器才会收到新值。
+      final rebuilt = await container.read(activeConnectionProvider.future);
+      expect(rebuilt?.id, conn1.id);
 
-      expect(currentQueue, isNull,
-          reason: 'queue should be cleared when connection switches');
-      expect(lastQueueConnectionId, isNull,
-          reason: 'lastQueueConnectionId should be cleared');
+      expect(container.read(currentPlayQueueProvider), isNull,
+          reason: '切连接后队列必须被清（生产监听器链路）');
+      expect(container.read(lastQueueConnectionIdProvider), isNull,
+          reason: '队列归属 id 必须一并清除');
     });
 
-    test('when active connection is same, queue is preserved', () {
-      final files = [testAudio('a.mp3', '/a.mp3')];
-      final queue = PlayQueue(files: files, currentIndex: 0);
+    test('queue preserved when no owning connection id was recorded', () async {
+      final storage = FakeSecureStorage();
+      final service = ConnectionService(ConnectionDao(), storage);
+      await service.save(
+          config: testConfig(name: 'NAS-A', url: 'http://nas-a:5005'),
+          password: 'pass1');
+      final conn2 = await service.save(
+          config: testConfig(name: 'NAS-B', url: 'http://nas-b:5005'),
+          password: 'pass2');
+      await service.setActive(conn2.id!);
 
-      int? lastQueueConnectionId = 1;
-      PlayQueue? currentQueue = queue;
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      container.read(clearQueueOnConnectionSwitchProvider);
+      await container.read(activeConnectionProvider.future);
+      final queue =
+          PlayQueue(files: [testAudio('a.mp3', '/a.mp3')], currentIndex: 0);
+      container.read(currentPlayQueueProvider.notifier).state = queue;
+      // lastQueueConnectionIdProvider 保持 null（无归属记录）→ 不清
 
-      // Connection stays at ID 1
-      final newActiveId = 1;
-      if (newActiveId != lastQueueConnectionId) {
-        currentQueue = null;
-        lastQueueConnectionId = null;
-      }
+      await container.read(switchActiveConnectionProvider(conn2.id!).future);
+      await container.read(activeConnectionProvider.future);
 
-      expect(currentQueue, isNotNull,
-          reason: 'queue should be preserved when connection stays the same');
-      expect(currentQueue!.current.path, equals('/a.mp3'));
-    });
-
-    test('when lastQueueConnectionId is null, queue is preserved', () {
-      final files = [testAudio('a.mp3', '/a.mp3')];
-      final queue = PlayQueue(files: files, currentIndex: 0);
-
-      int? lastQueueConnectionId = null; // no saved connection ID
-      PlayQueue? currentQueue = queue;
-
-      // Connection changes to ID 2
-      final newActiveId = 2;
-      if (lastQueueConnectionId != null &&
-          newActiveId != lastQueueConnectionId) {
-        currentQueue = null;
-        lastQueueConnectionId = null;
-      }
-
-      expect(currentQueue, isNotNull,
-          reason:
-              'queue should be preserved when lastQueueConnectionId is null');
+      final q = container.read(currentPlayQueueProvider);
+      expect(q, isNotNull, reason: '无归属记录的队列不得被切连接清除（否定面锚定）');
+      expect(q!.current.path, equals('/a.mp3'));
     });
   });
 
@@ -1490,115 +1512,84 @@ void main() {
   // ═══════════════════════════════════════════════════════════════════════════════
 
   group('LOG-G01: URL encoding edge cases', () {
-    test('spaces in file path are encoded', () {
-      final source = AudioSourceBuilder.buildWithBasePath(
-        baseUrl: 'http://nas.local:8080',
-        filePath: '/music/my song.mp3',
-        username: 'admin',
-        password: 'pass',
-      );
-      // Verify it doesn't throw and creates a valid source
-      expect(source, isNotNull);
+    // cr-20260822-2051 T3：原 11 用例只断 isNotNull（编码器换成恒等函数照样绿）。
+    // 改用 @visibleForTesting 的 buildUriWithBasePath / buildAuthHeader 精确断言。
+    Uri logG01Uri(String base, String path) =>
+        AudioSourceBuilder.buildUriWithBasePath(baseUrl: base, filePath: path);
+
+    test('spaces in file path are encoded (%20)', () {
+      expect(
+          logG01Uri('http://nas.local:8080', '/music/my song.mp3').toString(),
+          contains('/music/my%20song.mp3'));
     });
 
-    test('Chinese characters in file path are encoded', () {
-      final source = AudioSourceBuilder.buildWithBasePath(
-        baseUrl: 'http://nas.local:8080',
-        filePath: '/music/歌曲.mp3',
-        username: 'admin',
-        password: 'pass',
-      );
-      expect(source, isNotNull);
+    test('Chinese characters are percent-encoded', () {
+      expect(logG01Uri('http://nas.local:8080', '/music/歌曲.mp3').toString(),
+          contains('%E6%AD%8C%E6%9B%B2'));
     });
 
-    test('special characters # and ? in file path are encoded', () {
-      final source = AudioSourceBuilder.buildWithBasePath(
-        baseUrl: 'http://nas.local:8080',
-        filePath: '/music/track#1.mp3',
-        username: 'admin',
-        password: 'pass',
-      );
-      expect(source, isNotNull);
+    test('# and ? stay inside the path segment (no fragment/query split)', () {
+      final u = logG01Uri('http://nas.local:8080', '/music/track#1?.mp3');
+      expect(u.fragment, isEmpty, reason: '# 必须被编码为 %23');
+      expect(u.query, isEmpty, reason: '? 必须被编码为 %3F，不得形成查询串');
+      expect(u.toString(), contains('track%231%3F.mp3'));
     });
 
-    test('ampersand in file path is encoded', () {
-      final source = AudioSourceBuilder.buildWithBasePath(
-        baseUrl: 'http://nas.local:8080',
-        filePath: '/music/rock & roll.mp3',
-        username: 'admin',
-        password: 'pass',
-      );
-      expect(source, isNotNull);
+    test('ampersand is percent-encoded (%26)', () {
+      expect(
+          logG01Uri('http://nas.local:8080', '/music/rock & roll.mp3')
+              .toString(),
+          contains('rock%20%26%20roll.mp3'));
     });
 
-    test('plus sign in file path is encoded', () {
-      final source = AudioSourceBuilder.buildWithBasePath(
-        baseUrl: 'http://nas.local:8080',
-        filePath: '/music/track+1.mp3',
-        username: 'admin',
-        password: 'pass',
-      );
-      expect(source, isNotNull);
+    test('plus sign is percent-encoded (%2B)', () {
+      expect(
+          logG01Uri('http://nas.local:8080', '/music/track+1.mp3').toString(),
+          contains('track%2B1.mp3'));
     });
 
-    test('single quote in file path is encoded', () {
-      final source = AudioSourceBuilder.buildWithBasePath(
-        baseUrl: 'http://nas.local:8080',
-        filePath: "/music/it's a song.mp3",
-        username: 'admin',
-        password: 'pass',
-      );
-      expect(source, isNotNull);
+    test("single quote stays literal (RFC3986 sub-delim), space encoded", () {
+      // Dart Uri 不转义撇号（RFC 3986 sub-delim 合法字符），空格照常编码
+      expect(
+          logG01Uri('http://nas.local:8080', "/music/it's a song.mp3")
+              .toString(),
+          contains("it's%20a%20song.mp3"));
     });
 
-    test('brackets in file path are encoded', () {
-      final source = AudioSourceBuilder.buildWithBasePath(
-        baseUrl: 'http://nas.local:8080',
-        filePath: '/music/track [1].mp3',
-        username: 'admin',
-        password: 'pass',
-      );
-      expect(source, isNotNull);
+    test('brackets are percent-encoded (%5B/%5D)', () {
+      expect(
+          logG01Uri('http://nas.local:8080', '/music/track [1].mp3').toString(),
+          contains('track%20%5B1%5D.mp3'));
     });
 
-    test('basePath with trailing slash is handled', () {
-      final source = AudioSourceBuilder.buildWithBasePath(
-        baseUrl: 'http://nas.local:8080/dav/',
-        filePath: 'music/song.mp3',
-        username: 'admin',
-        password: 'pass',
-      );
-      expect(source, isNotNull);
+    test('literal % is itself escaped (%25)', () {
+      expect(logG01Uri('http://nas.local:8080', '/music/100%.mp3').toString(),
+          contains('100%25.mp3'));
     });
 
-    test('basePath without trailing slash is handled', () {
-      final source = AudioSourceBuilder.buildWithBasePath(
-        baseUrl: 'http://nas.local:8080/dav',
-        filePath: 'music/song.mp3',
-        username: 'admin',
-        password: 'pass',
-      );
-      expect(source, isNotNull);
+    test('basePath joined exactly once (trailing slash trimmed)', () {
+      expect(logG01Uri('http://nas.local:8080/dav/', 'music/song.mp3').path,
+          '/dav/music/song.mp3');
     });
 
-    test('Basic Auth header with special characters in password', () {
-      final source = AudioSourceBuilder.buildWithBasePath(
-        baseUrl: 'http://nas.local:8080',
-        filePath: '/music/song.mp3',
-        username: 'admin',
-        password: 'p@ss:w0rd!',
-      );
-      expect(source, isNotNull);
+    test('basePath without trailing slash handled', () {
+      expect(logG01Uri('http://nas.local:8080/dav', 'music/song.mp3').path,
+          '/dav/music/song.mp3');
     });
 
-    test('UTF-8 username and password', () {
-      final source = AudioSourceBuilder.buildWithBasePath(
-        baseUrl: 'http://nas.local:8080',
-        filePath: '/music/song.mp3',
-        username: '用户',
-        password: '密码',
-      );
-      expect(source, isNotNull);
+    test('Basic Auth header round-trips special-character credentials', () {
+      final header = AudioSourceBuilder.buildAuthHeader(
+          username: 'admin', password: 'p@ss:w0rd!');
+      expect(header, startsWith('Basic '));
+      final decoded = utf8.decode(base64Decode(header.substring(6)));
+      expect(decoded, 'admin:p@ss:w0rd!');
+    });
+
+    test('Basic Auth header round-trips UTF-8 credentials', () {
+      final header =
+          AudioSourceBuilder.buildAuthHeader(username: '用户', password: '密码');
+      final decoded = utf8.decode(base64Decode(header.substring(6)));
+      expect(decoded, '用户:密码');
     });
   });
 

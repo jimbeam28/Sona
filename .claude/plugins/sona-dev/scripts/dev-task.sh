@@ -32,9 +32,9 @@ run_with_budget() {
   local start_ts; start_ts=$(date +%s)
   echo "==> [$label] 开始 (预算 ${budget}s)"
   local rc=0
-  if ! timeout "${budget}" "$@"; then
-    rc=$?
-  fi
+  # 注意：不能写 `if ! timeout ...; then rc=$?` —— 取反管线的 $? 是 0，
+  # 失败会被吞掉（门禁以退出码为准，铁律 3）
+  timeout "${budget}" "$@" || rc=$?
   local elapsed=$(( $(date +%s) - start_ts ))
   if [[ $rc -eq 124 ]]; then
     echo "==> [$label] FAIL 超时 (${elapsed}s > ${budget}s 预算)" >&2

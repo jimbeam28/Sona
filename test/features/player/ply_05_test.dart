@@ -862,9 +862,9 @@ void main() {
 
       await emitCompleted();
 
-      // 1. player stays at end position — no seek to zero,
-      //    but pause is called to ensure playing=false for UI consistency.
-      verifyNever(mockPlayer.seek(Duration.zero));
+      // 1. BUG-21 (cr-20260822-2051 F2): P2 规避条款 —— 末曲结束必须先显式
+      //    seek(0) 退出 Android completed 态，再 pause 保证 playing=false。
+      verify(mockPlayer.seek(Duration.zero)).called(1);
       verify(mockPlayer.pause()).called(1);
 
       // 2. saveProgress was NOT called (code returns before saveProgress line)
@@ -1311,8 +1311,9 @@ void main() {
       // 1. player.pause() was called to ensure playing=false for UI.
       verify(mockPlayer.pause()).called(1);
 
-      // 2. player.seek(Duration.zero) was NOT called — position stays at end.
-      verifyNever(mockPlayer.seek(Duration.zero));
+      // 2. BUG-21: seek(0) 必须被调用 —— 显式退出 completed 态，
+      //    Android 上进度条拖动恢复可用。
+      verify(mockPlayer.seek(Duration.zero)).called(1);
 
       // 3. Queue was not modified — no next track to advance to.
       final q = container.read(currentPlayQueueProvider);

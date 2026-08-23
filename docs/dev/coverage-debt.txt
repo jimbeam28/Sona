@@ -37,5 +37,29 @@
 # cr-0806 T7  aud_03 T01 rollback 测 _TestConnectionService 副本 → 改锚生产 ConnectionService.save
 # cr-0806 T8  aud_03 T03-2 测试名与断言不匹配（"calls stop"未 verify）→ 修正断言或改名
 #
+# ─────────────────────────────────────────────
+# 2026-08-22 处理进展（cr-20260822-2051 复核补测）：
+# ✔ cr-0806 T4 已解决——aud_05 八个纯注释空壳改为真实驱动（browser 六态经
+#   _FakeDav 注入 + gate superseded 真调度 + orchestrator 四条 failed 短路）
+# ✔ cr-0806 T5 已解决——int_g01_connection_switch_test 与 aud_01 INT-G01 组
+#   改为生产监听器 + switchActiveConnectionProvider 真实链路（含 invalidate 后
+#   显式重读 activeConnectionProvider 的时序锚定，见测试内注释）
+# ◐ cr-0806 T2 部分解决——LOG-G01 十一个 isNotNull 用例已改精确编码断言；
+#   其余同义反复用例仍待清理
+# ─────────────────────────────────────────────
+# cr-0822 T4  timer_test.dart:558-579 TST-T14 伪集成（verify 测试自己调的 pause，
+#             生产接线不设防）；:208-213/:265-277 弱断言 → 改经
+#             checkTimerExpiryProvider 真实链路驱动
+# cr-0822 T5  mock_audio_player.dart:33-36 缺 duration/audioSource 默认桩，
+#             throwOnMissingStub 组合即抛；生产 audio_source_builder.dart:182-191
+#             被迫 try/catch 兜底（踩坑实证）→ 补 returnValueForMissingStub 两 getter
+# cr-0822 T6  fake_webdav_client 无法模拟 listDirectory 挂起（validate 有
+#             hangUntilCompleted，listDirectory 无）→ 目录加载 5s 超时路径 seam 不可测；
+#             仿 HangingFakeSecureStorage 加挂起开关
+# cr-0822 T7  model_equality_test.dart:52 unrelated_type_equality_checks 常驻噪音
+#             （类型守卫负例语义正当但 lint 报警）→ 改 expect(a == Object(), isFalse)
+# cr-0822 T8  ref_19_test.dart 仅锚 nameAsc/modifiedDesc 两档排序，nameDesc 无位置级
+#             断言 → 补一条镜像断言
+#
 # 注意：本文件末尾必须为数据行（load_debt 的 while 以最后一次迭代状态为退出码，
 # 注释/空行结尾会在 set -e 下使 coverage-check.sh 误判失败）。

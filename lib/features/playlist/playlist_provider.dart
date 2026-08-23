@@ -102,6 +102,9 @@ final deletePlaylistProvider = Provider<Future<void> Function(int id)>((ref) {
   final service = ref.watch(playlistServiceProvider);
   return (int id) async {
     await service.deletePlaylist(id);
+    // BUG-22 (cr-20260822-2051 F4): tracks family 非 autoDispose，删除后必须
+    // 显式失效，否则已删播放单的曲目快照滞留内存（幽灵数据）。
+    ref.invalidate(playlistTracksProvider(id));
     ref.invalidate(playlistListProvider);
   };
 });

@@ -1,9 +1,9 @@
 {
   "metadata": {
-    "last_updated": "2026-08-22",
+    "last_updated": "2026-08-23",
     "note": "全部 49 项（BUG-04~32 + REF-01~09 + TEST-01~11）已 impl/test/check 全闭环，2026-08-15 清理归档（git 历史保留 spec 与条目）。下次 dev-plan 从空队列开始。",
-    "total": 35,
-    "pending": 35,
+    "total": 40,
+    "pending": 5,
     "total_items": 0
   },
   "order": [
@@ -41,7 +41,12 @@
     "REF-13",
     "REF-14",
     "REF-15",
-    "REF-16"
+    "REF-16",
+    "BUG-20",
+    "BUG-21",
+    "BUG-22",
+    "REF-17",
+    "REF-18"
   ],
   "items": {
     "BUG-01": {
@@ -1502,6 +1507,174 @@
       "retry_count": 0,
       "last_error": "",
       "last_updated": "2026-08-16"
+    },
+    "BUG-20": {
+      "name": "退出播放页后自动保存/暂停保存监听被取消（后台进度丢失）",
+      "spec_file": "docs/features/BUG-20.md",
+      "spec_anchored_files": [
+        "lib/features/player/player_screen.dart",
+        "lib/features/player/player_provider.dart"
+      ],
+      "scenarios": [
+        "BUG-20-S1",
+        "BUG-20-S2",
+        "BUG-20-S3"
+      ],
+      "invariants": [
+        "BUG-20-INV1",
+        "BUG-20-INV2"
+      ],
+      "algorithms": [],
+      "test_files": [
+        "test/features/player/bug_bug20_repro_test.dart"
+      ],
+      "test_coverage_gaps": [],
+      "cross_module_impacts": [],
+      "manual_qa_required": false,
+      "manual_qa_file": null,
+      "user_acceptance_text": "见 docs/features/BUG-20.md §1.2",
+      "impl_status": "done",
+      "test_status": "passed",
+      "check_status": "pending",
+      "check_round": 0,
+      "last_check_round_results": "",
+      "last_checked_at": "",
+      "dependencies": [],
+      "retry_count": 1,
+      "last_error": "gate test bug_bug20_repro_test.dart 用 pumpWidget(SizedBox) 整树卸载模拟退页，连带销毁根 ProviderScope 容器，ref.onDispose 合法取消监听器——期望与 INV1(生命周期=容器)自相矛盾，§7 删除 :102 后仍 FAIL(saves停2)。需 dev-plan 改 §5.4 测试设计(保留容器仅卸载页面)。",
+      "last_updated": "2026-08-23"
+    },
+    "BUG-21": {
+      "name": "末曲播完缺 seek(0) 滞留 completed 态（P2 部分合规）",
+      "spec_file": "docs/features/BUG-21.md",
+      "spec_anchored_files": [
+        "lib/features/player/player_provider.dart"
+      ],
+      "scenarios": [
+        "BUG-21-S1",
+        "BUG-21-S2"
+      ],
+      "invariants": [
+        "BUG-21-INV1"
+      ],
+      "algorithms": [],
+      "test_files": [
+        "test/features/player/bug_bug21_completed_seek_test.dart"
+      ],
+      "test_coverage_gaps": [],
+      "cross_module_impacts": [],
+      "manual_qa_required": false,
+      "manual_qa_file": null,
+      "user_acceptance_text": "见 docs/features/BUG-21.md §1.2",
+      "impl_status": "done",
+      "test_status": "passed",
+      "check_status": "pending",
+      "check_round": 0,
+      "last_check_round_results": "",
+      "last_checked_at": "",
+      "dependencies": [],
+      "retry_count": 0,
+      "last_error": "",
+      "last_updated": "2026-08-23"
+    },
+    "BUG-22": {
+      "name": "deletePlaylist 漏 invalidate 曲目 family 缓存（幽灵数据滞留）",
+      "spec_file": "docs/features/BUG-22.md",
+      "spec_anchored_files": [
+        "lib/features/playlist/playlist_provider.dart"
+      ],
+      "scenarios": [
+        "BUG-22-S1"
+      ],
+      "invariants": [
+        "BUG-22-INV1"
+      ],
+      "algorithms": [],
+      "test_files": [
+        "test/features/playlist/bug_bug22_repro_test.dart"
+      ],
+      "test_coverage_gaps": [],
+      "cross_module_impacts": [],
+      "manual_qa_required": false,
+      "manual_qa_file": null,
+      "user_acceptance_text": "见 docs/features/BUG-22.md §1.2",
+      "impl_status": "done",
+      "test_status": "passed",
+      "check_status": "pending",
+      "check_round": 0,
+      "last_check_round_results": "",
+      "last_checked_at": "",
+      "dependencies": [],
+      "retry_count": 0,
+      "last_error": "",
+      "last_updated": "2026-08-23"
+    },
+    "REF-17": {
+      "name": "Provider 层平台包直引收敛（组合根豁免显式化+异常上提）",
+      "spec_file": "docs/features/REF-17.md",
+      "spec_anchored_files": [
+        "lib/features/player/player_provider.dart",
+        "lib/features/connection/connection_provider.dart",
+        "lib/core/contracts/database_contract.dart"
+      ],
+      "scenarios": [
+        "REF-17-S1",
+        "REF-17-S2",
+        "REF-17-S3"
+      ],
+      "invariants": [
+        "REF-17-INV1"
+      ],
+      "algorithms": [],
+      "test_files": [],
+      "test_coverage_gaps": [],
+      "cross_module_impacts": [],
+      "manual_qa_required": false,
+      "manual_qa_file": null,
+      "user_acceptance_text": "见 docs/features/REF-17.md §1.2",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "check_status": "pending",
+      "check_round": 0,
+      "last_check_round_results": "",
+      "last_checked_at": "",
+      "dependencies": [],
+      "retry_count": 0,
+      "last_error": "",
+      "last_updated": "2026-08-23"
+    },
+    "REF-18": {
+      "name": "switch/delete 连接写副作用移出 FutureProvider build 体",
+      "spec_file": "docs/features/REF-18.md",
+      "spec_anchored_files": [
+        "lib/features/connection/connection_provider.dart",
+        "lib/features/connection/connection_list_screen.dart"
+      ],
+      "scenarios": [
+        "REF-18-S0",
+        "REF-18-S1",
+        "REF-18-S2"
+      ],
+      "invariants": [
+        "REF-18-INV1"
+      ],
+      "algorithms": [],
+      "test_files": [],
+      "test_coverage_gaps": [],
+      "cross_module_impacts": [],
+      "manual_qa_required": false,
+      "manual_qa_file": null,
+      "user_acceptance_text": "见 docs/features/REF-18.md §1.2",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "check_status": "pending",
+      "check_round": 0,
+      "last_check_round_results": "",
+      "last_checked_at": "",
+      "dependencies": [],
+      "retry_count": 0,
+      "last_error": "",
+      "last_updated": "2026-08-23"
     }
   }
 }

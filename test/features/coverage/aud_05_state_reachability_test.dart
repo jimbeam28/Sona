@@ -24,10 +24,14 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:fake_async/fake_async.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:mockito/annotations.dart';
+import 'package:nas_audio_player/core/network/webdav_client.dart';
+import 'package:nas_audio_player/features/browser/browser_provider.dart';
 import 'package:nas_audio_player/features/connection/connection_provider.dart';
+import 'package:nas_audio_player/features/player/domain/playback_orchestrator.dart';
 import 'package:nas_audio_player/features/browser/domain/cache_policy.dart';
 import 'package:nas_audio_player/features/browser/domain/directory_service.dart';
 import 'package:nas_audio_player/features/browser/domain/navigation_stack.dart';
@@ -37,11 +41,101 @@ import 'package:nas_audio_player/features/player/domain/request_gate.dart';
 import 'package:nas_audio_player/features/progress/domain/progress_service.dart';
 import 'package:nas_audio_player/features/progress/progress_provider.dart';
 import 'package:nas_audio_player/features/timer/domain/timer_service.dart';
+import 'package:nas_audio_player/shared/models/connection_config.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:nas_audio_player/shared/models/play_progress.dart';
 import 'package:nas_audio_player/shared/models/play_queue.dart';
 
 import '../../helpers/fake_progress_dao.dart';
+import '../../helpers/fake_secure_storage.dart';
+import '../../helpers/mock_audio_player.dart';
+
+/// cr-20260822-2051 T1：可配置的 WebDAV 客户端假实现（挂起 / 抛错 / 预置条目），
+/// 用于真实驱动 directoryContentsProvider 的状态可达性验证。
+class _FakeDav implements WebDavClientInterface {
+  _FakeDav({List<NasFile>? files, Object? error, bool hanging = false})
+      : files = files,
+        error = error,
+        hanging = hanging;
+
+  List<NasFile>? files;
+  Object? error;
+  final bool hanging;
+  int callCount = 0;
+
+  factory _FakeDav.hanging() => _FakeDav(hanging: true);
+
+  @override
+  Future<List<NasFile>> listDirectory({
+    required String url,
+    required String username,
+    required String password,
+    required String path,
+  }) async {
+    callCount++;
+    if (hanging) return Completer<List<NasFile>>().future;
+    final err = error;
+    if (err != null) throw err;
+    return files ?? const <NasFile>[];
+  }
+
+  @override
+  Future<WebDavValidationResult> validate({
+    required String url,
+    required String username,
+    required String password,
+    String basePath = '/',
+  }) =>
+      throw UnimplementedError('not used in these tests');
+}
+
+final _fakeConn = ConnectionConfig(
+  id: 7,
+  name: 'NAS',
+  url: 'http://nas.local:5005',
+  username: 'u',
+  createdAt: DateTime(2026, 1, 1),
+  updatedAt: DateTime(2026, 1, 1),
+);
+
+class _FakeConnProvider implements ActiveConnectionProvider {
+  _FakeConnProvider(this.conn);
+  final ConnectionConfig? conn;
+
+  @override
+  Future<ConnectionConfig?> getActiveConnection() async => conn;
+
+  @override
+  ConnectionConfig? get currentConnection => conn;
+}
+
+class _FakePasswordReader implements PasswordReader {
+  _FakePasswordReader(this.password);
+  final String? password;
+
+  @override
+  Future<String?> readPassword(int connectionId) async => password;
+}
+
+class _NoopProgressSaver implements ProgressSaver {
+  @override
+  Future<void> upsertProgress({
+    required int connectionId,
+    required String filePath,
+    required int positionMs,
+    int? durationMs,
+  }) async {}
+}
+
+class _FixedSpeedProvider implements DefaultSpeedProvider {
+  @override
+  double getDefaultSpeed() => 1.0;
+}
+
+class _NoopQueueConnProvider implements QueueConnectionIdProvider {
+  @override
+  int? getLastQueueConnectionId() => null;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Generate mocks
@@ -103,33 +197,106 @@ void main() {
   // ═══════════════════════════════════════════════════════════════════════════
 
   group('AUD-05-T02: Browser directory content state reachability', () {
-    test('Loading state: PROPFIND request in progress', () {
-      // Loading is the initial state when navigating to a directory
-      // Confirmed: FutureProvider starts in loading state
-      // Reachable via navigation stack change or initial load
+    // cr-20260822-2051 T1：原六用例为纯注释空壳（零断言恒绿）。改为经注入
+    // fake WebDAV 客户端真实驱动 directoryContentsProvider
+    // （browser_provider.dart:91-136）逐态验证。
+    final conn = ConnectionConfig(
+      id: 1,
+      name: 'NAS',
+      url: 'http://nas.local:5005',
+      username: 'u',
+      createdAt: DateTime(2026, 1, 1),
+      updatedAt: DateTime(2026, 1, 1),
+    );
+
+    Future<ProviderContainer> browserContainer(_FakeDav client) async {
+      final storage = FakeSecureStorage();
+      await storage.write(key: 'connection_password_1', value: 'pw');
+      return ProviderContainer(overrides: [
+        activeConnectionProvider.overrideWith((ref) async => conn),
+        secureStorageProvider.overrideWith((ref) => storage),
+        webDavClientProvider.overrideWith((ref) => client),
+      ]);
+    }
+
+    test('Loading state: PROPFIND request in progress', () async {
+      final container = await browserContainer(_FakeDav.hanging());
+      addTearDown(container.dispose);
+      expect(container.read(directoryContentsProvider('/')).isLoading, true,
+          reason: '挂起的 PROPFIND 期间 provider 必须处于 loading 态');
     });
 
-    test('Error state: network exception or missing credentials', () {
-      // Error is reached when WebDAV request fails
-      // Confirmed: browser_provider.dart throws WebDavException
+    test('Error state: network exception or missing credentials', () async {
+      final container = await browserContainer(
+          _FakeDav(error: const WebDavException('boom')));
+      addTearDown(container.dispose);
+      await expectLater(container.read(directoryContentsProvider('/').future),
+          throwsA(isA<WebDavException>()));
     });
 
-    test('Empty state: directory has no audio files', () {
-      // Empty is reached when filtered list is empty
-      // Confirmed: browser_provider.dart returns empty list
+    test('Empty state: directory has no audio files', () async {
+      final container = await browserContainer(_FakeDav(files: [
+        NasFile(name: 'readme.txt', path: '/readme.txt', isDirectory: false),
+      ]));
+      addTearDown(container.dispose);
+      expect(
+          await container.read(directoryContentsProvider('/').future), isEmpty,
+          reason: '非音频且非目录的条目必须被过滤为空');
     });
 
-    test('Data state: directory has files', () {
-      // Data is reached when filtered list is non-empty
-      // Confirmed: browser_provider.dart returns file list
+    test('Data state: directory has files (dirs kept, sorted first)', () async {
+      final dir = NasFile(name: 'albums', path: '/albums', isDirectory: true);
+      final container = await browserContainer(_FakeDav(files: [
+        NasFile(name: 'notes.txt', path: '/notes.txt', isDirectory: false),
+        dir,
+      ]));
+      addTearDown(container.dispose);
+      final list = await container.read(directoryContentsProvider('/').future);
+      expect(list, hasLength(1), reason: 'txt 被过滤，目录保留');
+      expect(list.single.isDirectory, true);
     });
 
-    test('Error -> Loading: retry clears cache and reloads', () {
-      // Confirmed: invalidate provider triggers re-fetch
+    test('Error -> Data: retry via invalidate re-fetches', () async {
+      final client = _FakeDav(error: const WebDavException('boom'));
+      final container = await browserContainer(client);
+      addTearDown(container.dispose);
+
+      await expectLater(container.read(directoryContentsProvider('/').future),
+          throwsA(isA<WebDavException>()));
+
+      client.error = null;
+      client.files = [NasFile(name: 'x', path: '/x', isDirectory: true)];
+      container.invalidate(directoryContentsProvider('/'));
+      expect(
+          await container.read(
+            directoryContentsProvider('/').future,
+          ),
+          hasLength(1),
+          reason: 'invalidate 后必须重新拉取并成功');
     });
 
-    test('Data -> Loading: pull-to-refresh clears cache', () {
-      // Confirmed: invalidate provider triggers re-fetch
+    test('Data -> fresh Data: pull-to-refresh bypasses cache', () async {
+      final client = _FakeDav(files: [
+        NasFile(name: 'a', path: '/a', isDirectory: true),
+      ]);
+      final container = await browserContainer(client);
+      addTearDown(container.dispose);
+
+      expect(await container.read(directoryContentsProvider('/').future),
+          hasLength(1));
+
+      // 生产下拉刷新路径：clearDirectoryCacheProvider 清 TTL 缓存并失效元素
+      // （browser_provider.dart:55-88；调用方 browser_screen.dart 下拉刷新）。
+      container.read(clearDirectoryCacheProvider)(conn.id, '/');
+
+      client.files = [
+        NasFile(name: 'a', path: '/a', isDirectory: true),
+        NasFile(name: 'b', path: '/b', isDirectory: true),
+      ];
+      expect(await container.read(directoryContentsProvider('/').future),
+          hasLength(2),
+          reason: '刷新必须绕过 TTL 缓存取到新数据');
+      expect(client.callCount, 2, reason: '两次读取都必须真实发起 PROPFIND');
     });
   });
 
@@ -282,12 +449,67 @@ void main() {
       expect(result.status, TrackLoadStatus.superseded);
     });
 
-    test('loaded -> superseded: when newer request arrives during load', () {
-      // Confirmed: SerializedRequestGate returns superseded when isLatest fails
+    test('loaded -> superseded: when newer request arrives during load',
+        () async {
+      // cr-20260822-2051 T1：原用例为纯注释空壳。真实驱动 SerializedRequestGate：
+      // 任务 A 挂起期间调度 B，A 完成时 isLatest()==false → onSuperseded 收尾。
+      final gate = SerializedRequestGate();
+      final slow = Completer<int>();
+      final resultA = gate.schedule<int>(
+        task: (_) => slow.future,
+        onSuperseded: () => -1,
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final resultB = gate.schedule<int>(
+        task: (_) async => 2,
+        onSuperseded: () => -2,
+      );
+
+      slow.complete(1);
+      expect(await resultA, -1, reason: '被取代的请求必须以 onSuperseded 收尾');
+      expect(await resultB, 2, reason: '最新请求正常返回结果');
     });
 
-    test('failed is returned on no queue, no connection, no password', () {
-      // Confirmed: playback_orchestrator.dart returns failed in all these cases
+    test('failed is returned on no queue, no connection, no password',
+        () async {
+      // cr-20260822-2051 T1：真实驱动 PlaybackOrchestrator.loadAndPlay 的三条
+      // failed 短路（playback_orchestrator.dart:146-175）。
+      Future<TrackLoadResult> drive({
+        required PlayQueue? queue,
+        required ConnectionConfig? conn,
+        required String? password,
+      }) {
+        final orchestrator = PlaybackOrchestrator(
+          player: MockAudioPlayer(),
+          connectionProvider: _FakeConnProvider(conn),
+          passwordReader: _FakePasswordReader(password),
+          progressSaver: _NoopProgressSaver(),
+          defaultSpeedProvider: _FixedSpeedProvider(),
+          queueConnectionIdProvider: _NoopQueueConnProvider(),
+        );
+        orchestrator.queue = queue;
+        return orchestrator.loadAndPlay();
+      }
+
+      const failed = TrackLoadStatus.failed;
+      final queue = PlayQueue(
+          files: [NasFile(name: 'a', path: '/a', isDirectory: false)],
+          currentIndex: 0);
+
+      expect(
+          (await drive(queue: null, conn: null, password: null)).status, failed,
+          reason: '无队列 → failed');
+      expect((await drive(queue: queue, conn: null, password: null)).status,
+          failed,
+          reason: '无连接 → failed');
+      expect(
+          (await drive(queue: queue, conn: _fakeConn, password: null)).status,
+          failed,
+          reason: '无密码 → failed');
+      expect((await drive(queue: queue, conn: _fakeConn, password: '')).status,
+          failed,
+          reason: '空密码 → failed');
     });
   });
 

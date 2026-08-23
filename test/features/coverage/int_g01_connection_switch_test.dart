@@ -42,7 +42,9 @@ void main() {
     });
 
     test('switching active connection clears queue when IDs differ', () async {
-      // Insert two connections: conn1 (active) and conn2.
+      // cr-20260822-2051 T2：原实现把 clearQueueOnConnectionSwitchProvider 的
+      // 逻辑复制进测试体自演自证（删除生产 provider 本测试仍绿）。改为真实驱动：
+      // 注册生产监听器 → 经生产 switch 路径切连接 → 断言队列被清。
       final conn1 = await service.save(
         config: testConfig(name: 'NAS-A', url: 'http://nas-a:5005'),
         password: 'pass1',
@@ -51,32 +53,32 @@ void main() {
         config: testConfig(name: 'NAS-B', url: 'http://nas-b:5005'),
         password: 'pass2',
       );
-
-      // Set conn2 as active (conn1 was auto-active after save).
       await service.setActive(conn2.id!);
 
-      // Build a ProviderContainer that simulates the clearQueue logic.
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      container.read(clearQueueOnConnectionSwitchProvider);
+      // 生产中 BrowserScreen 常驻 watch 活跃连接；测试先初始化该元素，
+      // 使后续 invalidate 真正触发监听器（未初始化元素的 invalidate 不通知）。
+      await container.read(activeConnectionProvider.future);
+
       final files = [testAudio('song.mp3', '/music/song.mp3')];
-      final queue = PlayQueue(files: files, currentIndex: 0);
+      container.read(currentPlayQueueProvider.notifier).state =
+          PlayQueue(files: files, currentIndex: 0);
+      container.read(lastQueueConnectionIdProvider.notifier).state = conn2.id;
 
-      // Simulate: queue was created under conn1, lastQueueConnectionId = conn1.id
-      int? lastQueueConnectionId = conn1.id;
-      PlayQueue? currentQueue = queue;
+      await container.read(switchActiveConnectionProvider(conn1.id!).future);
 
-      // The clearQueueOnConnectionSwitchProvider logic:
-      // When active connection changes, if IDs differ -> clear queue.
-      final newActiveId = conn2.id;
-      if (lastQueueConnectionId != null &&
-          newActiveId != null &&
-          newActiveId != lastQueueConnectionId) {
-        currentQueue = null;
-        lastQueueConnectionId = null;
-      }
+      // 生产中 home/BrowserScreen 常驻 watch 活跃连接；测试须显式重读触发
+      // invalidate 后的重建（AsyncLoading→AsyncData），clearQueue 监听器
+      // 才会收到新值。
+      final rebuilt = await container.read(activeConnectionProvider.future);
+      expect(rebuilt?.id, conn1.id);
 
-      expect(currentQueue, isNull,
+      expect(container.read(currentPlayQueueProvider), isNull,
           reason:
               'INT-G01-T01: queue should be cleared when connection switches');
-      expect(lastQueueConnectionId, isNull,
+      expect(container.read(lastQueueConnectionIdProvider), isNull,
           reason: 'INT-G01-T01: lastQueueConnectionId should be cleared');
     });
 
@@ -86,25 +88,25 @@ void main() {
         password: 'pass1',
       );
 
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      container.read(clearQueueOnConnectionSwitchProvider);
+      await container.read(activeConnectionProvider.future);
+
       final files = [testAudio('song.mp3', '/music/song.mp3')];
-      final queue = PlayQueue(files: files, currentIndex: 0);
+      container.read(currentPlayQueueProvider.notifier).state =
+          PlayQueue(files: files, currentIndex: 0);
+      container.read(lastQueueConnectionIdProvider.notifier).state = conn1.id;
 
-      int? lastQueueConnectionId = conn1.id;
-      PlayQueue? currentQueue = queue;
+      await container.read(switchActiveConnectionProvider(conn1.id!).future);
+      await container.read(activeConnectionProvider.future);
 
-      // Same connection ID — no change.
-      final newActiveId = conn1.id;
-      if (lastQueueConnectionId != null &&
-          newActiveId != null &&
-          newActiveId != lastQueueConnectionId) {
-        currentQueue = null;
-        lastQueueConnectionId = null;
-      }
-
-      expect(currentQueue, isNotNull,
+      final q = container.read(currentPlayQueueProvider);
+      expect(q, isNotNull,
           reason:
               'INT-G01-T01: queue should be preserved when connection is the same');
-      expect(currentQueue!.current.path, equals('/music/song.mp3'));
+      expect(q!.current.path, equals('/music/song.mp3'));
+      expect(container.read(lastQueueConnectionIdProvider), equals(conn1.id));
     });
 
     test('after queue cleared, new queue can be set for new connection',

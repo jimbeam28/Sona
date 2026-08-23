@@ -49,6 +49,7 @@ void main() {
 
     test('REF-07-S1: 与非 ConnectionConfig 比较不等', () {
       final a = _base();
+      // ignore: unrelated_type_equality_checks
       expect(a == 'string', isFalse);
     });
 

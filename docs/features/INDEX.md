@@ -45,6 +45,8 @@
 | REF-14 | FakeSecureStorage 挂起变体提取（HangingFakeSecureStorage 共享化） | active | 2026-08-16 | test/helpers/fake_secure_storage.dart | —（测试基础设施） | 10/2/0 | pending / pending / pending |
 | REF-15 | int_g06 8 处 addTearDown tear-off 坏形态修正（ProviderContainer 真正释放） | active | 2026-08-16 | test/features/coverage/int_g06_lifecycle_test.dart | —（纯测试代码） | 4/1/0 | pending / pending / pending |
 | REF-16 | coverage-debt.txt 过期登记移除（timer_service 97.30% / playback_orchestrator 98.39%） | active | 2026-08-16 | docs/dev/coverage-debt.txt | —（流程记账） | 6/1/0 | pending / pending / pending |
+| REF-17 | Provider 层平台包直引收敛（组合根豁免显式化 + LastConnectionException 上提 + 门禁盲区封堵） | active | 2026-08-22 | lib/features/connection/connection_provider.dart | PLY, CON, Core | 3/1/0 | pending / pending / pending |
+| REF-18 | switch/delete 连接写副作用移出 FutureProvider build 体（P11 模式收敛） | active | 2026-08-22 | lib/features/connection/connection_provider.dart | BRW, CON | 3/1/0 | pending / pending / pending |
 
 ## Bug 文档
 
@@ -69,6 +71,9 @@
 | BUG-17 | save() 原子性只覆盖步骤 2，步骤 4/5 失败留下共享临时 key 的孤儿行 | active | 2026-08-16 | lib/features/connection/domain/connection_service.dart | Connection | Connection | 4/3/0 | pending / pending / pending |
 | BUG-18 | Browser 读进度路径裸奔无 try/catch（恢复进度查询抛错无反馈无日志） | active | 2026-08-16 | lib/features/browser/browser_screen.dart | Browser | BRW, PRG | 4/2/0 | pending / pending / pending |
 | BUG-19 | 生产 DB 迁移逻辑（v1→v2）零锚定：db_migration_test 内联重实现 _onUpgrade、test_database schema 双份手工同步 | active | 2026-08-16 | lib/core/database/database_helper.dart | 跨模块（Core/Database） | Connection, Progress, Playlist, Browser | 6/2/0 | pending / pending / pending |
+| BUG-20 | 退出播放页后自动保存/暂停保存监听被取消，后台收听进度丢失窗口 | active | 2026-08-22 | lib/features/player/player_screen.dart | Player | HOME, PRG | 3/2/0 | pending / pending / pending |
+| BUG-21 | 末曲播完缺 seek(0)，播放器滞留 completed 态（P2 部分合规） | active | 2026-08-22 | lib/features/player/player_provider.dart | Player | — | 2/1/0 | pending / pending / pending |
+| BUG-22 | deletePlaylist 漏 invalidate 曲目 family 缓存（幽灵数据滞留） | active | 2026-08-22 | lib/features/playlist/playlist_provider.dart | Playlist | — | 1/1/0 | pending / pending / pending |
 
 ## TEST-GAP 文档
 
@@ -78,10 +83,10 @@
 ## 状态汇总
 
 - 功能文档：0 份
-- Refactoring 文档：16 份
-- Bug 文档：19 份
+- Refactoring 文档：18 份
+- Bug 文档：22 份
 - TEST-GAP 文档：0 份
-- 待 dev-exe：35 份（BUG-01 / BUG-02 / BUG-03 / BUG-04 / BUG-05 / BUG-06 / BUG-07 / BUG-08 / BUG-09 / BUG-10 / BUG-11 / BUG-12 / BUG-13 / BUG-14 / BUG-15 / BUG-16 / BUG-17 / BUG-18 / BUG-19 / REF-01 / REF-02 / REF-03 / REF-04 / REF-05 / REF-06 / REF-07 / REF-08 / REF-09 / REF-10 / REF-11 / REF-12 / REF-13 / REF-14 / REF-15 / REF-16）
+- 待 dev-exe：40 份（BUG-01 / BUG-02 / BUG-03 / BUG-04 / BUG-05 / BUG-06 / BUG-07 / BUG-08 / BUG-09 / BUG-10 / BUG-11 / BUG-12 / BUG-13 / BUG-14 / BUG-15 / BUG-16 / BUG-17 / BUG-18 / BUG-19 / BUG-20 / BUG-21 / BUG-22 / REF-01 / REF-02 / REF-03 / REF-04 / REF-05 / REF-06 / REF-07 / REF-08 / REF-09 / REF-10 / REF-11 / REF-12 / REF-13 / REF-14 / REF-15 / REF-16 / REF-17 / REF-18）
 
 ## 折叠归并备注（cr-20260816-0802 F1）
 
@@ -94,6 +99,7 @@
 
 ## changelog
 
+- 2026-08-22: cr-20260822-2051 复核分流落地。**新增 BUG-20/21/22**（F1/F2/F4 用户选定第一批；三条 repro 门禁均以 repro-test.sh fail 确认真实 FAIL——bug_bug20_repro_test.dart widget 级实证 dispose 取消监听后暂停不再保存、bug_bug21_completed_seek_test.dart 实证 nq==null 分支缺 seek(0)、bug_bug22_repro_test.dart 真 SQLite 实证删除后曲目 family 缓存滞留；BUG-21 门禁文件名带描述后缀避开既有 bug_bug21_repro_test.dart，SCHEMA §1.3）。**新增 REF-17/REF-18**（D1/D2 用户裁决"修"→ 转 REF 需求流程；DESIGN 条目无 repro 门禁要求）。**T1/T2/T3 补测完成**（aud_05 八个纯注释空壳改真实驱动：browser 六态经 _FakeDav 注入 + gate superseded + orchestrator 四条 failed 短路；int_g01 与 aud_01 INT-G01 自演组改生产监听器+switch 路径真实驱动——关键发现：ref.listen 须在 invalidate 后显式重读 activeConnectionProvider 才收到通知（生产等价于 home/BrowserScreen 常驻 watch），测试已加注释锚定该语义；aud_01 LOG-G01 十一个 isNotNull 用例改 buildUriWithBasePath/buildAuthHeader 精确断言——顺带实证 Dart Uri 不转义撇号（RFC3986 sub-delim）与 query 空串返回 '' 非 null 两处平台行为）。**T4-T8 登记、F5-F9 待批次二**（见 docs/dev/cr-backlog.md）。**D3 关单**（记录裁决理由不建条目）。三文件补测后 flutter test 241 全绿。
 - 2026-08-16: cr-20260816-0801~0806 复核 DESIGN 裁决关闭 5 条（用户按推荐裁决，记录理由不建条目）：① cr-0801 D3（normaliseWebDavUrl 对无端口 https 强制补 5005）——特定 NAS 环境约定，非通用缺陷；② cr-0801 D4（PlaylistDao.reorderTrack 同毫秒碰撞）——added_at base+i 偏移已保证同批序，跨批碰撞不改变相对顺序；③ cr-0805 D4（Timer paused 模式 UI 生产不可达）——服务层 pause/resume 保留供测试与未来 UI 用；④ cr-0806 D4（bug_10_test.dart 命名/位置偏离约定）——已知债务 INDEX 已登记，迁移成本高于收益；⑤ cr-0806 D5（本地 mock 变体扩散）——渐进迁移，不强制一轮收敛
 - 2026-08-16: 新增 REF-14、REF-15、REF-16（cr-20260816-0806-test-helpers.md DESIGN 条目用户裁决"修"→ 转 REF 需求流程落地；DESIGN 条目无 repro 门禁要求）。**编号归属勘误**：任务下达将 REF-16 标为"cr-0806 D5"，但内容（coverage-debt.txt 两条登记过期）与 cr 报告 D2 逐字一致，D5 实为"本地 mock 变体扩散"——按内容归属 D2 落地，D5 不在本次 3 条内。REF-14 设计裁决（D1）：共享 helper 新增单一类 `HangingFakeSecureStorage extends FakeSecureStorage`（构造参 hangRead/hangWrite/hangDelete 默认 false，per-method 可配对齐 cr 修复建议原文）+ readCalls/writeCalls/deleteCalls 计数器（支撑 svc_storage_utils_test.dart:46 `readCalls == 1` 断言；计数在挂起短路前递增）；挂起机制 `Completer<T>().future` 与三处本地实现逐字节同构（bug_10:171 / bug_bug32:56/74/91 / svc:22 实证，非新模式）；bug_bug32 的 `_MapStorage`/`_ThrowingReadStorage` 保留不迁（非挂起家族，防语义漂移）；三文件删类后 `import 'dart:async'` 一并移除（dart:core core.dart:167 再导出 Future/Stream 实证，Completer 仅存在于被删类）。迁移点：bug_10_test.dart 删 157-192（调用点 :29/:59 换 hangRead/hangWrite）、bug_bug32 删 44-93（调用点 :230/:290/:294/:325/:364/:427/:546）、svc_storage_utils 删 14-24（调用点 :36，断言 :46 不变）。REF-15 设计裁决（D3）：8 处坏形态 `addTearDown(() => container.dispose)`（:137/:164/:222/:239/:296/:321/:454/:478）逐行改 `addTearDown(container.dispose)`；可行性依据（铁律 6 实证）：riverpod 2.6.1 container.dart:625 `void dispose()` 同步非 Future，tear-off `void Function()` 可赋值 `AsyncCallback`，仓库 10+ 处编译实证（bug_13_repro_test:233/256、o3:68、bug_bug31:99/149/179、bug_06:178、brw_04:167/238、brw_05:55）；await 形态不需要（dispose 为 void）；断言零改动。REF-16 设计裁决（D2）：实测两文件（lcov.info 2026-08-15 23:26 + check-check EXIT=0 + awk 独立核对）——timer_service 72/74=97.30%、playback_orchestrator 122/124=98.39%，均 ≥90% → **删除 coverage-debt.txt:10-11 两条登记**（符合"只减不增"规则，coverage-debt.txt:5）；头部注释与 TEST-GAP 区（13-41）保留；check-exe 验证 floor 回落 90 硬阈仍 EXIT=0；baseline-coverage.json 不 refresh（check-check 无耦合，刷新归 dev-check PASS 职责）
 - 2026-08-16: 新增 REF-09~REF-13（cr-20260816-0805-progress-timer-settings.md D1/D2/D3/D5/D6 用户裁决"修"→ 转 REF 需求流程落地；DESIGN 条目无 repro 门禁要求）。REF-09 设计裁决：progress_policy 下沉 `core/contracts/progress_policy.dart`（选 core/contracts 而非 core/database：本质是"何时持久化"的决策契约，且用户裁决给出 core/contracts 优先）；extractTitleFromPath 下沉 `shared/media_title.dart`（纯字符串工具，webdav_paths 先例），player 侧 domain/media_control.dart 改 re-export 保 feature 消费方路径零改动；audio_handler.dart:24 改直连 shared 并随 `hide MediaAction` 消失；cross-imports.sh 新增 core→feature 方向检查（check_core_feature 并入 all）；coverage-check.sh:30 critical 路径同步改（否则 cov-gate 查不到新文件）；manual_qa_required=true（audio_handler 被触碰，通知栏标题 MQA）。REF-10 设计裁决（证据修正：cr 原判"顶层三函数死代码"有误——settings_test.dart:529-574 REF-01-S1 组经 settings_domain 别名直接调用）：统一到实例方法单份，**必须先迁 settings_test REF-01-S1 组再删顶层三函数（settings_service.dart:23-46）**，S5 迁移绿后 S6 才删（顺序铁律写进 spec）；settings_provider.dart:36-42 同名顶层 getThemeMode 是 String→ThemeMode 映射、职责独立不删；shared/di re-export（ThemeMode 版）不受影响。REF-11 设计裁决（D3 二选一）：**补回 15 分钟 tile**（timer_button.dart:72 前插入，5/10/15 递增档序）——文档三处（头注释 :4-7 / timer_test:16-17 / TMR-T26）已承诺 15 分钟，删文档需改 3 处且丢常见睡眠档，补 tile 只加 UI 一处；按 cr T2 一并补 TimerBottomSheet widget 测试锚定 tile 集合（D3 漂移未被抓的直接原因）。REF-12 设计裁决（D5，证据修正：cr 只 grep lib/，test/ 有 25+ 处读取）：**删残留**而非接读取方——生产运行时速真理源是 player.speedStream（speed_control:21-24/79、orchestrator:201），手写镜像制造双源漂移（P10 反面），"接读取方"无自然读取点；删除 player_provider:178/180-181/336-338、speed_control:80、di:97 五处，测试迁移把容器级"写镜像模拟调速"升级为 SpeedControl widget 门控测试（ref_12_speed_gate_test.dart，MockAudioPlayer 直测 speed_control.dart:78-84 remember 门控）；PLY-T43/44 纯镜像存在性测试删除。REF-13 设计裁决（D6）：**删两处 invalidate**（progress_provider.dart:102/:130）——family 全项目（lib+test）零消费，invalidate 对未创建元素 no-op 纯噪音；保留 recentlyPlayedProvider 定义+di re-export+DAO getRecentlyPlayed 作为未来「最近播放」功能位；写路径 invalidate 集收敛为真实订阅面（progressForFile/latestPlayed，P10 纪律）

@@ -99,7 +99,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     // removed with the progress registry — browser progress queries now read
     // progressForFileProvider, invalidated by the write paths themselves.
     _timerExpiryChecker?.cancel();
-    _container.read(cancelPlaybackSubscriptionsProvider)();
+    // BUG-20 (cr-20260822-2051 F1): autosave/pausesave listeners are owned by
+    // the app-level container (ref.onDispose, INV1) — a page State's dispose
+    // must not touch them, or background listening loses progress persistence.
     WidgetsBinding.instance.removeObserver(this);
 
     super.dispose();
