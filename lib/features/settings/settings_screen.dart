@@ -58,6 +58,13 @@ class SettingsScreen extends ConsumerWidget {
           // ── 存储 ──────────────────────────────────────────────────
           const SectionHeader(title: '存储'),
           _ClearCacheTile(),
+          ListTile(
+            leading: const Icon(Icons.download_outlined),
+            title: const Text('离线下载管理'),
+            subtitle: const Text('查看和管理已下载的音频'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/downloads'),
+          ),
 
           const Divider(),
 

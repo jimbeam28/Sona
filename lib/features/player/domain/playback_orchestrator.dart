@@ -118,6 +118,12 @@ class PlaybackOrchestrator {
   /// seeded instance for determinism.
   final Random _rng;
 
+  /// DL-01-S6 local-first port: resolves the local file path for a fully
+  /// downloaded (done) entry, or null to continue with remote streaming.
+  /// Optional — null keeps the pre-DL-01 behaviour byte-for-byte (INV1).
+  final Future<String?> Function(int connectionId, String filePath)?
+      localSourceResolver;
+
   PlaybackOrchestrator({
     required this.player,
     required this.connectionProvider,
@@ -126,6 +132,7 @@ class PlaybackOrchestrator {
     required this.defaultSpeedProvider,
     required this.queueConnectionIdProvider,
     Random? random,
+    this.localSourceResolver,
   }) : _rng = random ?? Random();
 
   /// The connection ID that was active when the queue was last loaded.
@@ -164,31 +171,53 @@ class PlaybackOrchestrator {
             return const TrackLoadResult.superseded();
           }
 
-          // Read password.
-          final password =
-              await passwordReader.readPassword(activeConn.id!).timeout(
-                    const Duration(seconds: 5),
-                    onTimeout: () => null,
-                  );
-          if (password == null || password.isEmpty) {
-            return const TrackLoadResult.failed();
-          }
-          if (!_gate.isLatest(requestId)) {
-            return const TrackLoadResult.superseded();
+          // DL-01-S6: 本地优先加载。已完整下载（done）且文件仍在磁盘时直接读
+          // 本地，跳过密码读取与远程建源（免一次 secure storage 读）。resolver
+          // 抛错按 null 兜底继续远程路径（BUG-18 同族加固），await 之后照例做
+          // isLatest 复查防 superseded 竞态。
+          String? localPath;
+          final resolver = localSourceResolver;
+          if (resolver != null) {
+            try {
+              localPath = await resolver(activeConn.id!, q.current.path);
+            } catch (e) {
+              debugLog('[Player] loadAndPlay: local source lookup failed: $e');
+            }
+            if (!_gate.isLatest(requestId)) {
+              return const TrackLoadResult.superseded();
+            }
           }
 
-          // Build audio source. NET1: use the effective base URL so the
-          // connection base (url.path joined with basePath) is applied exactly
-          // once to the relative filePath returned by listDirectory.
-          final source = AudioSourceBuilder.buildWithBasePath(
-            baseUrl:
-                webDavEffectiveBaseUrl(activeConn.url, activeConn.basePath),
-            filePath: q.current.path,
-            username: activeConn.username,
-            password: password,
-          );
+          if (localPath != null) {
+            // Local hit: authenticated remote build bypassed entirely.
+            await player.setAudioSource(AudioSourceBuilder.file(localPath));
+          } else {
+            // Read password.
+            final password =
+                await passwordReader.readPassword(activeConn.id!).timeout(
+                      const Duration(seconds: 5),
+                      onTimeout: () => null,
+                    );
+            if (password == null || password.isEmpty) {
+              return const TrackLoadResult.failed();
+            }
+            if (!_gate.isLatest(requestId)) {
+              return const TrackLoadResult.superseded();
+            }
 
-          await player.setAudioSource(source);
+            // Build audio source. NET1: use the effective base URL so the
+            // connection base (url.path joined with basePath) is applied exactly
+            // once to the relative filePath returned by listDirectory.
+            final source = AudioSourceBuilder.buildWithBasePath(
+              baseUrl:
+                  webDavEffectiveBaseUrl(activeConn.url, activeConn.basePath),
+              filePath: q.current.path,
+              username: activeConn.username,
+              password: password,
+            );
+
+            await player.setAudioSource(source);
+          }
 
           // Seek to resume position if specified.
           if (q.startPositionMs != null) {

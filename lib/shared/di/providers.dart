@@ -230,6 +230,15 @@ export '../../features/playlist/playlist_provider.dart'
         exportPlaylistProvider,
         importPlaylistProvider;
 
+// ── 8. Downloads (DL-01) ────────────────────────────────────────────────────
+
+export '../../features/downloads/downloads_provider.dart'
+    show
+        downloadDaoProvider,
+        downloadFileSystemProvider,
+        downloadManagerProvider,
+        localSourceResolverProvider;
+
 // ── 8. Cross-feature widgets & dialogs ──────────────────────────────────────
 
 export '../../features/progress/progress_dialog.dart'

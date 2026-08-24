@@ -134,6 +134,8 @@ final playbackOrchestratorProvider = Provider<PlaybackOrchestrator>((ref) {
     progressSaver: d,
     defaultSpeedProvider: d,
     queueConnectionIdProvider: d,
+    // DL-01-S6: 本地优先加载端口（done 且本地文件在盘 → AudioSource.file 免鉴权直读）。
+    localSourceResolver: ref.read(localSourceResolverProvider),
   );
   // Guard to prevent circular updates between orchestrator and Riverpod.
   var _syncingFromOrchestrator = false;

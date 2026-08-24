@@ -10,17 +10,23 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:meta/meta.dart';
 
 import '../contracts/storage_contract.dart';
 import 'storage_utils.dart';
 
 class AudioSourceBuilder {
+  /// Builds a [AudioSource] that reads directly from a local file path
+  /// (DL-01-S6 offline playback). Kept beside the remote builders so domain
+  /// callers never import just_audio themselves.
+  static AudioSource file(String path) => AudioSource.file(path);
+
   /// Builds a Basic Auth header value from [username] and [password].
   ///
   /// Returns the string `'Basic <base64(username:password)>'`.
   /// Conforms to RFC 7617.
-  @visibleForTesting
+  ///
+  /// DL-01: no longer @visibleForTesting — WebDavClient.downloadFile reuses
+  /// it as its production Authorization source.
   static String buildAuthHeader({
     required String username,
     required String password,

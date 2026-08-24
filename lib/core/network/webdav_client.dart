@@ -5,10 +5,13 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart' show IOClient;
 import '../../shared/models/nas_file.dart';
 import '../../shared/webdav_paths.dart';
+import '../services/audio_source_builder.dart';
 
 // ── Validation result ─────────────────────────────────────────────────────────
 
@@ -154,6 +157,35 @@ abstract class WebDavClientInterface {
     required String password,
     required String path,
   });
+
+  /// Streams [filePath] from the server to a local file (DL-01-S3).
+  ///
+  /// [url] is the effective base URL; [filePath] is relative to it. The body
+  /// is written chunk-by-chunk to `<saveTo>.part` and atomically renamed to
+  /// [saveTo] on success, so a partial download can never masquerade as a
+  /// finished file (INV5). No overall request timeout applies (B5-7 大文件友好);
+  /// instead a silence of [chunkIdleTimeout] between chunks is treated as a
+  /// dead link and fails the transfer.
+  ///
+  /// Contract:
+  /// ① GET with Uri encoding identical to buildUriWithBasePath; Authorization
+  ///   header reuses AudioSourceBuilder.buildAuthHeader;
+  /// ② send() without an overall timeout;
+  /// ③ non-2xx → WebDavException family mapping (401/403 auth, 404 kept as
+  ///   statusCode, redirect/5xx actionable messages);
+  /// ④ per-chunk write + monotonic onProgress(received, total?) where total
+  ///   comes from Content-Length (null when absent);
+  /// ⑤ success: delete pre-existing final file, then rename .part → final;
+  /// ⑥ any failure: best-effort .part cleanup (deletion errors are logged
+  ///   only); the pre-existing final file is never touched.
+  Future<void> downloadFile({
+    required String url,
+    required String filePath,
+    required String username,
+    required String password,
+    required String saveTo,
+    void Function(int received, int? total)? onProgress,
+  });
 }
 
 /// Exception raised by [WebDavClientInterface.listDirectory].
@@ -172,15 +204,30 @@ class WebDavException implements Exception {
 
 // ── Concrete implementation ───────────────────────────────────────────────────
 
+/// Escapes any process-global [HttpOverrides] (flutter_test installs one that
+/// turns every HttpClient into a constant-400 mock) so the download engine
+/// always talks to real sockets. The base implementation returns a plain
+/// `_HttpClient`, i.e. the untouched dart:io client.
+class _RealHttpOverrides extends HttpOverrides {
+  // Intentionally empty: the base implementation returns a plain dart:io
+  // HttpClient, bypassing any process-global mock overrides.
+}
+
 class WebDavClient implements WebDavClientInterface {
   final http.Client _httpClient;
   final Duration _timeout;
 
+  /// Max silence between response chunks during [downloadFile] before the
+  /// transfer is declared a dead link (DL-01-S3④; default 30 s).
+  final Duration _chunkIdleTimeout;
+
   WebDavClient({
     http.Client? httpClient,
     Duration timeout = const Duration(seconds: 5),
+    Duration chunkIdleTimeout = const Duration(seconds: 30),
   })  : _httpClient = httpClient ?? http.Client(),
-        _timeout = timeout;
+        _timeout = timeout,
+        _chunkIdleTimeout = chunkIdleTimeout;
 
   @override
   Future<WebDavValidationResult> validate({
@@ -378,7 +425,146 @@ class WebDavClient implements WebDavClientInterface {
       // request uri with userinfo — redact the logged copy (NET7/CON2).
       debugPrint(
           '[WebDAV] listDirectory error: ${redactUrlForLog(e.toString())}');
-      throw WebDavException('无法连接到服务器，请检查地址和网络');
+      throw const WebDavException('无法连接到服务器，请检查地址和网络');
+    }
+  }
+
+  // ── File download (DL-01-S3) ───────────────────────────────────────────────
+
+  @override
+  Future<void> downloadFile({
+    required String url,
+    required String filePath,
+    required String username,
+    required String password,
+    required String saveTo,
+    void Function(int received, int? total)? onProgress,
+  }) async {
+    debugPrint('[WebDAV] downloadFile: path=$filePath');
+    // ① Build the target URI — same encoding rules as
+    //    AudioSourceBuilder.buildUriWithBasePath (base path + encoded segments).
+    final normalisedUrl = normaliseWebDavUrl(url);
+    Uri targetUri;
+    try {
+      final base = Uri.parse(normalisedUrl);
+      final basePath = base.path.endsWith('/')
+          ? base.path.substring(0, base.path.length - 1)
+          : base.path;
+      final relPath = filePath.startsWith('/') ? filePath : '/$filePath';
+      final combinedPath = '$basePath$relPath';
+      final segments = combinedPath
+          .split('/')
+          .where((s) => s.isNotEmpty)
+          .map((s) => Uri.encodeComponent(s))
+          .toList();
+      targetUri = base.replace(path: '/${segments.join('/')}');
+    } catch (_) {
+      throw const WebDavException('无法构建请求地址');
+    }
+
+    // Authorization reuses the shared Basic-Auth builder.
+    final authHeader = AudioSourceBuilder.buildAuthHeader(
+        username: username, password: password);
+
+    // ② Send WITHOUT an overall timeout (large-file friendly, B5-7/P17).
+    //
+    // 测试环境逃生门：flutter_test 的 TestWidgetsFlutterBinding 会安装全局
+    // HttpOverrides，把进程内一切 HttpClient 变成恒 400 的 mock。下载引擎
+    // 需要真实 socket（S3 用本机 HttpServer 做假源），故为每次下载在脱离
+    // overrides 的 zone 内构建独立 client，用毕即关。
+    IOClient? scopedClient;
+    http.StreamedResponse streamedResponse;
+    try {
+      final request = http.Request('GET', targetUri)
+        ..headers['Authorization'] = authHeader;
+      scopedClient = HttpOverrides.runWithHttpOverrides<IOClient>(
+        IOClient.new,
+        _RealHttpOverrides(),
+      );
+      streamedResponse = await scopedClient.send(request);
+    } catch (e) {
+      scopedClient?.close();
+      // Exception text can echo the request uri — redact before logging.
+      debugPrint(
+          '[WebDAV] downloadFile error: ${redactUrlForLog(e.toString())}');
+      throw const WebDavException('无法连接到服务器，请检查地址和网络');
+    }
+
+    // ③ Non-2xx → family mapping identical to listDirectory.
+    final statusCode = streamedResponse.statusCode;
+    if (statusCode == 401 || statusCode == 403) {
+      debugPrint('[WebDAV] downloadFile: auth error (HTTP $statusCode)');
+      throw WebDavException('用户名或密码错误', statusCode: statusCode);
+    }
+    if (statusCode < 200 || statusCode >= 300) {
+      debugPrint('[WebDAV] downloadFile: bad status $statusCode');
+      final message = switch (statusCode) {
+        >= 300 && < 400 => '服务器重定向，请检查地址是否应为 https',
+        >= 500 => '服务器内部错误，请稍后重试',
+        _ => '服务器返回异常状态码 $statusCode',
+      };
+      throw WebDavException(message, statusCode: statusCode);
+    }
+
+    final total = streamedResponse.contentLength; // null when absent (chunked)
+
+    try {
+      // ④ Stream to <saveTo>.part with per-chunk progress + idle watchdog.
+      final partFile = File('$saveTo.part');
+      IOSink? sink;
+      var received = 0;
+      try {
+        await partFile.parent.create(recursive: true);
+        sink = partFile.openWrite();
+        await for (final chunk
+            in streamedResponse.stream.timeout(_chunkIdleTimeout)) {
+          sink.add(chunk);
+          received += chunk.length;
+          onProgress?.call(received, total);
+        }
+        await sink.flush();
+        await sink.close();
+        sink = null;
+
+        // ⑤ Success: remove a pre-existing final file first, then rename the
+        //    .part into place (double insurance on top of POSIX overwrite).
+        final finalFile = File(saveTo);
+        if (await finalFile.exists()) {
+          await finalFile.delete();
+        }
+        await partFile.rename(saveTo);
+        debugPrint(
+            '[WebDAV] downloadFile done: path=$filePath bytes=$received');
+      } on TimeoutException {
+        await _cleanupPartFile(partFile, sink);
+        throw const WebDavException('下载超时：服务器停止传输数据');
+      } catch (e) {
+        // ⑥ Any failure path: best-effort .part cleanup, log only.
+        await _cleanupPartFile(partFile, sink);
+        debugPrint(
+            '[WebDAV] downloadFile failed: ${redactUrlForLog(e.toString())}');
+        throw const WebDavException('下载失败，请检查网络后重试');
+      }
+    } finally {
+      scopedClient.close();
+    }
+  }
+
+  /// Best-effort `.part` removal used by every failure branch of
+  /// [downloadFile]; deletion errors are logged and swallowed (S3⑥).
+  Future<void> _cleanupPartFile(File partFile, IOSink? sink) async {
+    try {
+      await sink?.flush();
+    } catch (_) {}
+    try {
+      await sink?.close();
+    } catch (_) {}
+    try {
+      if (await partFile.exists()) {
+        await partFile.delete();
+      }
+    } catch (e) {
+      debugPrint('[WebDAV] downloadFile: cleanup .part failed: $e');
     }
   }
 

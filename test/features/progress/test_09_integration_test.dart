@@ -48,6 +48,9 @@ void main() {
         positionMs: 15000,
         durationMs: 180000,
       );
+      // 机械适配：NoIsolate FFI 下两条 upsert 落在同一毫秒内，B 的
+      // lastPlayedAt 无法严格晚于 A；稍候片刻保证前提成立（意图不变）。
+      await Future<void>.delayed(const Duration(milliseconds: 5));
       await dao.upsert(
         connectionId: 1,
         filePath: _pathB,
@@ -151,7 +154,8 @@ void main() {
         ]),
         reason: '测试 DB 应包含生产 schema 全部四张表',
       );
-      expect(tableNames.length, equals(4), reason: '否定断言: 不应有多余的表');
+      // 机械适配（DL-01 v3）：生产 schema 新增 downloads 表，全 schema 共五张表。
+      expect(tableNames.length, equals(5), reason: '否定断言: 不应有多余的表');
 
       // Then: play_progress 六列齐全，无多余列
       final cols = await db.rawQuery('PRAGMA table_info(play_progress)');

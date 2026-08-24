@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../features/connection/connection_edit_screen.dart';
 import '../features/connection/connection_list_screen.dart';
 import '../features/connection/connection_screen.dart';
+import '../features/downloads/downloads_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/playlist/playlist_detail_screen.dart';
 import '../features/player/player_screen.dart';
@@ -64,6 +65,11 @@ GoRouter createRouter() => GoRouter(
           path: '/settings',
           name: 'settings',
           builder: (context, state) => const SettingsScreen(),
+        ),
+        GoRoute(
+          path: '/downloads',
+          name: 'downloads',
+          builder: (context, state) => const DownloadsScreen(),
         ),
         GoRoute(
           path: '/about',

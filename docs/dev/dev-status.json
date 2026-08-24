@@ -318,18 +318,20 @@
         "DL-01-ALG1-download-state-machine",
         "DL-01-ALG2-resolveCollision"
       ],
-      "test_files": [],
+      "test_files": [
+        "test/features/downloads/dl_01_download_test.dart"
+      ],
       "test_coverage_gaps": [],
       "cross_module_impacts": [
         "PLY",
         "BRW",
         "SETTINGS"
       ],
-      "manual_qa_required": false,
+      "manual_qa_required": true,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/DL-01.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",
@@ -337,7 +339,7 @@
       "dependencies": [],
       "retry_count": 0,
       "last_error": "",
-      "last_updated": "2026-08-23"
+      "last_updated": "2026-08-25"
     }
   }
 }

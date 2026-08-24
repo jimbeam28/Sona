@@ -61,6 +61,18 @@ class _RecordingWebDavClient implements WebDavClientInterface {
   List<NasFile> result = const [];
 
   @override
+  // DL-01：接口新增 downloadFile 后补齐 override（机械适配，不参与本文件断言）。
+  @override
+  Future<void> downloadFile({
+    required String url,
+    required String filePath,
+    required String username,
+    required String password,
+    required String saveTo,
+    void Function(int received, int? total)? onProgress,
+  }) =>
+      throw UnimplementedError('downloadFile not needed for this test');
+
   Future<List<NasFile>> listDirectory({
     required String url,
     required String username,

@@ -9,11 +9,25 @@
 //                         `listDirectoryError` to inject a failure.
 //   [SpyWebDavClient]   — lightweight spy that tracks `listDirectory` call
 //                         count and called paths (used by browser cache tests).
+//
+// DL-01：接口新增 `downloadFile` 后两个类各自补齐 override（不改既有签名）。
+// Mock 版经 [downloadFileHandler] 钩子编程，null 时抛 UnimplementedError；
+// Spy 版记录调用并默认抛 UnimplementedError。
 
 import 'dart:async';
 
 import 'package:nas_audio_player/core/network/webdav_client.dart';
 import 'package:nas_audio_player/shared/models/nas_file.dart';
+
+/// `downloadFile` 的可编程处理器签名（DL-01）。
+typedef DownloadFileHandler = Future<void> Function({
+  required String url,
+  required String filePath,
+  required String username,
+  required String password,
+  required String saveTo,
+  void Function(int received, int? total)? onProgress,
+});
 
 // ── MockWebDavClient: full mock with validate + listDirectory support ────────
 
@@ -105,6 +119,35 @@ class MockWebDavClient implements WebDavClientInterface {
     }
     return _listResult;
   }
+
+  // ── downloadFile support（DL-01）──────────────────────────────────────────
+
+  /// 可编程钩子；null 时抛 [UnimplementedError]。
+  DownloadFileHandler? downloadFileHandler;
+
+  @override
+  Future<void> downloadFile({
+    required String url,
+    required String filePath,
+    required String username,
+    required String password,
+    required String saveTo,
+    void Function(int received, int? total)? onProgress,
+  }) async {
+    final handler = downloadFileHandler;
+    if (handler == null) {
+      throw UnimplementedError(
+          'downloadFile not configured: set downloadFileHandler');
+    }
+    return handler(
+      url: url,
+      filePath: filePath,
+      username: username,
+      password: password,
+      saveTo: saveTo,
+      onProgress: onProgress,
+    );
+  }
 }
 
 // ── SpyWebDavClient: tracks listDirectory calls for cache tests ─────────────
@@ -141,5 +184,43 @@ class SpyWebDavClient implements WebDavClientInterface {
     String basePath = '/',
   }) async {
     throw UnimplementedError('validate not needed for SpyWebDavClient');
+  }
+
+  // ── downloadFile support（DL-01）──────────────────────────────────────────
+
+  int downloadFileCallCount = 0;
+  final List<String> calledDownloadUrls = <String>[];
+  final List<String> calledDownloadPaths = <String>[];
+  final List<String> calledDownloadSaveTos = <String>[];
+
+  /// 可选编程钩子；null 时默认抛 [UnimplementedError]（仅记录调用）。
+  DownloadFileHandler? downloadFileHandler;
+
+  @override
+  Future<void> downloadFile({
+    required String url,
+    required String filePath,
+    required String username,
+    required String password,
+    required String saveTo,
+    void Function(int received, int? total)? onProgress,
+  }) async {
+    downloadFileCallCount++;
+    calledDownloadUrls.add(url);
+    calledDownloadPaths.add(filePath);
+    calledDownloadSaveTos.add(saveTo);
+    final handler = downloadFileHandler;
+    if (handler == null) {
+      throw UnimplementedError(
+          'downloadFile not needed for SpyWebDavClient by default');
+    }
+    return handler(
+      url: url,
+      filePath: filePath,
+      username: username,
+      password: password,
+      saveTo: saveTo,
+      onProgress: onProgress,
+    );
   }
 }

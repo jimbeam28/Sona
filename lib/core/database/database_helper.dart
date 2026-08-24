@@ -1,12 +1,14 @@
 // lib/core/database/database_helper.dart
 // SQLite database initialisation using sqflite.
 
+import 'package:meta/meta.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
 
 class DatabaseHelper {
   static const _dbName = 'nas_audio_player.db';
-  static const _dbVersion = 2;
+  // v3 (DL-01): adds the `downloads` table + idx_downloads_conn index.
+  static const _dbVersion = 3;
 
   DatabaseHelper._();
   static final DatabaseHelper instance = DatabaseHelper._();
@@ -68,11 +70,15 @@ class DatabaseHelper {
     ''');
 
     await _createPlaylistTables(db);
+    await _createDownloadsTable(db);
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
       await _createPlaylistTables(db);
+    }
+    if (oldVersion < 3) {
+      await _createDownloadsTable(db);
     }
   }
 
@@ -99,6 +105,38 @@ class DatabaseHelper {
       CREATE INDEX IF NOT EXISTS idx_playlist_tracks_playlist_id
       ON playlist_tracks(playlist_id)
     ''');
+  }
+
+  // DL-01 v3 DDL — spec §3.1 S1 (UNIQUE + FK CASCADE + index).
+  Future<void> _createDownloadsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS downloads (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        connection_id INTEGER NOT NULL,
+        file_path TEXT NOT NULL,
+        file_name TEXT NOT NULL,
+        remote_size INTEGER,
+        local_path TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        bytes_downloaded INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        UNIQUE(connection_id, file_path),
+        FOREIGN KEY(connection_id) REFERENCES connections(id) ON DELETE CASCADE
+      )
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_downloads_conn
+      ON downloads(connection_id, status)
+    ''');
+  }
+
+  // Exposed for testing (DL-01-S1): runs the production upgrade path against
+  // any database handle so tests can drive v1→v3 / v2→v3 migrations without a
+  // real openDatabase version bump.
+  @visibleForTesting
+  Future<void> runUpgradePathForTest(Database db, int oldVersion) async {
+    await _onUpgrade(db, oldVersion, _dbVersion);
   }
 
   // Exposed for testing (BUG-19): runs the production v2 schema creation

@@ -12,12 +12,15 @@
 // handler unreasonably, so file-level suppression is kept intentionally.
 // ignore_for_file: use_build_context_synchronously
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/database/dao/progress_dao.dart' show ProgressDao;
 import '../../core/network/webdav_client.dart';
+import '../../shared/models/download_record.dart' show DownloadStatus;
 import '../../shared/models/nas_file.dart';
 import '../../shared/models/play_progress.dart';
 import '../../shared/models/play_queue.dart';
@@ -237,8 +240,14 @@ class _BrowserScreenState extends ConsumerState<BrowserScreen> {
                                 .read(navigationStackProvider.notifier)
                                 .push(dirPath);
                           },
-                          onDirectoryLongPress: (dir) =>
-                              _showFolderActionsSheet(context, ref, dir),
+                          onDirectoryLongPress: (dir) {
+                            // ignore: discarded_futures
+                            unawaited(showFolderActionSheet(
+                              context: context,
+                              ref: ref,
+                              folder: dir,
+                            ));
+                          },
                           onFileTap: (tappedFile) async {
                             // MSEL-01-S2：多选模式下 tap 全部归勾选（toggle 幂等
                             // add / remove 成对），播放路径完全旁路。
@@ -351,86 +360,13 @@ class _BrowserScreenState extends ConsumerState<BrowserScreen> {
                           // sheet 不弹），tap 全部归勾选。
                           onFileLongPress: multiSelect
                               ? null
-                              : (tappedFile) async {
-                                  // BUG-12: read progressForFileProvider directly.
-                                  final conn = ref
-                                      .read(activeConnectionProvider)
-                                      .valueOrNull;
-                                  if (conn == null || conn.id == null) return;
-                                  // BUG-18: 同类裸奔点加固（cr-0805 F1 勘察补充）。
-                                  PlayProgress? progress;
-                                  try {
-                                    progress =
-                                        await ref.read(progressForFileProvider((
-                                      connectionId: conn.id!,
-                                      filePath: tappedFile.path,
-                                    )).future);
-                                  } catch (e) {
-                                    // 查询失败 → 无进度可展示，静默返回（catch-log
-                                    // 裁决，日志照留）。
-                                    debugPrint(
-                                        '[Browser] long-press: progress resume lookup '
-                                        'failed: $e');
-                                    return;
-                                  }
-                                  if (progress == null || !context.mounted)
-                                    return;
-                                  // 类型提升锚点：局部可变变量在下方 bottom sheet 闭包内
-                                  // 不提升，先落到 stable final 供闭包读取（BUG-18）。
-                                  final resolvedProgress = progress;
-
-                                  showModalBottomSheet(
+                              : (tappedFile) {
+                                  // ignore: discarded_futures
+                                  unawaited(showFileLongPressSheet(
                                     context: context,
-                                    builder: (ctx) {
-                                      return SafeArea(
-                                        child: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Padding(
-                                              padding: const EdgeInsets.all(16),
-                                              child: Text(
-                                                tappedFile.name,
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .titleMedium,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                            const Divider(height: 1),
-                                            ListTile(
-                                              leading: const Icon(
-                                                  Icons.delete_outline,
-                                                  color: Colors.red),
-                                              title: const Text('清除播放进度'),
-                                              subtitle: Text(
-                                                '已保存进度 ${resolvedProgress.formattedPosition}',
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .bodySmall,
-                                              ),
-                                              onTap: () {
-                                                ref.read(clearProgressProvider)(
-                                                  connectionId: resolvedProgress
-                                                      .connectionId,
-                                                  filePath:
-                                                      resolvedProgress.filePath,
-                                                );
-                                                Navigator.of(ctx).pop();
-                                                ScaffoldMessenger.of(context)
-                                                    .showSnackBar(
-                                                  const SnackBar(
-                                                    content: Text('播放进度已清除'),
-                                                  ),
-                                                );
-                                              },
-                                            ),
-                                            const SizedBox(height: 8),
-                                          ],
-                                        ),
-                                      );
-                                    },
-                                  );
+                                    ref: ref,
+                                    file: tappedFile,
+                                  ));
                                 },
                         ),
                       );
@@ -882,9 +818,15 @@ class _FileList extends StatelessWidget {
   }
 }
 
-// ── Folder-level actions (BRW-01) ───────────────────────────────────────────────
+// ── Folder-level actions (BRW-01 + DL-01-S8 third entry) ────────────────────────
 
-void _showFolderActionsSheet(BuildContext context, WidgetRef ref, NasFile dir) {
+/// 目录长按菜单（@visibleForTesting 顶层函数）：BRW-01 两项原样 +
+/// DL-01-S8 第三项「下载此文件夹」。
+Future<void> showFolderActionSheet({
+  required BuildContext context,
+  required WidgetRef ref,
+  required NasFile folder,
+}) async {
   showModalBottomSheet<void>(
     context: context,
     builder: (sheetContext) {
@@ -898,7 +840,7 @@ void _showFolderActionsSheet(BuildContext context, WidgetRef ref, NasFile dir) {
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 // ignore: discarded_futures
-                _playFromFolder(context, ref, dir);
+                _playFromFolder(context, ref, folder);
               },
             ),
             ListTile(
@@ -907,7 +849,18 @@ void _showFolderActionsSheet(BuildContext context, WidgetRef ref, NasFile dir) {
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 // ignore: discarded_futures
-                _addToPlaylistFlow(context, ref, dir);
+                _addToPlaylistFlow(context, ref, folder);
+              },
+            ),
+            ListTile(
+              // SDK 无 Icons.folder_download(_outlined)；取语义最接近的
+              // offline-download 图标（与文件项 download_outlined 区分）。
+              leading: const Icon(Icons.download_for_offline_outlined),
+              title: const Text('下载此文件夹'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                // ignore: discarded_futures
+                unawaited(_downloadFolder(context, ref, folder));
               },
             ),
           ],
@@ -915,6 +868,147 @@ void _showFolderActionsSheet(BuildContext context, WidgetRef ref, NasFile dir) {
       );
     },
   );
+}
+
+/// DL-01-S8：扫描整目录音频并入下载队列。复用 BRW-01 的 loading 对话框与
+/// collectFolderAudio 整体失败语义；不 push /player、不写队列 provider。
+Future<void> _downloadFolder(
+  BuildContext context,
+  WidgetRef ref,
+  NasFile dir,
+) async {
+  final result = await _scanFolderWithLoading(context, ref, dir);
+  if (result == null) return; // 扫描失败：固定文案 SnackBar 已由 scan 显示
+  if (!context.mounted) return;
+  if (result.files.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('该文件夹没有音频文件')),
+    );
+    return;
+  }
+  final connId = ref.read(activeConnectionProvider).valueOrNull?.id;
+  if (connId == null) return;
+  final messenger = ScaffoldMessenger.of(context);
+  final manager = ref.read(downloadManagerProvider);
+  await manager.enqueueMany(result.files.map((f) => (connId, f)).toList());
+  // 单条 SnackBar 同时承载入队数与截断提示（ScaffoldMessenger 排队展示会
+  // 让第二条在测试/短时间内不可见）——截断文案 textContaining 可命中。
+  messenger.showSnackBar(
+    SnackBar(
+      content: Text(
+        '已加入 ${result.files.length} 首到下载队列'
+        '${result.truncated ? '，已截取前 $kFolderScanMaxFiles 首' : ''}',
+      ),
+    ),
+  );
+}
+
+// ── File long-press sheet (BUG-18 progress resume + DL-01-S7 download) ─────────
+
+/// 文件长按菜单（@visibleForTesting 顶层函数）：
+///  • BUG-18 加固保持——进度查询失败 → 静默返回；
+///  • U1 改动点——进度为 null 不再拦截弹层（只是不渲染清除进度项）；
+///  • 常驻「下载此文件」项（DL-01-S7），failed 行允许重新入队。
+Future<void> showFileLongPressSheet({
+  required BuildContext context,
+  required WidgetRef ref,
+  required NasFile file,
+}) async {
+  final conn = ref.read(activeConnectionProvider).valueOrNull;
+  if (conn == null || conn.id == null) return;
+
+  // BUG-18: 同类裸奔点加固（cr-0805 F1 勘察补充）。查询失败 → 无进度可
+  // 展示，静默返回（catch-log 裁决，日志照留）。
+  PlayProgress? progress;
+  try {
+    progress = await ref.read(progressForFileProvider((
+      connectionId: conn.id!,
+      filePath: file.path,
+    )).future);
+  } catch (e) {
+    debugPrint('[Browser] long-press: progress resume lookup '
+        'failed: $e');
+    return;
+  }
+  if (!context.mounted) return;
+  // 类型提升锚点：局部可变变量在下方 bottom sheet 闭包内不提升，
+  // 先落到 stable final 供闭包读取（BUG-18）。
+  final resolvedProgress = progress;
+
+  await showModalBottomSheet<void>(
+    context: context,
+    builder: (sheetContext) {
+      return SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                file.name,
+                style: Theme.of(context).textTheme.titleMedium,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const Divider(height: 1),
+            if (resolvedProgress != null)
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: Colors.red),
+                title: const Text('清除播放进度'),
+                subtitle: Text(
+                  '已保存进度 ${resolvedProgress.formattedPosition}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                onTap: () {
+                  ref.read(clearProgressProvider)(
+                    connectionId: resolvedProgress.connectionId,
+                    filePath: resolvedProgress.filePath,
+                  );
+                  Navigator.of(sheetContext).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('播放进度已清除'),
+                    ),
+                  );
+                },
+              ),
+            ListTile(
+              leading: const Icon(Icons.download_outlined),
+              title: const Text('下载此文件'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                // ignore: discarded_futures
+                unawaited(_downloadTappedFile(context, ref, conn.id!, file));
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+/// DL-01-S7 下载动作：已有 pending/downloading/done 行 → 「已在下载列表中」
+/// 不入队；无行或 failed → 入队并提示「已加入下载队列」。fire-and-forget，
+/// 泵自行启动；messenger 在 await 前捕获（P14）。
+Future<void> _downloadTappedFile(
+  BuildContext context,
+  WidgetRef ref,
+  int connectionId,
+  NasFile file,
+) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final dao = ref.read(downloadDaoProvider);
+  final existing = await dao.findByLocation(connectionId, file.path);
+  if (existing != null && existing.status != DownloadStatus.failed) {
+    messenger.showSnackBar(const SnackBar(content: Text('已在下载列表中')));
+    return;
+  }
+  final manager = ref.read(downloadManagerProvider);
+  await manager.enqueueMany([(connectionId, file)]);
+  messenger.showSnackBar(const SnackBar(content: Text('已加入下载队列')));
 }
 
 /// Scans [dir]'s subtree with a non-dismissable loading dialog.

@@ -6,8 +6,15 @@
 // platform channels.
 
 import '../../shared/models/connection_config.dart';
+import '../../shared/models/download_record.dart';
 import '../../shared/models/play_progress.dart';
 import '../../shared/models/playlist.dart';
+
+// DL-01: the download record/status types are re-exported here (same pattern
+// as LastConnectionException below) so feature code and tests can resolve
+// them through this contract file alone.
+export '../../shared/models/download_record.dart'
+    show DownloadRecord, DownloadStatus;
 
 // ── ConnectionDao ──────────────────────────────────────────────────────────
 
@@ -126,6 +133,60 @@ abstract class IPlaylistDao {
 
   /// Reorders a track within a playlist.
   Future<void> reorderTrack(int playlistId, int oldIndex, int newIndex);
+}
+
+// ── DownloadDao ────────────────────────────────────────────────────────────
+
+/// Abstract interface for the `downloads` table DAO (DL-01-S2).
+///
+/// Mirrors the ten spec-listed methods plus [findById], which the download
+/// manager needs to resolve an entry id (cancel/retry/deleteEntry receive
+/// bare ids) back to its stored paths.
+abstract class IDownloadDao {
+  /// Inserts [record]; on a UNIQUE(connection_id, file_path) hit updates ONLY
+  /// status / bytes_downloaded / updated_at (file_name, remote_size,
+  /// local_path and created_at keep their first-insert values).
+  Future<void> upsert(DownloadRecord record);
+
+  /// Returns the record with [id], or `null` if not found.
+  Future<DownloadRecord?> findById(int id);
+
+  /// Returns the record for (connectionId, filePath), or `null`.
+  Future<DownloadRecord?> findByLocation(int connectionId, String filePath);
+
+  /// Returns every pending record across all connections, oldest first
+  /// (updated_at ASC, id ASC tie-break) — the download pump's discovery
+  /// query (DL-01-S5 DB 扫描型泵).
+  Future<List<DownloadRecord>> listPending();
+
+  /// Returns local_path when the record is in the done state, else `null`
+  /// (INV5: partial downloads never reach the player).
+  Future<String?> findDoneLocalPath(int connectionId, String filePath);
+
+  /// Returns all records for [connectionId] ordered by updated_at DESC.
+  Future<List<DownloadRecord>> listByConnection(int connectionId);
+
+  /// Writes [bytes] into bytes_downloaded; no-op unless status is downloading.
+  Future<void> updateProgress(int id, int bytes);
+
+  /// Generic state transition. When [bytes] is non-null bytes_downloaded is
+  /// updated too; when [localPath] is non-null it overwrites local_path.
+  /// updated_at is always refreshed.
+  Future<void> setStatus(int id, String status,
+      {int? bytes, String? localPath});
+
+  /// Deletes the record with [id].
+  Future<void> deleteById(int id);
+
+  /// Deletes every record for [connectionId].
+  Future<void> deleteByConnection(int connectionId);
+
+  /// Sum of remote_size over done records; empty table yields 0.
+  Future<int> totalBytesByConnection(int connectionId);
+
+  /// Moves every pending/downloading record of [connectionId] to failed
+  /// (startup orphan recovery, B5-8). done/failed rows are untouched.
+  Future<void> markAllNonDoneFailed(int connectionId);
 }
 
 /// Thrown when attempting to delete the last remaining connection (CON-T32).

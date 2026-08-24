@@ -162,9 +162,10 @@ void main() {
       expect(conns.first['url'], 'https://nas.example.com/dav');
 
       // 版本推进：onUpgrade 成功后 sqflite 自动把 user_version 推到 2
-      expect(await db.getVersion(), 2,
+      // 机械适配（DL-01）：_dbVersion 2→3 后，生产 open 把 user_version 推到 3。
+      expect(await db.getVersion(), 3,
           reason:
-              '生产迁移完成后 user_version 必须为 2（副本 _runV1ToV2Upgrade 手动 setVersion(2) 是同一语义，生产侧由 sqflite 完成）');
+              '生产迁移完成后 user_version 必须为当前版本 3（v2 时代断言为 2；副本 _runV1ToV2Upgrade 手动 setVersion 是同一语义，生产侧由 sqflite 完成）');
 
       // FK + CASCADE：生产迁移建的 playlist_tracks 必须响应级联删除
       final fk = await db.rawQuery('PRAGMA foreign_keys');
@@ -217,7 +218,8 @@ void main() {
       final db2 = await DatabaseHelper.instance.database;
       addTearDown(db2.close);
 
-      expect(await db2.getVersion(), 2, reason: '重跑后版本必须仍推进到 2');
+      // 机械适配（DL-01）：当前版本为 3。
+      expect(await db2.getVersion(), 3, reason: '重跑后版本必须仍推进到当前版本 3');
       final tables = await _tableNames(db2);
       expect(tables, containsAll(['playlists', 'playlist_tracks']),
           reason: '重跑后两张播放单表仍存在');

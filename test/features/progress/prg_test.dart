@@ -1086,6 +1086,11 @@ void main() {
       expect(find.text('Player'), findsNothing,
           reason: 'TEST-05-S3: 长按无进度文件不得触发播放导航');
 
+      // 机械适配（DL-01-S7 U1）: 无进度文件长按现在也会弹层（含「下载此
+      // 文件」项），先点障碍层关闭它，否则会遮挡对照组对 a.mp3 的长按。
+      await tester.tapAt(const Offset(20, 20));
+      await tester.pumpAndSettle();
+
       // 对照组: 同一页面内长按有进度文件仍正常弹菜单（证明上述结果是
       // 无进度分支所致，而非菜单整体失效）
       await tester.longPress(find.text('a.mp3'));

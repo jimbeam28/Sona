@@ -7,6 +7,8 @@
 //   • If at least one connection exists → auto-validate → redirect to browser
 //     or connection screen depending on validation result.
 
+import 'dart:async';
+
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,6 +17,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app/app.dart';
 import 'core/services/audio_handler.dart';
+import 'core/services/download_manager.dart';
 import 'core/services/log_buffer.dart';
 import 'features/browser/browser_provider.dart';
 import 'features/player/player_provider.dart';
@@ -27,6 +30,11 @@ void main() async {
   installLogBufferHook();
   final prefs = await SharedPreferences.getInstance();
   final audioPlayer = AudioPlayer(useProxyForRequestHeaders: false);
+
+  // DL-01-S10 / B5-8: mark leftover pending/downloading rows failed before
+  // the user sees the downloads page. Fire-and-forget with internal
+  // catch-log — startup is never delayed or broken by it.
+  unawaited(recoverOrphanDownloads());
 
   // Initialise the audio service.  On some devices / Android versions this
   // may fail — the app still works without background-playback support.
