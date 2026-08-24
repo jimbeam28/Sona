@@ -339,3 +339,34 @@ cancelScan 后内容区显示「无匹配结果」仍属 spec 未定义面（S9 
 ### 行动
 
 `dev-status.sh pass SRCH-01` + `coverage-check.sh refresh`（基线单调上行 91.56% → 91.77%）。
+
+## [2026-08-24 21:50] MSEL-01 - 第 1 轮 dev-check
+
+### 总 verdict: PASS
+
+审计对象：commit 6b24df3。从 spec §1.0 推回：「B3 = 批量多选：多选文件 → 批量加入播放单/建队」，五条裁决（面包屑入口/仅音频可选/tap 勾选跨目录累积/底栏四钮/排序序非点选序）+ 定稿补充（退出即清空防幽灵选择、组间进入序组内快照序、选择模式长按与 next-play 禁用）逐条对应 U1~U9 → S1~S8 落地核验。
+
+**对抗式穷举（检查 2 核心）**：
+
+- **INV1**：multiSelect==false 分支走原 `ListView.separated`（`_buildRow` 复用同参数），onFileTap/onFileLongPress/onPlayNext 原闭包逐字节保留（`multiSelect ? null : 原闭包` 三处门禁）→ 关闭态无可违反路径；
+- **INV2**：multi_select_ordering.dart 仅 import nas_file，纯函数 snapshotOf 注入 ✅；**INV3**：playSelectionProvider 全程无 progressForFile 触点，startPositionMs 缺省 null（测试钉到 toMap 层）✅；**INV4**：browser_provider.dart 零 playlist 符号导入，picker 单点提取 widgets/playlist_picker_sheet.dart，BRW-01 `_addToPlaylistFlow`（title: dir.name 传参保形）与 MSEL 共用一实现 ✅；
+- **S5 镜像性**：`GoRouter.of(context)` → 双 provider 写 → push 发起后立即 mode=false+clear（push Future 在 pop 才完成，注释论证成立且与 onFileTap 参照系一致）；空 store / connId null 两防御分支零写入零导航，否定面有专测；
+- **S6 关闭≠成功**：picker 返回值语义 true⇔完成添加（含新建路径 pop(true)），widget 侧 `!ok || !context.mounted` 双守卫（P14 在位）；
+- **S7**：ref.listen(activeConnectionProvider) id 变更 → mode=false+clear，零残留有专测。
+
+**检查 1 测试空壳 — PASS**（29 用例：S5 断言链 currentIndex=0/playMode shuffle 消费证明/startPositionMs null 含序列化层/双写与零写入否定面齐全；ALG1 黄金 [a1,a2,b1]+组间序反例+过滤恰一次+空 store+字典序回退+全局去重六档；INV2/INV4 为源码扫描测试非占位）
+
+**检查 2 实现忠实 — PASS**（无 §3 未声明的自由发挥；R2 裁决 Container+SafeArea 底栏落地，滚动几何有专测）
+
+**检查 3 跨模块破坏 — PASS**（cross-imports impact 引用方全在 app/browser/connection 声明域；all 基线外零违规；同一 commit cov-gate ALL PASS + pre-push hook 全量 2636 绿，brw/srch/ply/home 回归网未破）
+
+**机械项 — 全绿**：spec-scan 矩阵 S/INV 全命中（ALG 行 test_files `-` 为脚本对 ALG 的固定口径，退出码 0）；coverage-check check-check 总覆盖 91.92% vs 基线 91.77% 单文件零漂移；repro-test 不适用（非 Bug 项）。
+
+### 非阻断观察（不随本轮处理）
+
+1. **FRAGILE·low**：`MultiSelectSelectionNotifier.remove()`（browser_provider.dart:454-463）组清空即移除该组键 → 该目录后续重新勾选时组序移至 store 末尾（如 dirA 清空重勾后序变 [dirB,…,dirA]）。spec §3 未定义空组生命周期，键插入序契约本身自洽，无 Scenario/INV 可判违——建议下次 dev-plan 触及 MSEL 时增补 Scenario 或裁决「保留空组键位」。
+2. **INFO**：多选会话期列表改非虚拟化滚动列（browser_screen.dart `_FileList` multiSelect 分支）——勾选框跨滚动稳定所需，普通浏览态虚拟化原样（INV1 守护），大目录性能属已知取舍，实现方已注释文档化。
+
+### 行动
+
+`dev-status.sh pass MSEL-01` + `coverage-check.sh refresh`（基线单调上行 91.77% → 91.92%）。
