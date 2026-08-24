@@ -428,7 +428,8 @@ class _SearchResultsView extends ConsumerWidget {
 
     final Widget body;
     if (session.hits.isEmpty) {
-      body = session.query.isEmpty
+      // S9 条件面：「无匹配结果」仅「hits 空且 done」渲染；running 期内容区留空。
+      body = (session.query.isEmpty || session.running)
           ? const SizedBox.shrink()
           : const Center(child: Text('无匹配结果'));
     } else {

@@ -947,6 +947,8 @@ void main() {
       expect(find.textContaining(RegExp('已扫')), findsOneWidget);
       expect(_cancelScanIcon(), findsOneWidget, reason: 'running 态有取消钮');
       expect(container.read(searchSessionProvider).running, isTrue);
+      expect(find.text('无匹配结果'), findsNothing,
+          reason: 'S9 条件面：居中文案仅「hits 空且 done」渲染，running 期不得出现');
 
       await tester.tap(_cancelScanIcon());
       await tester.pump();

@@ -273,3 +273,41 @@ spec-scan SRCH-01 矩阵 S11/INV4 全映射门禁文件（ALG1 行 test_files='-
 ### 行动
 
 `dev-status.sh bump-round SRCH-01`（check_round=1，impl 回 pending）。请手动启动 dev-exe SRCH-01 重做，以本节 F1/F2/F3/F4/F5 为修复靶点清单。
+
+## [2026-08-24 13:05] SRCH-01 - 第 2 轮 dev-check
+
+### 总 verdict: FAIL（F1–F5 修复核验全过 + 新增 1 Minor）
+
+审计对象：commit 5c68e3b。从 spec §1.0 用户原话推回复核：U2/U3/U5/U8/U9 在重做后逐一对回实现与测试。
+
+**上轮靶点修复核验 — 5/5 过**
+
+| ID | 核验 |
+|---|---|
+| F1 | `_startScan` 启动即 `hits: const []`（browser_provider.dart:388）；空白 query 复位开面板初值并吞挂起 debounce（:366-373）；虚构"S6-late"注释已除。两条新用例真实断言：换 query 终态只含新 query 命中且 dirsScanned 重计；有命中态输入空白 → 零结果零扫描复位 + 挂起 debounce 零 fetchDir |
+| F2 | 两处 fetchDir 回归 `ref.read`（browser_provider.dart:395 / browser_screen.dart:562），与 S10② 及 _collectFolder(:853) 镜像一致（screen:80 refresh 为 BRW 下拉刷新既有代码，不在 SRCH 面）；被第 1 轮实现带偏的 4 条测试排布修正后全部否定断言本体保留（迟到事件丢弃/guard 分支/脱敏文案/零写入逐一仍在） |
+| F3 | 连接切换用例真实覆盖：切 connId → ref.listen → closePanel 全清七字段断言 + 挂起订阅取消迟到命中零残留；若移除 listener 该用例必红（panelOpen/running 断言），非空壳 |
+| F4 | folder_searcher.dart:74-85 yield 序与 §3.1 逐字一致（本层命中→反向压栈→ScanProgress）；S6 中间态断言按规约序书写并通过 |
+| F5 | 「从头播放」用例：进度记录自 store 删除 + startPositionMs null + currentIndex=1，三断言齐全 |
+
+**检查 1 测试空壳 — PASS**（38 用例，新增 4 条均为真状态断言；S10 三分支现已全覆盖）
+**检查 3 跨模块破坏 — PASS**（cross-imports rc=0；cov-gate --only test ALL PASS 267s，brw/ply/prg/home 回归网全绿）
+**机械项 — 全绿**（spec-scan 矩阵 non-ALG 零缺映射；coverage-check check-check 单文件零漂移总覆盖上行；repro-test 不适用）
+
+### FAIL 问题清单（1 项）
+
+1. **[F6·Minor] running 期零命中提前渲染「无匹配结果」，违反 S9 条件面**（检查 2）
+   - 证据：browser_screen.dart:430-433 `if (session.hits.isEmpty) { body = session.query.isEmpty ? shrink : Center(Text('无匹配结果')); }` ——未检查 `session.running`。spec S9 Then 字面「hits 空且 **done**→居中文案'无匹配结果'」，running 分支只声明顶部状态行。可复现路径：任何新扫描首层尚无命中期间（如整轮无命中的查询），屏幕同时出现「已扫 N 个目录…」+「无匹配结果」。属 §3 未声明状态的自由发挥。
+   - 修复指令：
+     1. browser_screen.dart:431 空命中分支条件改为 `session.query.isEmpty || session.running` 时 `SizedBox.shrink`，仅 done 且空才渲染居中文案；
+     2. 现有用例「SRCH-01-S9: running 态显示已扫 N 个目录与取消钮…」的 running 断言区补一行 `expect(find.text('无匹配结果'), findsNothing)`；
+     3. 「空 hits 且 done」既有用例修复后语义不变应保持全绿，不得改动其断言。
+
+### 非阻断观察（不随打回项处理）
+
+1. **INFO**：cancelScan 后（query 非空、hits 空、!running）内容区将显示「无匹配结果」——spec 对取消后的内容区渲染未定义（S9 只定义 running/done 两态），维持第 1 轮观察，建议下次 dev-plan 触及 SRCH 时增补取消后展示 Scenario。
+2. **INFO**：INV2 字面复核——ref.read 首次访问实例化并缓存 directoryContentsProvider 条目，属全 app 一致的懒加载缓存语义（主列表浏览同款），不构成语义写，达标。
+
+### 行动
+
+`dev-status.sh bump-round SRCH-01`（check_round=2，impl 回 pending）。请手动启动 dev-exe SRCH-01 重做，以本节 F6 为唯一修复靶点。
