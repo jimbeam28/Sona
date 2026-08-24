@@ -311,3 +311,31 @@ spec-scan SRCH-01 矩阵 S11/INV4 全映射门禁文件（ALG1 行 test_files='-
 ### 行动
 
 `dev-status.sh bump-round SRCH-01`（check_round=2，impl 回 pending）。请手动启动 dev-exe SRCH-01 重做，以本节 F6 为唯一修复靶点。
+
+## [2026-08-24 17:10] SRCH-01 - 第 3 轮 dev-check
+
+### 总 verdict: PASS
+
+审计对象：commit 6af570d（唯一靶点 F6）。从 spec §1.0 推回：U8「搜不到东西→显示无匹配结果」对应 S9 条件面「hits 空且 done」，本轮修复后实现与规约逐字对齐。
+
+**F6 修复核验 — 过**
+
+1. 实现条件改法与指令一致（browser_screen.dart:430-433）：`(session.query.isEmpty || session.running) → SizedBox.shrink`，居中文案仅「hits 空且 done」渲染；
+2. running 态用例补 `findsNothing` 否定断言（srch_01_folder_search_test.dart:950-951），若回退条件该断言必红（hold 挂起扫描下 running=true 且 hits 空），非空壳；
+3. 「空 hits 且 done」既有用例零改动保持全绿——done 态渲染路径未被波及。
+
+**对抗式穷举**：`_SearchResultsView` body 分支以 (running, query, hits) 三字段穷举四组合逐一比对 S9 Then——running∧空命中→留空 ✓ / done∧空命中∧query 非空→无匹配结果（U8）✓ / query 空→留空（S5 复位态）✓ / hits 非空→列表 ✓。本分支再无可违反路径。
+
+**检查 1 测试空壳 — PASS**（38 用例；本轮净增 2 行断言）
+**检查 2 实现忠实 — PASS**（F6 关闭；无新增自由发挥面；INV1 关闭态路径未触及）
+**检查 3 跨模块破坏 — PASS**（cross-imports rc=0；cov-gate --only test ALL PASS 348s）
+
+**机械项 — 全绿**：spec-scan 矩阵 non-ALG 零缺映射；coverage-check check-check OK（91.77% vs 基线 91.56%，总覆盖上行单文件零漂移）；repro-test 不适用。
+
+### 非阻断观察（沿用前两轮登记，不重复展开）
+
+cancelScan 后内容区显示「无匹配结果」仍属 spec 未定义面（S9 只声明 running/done 两态）——已两次登记 INFO，归 dev-plan 下次触及 SRCH 时增补 Scenario。
+
+### 行动
+
+`dev-status.sh pass SRCH-01` + `coverage-check.sh refresh`（基线单调上行 91.56% → 91.77%）。

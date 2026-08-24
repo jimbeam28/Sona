@@ -221,7 +221,7 @@
       "user_acceptance_text": "见 docs/features/SRCH-01.md §1.2",
       "impl_status": "done",
       "test_status": "passed",
-      "check_status": "round_2",
+      "check_status": "passed",
       "check_round": 2,
       "last_check_round_results": "见 docs/dev/check_log.md @ SRCH-01 第 2 轮",
       "last_checked_at": "2026-08-24",
