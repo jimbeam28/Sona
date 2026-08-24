@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-08-23",
+    "last_updated": "2026-08-24",
     "note": "全部 47 项（BUG-01~28 + REF-01~19）已 impl/test/check 全闭环，2026-08-23 清理归档（git 历史保留 spec 与条目）。下次 dev-plan 从空队列开始。",
     "total": 6,
     "pending": 6,
@@ -60,10 +60,10 @@
       "user_acceptance_text": "见 docs/features/PLY-01.md §1.2",
       "impl_status": "done",
       "test_status": "passed",
-      "check_status": "pending",
+      "check_status": "passed",
       "check_round": 0,
       "last_check_round_results": "",
-      "last_checked_at": "",
+      "last_checked_at": "2026-08-24",
       "dependencies": [],
       "retry_count": 0,
       "last_error": "",
@@ -112,10 +112,10 @@
       "user_acceptance_text": "见 docs/features/TMR-01.md §1.2",
       "impl_status": "done",
       "test_status": "passed",
-      "check_status": "pending",
+      "check_status": "passed",
       "check_round": 0,
       "last_check_round_results": "",
-      "last_checked_at": "",
+      "last_checked_at": "2026-08-24",
       "dependencies": [],
       "retry_count": 0,
       "last_error": "",
@@ -165,10 +165,10 @@
       "user_acceptance_text": "见 docs/features/BRW-01.md §1.2",
       "impl_status": "done",
       "test_status": "passed",
-      "check_status": "pending",
+      "check_status": "passed",
       "check_round": 0,
       "last_check_round_results": "",
-      "last_checked_at": "",
+      "last_checked_at": "2026-08-24",
       "dependencies": [],
       "retry_count": 0,
       "last_error": "",
@@ -207,7 +207,9 @@
       "algorithms": [
         "SRCH-01-ALG1-searchFolderSubtree"
       ],
-      "test_files": [],
+      "test_files": [
+        "test/features/browser/srch_01_folder_search_test.dart"
+      ],
       "test_coverage_gaps": [],
       "cross_module_impacts": [
         "PLY",
@@ -217,8 +219,8 @@
       "manual_qa_required": false,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/SRCH-01.md §1.2",
-      "impl_status": "pending",
-      "test_status": "pending",
+      "impl_status": "done",
+      "test_status": "passed",
       "check_status": "pending",
       "check_round": 0,
       "last_check_round_results": "",

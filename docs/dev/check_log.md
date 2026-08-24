@@ -193,3 +193,43 @@ spec-scan ×7 矩阵全命中；repro-test pass ×7 ✓；coverage-check check-c
 ### 行动
 
 7 项全部 `dev-status.sh pass` + coverage-check refresh。
+
+## [2026-08-24 09:05] PLY-01 + TMR-01 + BRW-01 - 第 1 轮 dev-check
+
+### 总 verdict: PASS（3/3）
+
+审计对象：commit 4e82e01（PLY-01）/ 8b98b48（TMR-01）/ 8e5652d（BRW-01）。从各 spec §1.0 用户原话推回：U 系期待（长按拖动且当前曲跟随/shuffle 拖不动/重排冷启动保持/慢网加载中可重排；最后 10 秒渐弱到零再静默停止、取消最迟 1 秒恢复、播完当前曲不淡出；目录长按两入口/递归先序排序一致/500 截断提示/中途失败不用半截结果/新建即加入）均有对应 Scenario 且实现落地。
+
+**检查 1 测试空壳审计 — 全 PASS**
+
+| ID | 门禁测试 | 判定 |
+|---|---|---|
+| PLY-01 | ply_01_queue_reorder_test.dart | ALG1 黄金表 §6 七行逐行断言 + S1 值对象语义 identical 反证 + 四元字段经 toMap 持久化层核对 + verifyZeroInteractions(player)；S5 三模式循环断言 onQueueChanged 恰一次 + verifyNever(play/pause/stop/seek) + saver.calls 空；S11 手控 Completer 挂起 setAudioSource 后 moveTrack，断言 X 以原请求完成且 setAudioSourceCalls 恒 1（spec §5.3 盲点补偿如实落地）；S10 真 SharedPreferences 集成断言 _qKey filePaths/currentIndex 落盘 + connection id 不变否定面；INV2 含 UI/persistence 层 `.move(` 源码扫描守卫。无空壳 |
+| TMR-01 | tmr_01_volume_fade_test.dart | ALG1 黄金表八行 + [0,1] 区间性质测试（含 -1h/-1ms/10001ms 边界）；S3/S4 verifyInOrder(setVolume(0.0)→pause→setVolume(1.0)) + verifyNever(stop) + 到期后 tick verifyNoMoreInteractions；S4 三态（null/afterCurrent/>10s）verifyZeroInteractions；S5 写 0.4 级中间值取消后下一 tick 收敛 1.0（spec §5.3 盲点补偿落地）；S6 双 tick pause 恰一次幂等闸（盲点补偿落地）；INV1 lib/ 全量文件扫描守单一写权；INV3 afterCurrent 与 paused 冻结窗口内均断言 writtenVolumes 无 <1.0。无空壳 |
+| BRW-01 | brw_01_folder_actions_test.dart | collectFolderAudio 六行黄金表 + fetchDir 调用次序数组精确断言（root→A 先序非广度）+ S2 截断后 `/r/B` 零多余 fetchDir + S3 多层混合错误 calls 序与 throwsA(message) 保留（盲点补偿落地）；S4 三态含 null-onLongPress 吞手势不误触 onTap 否定面；S5 loading 出现/消失 + 队列/连接 id provider 写入断言 + 600 文件截断 SnackBar '已截取前 500 首'（盲点补偿落地）+ 空结果不建队不导航；S6 completeError → 固定文案 + 异常原文 findsNothing 脱敏断言 + 双 provider 未写否定面；S7 AsyncError 态渲染 + 新建入口可用（盲点补偿落地）；S8 空名禁用确认不调 service + ' My Mix ' 原样入库（REF-07）+ createPlaylistProvider 未被调否定面。无空壳 |
+
+**检查 2 实现语义忠实 — 全 PASS**
+
+- PLY-01：PlayQueue.move（play_queue.dart:272-308）与 §6 ALG1 映射逐步一致（手验七行样例全对）；防御短路五分支返回 this 零拷贝符合 S3；shuffle 闸在模型层（move 首行条件）；moveTrack（playback_orchestrator.dart:415-424）identical 复核后才写 setter——S6"无回调"由赋值点保证；grep 实证 PlayQueue.move 生产调用点仅 playback_orchestrator.dart:418 一处（INV2）；ALG2 校正 + old==new no-op 在 queue_sheet onReorder 内联实现；双入口接线 + unawaited 形态符合 S9
+- TMR-01：timerTickWithFadeProvider（player_provider.dart:69-89）与 spec §3.3 参考实现逐行等价（lastWritten 闭包门/到期顺序/恢复分支）；契约 diff 纯追加（contract :77 一行 + adapter :90-91 透传一行），既有签名零改动符合 S1 否定面；grep 实证 lib/ setVolume 调用点仅 player_provider.dart:76/:84 两处（同一闭包，INV1 达成）；四驱动点全部换线 unawaited(timerTickWithFadeProvider) ，checkTimerExpiry 生产调用点归零（grep 仅剩定义与 di export，S6 达成）；到期瞬间即使无前序淡出 tick（Doze 直跳过期）顺序仍为 0→pause→1.0（lastWritten 门自愈），INV4 在对抗路径下成立
+- BRW-01：collectFolderAudio 用递归严格先序实现，产出与 S1 Then（[B,A1,C]）、ALG1 行2（[X,B] 严格先序裁决）、用户原话「递归先序遍历」三方一致；_playFromFolder 与 onFileTap 建队形态逐句同构（browser_screen.dart:185-195 vs 558-570：withMode/playModeProvider 只读/currentPlayQueue 单点写/valueOrNull?.id 连接归属/push '/player'）；startPositionMs 恒 null（INV3 有 toMap 层测试锚定）；截断文案引用 kFolderScanMaxFiles 常量非手写 500（INV4）；di 补导出 playlistServiceProvider 且 browser→playlist 方向唯一（S9）
+- 对抗检索：三条 INV 未找到可违反路径；lib/ 改动无 spec 外自由发挥（BRW-01 新增的 addTracks/create 失败 catch + SnackBar 属 SCHEMA §5 catch-log 全局裁决的落实，与 S6 先例同构，非越权）
+
+**检查 3 跨模块破坏 — PASS**
+
+cross-imports.sh all EXIT=0（仅 2 条 BASELINED legacy）；impact 反查三批改动文件的引用方（player_screen/mini_player_bar/browser_provider/playlist_detail_screen/orchestrator/adapter/home 等）均在各自 spec §7 声明范围内；cov-gate --only test ALL PASS（2569 tests, 267s, EXIT=0）。
+
+**机械项**
+
+spec-scan ×3 矩阵全命中（S/INV 全部映射到门禁测试文件）；coverage-check check-check OK（91.56% vs 基线 91.39%，总覆盖上行，单文件零漂移）。repro-test 不适用（三件均为新功能非 Bug）。
+
+### 非阻断观察（随 PASS 登记，无需本轮动作）
+
+1. **Minor**：本批两个新测试文件各引入一条 info 级 unnecessary_import——ply_01_queue_reorder_test.dart:10（play_mode.dart 经 player_provider 已提供）与 tmr_01_volume_fade_test.dart:6（fade_policy.dart 经 shared/di 已提供）。CI 门禁 --no-fatal-infos 容忍，analyze 总数 208→209 条全 info 零 warning/error。下次任一相关 ID 进 dev-exe 时顺手删除这两行 import 即可。
+2. **INFO**：PLY-01-S9 两处生产入口接线由源码 contains 断言锚定（player_screen/mini_player_bar 的 _showQueueSheet 为私有函数不可 widget 直测），配合弹窗宿主转发用例 + INV2 spy 用例分段覆盖全链路，可接受。
+3. **INFO**：BRW-01 spec §3.1 内嵌迭代版伪码与其自身 S1 Then / ALG1 行2 相矛盾（伪码本层音频全收后再入栈会产出 [B,C,A1]/[B,X]），实现按规范性语句（Scenario Then + ALG 样例 + 用户原话「递归先序」）取递归严格先序，行为正确。spec 伪码属 dev-plan 文档瑕疵——按 CLAUDE.md 纪律，若需修正须走 dev-plan 流程，不在 check 直接改文档。
+4. **INFO**：TMR-01 spec INV3 证据括号内"paused 冻结 <10s 会持续写入 <1 常数"的假设性推演与 INV3 本句"paused 从不产生 <1.0"矛盾；实现取 INV3 本句语义（paused → active=false → target 恒 1.0）且有测试锚定。同条 3：文档措辞问题归 dev-plan，不影响行为。
+
+### 行动
+
+3 项全部 `dev-status.sh pass` + coverage-check refresh。

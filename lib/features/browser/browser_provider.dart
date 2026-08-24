@@ -1,5 +1,6 @@
 // lib/features/browser/browser_provider.dart — thin glue: deps + state only.
 
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +14,7 @@ import '../../shared/webdav_paths.dart';
 import '../../shared/di/providers.dart';
 import 'domain/cache_policy.dart';
 import 'domain/directory_service.dart';
+import 'domain/folder_searcher.dart';
 import 'domain/navigation_stack.dart';
 
 export 'domain/cache_policy.dart';
@@ -272,3 +274,148 @@ final restoreQueueFromPrefsProvider = FutureProvider<void>((ref) async {
 // the long-press clear entry never fired.  Browser progress queries now read
 // progressForFileProvider directly (progress feature), which the upsert/clear
 // write paths already invalidate (P10 single subscription source).
+
+// ── SRCH-01: folder search session ────────────────────────────────────────────
+
+/// Immutable UI state of the search panel + the latest/running scan.
+class SearchSessionState {
+  final bool panelOpen; // 搜索面板是否激活
+  final int dirsScanned;
+  final bool running; // 订阅未结束
+  final bool truncated;
+  final int skippedDirs;
+  final List<SearchHit> hits;
+  final String query; // 当前生效 query（trim 后）；空 = 从未发起扫描
+
+  const SearchSessionState({
+    this.panelOpen = false,
+    this.dirsScanned = 0,
+    this.running = false,
+    this.truncated = false,
+    this.skippedDirs = 0,
+    this.hits = const [],
+    this.query = '',
+  });
+
+  SearchSessionState copyWith({
+    bool? panelOpen,
+    int? dirsScanned,
+    bool? running,
+    bool? truncated,
+    int? skippedDirs,
+    List<SearchHit>? hits,
+    String? query,
+  }) {
+    return SearchSessionState(
+      panelOpen: panelOpen ?? this.panelOpen,
+      dirsScanned: dirsScanned ?? this.dirsScanned,
+      running: running ?? this.running,
+      truncated: truncated ?? this.truncated,
+      skippedDirs: skippedDirs ?? this.skippedDirs,
+      hits: hits ?? this.hits,
+      query: query ?? this.query,
+    );
+  }
+}
+
+/// Owns the debounce Timer and the single active scan StreamSubscription.
+///
+/// Lifecycle rules（spec §3.2）:
+///   - closePanel：全清复位（连接切换同款语义）。
+///   - cancelScan：只停扫描，面板与已落位字段冻结。
+///   - blank query：停流但保留结果（S6-late：回到上次有效结果展示）。
+///   - 同一时刻至多一条活跃流：_startScan 先取消旧订阅。
+class SearchSessionNotifier extends AutoDisposeNotifier<SearchSessionState> {
+  static const _debounceDuration = Duration(milliseconds: 500);
+
+  Timer? _debounce;
+  StreamSubscription<SearchEvent>? _sub;
+  bool _disposed = false;
+
+  @override
+  SearchSessionState build() {
+    ref.onDispose(() {
+      _disposed = true;
+      _debounce?.cancel();
+      _sub?.cancel();
+    });
+    return const SearchSessionState();
+  }
+
+  void openPanel() {
+    state = state.copyWith(panelOpen: true);
+  }
+
+  /// S7 全清：连带取消 debounce 与订阅，状态整体复位为关闭态。
+  void closePanel() {
+    _debounce?.cancel();
+    _sub?.cancel();
+    state = const SearchSessionState(panelOpen: false);
+  }
+
+  /// S7 冻结式取消：仅 running=false；panelOpen/hits/dirsScanned 等保持不变，
+  /// 迟到的流事件被归约器门禁丢弃。
+  void cancelScan() {
+    _debounce?.cancel();
+    _sub?.cancel();
+    state = state.copyWith(running: false);
+  }
+
+  /// S5 debounce 入口。空白 query 只停流不改结果（保留已有命中）。
+  void onQueryChanged(String raw) {
+    _debounce?.cancel();
+    final q = raw.trim();
+    if (q.isEmpty) {
+      _sub?.cancel();
+      state = state.copyWith(running: false, query: '');
+      return;
+    }
+    _debounce = Timer(_debounceDuration, () => _startScan(q));
+  }
+
+  void _startScan(String q) {
+    if (_disposed) return;
+    // S5 否定断言：新扫描启动前旧订阅必须被取消——同一时刻至多一条活跃流。
+    _sub?.cancel();
+    // hits 不重置：新一轮扫描保留上一轮命中直至完成态覆盖（S6-late 钉死：
+    // 取消/空白后迟到事件被忽略时，展示冻结在既有结果上）；closePanel 才全清。
+    state = state.copyWith(
+      running: true,
+      dirsScanned: 0,
+      truncated: false,
+      skippedDirs: 0,
+      query: q,
+    );
+    final rootPath = ref.read(navigationStackProvider).last;
+    // refresh 而非 read：directoryContentsProvider 非 autoDispose 且带 TTL
+    // 缓存，read 会把上一轮扫描的层结果缓存住——第二轮同路径扫描拿不到新
+    // fetchDir 调用（S5 双轮/迟到事件门禁钉死此语义）。搜索语义取新鲜数据。
+    _sub = searchFolderSubtree(
+      rootPath: rootPath,
+      query: q,
+      fetchDir: (p) => ref.refresh(directoryContentsProvider(p).future),
+    ).listen(_onEvent);
+  }
+
+  /// S6 事件归约：尾追保序不去重、计数更新、终态落位；
+  /// `_disposed || !state.running` 门禁防御迟到事件（S6-late / S7-cancel）。
+  void _onEvent(SearchEvent event) {
+    if (_disposed || !state.running) return;
+    switch (event) {
+      case HitFound(:final hit):
+        state = state.copyWith(hits: [...state.hits, hit]);
+      case ScanProgress(:final dirsScanned):
+        state = state.copyWith(dirsScanned: dirsScanned);
+      case ScanDone(:final truncated, :final skippedDirs):
+        state = state.copyWith(
+          running: false,
+          truncated: truncated,
+          skippedDirs: skippedDirs,
+        );
+    }
+  }
+}
+
+final searchSessionProvider =
+    AutoDisposeNotifierProvider<SearchSessionNotifier, SearchSessionState>(
+        SearchSessionNotifier.new);
