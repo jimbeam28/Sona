@@ -72,9 +72,6 @@ Stream<SearchEvent> searchFolderSubtree({
       continue;
     }
     dirsScanned++;
-    // 进度事件先于本层命中到达：订阅方（SearchSessionNotifier）的增量归约
-    // 依赖「计数已更新、命中逐条尾追」的中间态序列。
-    yield ScanProgress(dirsScanned);
     final subDirs = <NasFile>[];
     for (final e in entries) {
       if (e.isDirectory) {
@@ -86,6 +83,7 @@ Stream<SearchEvent> searchFolderSubtree({
     for (final d in subDirs.reversed) {
       stack.add(d.path);
     }
+    yield ScanProgress(dirsScanned);
     if (dirsScanned >= maxDirs && stack.isNotEmpty) truncated = true;
   }
   yield ScanDone(truncated: truncated, skippedDirs: skipped);

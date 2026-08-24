@@ -323,8 +323,8 @@ class SearchSessionState {
 /// Lifecycle rules（spec §3.2）:
 ///   - closePanel：全清复位（连接切换同款语义）。
 ///   - cancelScan：只停扫描，面板与已落位字段冻结。
-///   - blank query：停流但保留结果（S6-late：回到上次有效结果展示）。
-///   - 同一时刻至多一条活跃流：_startScan 先取消旧订阅。
+///   - blank query：停流并复位为「已打开但零结果零扫描」态（S5 字面语义）。
+///   - 同一时刻至多一条活跃流：_startScan 先取消旧订阅，且启动即清空上一轮命中。
 class SearchSessionNotifier extends AutoDisposeNotifier<SearchSessionState> {
   static const _debounceDuration = Duration(milliseconds: 500);
 
@@ -361,13 +361,14 @@ class SearchSessionNotifier extends AutoDisposeNotifier<SearchSessionState> {
     state = state.copyWith(running: false);
   }
 
-  /// S5 debounce 入口。空白 query 只停流不改结果（保留已有命中）。
+  /// S5 debounce 入口。空白 query 停流并整体复位为开面板初值
+  /// （「已打开但零结果零扫描」态），连带吞掉挂起的 debounce timer。
   void onQueryChanged(String raw) {
     _debounce?.cancel();
     final q = raw.trim();
     if (q.isEmpty) {
       _sub?.cancel();
-      state = state.copyWith(running: false, query: '');
+      state = const SearchSessionState(panelOpen: true);
       return;
     }
     _debounce = Timer(_debounceDuration, () => _startScan(q));
@@ -377,28 +378,26 @@ class SearchSessionNotifier extends AutoDisposeNotifier<SearchSessionState> {
     if (_disposed) return;
     // S5 否定断言：新扫描启动前旧订阅必须被取消——同一时刻至多一条活跃流。
     _sub?.cancel();
-    // hits 不重置：新一轮扫描保留上一轮命中直至完成态覆盖（S6-late 钉死：
-    // 取消/空白后迟到事件被忽略时，展示冻结在既有结果上）；closePanel 才全清。
+    // hits 属于当前 query 的活跃流（S6 归约前提）：新一轮扫描启动即清空
+    // 上一轮命中，杜绝跨 query 结果累积。
     state = state.copyWith(
       running: true,
       dirsScanned: 0,
       truncated: false,
       skippedDirs: 0,
+      hits: const [],
       query: q,
     );
     final rootPath = ref.read(navigationStackProvider).last;
-    // refresh 而非 read：directoryContentsProvider 非 autoDispose 且带 TTL
-    // 缓存，read 会把上一轮扫描的层结果缓存住——第二轮同路径扫描拿不到新
-    // fetchDir 调用（S5 双轮/迟到事件门禁钉死此语义）。搜索语义取新鲜数据。
     _sub = searchFolderSubtree(
       rootPath: rootPath,
       query: q,
-      fetchDir: (p) => ref.refresh(directoryContentsProvider(p).future),
+      fetchDir: (p) => ref.read(directoryContentsProvider(p).future),
     ).listen(_onEvent);
   }
 
   /// S6 事件归约：尾追保序不去重、计数更新、终态落位；
-  /// `_disposed || !state.running` 门禁防御迟到事件（S6-late / S7-cancel）。
+  /// `_disposed || !state.running` 门禁防御迟到事件（S7-cancel / 换 query）。
   void _onEvent(SearchEvent event) {
     if (_disposed || !state.running) return;
     switch (event) {

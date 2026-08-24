@@ -487,6 +487,76 @@ void main() {
       });
     });
 
+    test('SRCH-01-S6: 换 query 重扫 → 终态只含新 query 命中，跨 query 零累积', () {
+      fakeAsync((async) {
+        final tree = _SearchTree()
+          ..put('/sw', [
+            testAudio('sunny1.mp3', '/sw/sunny1.mp3'),
+            testAudio('sunny2.mp3', '/sw/sunny2.mp3'),
+            testAudio('rainy.mp3', '/sw/rainy.mp3'),
+          ]);
+        final container =
+            ProviderContainer(overrides: [tree.override, navRoot('/sw')]);
+        container.listen(searchSessionProvider, (prev, next) {});
+        final notifier = container.read(searchSessionProvider.notifier);
+
+        notifier.openPanel();
+        notifier.onQueryChanged('sun');
+        async.elapse(const Duration(milliseconds: 600));
+        expect(
+            container.read(searchSessionProvider).hits.map((h) => h.file.name),
+            ['sunny1.mp3', 'sunny2.mp3'],
+            reason: '前置：第一轮扫描完成且产生命中');
+
+        notifier.onQueryChanged('rain');
+        async.elapse(const Duration(milliseconds: 600));
+        final s = container.read(searchSessionProvider);
+        expect(s.running, isFalse);
+        expect(s.query, 'rain');
+        expect(s.hits.map((h) => h.file.name), ['rainy.mp3'],
+            reason: '新一轮扫描启动即清空上一轮命中——终态只含当前 query 的结果');
+        expect(s.hits.map((h) => h.file.name), isNot(contains('sunny1.mp3')),
+            reason: '否定断言：上一轮命中不残留');
+        expect(s.dirsScanned, 1, reason: 'dirsScanned 按新一轮重计');
+        container.dispose();
+      });
+    });
+
+    test('SRCH-01-S5: 有命中状态下输入空白 → 复位为已打开零结果零扫描态且挂起 debounce 被吞', () {
+      fakeAsync((async) {
+        final tree = _SearchTree()
+          ..put('/bz', [testAudio('hit_bz.mp3', '/bz/hit_bz.mp3')]);
+        final container =
+            ProviderContainer(overrides: [tree.override, navRoot('/bz')]);
+        container.listen(searchSessionProvider, (prev, next) {});
+        final notifier = container.read(searchSessionProvider.notifier);
+
+        notifier.openPanel();
+        notifier.onQueryChanged('bz');
+        async.elapse(const Duration(milliseconds: 600));
+        expect(container.read(searchSessionProvider).hits, hasLength(1),
+            reason: '前置：第一轮扫描完成且产生命中');
+
+        // 先武装一个 pending debounce（'ab'），再立即输入空白——
+        // 空白分支必须连带取消该 timer，旧 query 永不发起扫描。
+        notifier.onQueryChanged('ab');
+        notifier.onQueryChanged('   ');
+        async.elapse(const Duration(milliseconds: 700));
+        expect(tree.calls, ['/bz'],
+            reason: '否定断言：空白后挂起的 debounce 不触发任何新 fetchDir');
+
+        final s = container.read(searchSessionProvider);
+        expect(s.panelOpen, isTrue);
+        expect(s.running, isFalse);
+        expect(s.hits, isEmpty, reason: 'S5 字面：回到「零结果」态');
+        expect(s.dirsScanned, 0);
+        expect(s.truncated, isFalse);
+        expect(s.skippedDirs, 0);
+        expect(s.query, '');
+        container.dispose();
+      });
+    });
+
     test('SRCH-01-S5: 新扫描启动前旧订阅被取消——同一时刻至多一条活跃流', () {
       fakeAsync((async) {
         final tree = _SearchTree()
@@ -500,18 +570,23 @@ void main() {
         notifier.openPanel();
         notifier.onQueryChanged('aa');
         async.elapse(const Duration(milliseconds: 600));
+        expect(tree.calls, ['/r']);
 
-        final gate2 = tree.gate('/r');
+        // 导航深入子目录后换 query 重扫：扫描根随栈顶变化（spec 定死
+        // root=navigationStack.last），第二轮路径缓存未暖 → 独立挂起槽。
+        // （ref.read 缓存语义下同路径二扫会命中已完成 future，无法再挂起。）
+        container.read(navigationStackProvider.notifier).push('/r/deep');
+        final gate2 = tree.gate('/r/deep');
         notifier.onQueryChanged('bb');
         async.elapse(const Duration(milliseconds: 600));
-        expect(tree.calls, ['/r', '/r'], reason: '两轮各发起一次 fetchDir');
+        expect(tree.calls, ['/r', '/r/deep'], reason: '两轮各发起一次 fetchDir');
 
         gate1.complete([testAudio('old_aa.mp3', '/r/old_aa.mp3')]);
         async.elapse(const Duration(milliseconds: 50));
         expect(container.read(searchSessionProvider).hits, isEmpty,
             reason: '否定断言：startScan 前必须取消旧订阅，第一轮迟到数据不得到达');
 
-        gate2.complete([testAudio('new_bb.mp3', '/r/new_bb.mp3')]);
+        gate2.complete([testAudio('new_bb.mp3', '/r/deep/new_bb.mp3')]);
         async.elapse(const Duration(milliseconds: 50));
         expect(
             container.read(searchSessionProvider).hits.map((h) => h.file.name),
@@ -553,14 +628,14 @@ void main() {
         expect(s.running, isFalse);
         expect(s.truncated, isFalse);
         expect(s.skippedDirs, 0);
-        // 增量归约可见：dirsScanned==1 的中间快照里命中从零逐条尾追。
-        // （原谓词用 toList()==literal 做引用比较恒假，改 matcher。）
+        // 增量归约可见：§3.1 规约序下本层 HitFound 先于该层 ScanProgress
+        // 到达，故 dirsScanned==1 的快照里本层命中已全部尾追到位。
         final layer1HitSeqs = states
             .where((st) => st.running && st.dirsScanned == 1)
             .map((st) => st.hits.map((h) => h.file.name).toList())
             .toList();
-        expect(layer1HitSeqs, contains(equals(['m2_x.mp3'])),
-            reason: '计数先落位、HitFound 逐条尾追到达（增量归约）');
+        expect(layer1HitSeqs, contains(equals(['m2_x.mp3', 'm2_x.mp3'])),
+            reason: '规约序（spec §3.1）：计数落位时本层命中已逐条尾追齐全');
         container.dispose();
       });
     });
@@ -585,7 +660,11 @@ void main() {
             container.read(searchSessionProvider).hits.map((h) => h.file.path);
         expect(baseline, hasLength(2));
 
-        final gate = tree.gate('/m');
+        // 深入新目录后换 query：新路径缓存未暖，首层 fetch 可挂起。
+        // （ref.read 缓存语义下同路径二扫直接吃已完成 future。）
+        tree.put('/m/deep', [testAudio('zzz_a.mp3', '/m/deep/zzz_a.mp3')]);
+        container.read(navigationStackProvider.notifier).push('/m/deep');
+        final gate = tree.gate('/m/deep');
         notifier.onQueryChanged('zzz');
         async.elapse(const Duration(milliseconds: 600));
         expect(container.read(searchSessionProvider).running, isTrue);
@@ -597,9 +676,11 @@ void main() {
         gate.complete([testAudio('zzz_a.mp3', '/m/zzz_a.mp3')]);
         async.elapse(const Duration(milliseconds: 50));
         expect(container.read(searchSessionProvider).running, isFalse);
+        // 换 query 启动新扫描时已清空上一轮命中（S6 归约前提）；迟到的
+        // zzz 命中若未被 running 门禁丢弃，此处将出现 ['zzz_a.mp3']。
         expect(
-            container.read(searchSessionProvider).hits.map((h) => h.file.path),
-            baseline,
+            container.read(searchSessionProvider).hits.map((h) => h.file.name),
+            isEmpty,
             reason: '否定断言：running==false 后迟到的 HitFound 不再改变状态');
         container.dispose();
       });
@@ -978,6 +1059,44 @@ void main() {
       expect(queue.currentIndex, 1);
     });
 
+    testWidgets('SRCH-01-S10: 恢复对话框选「从头播放」→ 清进度记录且 startPositionMs 保持 null',
+        (tester) async {
+      final tree = _SearchTree()
+        ..put('/', [testDir('Music', '/Music')])
+        ..put('/Music', [
+          testAudio('other.mp3', '/Music/other.mp3'),
+          testAudio('sun.mp3', '/Music/sun.mp3'),
+        ]);
+      final store = {
+        (1, '/Music/sun.mp3'):
+            testProgress(filePath: '/Music/sun.mp3', positionMs: 60000),
+      };
+      final (container, _) =
+          await _pumpBrowser(tester, tree: tree, progressStore: store);
+
+      await _openPanel(tester);
+      await _query(tester, 'sun');
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('sun.mp3'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('恢复播放进度'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(TextButton, '从头播放'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('恢复播放进度'), findsNothing);
+      expect(find.text('Player'), findsOneWidget);
+      final queue = container.read(currentPlayQueueProvider);
+      expect(queue, isNotNull);
+      expect(queue!.startPositionMs, isNull,
+          reason: 'resume==false → 不带起始位置从头播');
+      expect(queue.currentIndex, 1);
+      expect(store.containsKey((1, '/Music/sun.mp3')), isFalse,
+          reason: 'S10① false 分支：clearProgressProvider 已删除进度记录');
+    });
+
     testWidgets('SRCH-01-S10: 点击时文件已消失（startIndex<0）→ SnackBar 该文件已不存在且不导航不建队',
         (tester) async {
       final tree = _SearchTree()
@@ -993,6 +1112,10 @@ void main() {
       await tester.pumpAndSettle();
 
       tree.put('/Music', [testAudio('other.mp3', '/Music/other.mp3')]);
+      // ref.read 缓存语义（spec S10② 镜像 _collectFolder）：删除要经重新
+      // fetch 才对收集可见——invalidate 等价于「点击与收集之间缓存已过期/
+      // 用户下拉刷新过」的真实时序。
+      container.invalidate(directoryContentsProvider('/Music'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 
@@ -1019,6 +1142,8 @@ void main() {
       await tester.pumpAndSettle();
 
       tree.fail('/Music', const WebDavException('没有活跃的连接'));
+      // 同上：失败注入需经重新 fetch 才进入 collect 路径。
+      container.invalidate(directoryContentsProvider('/Music'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 
@@ -1128,6 +1253,58 @@ void main() {
 
       expect(find.textContaining('请先开始播放后再用此功能'), findsOneWidget);
       expect(find.textContaining('已加入下一曲'), findsNothing);
+    });
+
+    testWidgets('SRCH-01-S7: 连接切换 → 面板全清复位且进行中扫描订阅被取消', (tester) async {
+      final tree = _SearchTree()
+        ..put('/', <NasFile>[])
+        ..hold('/');
+      final (player, controller) = _makePlayer();
+      final connIdHolder = StateProvider<int>((ref) => 1);
+      await tester.pumpWidget(buildTestAppWithPlayerRoute(
+        Scaffold(body: BrowserScreen()),
+        overrides: [
+          tree.override,
+          activeConnectionProvider.overrideWith((ref) async {
+            final id = ref.watch(connIdHolder);
+            return testConnection(id: id);
+          }),
+          progressDaoProvider.overrideWithValue(_MapProgressDao(const {})),
+          audioPlayerProvider.overrideWithValue(player),
+          playModeProvider.overrideWith((ref) => PlayMode.sequential),
+        ],
+      ));
+      addTearDown(controller.close);
+      await tester.pumpAndSettle();
+      final container =
+          ProviderScope.containerOf(tester.element(find.byType(BrowserScreen)));
+
+      await _openPanel(tester);
+      await _typeOnly(tester, 'zzz');
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(container.read(searchSessionProvider).running, isTrue,
+          reason: '前置：扫描已启动且挂起在首层 fetch');
+
+      // 切换活跃连接 id → browser_screen 的 ref.listen 触发 closePanel 全清。
+      container.read(connIdHolder.notifier).state = 2;
+      await tester.pumpAndSettle();
+
+      var s = container.read(searchSessionProvider);
+      expect(s.panelOpen, isFalse, reason: '连接切换必须收起面板（U9：回到普通浏览）');
+      expect(s.hits, isEmpty, reason: '否定断言：连接切换分支 dirsScanned/hits 全清');
+      expect(s.dirsScanned, 0);
+      expect(s.running, isFalse);
+      expect(s.truncated, isFalse);
+      expect(s.skippedDirs, 0);
+      expect(s.query, '');
+
+      // 迟到数据补齐所有挂起 fetch——订阅已随 closePanel 取消，整体忽略。
+      for (final c in List.of(tree.heldFutures)) {
+        c.complete([testAudio('late_after_switch.mp3', '/late.mp3')]);
+      }
+      await tester.pump(const Duration(milliseconds: 100));
+      s = container.read(searchSessionProvider);
+      expect(s.hits, isEmpty, reason: '否定断言：切换后迟到的命中零残留（sub 已取消）');
     });
 
     testWidgets('SRCH-01-INV4: kSearchMaxDirs==200 且截断文案引用常量而非手写 200',

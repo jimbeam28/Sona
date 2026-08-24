@@ -553,14 +553,13 @@ Future<void> _playSearchHit(
   final goRouter = GoRouter.of(context);
   final messenger = ScaffoldMessenger.of(context);
 
-  // 建队收集的 fetchDir 用刷新读而非缓存读：directoryContentsProvider 非
-  // autoDispose，扫描阶段 ref.read 已把各层缓存住；点击与建队之间 NAS 状态
-  // 可能已变，必须取新鲜数据。collectFolderAudio 整体失败语义不变。
+  // 建队收集的 fetchDir 与主列表「从此处播放」（_collectFolder）同款缓存读，
+  // 失败面完全一致（spec S10② 镜像）；collectFolderAudio 整体失败语义不变。
   FolderScanResult? collected;
   try {
     collected = await collectFolderAudio(
       rootPath: hit.parentDirPath,
-      fetchDir: (p) => ref.refresh(directoryContentsProvider(p).future),
+      fetchDir: (p) => ref.read(directoryContentsProvider(p).future),
     );
   } catch (e) {
     debugPrint('[Browser] search play: folder collect failed: '

@@ -233,3 +233,43 @@ spec-scan ×3 矩阵全命中（S/INV 全部映射到门禁测试文件）；cov
 ### 行动
 
 3 项全部 `dev-status.sh pass` + coverage-check refresh。
+
+## [2026-08-24 12:10] SRCH-01 - 第 1 轮 dev-check
+
+### 总 verdict: FAIL（3 打回项 + 2 随轮 Minor）
+
+审计对象：commit 6bdffd3。从 spec §1.0 用户原话推回：U1–U9（放大镜开合 / 半秒自动搜+状态行 / 点行即播带续听对话框 / 音符插下一曲 / 无队列置灰 / 200 截断可取消 / 单层失败跳过 / 无匹配文案 / 收起或切连接全清）均有对应 Scenario 且主体落地——S1–S4 域层、S8 入口挂载（breadcrumb_bar.dart 零改动核实）、S9 四象限状态行、S10 三分支进度镜像 + 真对话框 + 消失文件 + 整体失败脱敏、S11 三态按钮均真实断言非空壳。但存在以下问题：
+
+**检查 1 测试空壳审计 — 部分 FAIL**
+
+- S5 空白 query 用例（srch_01_folder_search_test.dart:453-488）断言 `hits isEmpty`，但其前置扫描被 gate 挂起从未产生命中——断言恒真，无法区分"保留旧结果"与"复位零结果"两种实现，未钉死 spec S5「回到'已打开但零结果零扫描'态」的状态迁移。
+- **[F3] §5.3 第三行承诺的盲点补偿「S7 连接切换清理」未交付**：spec §5.3 明确要求 notifier/widget 级测试触发连接切换后 state 复位且 sub.cancelled；srch_01_folder_search_test.dart 全文无任何 activeConnectionProvider 切换触发点。修复指令：widget 组新增用例——完成一次有命中的扫描后重新 pumpWidget 覆盖 activeConnectionProvider 为另一 id 的连接，断言 searchSession 复位为关闭初值（panelOpen=false/hits 空/dirsScanned=0），且对旧扫描 gate complete 后 hits 保持空（订阅已取消）。
+- **[F5·Minor] S10① resume==false 分支（从头播并清进度）无专测**：三分支只测了 true 与 null。修复指令：preset 进度 store → 点击行 → 对话框点"从头播放"钮 → 断言 progress store 条目被清除且 queue.startPositionMs 为 null。
+
+**检查 2 实现语义忠实 — FAIL**
+
+- **[F1·Major] 跨 query 命中累积：新一轮扫描不清 hits，多轮结果永久叠加**。证据链：browser_provider.dart:376 `_startScan` 的 copyWith（:382-388）不含 `hits`；:406 `_onEvent` 对 HitFound 一律 `[...state.hits, hit]` 尾追；全文件除 closePanel 外无任何清空点，ScanDone 分支（:410-415）只写 running/truncated/skippedDirs——:384 注释所称"保留上一轮命中直至完成态覆盖"的覆盖点在代码中不存在。可违反路径：输入'晴'等扫描完成得 N 条命中 → 改输'晴天版' → 终态 hits = 两轮并集，S9 状态行'命中 M'计数虚高。违反 §1.0 定稿版「当前页面显示所有相关的音乐」（按当前 query）、U2、S6 单流归约前提。现有测试全部绕过：S5 双轮用例第一轮 gate 挂起零命中、S6-late 用例第二轮即被取消，故全绿。修复指令：
+  1. browser_provider.dart:382 copyWith 增加 `hits: const []`；
+  2. onQueryChanged 空白分支（:367-371）按 S5 字面改为整体复位开面板初值：`_sub?.cancel(); state = const SearchSessionState(panelOpen: true);`（替换现 `state = state.copyWith(running: false, query: '')`）；
+  3. 同步删除注释中不存在的"S6-late"语义声明；
+  4. 新增门禁测试：第一轮有命中完成后换 query 重扫 → 终态只含新 query 命中且 dirsScanned 重计；有命中状态下输入空白 → hits 清空回零结果态。
+  （若 dev-exe 认为"保留旧结果直至新结果到达"是想要的产品行为，必须先回 dev-plan 增补 Scenario——不允许实现侧自行保留。）
+- **[F2·Medium] fetchDir 形态偏离 §3/S10② 参照，且触及 INV2 字面**：spec S10② literal `ref.read(directoryContentsProvider(p).future)`，镜像参照 _collectFolder（browser_screen.dart:852-855）同为 read；实现两处用 `ref.refresh`（browser_provider.dart:396、browser_screen.dart:563）。后果：(a) 与主列表"从此处播放"失败面分叉——绕过缓存强制逐层网络往返，弱网下点击播放比同动作更易落入 catch SnackBar；(b) INV2 字面「搜索扫描自身只读——除 session 状态外不写任何 provider」，refresh 逐层改写 directoryContentsProvider 缓存状态（200 层冲刷 LRU），字面构成 provider 写副作用；(c) 属 §3 未声明的自由发挥。修复指令：两处回退为 `(p) => ref.read(directoryContentsProvider(p).future)`；若坚持新鲜读语义须先回 dev-plan 出增补 Scenario + INV2 措辞修订再实施。
+- **[F4·Minor] ScanProgress 相对 §3.1 参照实现被上移到本层命中之前**（folder_searcher.dart:77 vs spec §3.1 yield 序：命中→压栈→progress）：终态等价、无可区分 Scenario，但属对规约代码的无声明改动，且 srch_01 测试 S6 中间态断言（layer1HitSeqs contains ['m2_x.mp3']）按实现序书写而非规约序。修复指令（随本轮一并做）：folder_searcher.dart 将 ScanProgress yield 移回子目录反向压栈之后；srch_01 测试 S6 中间态断言同步改为规约序期望（dirsScanned==1 快照的 hits 应已含本层全部命中 ['m2_x.mp3','m2_x.mp3']）。
+
+**检查 3 跨模块破坏 — PASS**
+
+cross-imports.sh all EXIT=0（仅 2 条 BASELINED legacy）；impact 反查三文件引用方均在 browser feature 内部 + main.dart，与 §7 声明一致；cov-gate --only test ALL PASS（2657 tests, 265s）——brw/ply/prg/home 回归网全绿，INV1 关闭态渲染路径无破坏。
+
+**机械项 — 全绿**
+
+spec-scan SRCH-01 矩阵 S11/INV4 全映射门禁文件（ALG1 行 test_files='-' 与 PLY-01/BRW-01 已过检惯例一致，ALG 黄金+变体+边界三档实测存在）；coverage-check check-check OK（91.71% vs 基线 91.56%，总覆盖上行单文件零漂移）；repro-test 不适用（新功能非 Bug）。
+
+### 非阻断观察（不随打回项处理，供 dev-plan 参考）
+
+1. **INFO**：cancelScan 后 UI 形态 spec 未定义——hits 空 + query 非空时居中显示'无匹配结果'（扫描并未完成宣判）、hits 非空时状态行显示'命中 M'如已完成。建议下次 dev-plan 触及 SRCH 时增补取消后展示 Scenario。
+2. **INFO**：S4 测试对 spec 示例自相矛盾处（原期望 ['am.mp3'] 与 fetched==[root] 互斥）做了正确裁决并留注释说明，处理得当。
+
+### 行动
+
+`dev-status.sh bump-round SRCH-01`（check_round=1，impl 回 pending）。请手动启动 dev-exe SRCH-01 重做，以本节 F1/F2/F3/F4/F5 为修复靶点清单。
