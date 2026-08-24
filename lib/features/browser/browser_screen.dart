@@ -25,7 +25,9 @@ import '../../shared/di/providers.dart';
 import 'browser_provider.dart';
 import 'domain/folder_collector.dart';
 import 'domain/folder_searcher.dart' show SearchHit, kSearchMaxDirs;
+import 'domain/multi_select_ordering.dart';
 import 'widgets/file_list_item.dart';
+import 'widgets/playlist_picker_sheet.dart' show showPlaylistPickerSheet;
 
 class BrowserScreen extends ConsumerStatefulWidget {
   const BrowserScreen({super.key});
@@ -65,7 +67,17 @@ class _BrowserScreenState extends ConsumerState<BrowserScreen> {
       }
     });
 
+    // MSEL-01-S7: 连接切换 → 自动退出多选并清空选择存储
+    // （clearQueueOnConnectionSwitchProvider 同款联动点，零残留）。
+    ref.listen(activeConnectionProvider, (prev, next) {
+      if (prev?.valueOrNull?.id != next.valueOrNull?.id) {
+        ref.read(multiSelectModeProvider.notifier).state = false;
+        ref.read(multiSelectSelectionProvider.notifier).clear();
+      }
+    });
+
     final session = ref.watch(searchSessionProvider);
+    final multiSelect = ref.watch(multiSelectModeProvider);
     final contentsAsync = ref.watch(directoryContentsProvider(currentPath));
 
     // BRW-01 下拉刷新（原 data 分支内联闭包原样上提，token 不变；浅层缩进
@@ -91,6 +103,8 @@ class _BrowserScreenState extends ConsumerState<BrowserScreen> {
         children: [
           // Breadcrumb navigation bar (BRW-02)。SRCH-01-S8：放大镜入口挂载在
           // BreadcrumbBar 外层 Row，breadcrumb_bar.dart 内部零改动。
+          // MSEL-01-B3-1：多选入口为同一 Row 内 search 之后的 Icons.checklist
+          // 按钮（tap 进入 / 再 tap 退出，退出即 clear() 选择存储）。
           Row(
             children: [
               const Expanded(child: BreadcrumbBar()),
@@ -103,6 +117,18 @@ class _BrowserScreenState extends ConsumerState<BrowserScreen> {
                     notifier.closePanel();
                   } else {
                     notifier.openPanel();
+                  }
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.checklist),
+                tooltip: multiSelect ? '退出多选' : '多选',
+                onPressed: () {
+                  final entering = !ref.read(multiSelectModeProvider);
+                  ref.read(multiSelectModeProvider.notifier).state = entering;
+                  if (!entering) {
+                    // S1 否定面：退出多选模式即清空全部选择（防幽灵选择）。
+                    ref.read(multiSelectSelectionProvider.notifier).clear();
                   }
                 },
               ),
@@ -182,6 +208,14 @@ class _BrowserScreenState extends ConsumerState<BrowserScreen> {
                         onRefresh: handleRefresh,
                         child: _FileList(
                           files: files,
+                          // MSEL-01：多选态行形态切换（leading Checkbox、无
+                          // trailing）；关闭时保持 false，渲染与现状等价（INV1）。
+                          multiSelect: multiSelect,
+                          checkedPaths: multiSelect
+                              ? (ref.watch(multiSelectSelectionProvider)[
+                                      currentPath] ??
+                                  const <String>{})
+                              : null,
                           playNextEnabled:
                               (ref.watch(audioPlayingProvider).valueOrNull ??
                                       false) &&
@@ -206,6 +240,23 @@ class _BrowserScreenState extends ConsumerState<BrowserScreen> {
                           onDirectoryLongPress: (dir) =>
                               _showFolderActionsSheet(context, ref, dir),
                           onFileTap: (tappedFile) async {
+                            // MSEL-01-S2：多选模式下 tap 全部归勾选（toggle 幂等
+                            // add / remove 成对），播放路径完全旁路。
+                            if (multiSelect) {
+                              final notifier = ref
+                                  .read(multiSelectSelectionProvider.notifier);
+                              final selected = ref
+                                      .read(multiSelectSelectionProvider)[
+                                          currentPath]
+                                      ?.contains(tappedFile.path) ??
+                                  false;
+                              if (selected) {
+                                notifier.remove(currentPath, tappedFile.path);
+                              } else {
+                                notifier.toggle(currentPath, tappedFile.path);
+                              }
+                              return;
+                            }
                             debugPrint(
                                 '[Browser] onFileTap: ${tappedFile.path}');
                             final contents = ref
@@ -296,89 +347,101 @@ class _BrowserScreenState extends ConsumerState<BrowserScreen> {
                                 .state = connId;
                             await goRouter.push('/player');
                           },
-                          onFileLongPress: (tappedFile) async {
-                            // BUG-12: read progressForFileProvider directly.
-                            final conn =
-                                ref.read(activeConnectionProvider).valueOrNull;
-                            if (conn == null || conn.id == null) return;
-                            // BUG-18: 同类裸奔点加固（cr-0805 F1 勘察补充）。
-                            PlayProgress? progress;
-                            try {
-                              progress =
-                                  await ref.read(progressForFileProvider((
-                                connectionId: conn.id!,
-                                filePath: tappedFile.path,
-                              )).future);
-                            } catch (e) {
-                              // 查询失败 → 无进度可展示，静默返回（catch-log
-                              // 裁决，日志照留）。
-                              debugPrint(
-                                  '[Browser] long-press: progress resume lookup '
-                                  'failed: $e');
-                              return;
-                            }
-                            if (progress == null || !context.mounted) return;
-                            // 类型提升锚点：局部可变变量在下方 bottom sheet 闭包内
-                            // 不提升，先落到 stable final 供闭包读取（BUG-18）。
-                            final resolvedProgress = progress;
+                          // MSEL-01-S2 否定面：多选模式下长按禁用（进度恢复
+                          // sheet 不弹），tap 全部归勾选。
+                          onFileLongPress: multiSelect
+                              ? null
+                              : (tappedFile) async {
+                                  // BUG-12: read progressForFileProvider directly.
+                                  final conn = ref
+                                      .read(activeConnectionProvider)
+                                      .valueOrNull;
+                                  if (conn == null || conn.id == null) return;
+                                  // BUG-18: 同类裸奔点加固（cr-0805 F1 勘察补充）。
+                                  PlayProgress? progress;
+                                  try {
+                                    progress =
+                                        await ref.read(progressForFileProvider((
+                                      connectionId: conn.id!,
+                                      filePath: tappedFile.path,
+                                    )).future);
+                                  } catch (e) {
+                                    // 查询失败 → 无进度可展示，静默返回（catch-log
+                                    // 裁决，日志照留）。
+                                    debugPrint(
+                                        '[Browser] long-press: progress resume lookup '
+                                        'failed: $e');
+                                    return;
+                                  }
+                                  if (progress == null || !context.mounted)
+                                    return;
+                                  // 类型提升锚点：局部可变变量在下方 bottom sheet 闭包内
+                                  // 不提升，先落到 stable final 供闭包读取（BUG-18）。
+                                  final resolvedProgress = progress;
 
-                            showModalBottomSheet(
-                              context: context,
-                              builder: (ctx) {
-                                return SafeArea(
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Padding(
-                                        padding: const EdgeInsets.all(16),
-                                        child: Text(
-                                          tappedFile.name,
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleMedium,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      const Divider(height: 1),
-                                      ListTile(
-                                        leading: const Icon(
-                                            Icons.delete_outline,
-                                            color: Colors.red),
-                                        title: const Text('清除播放进度'),
-                                        subtitle: Text(
-                                          '已保存进度 ${resolvedProgress.formattedPosition}',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall,
-                                        ),
-                                        onTap: () {
-                                          ref.read(clearProgressProvider)(
-                                            connectionId:
-                                                resolvedProgress.connectionId,
-                                            filePath: resolvedProgress.filePath,
-                                          );
-                                          Navigator.of(ctx).pop();
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
-                                            const SnackBar(
-                                              content: Text('播放进度已清除'),
+                                  showModalBottomSheet(
+                                    context: context,
+                                    builder: (ctx) {
+                                      return SafeArea(
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Padding(
+                                              padding: const EdgeInsets.all(16),
+                                              child: Text(
+                                                tappedFile.name,
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .titleMedium,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
                                             ),
-                                          );
-                                        },
-                                      ),
-                                      const SizedBox(height: 8),
-                                    ],
-                                  ),
-                                );
-                              },
-                            );
-                          },
+                                            const Divider(height: 1),
+                                            ListTile(
+                                              leading: const Icon(
+                                                  Icons.delete_outline,
+                                                  color: Colors.red),
+                                              title: const Text('清除播放进度'),
+                                              subtitle: Text(
+                                                '已保存进度 ${resolvedProgress.formattedPosition}',
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .bodySmall,
+                                              ),
+                                              onTap: () {
+                                                ref.read(clearProgressProvider)(
+                                                  connectionId: resolvedProgress
+                                                      .connectionId,
+                                                  filePath:
+                                                      resolvedProgress.filePath,
+                                                );
+                                                Navigator.of(ctx).pop();
+                                                ScaffoldMessenger.of(context)
+                                                    .showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text('播放进度已清除'),
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                            const SizedBox(height: 8),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  );
+                                },
                         ),
                       );
                     },
                   ),
           ),
+
+          // MSEL-01-S4 / §8-R2 裁决：底部操作栏为普通 Container 包 SafeArea
+          // 置于 Column 尾部（非 BottomAppBar）——布局上天然让位，滚动到底
+          // 最后一行不被遮挡。
+          if (multiSelect) _MultiSelectBar(currentPath: currentPath),
         ],
       ),
     );
@@ -742,6 +805,12 @@ class _FileList extends StatelessWidget {
   final void Function(NasFile file)? onPlayNext;
   final bool playNextEnabled;
 
+  /// MSEL-01：多选模式（AudioFileListTile 行形态切换；目录行不受影响）。
+  final bool multiSelect;
+
+  /// 当前目录已勾选 path 集（仅多选模式使用）。
+  final Set<String>? checkedPaths;
+
   const _FileList({
     required this.files,
     this.onDirectoryTap,
@@ -750,41 +819,65 @@ class _FileList extends StatelessWidget {
     this.onFileLongPress,
     this.onPlayNext,
     this.playNextEnabled = false,
+    this.multiSelect = false,
+    this.checkedPaths,
   });
 
   @override
   Widget build(BuildContext context) {
+    // MSEL-01：多选模式改用非虚拟化滚动列——全部行持续构建/可解析，勾选框
+    // 跨滚动稳定（S4 滚动几何门禁依赖行元素持续可解析）；普通模式保持现状
+    // ListView 虚拟化（INV1 渲染与交互路径现状等价）。
+    if (multiSelect) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          children: [
+            for (var i = 0; i < files.length; i++) ...[
+              _buildRow(context, i),
+              if (i < files.length - 1) const Divider(height: 1, indent: 72),
+            ],
+          ],
+        ),
+      );
+    }
     return ListView.separated(
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: files.length,
       separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
-      itemBuilder: (context, index) {
-        final file = files[index];
-        if (file.isDirectory) {
-          return DirectoryListTile(
-            key: ValueKey(file.path),
-            file: file,
-            onTap: onDirectoryTap != null
-                ? (_) => onDirectoryTap!(file.path)
-                : null,
-            onLongPress: onDirectoryLongPress != null
-                ? () => onDirectoryLongPress!(file)
-                : null,
-          );
-        }
-        return AudioFileListTile(
-          key: ValueKey(file.path),
-          file: file,
-          onTap: (_) {
-            // ignore: discarded_futures
-            onFileTap(file);
-          },
-          onLongPress:
-              onFileLongPress != null ? () => onFileLongPress!(file) : null,
-          onPlayNext: onPlayNext != null ? (_) => onPlayNext!(file) : null,
-          playNextEnabled: playNextEnabled,
-        );
+      itemBuilder: _buildRow,
+    );
+  }
+
+  Widget _buildRow(BuildContext context, int index) {
+    final file = files[index];
+    if (file.isDirectory) {
+      // B3-2：DirectoryListTile 无勾选位，多选模式下仍可点击导航。
+      return DirectoryListTile(
+        key: ValueKey(file.path),
+        file: file,
+        onTap:
+            onDirectoryTap != null ? (_) => onDirectoryTap!(file.path) : null,
+        onLongPress: onDirectoryLongPress != null
+            ? () => onDirectoryLongPress!(file)
+            : null,
+      );
+    }
+    return AudioFileListTile(
+      key: ValueKey(file.path),
+      file: file,
+      multiSelect: multiSelect,
+      checked: checkedPaths?.contains(file.path) ?? false,
+      onTap: (_) {
+        // ignore: discarded_futures
+        onFileTap(file);
       },
+      onLongPress:
+          onFileLongPress != null ? () => onFileLongPress!(file) : null,
+      onPlayNext: (!multiSelect && onPlayNext != null)
+          ? (_) => onPlayNext!(file)
+          : null,
+      playNextEnabled: playNextEnabled,
     );
   }
 }
@@ -910,189 +1003,93 @@ Future<void> _addToPlaylistFlow(
     );
     return;
   }
-  showModalBottomSheet<void>(
-    context: context,
-    builder: (sheetContext) =>
-        _PlaylistPickerSheet(dirName: dir.name, files: result.files),
-  );
+  // MSEL-01-S6 单一实现点：picker 面板提取为 widgets/playlist_picker_sheet.dart
+  // 顶层函数，文件夹加入（此处）与多选批量加入共用同一实现。
+  await showPlaylistPickerSheet(context, ref, result.files, title: dir.name);
 }
 
-class _PlaylistPickerSheet extends ConsumerWidget {
-  final String dirName;
-  final List<NasFile> files;
+// ── MSEL-01: multi-select bottom action bar ─────────────────────────────────────
 
-  const _PlaylistPickerSheet({
-    required this.dirName,
-    required this.files,
-  });
+/// MSEL-01-S4 底部操作栏：「已选 N 首」+ [全选] [清除] | [加入播放单] [以此播放]。
+/// R2 裁决：普通 Container 包 SafeArea 置于内容区尾部（不用 BottomAppBar）。
+class _MultiSelectBar extends ConsumerWidget {
+  final String currentPath;
 
-  Future<void> _addFiles(
-    BuildContext context,
-    WidgetRef ref,
-    int playlistId,
-  ) async {
-    final navigator = Navigator.of(context);
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      await ref.read(addTracksToPlaylistProvider)(playlistId, files);
-    } catch (e) {
-      debugPrint('[Browser] folder add-to-playlist failed: $e');
-      messenger.showSnackBar(
-        const SnackBar(content: Text('添加失败，请重试')),
+  const _MultiSelectBar({required this.currentPath});
+
+  /// ALG1 序解析当前勾选集（快照经 directoryContentsProvider 读缓存，不发起 IO）。
+  List<NasFile> _orderedFiles(WidgetRef ref) => orderedSelectedFiles(
+        selections: ref.read(multiSelectSelectionProvider),
+        snapshotOf: (dir) =>
+            ref.read(directoryContentsProvider(dir)).valueOrNull,
       );
-      return;
-    }
-    navigator.pop();
-    messenger.showSnackBar(
-      SnackBar(content: Text('已添加 ${files.length} 首')),
-    );
-  }
 
-  Future<void> _showCreateAndAddDialog(
-    BuildContext sheetContext,
-    WidgetRef ref,
-  ) async {
-    final controller = TextEditingController();
-    var created = false;
-    await showDialog<void>(
-      context: sheetContext,
-      barrierDismissible: false,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (ctx, setState) {
-          final canConfirm = controller.text.trim().isNotEmpty;
-          return AlertDialog(
-            title: const Text('新建播放单'),
-            content: TextField(
-              controller: controller,
-              autofocus: true,
-              onChanged: (_) => setState(() {}),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('取消'),
-              ),
-              FilledButton(
-                onPressed: canConfirm
-                    ? () async {
-                        final navigator = Navigator.of(ctx);
-                        final messenger = ScaffoldMessenger.of(ctx);
-                        try {
-                          // REF-07: only emptiness is validated here — the
-                          // raw name (leading/trailing spaces included) goes
-                          // to storage untouched. Service direct call so the
-                          // returned id feeds addTracks (createPlaylistProvider
-                          // wraps it as Future<void> and drops the id).
-                          final newId = await ref
-                              .read(playlistServiceProvider)
-                              .createPlaylist(controller.text);
-                          await ref.read(addTracksToPlaylistProvider)(
-                              newId, files);
-                        } catch (e) {
-                          debugPrint(
-                              '[Browser] folder create-playlist failed: $e');
-                          messenger.showSnackBar(
-                            const SnackBar(content: Text('创建失败，请重试')),
-                          );
-                          return;
-                        }
-                        created = true;
-                        messenger.showSnackBar(
-                          SnackBar(content: Text('已添加 ${files.length} 首')),
-                        );
-                        navigator.pop();
-                      }
-                    : null,
-                child: const Text('创建'),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-    if (!created || !sheetContext.mounted) return;
-    Navigator.of(sheetContext).pop();
+  Future<void> _addToPlaylist(BuildContext context, WidgetRef ref) async {
+    final files = _orderedFiles(ref);
+    if (files.isEmpty) return;
+    final ok = await ref.read(showPlaylistPickerProvider)(context, ref, files);
+    // S6：成功回调（true）才退多选并 clear()；关闭面板 ≠ 成功，不得误清。
+    if (!ok || !context.mounted) return;
+    ref.read(multiSelectModeProvider.notifier).state = false;
+    ref.read(multiSelectSelectionProvider.notifier).clear();
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final playlistsAsync = ref.watch(playlistListProvider);
-    return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              dirName,
-              style: Theme.of(context).textTheme.titleMedium,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          const Divider(height: 1),
-          Flexible(
-            child: playlistsAsync.when(
-              loading: () => const Padding(
-                padding: EdgeInsets.all(24),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-              error: (_, __) => Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('加载播放单失败，请重试'),
-                    const SizedBox(height: 8),
-                    TextButton.icon(
-                      onPressed: () => ref.invalidate(playlistListProvider),
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('重试'),
-                    ),
-                  ],
+    final count = ref
+        .watch(multiSelectSelectionProvider)
+        .values
+        .fold<int>(0, (sum, s) => sum + s.length);
+    final dirSnapshot =
+        ref.watch(directoryContentsProvider(currentPath)).valueOrNull;
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(color: Theme.of(context).dividerColor),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '已选 $count 首',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              data: (playlists) {
-                if (playlists.isEmpty) {
-                  return const Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Center(child: Text('还没有播放单')),
-                  );
-                }
-                return ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: playlists.length,
-                  itemBuilder: (context, index) {
-                    final playlist = playlists[index];
-                    return ListTile(
-                      leading: const Icon(Icons.queue_music),
-                      title: Text(
-                        playlist.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      onTap: () {
-                        final playlistId = playlist.id;
-                        if (playlistId == null) return;
+              TextButton(
+                onPressed: () => ref
+                    .read(multiSelectSelectionProvider.notifier)
+                    .selectAllCurrent(currentPath, dirSnapshot ?? const []),
+                child: const Text('全选'),
+              ),
+              TextButton(
+                onPressed: () =>
+                    ref.read(multiSelectSelectionProvider.notifier).clear(),
+                child: const Text('清除'),
+              ),
+              TextButton(
+                onPressed:
+                    count == 0 ? null : () => _addToPlaylist(context, ref),
+                child: const Text('加入播放单'),
+              ),
+              FilledButton(
+                onPressed: count == 0
+                    ? null
+                    : () {
                         // ignore: discarded_futures
-                        _addFiles(context, ref, playlistId);
+                        ref.read(playSelectionProvider)(context);
                       },
-                    );
-                  },
-                );
-              },
-            ),
+                child: const Text('以此播放'),
+              ),
+            ],
           ),
-          const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.add),
-            title: const Text('新建播放单'),
-            onTap: () {
-              // ignore: discarded_futures
-              _showCreateAndAddDialog(context, ref);
-            },
-          ),
-        ],
+        ),
       ),
     );
   }

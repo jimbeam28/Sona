@@ -58,6 +58,13 @@ class AudioFileListTile extends StatelessWidget {
   final FileItemTapCallback? onPlayNext;
   final bool playNextEnabled;
 
+  /// MSEL-01: 多选模式行形态——leading 变 [Checkbox]、trailing next-play 整体
+  /// 消失、长按禁用（tap 全部归勾选，S1/S2）。
+  final bool multiSelect;
+
+  /// 多选模式下本行的勾选态（仅 [multiSelect] 为 true 时有意义）。
+  final bool checked;
+
   const AudioFileListTile({
     super.key,
     required this.file,
@@ -65,6 +72,8 @@ class AudioFileListTile extends StatelessWidget {
     this.onLongPress,
     this.onPlayNext,
     this.playNextEnabled = true,
+    this.multiSelect = false,
+    this.checked = false,
   });
 
   IconData get _icon {
@@ -99,6 +108,23 @@ class AudioFileListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // MSEL-01-S1/S2 多选态：leading Checkbox + 无 trailing + 无长按；
+    // 勾选动作统一走 onTap（Checkbox 与行 tap 同一回调）。
+    if (multiSelect) {
+      return ListTile(
+        leading: Checkbox(
+          value: checked,
+          onChanged: onTap != null ? (_) => onTap!(file) : null,
+        ),
+        title: Text(
+          file.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: _sizeLabel != null ? Text(_sizeLabel!) : null,
+        onTap: onTap != null ? () => onTap!(file) : null,
+      );
+    }
     final playNextActive = playNextEnabled && onPlayNext != null;
     final nextIcon = IconButton(
       icon: const Icon(Icons.queue_music),

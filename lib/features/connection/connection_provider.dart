@@ -22,6 +22,11 @@ import '../../shared/di/providers.dart'
 import '../../shared/models/connection_config.dart';
 import 'domain/connection_service.dart';
 
+// Re-export the module's value type alongside its providers (same pattern as
+// player_provider exposing PlayMode) so consumers importing this file see the
+// activeConnectionProvider's element type without a second import path.
+export '../../shared/models/connection_config.dart' show ConnectionConfig;
+
 // ── Infrastructure providers ──────────────────────────────────────────────────
 
 final connectionDaoProvider =

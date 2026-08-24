@@ -3,7 +3,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show BuildContext;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart' show GoRouter;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/network/webdav_client.dart';
 import '../../core/services/audio_source_builder.dart';
@@ -15,7 +17,9 @@ import '../../shared/di/providers.dart';
 import 'domain/cache_policy.dart';
 import 'domain/directory_service.dart';
 import 'domain/folder_searcher.dart';
+import 'domain/multi_select_ordering.dart';
 import 'domain/navigation_stack.dart';
+import 'widgets/playlist_picker_sheet.dart' show showPlaylistPickerSheet;
 
 export 'domain/cache_policy.dart';
 export 'domain/directory_service.dart'
@@ -418,3 +422,114 @@ class SearchSessionNotifier extends AutoDisposeNotifier<SearchSessionState> {
 final searchSessionProvider =
     AutoDisposeNotifierProvider<SearchSessionNotifier, SearchSessionState>(
         SearchSessionNotifier.new);
+
+// ── MSEL-01: batch multi-select ──────────────────────────────────────────────
+
+/// 多选模式开关（面包屑区 Icons.checklist 按钮）：tap 进入，再 tap 退出。
+/// 退出方必须 clear() 选择存储（spec S1 防幽灵选择裁决）；连接切换联动清理
+/// 挂在 browser_screen 的 activeConnectionProvider 监听（S7）。
+final multiSelectModeProvider = StateProvider<bool>((ref) => false);
+
+/// 勾选存储：目录路径 → 该目录已勾选文件 path 集。
+/// Dart Map 字面量为插入序 LinkedHashMap：键序 = 目录首次进入顺序
+/// （ALG1 组间序依据，语言级保证，spec §8-R1）。纯 Dart 状态，零 Flutter 依赖
+/// （INV2）；无 BuildContext 长持有（P13）。
+class MultiSelectSelectionNotifier extends Notifier<Map<String, Set<String>>> {
+  @override
+  Map<String, Set<String>> build() => {};
+
+  Map<String, Set<String>> _copy() => {
+        for (final e in state.entries) e.key: Set<String>.of(e.value),
+      };
+
+  /// 勾选（幂等 add）：同组重复调用不产生重复条目（S2 否定断言）；
+  /// append 进既有组不改键序（S3）。取消勾选走 [remove]。
+  void toggle(String dirPath, String filePath) {
+    final next = _copy();
+    next.putIfAbsent(dirPath, () => <String>{}).add(filePath);
+    state = next;
+  }
+
+  /// 取消勾选单条目；组空则移除该组键。
+  void remove(String dirPath, String filePath) {
+    final next = _copy();
+    final group = next[dirPath];
+    if (group == null) return;
+    group.remove(filePath);
+    if (group.isEmpty) {
+      next.remove(dirPath);
+    }
+    state = next;
+  }
+
+  /// 「全选」：仅收录音频条目（目录 / 非音频过滤），幂等并入既有组（S4，
+  /// 对目录条目零效果）。
+  void selectAllCurrent(String dirPath, List<NasFile> files) {
+    final next = _copy();
+    final group = next.putIfAbsent(dirPath, () => <String>{});
+    for (final f in files) {
+      if (!f.isDirectory && f.audioType != null) {
+        group.add(f.path);
+      }
+    }
+    if (group.isEmpty) {
+      next.remove(dirPath);
+    }
+    state = next;
+  }
+
+  /// 清空全部组（S1 退出 / S4 清除 / S5 成功 / S6 成功 / S7 连接切换复用入口）。
+  void clear() => state = {};
+
+  /// 派生计数：所有组并集大小。
+  int get selectedCount => state.values.fold(0, (sum, s) => sum + s.length);
+}
+
+final multiSelectSelectionProvider =
+    NotifierProvider<MultiSelectSelectionNotifier, Map<String, Set<String>>>(
+        MultiSelectSelectionNotifier.new);
+
+/// S6 注入接缝：默认实现委托 BRW-01 提取出的 picker 顶层函数
+/// （widgets/playlist_picker_sheet.dart 单一实现点，本功能零复制粘贴 picker
+/// 逻辑）。返回值语义：true ⇔ 本次面板操作完成了一次「添加曲目」；
+/// false = 用户关闭面板 / 未选择 / 取消（widget 据 true 才退多选并 clear()）。
+typedef ShowPlaylistPicker = Future<bool> Function(
+    BuildContext context, WidgetRef ref, List<NasFile> files);
+
+final showPlaylistPickerProvider = Provider<ShowPlaylistPicker>((ref) =>
+    (context, ref, files) => showPlaylistPickerSheet(context, ref, files));
+
+/// S5 动作接缝（供底栏按钮与 §5.3 盲点补偿的防御分支直调）。
+typedef PlaySelectionAction = Future<void> Function(BuildContext context);
+
+/// 默认实现镜像 onFileTap 尾段建队形态（browser_screen.dart :273-297 参照系）：
+/// orderedSelectedFiles → 空 store 或连接 id null 直接 return 零写入 →
+/// PlayQueue(files, currentIndex: 0).withMode(playModeProvider) 写双 provider →
+/// push '/player' → 成功后退多选 + clear()。INV3：startPositionMs 恒 null，
+/// 不查进度、不弹恢复对话框；playModeProvider 只读消费不回写。
+final playSelectionProvider = Provider<PlaySelectionAction>((ref) {
+  return (context) async {
+    final files = orderedSelectedFiles(
+      selections: ref.read(multiSelectSelectionProvider),
+      snapshotOf: (dir) => ref.read(directoryContentsProvider(dir)).valueOrNull,
+    );
+    // 空 store 防御分支（S4 disabled 按钮不可达时的兜底）：直接 return 零写入。
+    if (files.isEmpty) return;
+    // 活跃连接 id 空窗（竞态窗口）：直接 return 零写入、连模式标志也不改写。
+    final connId = ref.read(activeConnectionProvider).valueOrNull?.id;
+    if (connId == null) return;
+    final goRouter = GoRouter.of(context);
+    final queue = PlayQueue(files: files, currentIndex: 0)
+        .withMode(ref.read(playModeProvider));
+    ref.read(currentPlayQueueProvider.notifier).state = queue;
+    ref.read(lastQueueConnectionIdProvider.notifier).state = connId;
+    // push 的 Future 在路由 pop 时才完成（onFileTap 同款语义）——退多选 + clear()
+    // 须在导航发起后立即落位，不得阻塞在 push 完成上。
+    final pushed = goRouter.push('/player');
+    ref.read(multiSelectModeProvider.notifier).state = false;
+    ref.read(multiSelectSelectionProvider.notifier).clear();
+    // P14: await 之后必须 mounted 检查（模式照抄 onFileTap :176/:213 形态）。
+    await pushed;
+    if (!context.mounted) return;
+  };
+});
