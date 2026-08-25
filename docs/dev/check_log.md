@@ -432,3 +432,26 @@ FAIL → `dev-status.sh bump-round DL-01`（impl/test 回 pending，check=round_
 ### 行动
 
 全 PASS → `dev-status.sh pass DL-01` + `coverage-check.sh refresh`。manual_qa_required=true 的真机清单已在初始实施时登记 mqa-backlog.md，本轮逻辑修复无需追加。
+
+## [2026-08-26 00:15] DL-01 - 第 3 轮 dev-check（S7 修订 v2 返工增量）
+
+### 总 verdict: PASS
+
+审计对象：commit d977217。本轮靶点 = dev-plan 修订 a50b7d9 的 S7 入口形态重做（用户复核裁决推翻长按菜单入口），前两轮已 PASS 的 S1~S6/S8~S10 仅做回归确认未重审。从 spec §1.0 推回四句期待逐条映射：「行尾两个按钮」→U1、「长按菜单不再有下载项」→回退(b)、「恢复 BUG-18 原形态（无进度不弹层）」→回退(a)+prg 还原、「搜索结果行明确不做」→否定专测。
+
+**检查 1 测试空壳 — PASS**（S7 组 9 用例净重写）：U1 结构三连（Row mainAxisSize.min / descendant 有序图标集 / tooltip / onPressed 恒非 null）+ 行为落库（SnackBar+DB 含 connId/path/status）；U8 双否定（拦截文案 + 行数=1）；failed 再入队否定面；不触发行 tap 三重零写入（Player findsNothing + 两 provider null）；多选态真实驱动（checklist 进入 + Checkbox 前置锚）双图标 findsNothing；目录行 chevron 域内存在 + download 域内不存在；搜索行真实走完扫描流后全局 findsNothing（树根只放目录行排除主列表干扰源）；回退(a)(b) 分别锁「整层不弹」与「仅清除项+固定文案+进度行删除」。无占位断言。
+
+**检查 2 实现语义忠实 — PASS**（对抗式穷举）：When①②③ 逐字落地——downloadBtn 恒接无禁用态；吞点击 GestureDetector 收窄至 nextBtn 单体（diff 证实 wrap 仅赋 nextBtn）；_FileList 透传与 onPlayNext 同款 `(!multiSelect && !=null)` 门禁；_downloadTappedFile 本体零改动复用。可违反路径逐一排除：①downloadBtn 被裹→U1 入队必败功能性钉死；②nextBtn 包裹被拆→BRW-09-S9 队列不变断言必红（穿透即触发行 tap 建新队）；③早退恢复在 context.mounted 后行为等价原 :70；④清除项转无条件渲染系早退后死分支的 analyzer 消除，内容/动作/文案逐字节保留且否定断言④有专测；⑤多选/搜索/目录三处零波及各有专测。dev-exe 中途的测试定位器修正（直取 children → descendant 穿透）经核验为 Agent A 断言超出 spec 结构规定的缺陷修正：序与集合语义原样保留，包裹层存在性另由 U1 功能链+BRW-09-S9 双重钉死，非断言弱化。
+
+**检查 3 跨模块破坏 — PASS**：cross-imports impact 引用方全在 browser 声明域（§7 BRW）；all 基线外零违规；cov-gate --only test 全量 2707 用例绿（brw_09/MSEL/prg/srch/ply 回归网未破）。
+
+**机械项 — 全绿**：spec-scan rc=0 矩阵无缺项；coverage-check check-check 总覆盖 91.47% vs 基线 91.45%（上行），critical 单文件零漂移；repro-test 不适用（非 Bug 项）。
+
+### 非阻断观察（不随本轮处理）
+
+1. **INFO**：主列表 onDownload 接线回调在 tap 时读 activeConnectionProvider 并做 `conn == null || conn.id == null` 守卫——spec 字面为闭包作用域 `conn.id!`（该作用域无 conn 变量）。tap 时读取比 build 时捕获更新鲜，守卫镜像 showFileLongPressSheet:917 同款防御（BUG-18 同族），浏览器页必有活跃连接前置下守卫不可达，判等价偏优实现，不计自由发挥。
+2. **INFO**：MAN7 已追加 mqa-backlog.md:51（窄屏双按钮容纳性真机复核）——入口形态裁决「96dp Material 标准形态可容纳」唯一剩余验证面。
+
+### 行动
+
+`dev-status.sh pass DL-01` + `coverage-check.sh refresh`（基线 91.45% → 91.47%）。

@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-08-25",
+    "last_updated": "2026-08-26",
     "note": "全部 47 项（BUG-01~28 + REF-01~19）已 impl/test/check 全闭环，2026-08-23 清理归档（git 历史保留 spec 与条目）。下次 dev-plan 从空队列开始。",
     "total": 6,
     "pending": 6,
@@ -333,10 +333,10 @@
       "user_acceptance_text": "见 docs/features/DL-01.md §1.2",
       "impl_status": "done",
       "test_status": "passed",
-      "check_status": "pending",
+      "check_status": "passed",
       "check_round": 1,
       "last_check_round_results": "见 docs/dev/check_log.md @ DL-01 第 1 轮",
-      "last_checked_at": "2026-08-25",
+      "last_checked_at": "2026-08-26",
       "dependencies": [],
       "retry_count": 0,
       "last_error": "",
