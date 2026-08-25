@@ -293,7 +293,8 @@
         "lib/core/services/audio_source_builder.dart",
         "lib/app/router.dart",
         "lib/features/settings/settings_screen.dart",
-        "lib/main.dart"
+        "lib/main.dart",
+        "lib/features/browser/widgets/file_list_item.dart"
       ],
       "scenarios": [
         "DL-01-S1",
@@ -330,9 +331,9 @@
       "manual_qa_required": true,
       "manual_qa_file": null,
       "user_acceptance_text": "见 docs/features/DL-01.md §1.2",
-      "impl_status": "done",
-      "test_status": "passed",
-      "check_status": "passed",
+      "impl_status": "pending",
+      "test_status": "pending",
+      "check_status": "pending",
       "check_round": 1,
       "last_check_round_results": "见 docs/dev/check_log.md @ DL-01 第 1 轮",
       "last_checked_at": "2026-08-25",
