@@ -56,6 +56,7 @@ class AudioFileListTile extends StatelessWidget {
   final FileItemTapCallback? onTap;
   final VoidCallback? onLongPress;
   final FileItemTapCallback? onPlayNext;
+  final FileItemTapCallback? onDownload;
   final bool playNextEnabled;
 
   /// MSEL-01: 多选模式行形态——leading 变 [Checkbox]、trailing next-play 整体
@@ -71,6 +72,7 @@ class AudioFileListTile extends StatelessWidget {
     this.onTap,
     this.onLongPress,
     this.onPlayNext,
+    this.onDownload,
     this.playNextEnabled = true,
     this.multiSelect = false,
     this.checked = false,
@@ -125,13 +127,18 @@ class AudioFileListTile extends StatelessWidget {
         onTap: onTap != null ? () => onTap!(file) : null,
       );
     }
+    final downloadBtn = IconButton(
+      icon: const Icon(Icons.download_outlined),
+      tooltip: '下载此文件',
+      onPressed: onDownload != null ? () => onDownload!(file) : null,
+    );
     final playNextActive = playNextEnabled && onPlayNext != null;
     final nextIcon = IconButton(
       icon: const Icon(Icons.queue_music),
       onPressed: playNextActive ? () => onPlayNext!(file) : null,
       tooltip: playNextActive ? '加入下一曲' : '请先开始播放后再用此功能',
     );
-    final trailing = playNextActive
+    final nextBtn = playNextActive
         ? nextIcon
         : GestureDetector(
             behavior: HitTestBehavior.opaque,
@@ -146,7 +153,10 @@ class AudioFileListTile extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
       ),
       subtitle: _sizeLabel != null ? Text(_sizeLabel!) : null,
-      trailing: trailing,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [downloadBtn, nextBtn],
+      ),
       onTap: onTap != null ? () => onTap!(file) : null,
       onLongPress: onLongPress,
     );

@@ -13,7 +13,7 @@
 //   DL-01-S4  sanitizeBaseName / resolveCollision 纯函数策略
 //   DL-01-S5  DownloadManager 串行泵（dedupe / cancel / retry / 节流）
 //   DL-01-S6  orchestrator 本地优先加载（含 §8-R2 AudioSource.file 冒烟）
-//   DL-01-S7  文件长按菜单「下载此文件」widget 测试
+//   DL-01-S7  文件行尾下载按钮（修订 v2：替代长按菜单入口）widget 测试
 //   DL-01-S8  目录菜单第三项「下载此文件夹」widget 测试
 //   DL-01-S9  /downloads 管理页 widget 测试
 //   DL-01-S10 recoverOrphanDownloads 启动孤儿恢复
@@ -1865,29 +1865,46 @@ void main() {
   });
 
   // ───────────────────────────────────────────────────────────────────────
-  // DL-01-S7 文件长按「下载此文件」
+  // DL-01-S7 文件行尾下载按钮（修订 v2 · 2026-08-25 用户裁决：替代长按菜单入口）
   // ───────────────────────────────────────────────────────────────────────
-  group('DL-01-S7 文件长按菜单下载项', () {
-    testWidgets('DL-01-S7 U1: 无进度文件长按必弹层——含「下载此文件」，点击提示已加入下载队列并落库',
+  group('DL-01-S7 文件行尾下载按钮', () {
+    testWidgets(
+        'DL-01-S7 U1: 行尾双按钮形态——trailing Row[download, next]、tooltip「下载此文件」、onPressed 恒接；点击提示已加入下载队列并落库',
         (tester) async {
       final tree = _Tree()..put('/', [testAudio('song.mp3', '/song.mp3')]);
       final env = await _makeWidgetEnv();
-      final container =
-          await _pumpBrowser(tester, await _browserOverrides(tree, env));
+      await _pumpBrowser(tester, await _browserOverrides(tree, env));
 
-      await tester.longPress(find.text('song.mp3'));
-      await tester.pumpAndSettle();
+      // 形态：普通态 trailing 为 Row(mainAxisSize: min)，顺序 [downloadBtn, nextBtn]
+      final tile =
+          tester.widget<ListTile>(find.widgetWithText(ListTile, 'song.mp3'));
+      final trailing = tile.trailing! as Row;
+      expect(trailing.mainAxisSize, MainAxisSize.min,
+          reason: 'spec When：Row(mainAxisSize: min)');
+      // 定位器穿透 nextBtn 的 disabled 吞点击 GestureDetector（spec When②
+      // 明文包裹收窄至 nextBtn 单体，故 Row 直接子级 #2 是包裹层），
+      // descendant 保持树序：download 在前、next 在后。
+      final icons = tester
+          .widgetList<IconButton>(find.descendant(
+              of: find.byWidget(trailing), matching: find.byType(IconButton)))
+          .map((b) => (b.icon as Icon).icon)
+          .toList();
+      expect(icons, [Icons.download_outlined, Icons.queue_music],
+          reason: 'spec ①②：download 在前，next 原样保留');
+      expect(find.byTooltip('下载此文件'), findsOneWidget,
+          reason: 'spec ①：download 按钮 tooltip 固定文案');
 
-      expect(find.text('下载此文件'), findsOneWidget,
-          reason: 'U1：本 spec 改为查到无进度也必弹层（不再拦截）');
-      expect(find.byIcon(Icons.download_outlined), findsOneWidget);
+      // ①：onPressed 恒接回调（浏览器页无禁用态）
+      final downloadBtn = tester.widget<IconButton>(
+          find.widgetWithIcon(IconButton, Icons.download_outlined));
+      expect(downloadBtn.onPressed, isNotNull,
+          reason: 'spec ①：onPressed 恒接 onDownload，无禁用态');
 
-      await tester.tap(find.text('下载此文件'));
+      await tester.tap(find.byIcon(Icons.download_outlined));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('已加入下载队列'), findsOneWidget);
-      final dao = container.read(downloadDaoProvider);
-      final rec = await dao.findByLocation(1, '/song.mp3');
+      final rec = await env.dao.findByLocation(1, '/song.mp3');
       expect(rec, isNotNull, reason: '点击后必须经 manager 入队落库');
       expect(rec!.connectionId, 1);
       expect(rec.filePath, '/song.mp3');
@@ -1896,46 +1913,41 @@ void main() {
           reason: '泵自动启动后可能已转 downloading；关键是行已入队');
     });
 
-    testWidgets('DL-01-S7 U8: 重复长按同一文件 → 「已在下载列表中」，行数不变', (tester) async {
+    testWidgets('DL-01-S7 U8: 同一行重复点击下载 → 第二次「已在下载列表中」，DB 行数仍为 1',
+        (tester) async {
       final tree = _Tree()..put('/', [testAudio('song.mp3', '/song.mp3')]);
       final env = await _makeWidgetEnv();
       await _pumpBrowser(tester, await _browserOverrides(tree, env));
 
       // 第一次：正常入队
-      await tester.longPress(find.text('song.mp3'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('下载此文件'));
+      await tester.tap(find.byIcon(Icons.download_outlined));
       await tester.pumpAndSettle();
       expect(find.textContaining('已加入下载队列'), findsOneWidget);
 
-      // 关掉 SnackBar 层后再次长按
-      // 机械适配：SnackBar 由定时器自动退出，背景 tapAt 并不会关闭它；改为
-      // 推进虚拟时间让其自然消失（意图不变：清空 SnackBar 层）。
+      // 机械适配：SnackBar 由定时器自动退出，推进虚拟时间让其自然消失再交互
       await tester.pump(const Duration(seconds: 4));
       await tester.pumpAndSettle();
-      await tester.longPress(find.text('song.mp3'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('下载此文件'));
+
+      // 第二次：同一行再点下载
+      await tester.tap(find.byIcon(Icons.download_outlined));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('已在下载列表中'), findsOneWidget,
-          reason: 'U8：已有 pending/downloading/done 行 → 提示已在列表中');
+          reason: 'U8：pending/downloading/done 行拦截重复入队');
       expect(find.textContaining('已加入下载队列'), findsNothing,
-          reason: '否定断言：重复入队不得再提示已加入');
-      final rows = await env.dao.listByConnection(1);
-      expect(rows, hasLength(1), reason: '否定断言：不重复建行');
+          reason: '否定断言：重复点击不得再次入队');
+      expect(await env.dao.listByConnection(1), hasLength(1),
+          reason: '否定断言：不重复建行');
     });
 
-    testWidgets('DL-01-S7: 已有 failed 行允许再入队——状态脱离 failed（U8 边界）',
+    testWidgets('DL-01-S7: 预置 failed 行点击下载 → 提示非「已在下载列表中」，状态脱离 failed',
         (tester) async {
       final tree = _Tree()..put('/', [testAudio('song.mp3', '/song.mp3')]);
       final env = await _makeWidgetEnv();
       await env.dao.upsert(_rec('/song.mp3', DownloadStatus.failed));
       await _pumpBrowser(tester, await _browserOverrides(tree, env));
 
-      await tester.longPress(find.text('song.mp3'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('下载此文件'));
+      await tester.tap(find.byIcon(Icons.download_outlined));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('已在下载列表中'), findsNothing,
@@ -1945,7 +1957,109 @@ void main() {
           reason: 'failed 允许重下：入队后脱离 failed（挂起型泵下稳定于 downloading）');
     });
 
-    testWidgets('DL-01-S7 否定面: 清除播放进度项行为零变化——两项并存，清除后提示固定文案且进度行删除',
+    testWidgets(
+        'DL-01-S7 否定: 点击行尾下载按钮不触发行 tap——不导航 /player、不写播放队列，仅出现下载 SnackBar',
+        (tester) async {
+      final tree = _Tree()..put('/', [testAudio('song.mp3', '/song.mp3')]);
+      final env = await _makeWidgetEnv();
+      final container =
+          await _pumpBrowser(tester, await _browserOverrides(tree, env));
+
+      await tester.tap(find.byIcon(Icons.download_outlined));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('已加入下载队列'), findsOneWidget,
+          reason: '前置：下载动作本身成功且是唯一反馈');
+      expect(find.text('Player'), findsNothing,
+          reason: '否定断言：IconButton 手势自吞，不 push /player');
+      expect(container.read(currentPlayQueueProvider), isNull,
+          reason: '否定断言：行 onTap 未触发——currentPlayQueueProvider 零写入');
+      expect(container.read(lastQueueConnectionIdProvider), isNull,
+          reason: '否定断言：lastQueueConnectionIdProvider 零写入');
+    });
+
+    testWidgets('DL-01-S7 否定: 多选态行尾无任何按钮——download 与 next 均不渲染（MSEL-01 形态不变）',
+        (tester) async {
+      final tree = _Tree()..put('/', [testAudio('song.mp3', '/song.mp3')]);
+      final env = await _makeWidgetEnv();
+      await _pumpBrowser(tester, await _browserOverrides(tree, env));
+
+      // 面包屑区 Icons.checklist 为多选模式开关（MSEL-01 契约锚点）
+      await tester.tap(find.byIcon(Icons.checklist));
+      await tester.pumpAndSettle();
+      expect(find.byType(Checkbox), findsOneWidget,
+          reason: '前置：确已进入多选态（音频行 leading 变 Checkbox）');
+
+      expect(find.byIcon(Icons.download_outlined), findsNothing,
+          reason: '否定断言：多选态不渲染下载按钮');
+      expect(find.byIcon(Icons.queue_music), findsNothing,
+          reason: '否定断言：多选态不渲染任何行尾按钮（MSEL-01 S1 原有形态回归锚）');
+    });
+
+    testWidgets('DL-01-S7 否定: 目录行 trailing 仍是 chevron_right——不加下载按钮',
+        (tester) async {
+      final tree = _Tree()
+        ..put('/', [testDir('Music', '/Music')])
+        ..put('/Music', <NasFile>[]);
+      final env = await _makeWidgetEnv();
+      await _pumpBrowser(tester, await _browserOverrides(tree, env));
+
+      final dirTile = find.widgetWithText(ListTile, 'Music');
+      expect(dirTile, findsOneWidget, reason: '前置：目录行已渲染');
+      expect(
+          find.descendant(
+              of: dirTile, matching: find.byIcon(Icons.chevron_right)),
+          findsOneWidget,
+          reason: '目录行 trailing 保持 chevron_right 不变');
+      expect(
+          find.descendant(
+              of: dirTile, matching: find.byIcon(Icons.download_outlined)),
+          findsNothing,
+          reason: '否定断言：目录行不渲染下载按钮');
+    });
+
+    testWidgets(
+        'DL-01-S7 否定: 搜索结果行不加下载按钮——scope 明确排除 _SearchResultsView 自建 ListTile',
+        (tester) async {
+      // 根目录只放目录行：即使主列表与结果层并存，全局判定也只可能命中
+      // 搜索结果行（主列表根无音频行 → 无下载图标来源），判定安全。
+      final tree = _Tree()
+        ..put('/', [testDir('Music', '/Music')])
+        ..put('/Music', [testAudio('sunny.mp3', '/Music/sunny.mp3')]);
+      final env = await _makeWidgetEnv();
+      await _pumpBrowser(tester, await _browserOverrides(tree, env));
+
+      // 开搜索面板（放大镜入口）→ 输入查询 → 越过 debounce 等扫描 done
+      await tester.tap(find.byIcon(Icons.search));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'sun');
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(ListTile, 'sunny.mp3'), findsOneWidget,
+          reason: '前置：扫描已完成并渲染命中行');
+      expect(find.byIcon(Icons.download_outlined), findsNothing,
+          reason: '否定断言：搜索结果行（自建 ListTile）不加下载按钮');
+    });
+
+    testWidgets(
+        'DL-01-S7 长按回退 BUG-18 原形态 (a): 无进度文件长按整层不弹——「清除播放进度」「下载此文件」均不出现',
+        (tester) async {
+      final tree = _Tree()..put('/', [testAudio('song.mp3', '/song.mp3')]);
+      final env = await _makeWidgetEnv();
+      await _pumpBrowser(tester, await _browserOverrides(tree, env));
+
+      await tester.longPress(find.text('song.mp3'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('清除播放进度'), findsNothing,
+          reason: 'progress == null 恢复早退不弹层（BUG-18 原 :70 行为）');
+      expect(find.text('下载此文件'), findsNothing,
+          reason: '否定断言：长按菜单不再含「下载此文件」（入口已迁移行尾按钮）');
+    });
+
+    testWidgets(
+        'DL-01-S7 长按回退 BUG-18 原形态 (b): 有进度文件长按弹层仅含「清除播放进度」——点清除固定文案 + 进度行删除',
         (tester) async {
       final tree = _Tree()..put('/', [testAudio('song.mp3', '/song.mp3')]);
       final env = await _makeWidgetEnv();
@@ -1960,14 +2074,17 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('清除播放进度'), findsOneWidget,
-          reason: '进度存在时才渲染清除项（BUG-18 加固保持）');
-      expect(find.text('下载此文件'), findsOneWidget, reason: '新增常驻下载项与清除项并存');
+          reason: '有进度时长按弹层照旧（BUG-18 加固保持）');
+      expect(find.text('下载此文件'), findsNothing,
+          reason: '否定断言：弹层仅含清除项，不再有「下载此文件」（v2 裁决移除）');
 
       await tester.tap(find.text('清除播放进度'));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('播放进度已清除'), findsOneWidget, reason: '既有行为零变化');
-      expect(await progressDao.find(1, '/song.mp3'), isNull, reason: '进度行确被清除');
+      expect(find.textContaining('播放进度已清除'), findsOneWidget,
+          reason: '清除播放进度项行为零变化：固定文案照旧');
+      expect(await progressDao.find(1, '/song.mp3'), isNull,
+          reason: '清除播放进度项行为零变化：进度行确被删除');
     });
   });
 

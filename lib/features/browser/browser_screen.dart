@@ -235,6 +235,14 @@ class _BrowserScreenState extends ConsumerState<BrowserScreen> {
                               );
                             }
                           },
+                          onDownload: (NasFile f) {
+                            final conn =
+                                ref.read(activeConnectionProvider).valueOrNull;
+                            if (conn == null || conn.id == null) return;
+                            // ignore: discarded_futures
+                            unawaited(
+                                _downloadTappedFile(context, ref, conn.id!, f));
+                          },
                           onDirectoryTap: (dirPath) {
                             ref
                                 .read(navigationStackProvider.notifier)
@@ -739,6 +747,7 @@ class _FileList extends StatelessWidget {
   final void Function(NasFile file) onFileTap;
   final void Function(NasFile file)? onFileLongPress;
   final void Function(NasFile file)? onPlayNext;
+  final void Function(NasFile file)? onDownload;
   final bool playNextEnabled;
 
   /// MSEL-01：多选模式（AudioFileListTile 行形态切换；目录行不受影响）。
@@ -754,6 +763,7 @@ class _FileList extends StatelessWidget {
     required this.onFileTap,
     this.onFileLongPress,
     this.onPlayNext,
+    this.onDownload,
     this.playNextEnabled = false,
     this.multiSelect = false,
     this.checkedPaths,
@@ -812,6 +822,9 @@ class _FileList extends StatelessWidget {
           onFileLongPress != null ? () => onFileLongPress!(file) : null,
       onPlayNext: (!multiSelect && onPlayNext != null)
           ? (_) => onPlayNext!(file)
+          : null,
+      onDownload: (!multiSelect && onDownload != null)
+          ? (_) => onDownload!(file)
           : null,
       playNextEnabled: playNextEnabled,
     );
@@ -903,12 +916,13 @@ Future<void> _downloadFolder(
   );
 }
 
-// ── File long-press sheet (BUG-18 progress resume + DL-01-S7 download) ─────────
+// ── File long-press sheet (BUG-18 progress resume) ─────────────────────────────
 
 /// 文件长按菜单（@visibleForTesting 顶层函数）：
 ///  • BUG-18 加固保持——进度查询失败 → 静默返回；
-///  • U1 改动点——进度为 null 不再拦截弹层（只是不渲染清除进度项）；
-///  • 常驻「下载此文件」项（DL-01-S7），failed 行允许重新入队。
+///  • BUG-18 原行为——进度为 null → 早退不弹层；
+///  • DL-01-S7 v2 裁决（2026-08-25）：下载入口迁至文件行尾按钮，
+///    本菜单不再含「下载此文件」项。
 Future<void> showFileLongPressSheet({
   required BuildContext context,
   required WidgetRef ref,
@@ -934,6 +948,8 @@ Future<void> showFileLongPressSheet({
   // 类型提升锚点：局部可变变量在下方 bottom sheet 闭包内不提升，
   // 先落到 stable final 供闭包读取（BUG-18）。
   final resolvedProgress = progress;
+  // BUG-18 原行为：无进度 → 早退不弹层（DL-01-S7 v2 回退裁决）。
+  if (resolvedProgress == null) return;
 
   await showModalBottomSheet<void>(
     context: context,
@@ -952,34 +968,24 @@ Future<void> showFileLongPressSheet({
               ),
             ),
             const Divider(height: 1),
-            if (resolvedProgress != null)
-              ListTile(
-                leading: const Icon(Icons.delete_outline, color: Colors.red),
-                title: const Text('清除播放进度'),
-                subtitle: Text(
-                  '已保存进度 ${resolvedProgress.formattedPosition}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                onTap: () {
-                  ref.read(clearProgressProvider)(
-                    connectionId: resolvedProgress.connectionId,
-                    filePath: resolvedProgress.filePath,
-                  );
-                  Navigator.of(sheetContext).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('播放进度已清除'),
-                    ),
-                  );
-                },
-              ),
             ListTile(
-              leading: const Icon(Icons.download_outlined),
-              title: const Text('下载此文件'),
+              leading: const Icon(Icons.delete_outline, color: Colors.red),
+              title: const Text('清除播放进度'),
+              subtitle: Text(
+                '已保存进度 ${resolvedProgress.formattedPosition}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
               onTap: () {
+                ref.read(clearProgressProvider)(
+                  connectionId: resolvedProgress.connectionId,
+                  filePath: resolvedProgress.filePath,
+                );
                 Navigator.of(sheetContext).pop();
-                // ignore: discarded_futures
-                unawaited(_downloadTappedFile(context, ref, conn.id!, file));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('播放进度已清除'),
+                  ),
+                );
               },
             ),
             const SizedBox(height: 8),
