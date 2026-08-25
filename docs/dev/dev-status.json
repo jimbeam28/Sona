@@ -332,7 +332,7 @@
       "user_acceptance_text": "见 docs/features/DL-01.md §1.2",
       "impl_status": "done",
       "test_status": "passed",
-      "check_status": "round_1",
+      "check_status": "passed",
       "check_round": 1,
       "last_check_round_results": "见 docs/dev/check_log.md @ DL-01 第 1 轮",
       "last_checked_at": "2026-08-25",

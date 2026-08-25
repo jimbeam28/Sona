@@ -405,3 +405,30 @@ cancelScan 后内容区显示「无匹配结果」仍属 spec 未定义面（S9 
 ### 行动
 
 FAIL → `dev-status.sh bump-round DL-01`（impl/test 回 pending，check=round_1）。请手动启动 dev-exe DL-01 重做：仅需处理上述 2 条问题清单（修复指令已精确到函数），其余实现与测试保持原样，勿动既有断言。
+
+## [2026-08-25 21:49] DL-01 - 第 2 轮 dev-check
+
+### 总 verdict: PASS
+
+审计对象：commit 670f65d（返工增量）。从 spec §1.0 推回复核：B5 九条裁决与 U1~U9 场景映射不变，本轮仅核验第 1 轮 F1/F2 修复靶点及增量无越界。
+
+**修复靶点核验（检查 2 核心，对抗式）**：
+
+- **F1 clearAll 取消协调**（download_manager.dart:389-406）：标志先于删行落位 ✅。可违反路径穷举——①放行后引擎在 post-transfer 复查处丢弃产物并跳过 failed 标记（S5 F1 用例真实异步锁定终态：文件系统 isEmpty + listByConnection isEmpty 双否定面）；②传输已先完成的竞态：status 读为 done 不打标志，走 done 删除路径同样删文件；③死链挂起：30s chunk-idle 超时 → downloadFile 自清 .part → manager 兜底清 saveTo；④跨连接隔离：listByConnection 只取本连接行。孤儿文件泄漏路径已闭合，对话框文案承诺与行为一致。
+- **F2 ensureReady 端口**（download_manager.dart:49/85/274）：`_warmingUp ??=` 备忘录化防重复 resolve；atRoot 构造器 `_root != null` 直接短路；`downloadRoot` 的 StateError 分支在 `_transfer` await ensureReady 后不可达；抽象成员新增的两个实现方（IoDownloadFileSystem/_TempDirFs）均已补齐，analyze 0 error 佐证无第三方实现遗漏。
+- **越界改动扫描**：diff 为纯插入（实现 +31 行、测试 +90 行），既有断言零改动 ✅。
+
+**检查 1 测试空壳 — PASS**：新增两用例均为真状态断言——S5 F1 含前置锚（downling+.part 存在）与三重否定面（产物清空/行零回写/不误标 failed）；S9 F1 锁 UI 集成链（对话框流 + override 注入的同一 manager 实例）。测试放置的机械适配（完整中止链路归 S5 组真实异步、widget 收敛到确定性部分）已在用例注释中说明理由，属 FakeAsync 假时钟无法驱动真实 IO 的既知约束，非断言弱化。
+
+**检查 3 跨模块破坏 — PASS**：cross-imports all clean；impact 引用方仅 downloads 特性自身（§7 声明域内）；cov-gate 全量回归 2702 用例全绿（pre-push hook 与 cov-gate 双跑一致）。
+
+**机械项 — 全绿**：spec-scan exit 0；coverage-check check-check 总覆盖 91.45% vs 基线 91.92%，降幅 0.47% ≤ 容忍（降幅来源为 DL-01 新增约 800 行 lib 分母扩张，critical 单文件零漂移）；repro-test 不适用（非 Bug 项）。
+
+### 非阻断观察（不随本轮处理）
+
+1. `clearAll` 对已完成传输的迟到取消会在 `_cancelRequested` 留下永久 stale id（int 集合，量级可忽略；AUTOINCREMENT 保证不复用 id，无行为影响）。
+2. 本轮 refresh 后基线总覆盖将自 91.92% 记为 91.45%（新功能代码分母效应），critical 文件全部持平或上行——属增长性稀释而非回归，后续轮次以新基线守漂移。
+
+### 行动
+
+全 PASS → `dev-status.sh pass DL-01` + `coverage-check.sh refresh`。manual_qa_required=true 的真机清单已在初始实施时登记 mqa-backlog.md，本轮逻辑修复无需追加。
