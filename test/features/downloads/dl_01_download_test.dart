@@ -243,6 +243,9 @@ class _TempDirFs implements DownloadFileSystem {
   _TempDirFs(this.root);
 
   @override
+  Future<void> ensureReady() async {}
+
+  @override
   String get downloadRoot => root;
 
   @override
@@ -1647,6 +1650,41 @@ void main() {
       expect(env.client.calledPaths, ['/retryme.mp3']);
     });
 
+    test('DL-01-S5 F1: clearAll 取消进行中任务——传输中止、产物清空、泵安静退出（无孤儿）', () async {
+      final gate = Completer<void>();
+      final env = await _makeManagerEnv(scripts: {
+        '/clearme.mp3': _ScriptedDownload(hangGate: gate),
+      });
+      await env.manager
+          .enqueueMany([(1, testAudio('clearme.mp3', '/clearme.mp3'))]);
+      await _waitUntilAsync(() async =>
+          (await env.dao.findByLocation(1, '/clearme.mp3'))?.status ==
+          DownloadStatus.downloading);
+      expect(
+        _allFilesUnder(env.fs.downloadRoot).where((p) => p.endsWith('.part')),
+        isNotEmpty,
+        reason: '前置：传输中确实存在 .part 残留物',
+      );
+
+      // 清空全部：downloading 行必须先打取消标志再删行（S9 否定断言「进行中
+      // 任务一并取消」），否则放行后 rename 会留下无记录孤儿文件。
+      await env.manager.clearAll(1);
+      expect(await env.dao.findByLocation(1, '/clearme.mp3'), isNull,
+          reason: '行已被清空删除');
+
+      // 放行挂起的传输：取消标志在场 → 引擎丢弃产物并自清，不得留孤儿
+      gate.complete();
+      await _waitUntilAsync(
+        () async => _allFilesUnder(env.fs.downloadRoot).isEmpty,
+        maxMs: 3000,
+        reason: '引擎应在取消复查处丢弃产物（rename 后清理，不落孤儿）',
+      );
+      expect(_allFilesUnder(env.fs.downloadRoot), isEmpty,
+          reason: 'F1 否定断言：无成品也无 .part 孤儿残留');
+      expect(await env.dao.listByConnection(1), isEmpty,
+          reason: '泵安静退出，无任何行回写（不误标 failed）');
+    });
+
     test('DL-01-S5: 泵活跃期间 enqueue 只插行不并发下载，当前完成后继续', () async {
       final gateFirst = Completer<void>();
       final env = await _makeManagerEnv(scripts: {
@@ -2223,6 +2261,58 @@ void main() {
       }
       expect(await env.dao.listByConnection(1), isEmpty);
       expect(File(donePath).existsSync(), isFalse, reason: '本地文件删净');
+    });
+
+    testWidgets('DL-01-S9 F1: 清空全部移除进行中条目——行从列表与 DB 消失（挂起传输下）', (tester) async {
+      final env = await _makeWidgetEnv();
+      // 注入自建 manager：页面 initState 只在加载时读一次库，UI 外部入队不会
+      // 触发刷新；产物清空链路涉及真实 IO，由 S5 组 F1 管理器级用例锁定。
+      final gate = Completer<void>();
+      final scripted = _FakeDownloadClient(scripts: {
+        '/clearme.mp3': _ScriptedDownload(hangGate: gate),
+      });
+      final manager =
+          DownloadManager(client: scripted, dao: env.dao, fs: env.fs);
+      // 预置 pending 行：initState 加载即见「等待中」行与底部清空按钮
+      await env.dao.upsert(_rec('/clearme.mp3', DownloadStatus.pending));
+      await tester.pumpWidget(buildTestApp(
+        DownloadsScreen(),
+        overrides: [
+          activeConnectionProvider.overrideWith((ref) async => _conn),
+          downloadDaoProvider.overrideWithValue(env.dao),
+          downloadFileSystemProvider.overrideWithValue(env.fs),
+          downloadManagerProvider.overrideWithValue(manager),
+        ],
+      ));
+      await tester.pumpAndSettle();
+
+      // 启动泵 → 引擎选中该条并挂在传输门上
+      unawaited(manager.pump());
+      await tester.pumpAndSettle();
+      final victim = await env.dao.findByLocation(1, '/clearme.mp3');
+      expect(victim!.status, DownloadStatus.downloading, reason: '前置：泵已选中该条');
+      expect(
+        _allFilesUnder(env.fs.downloadRoot).where((p) => p.endsWith('.part')),
+        isNotEmpty,
+        reason: '前置：传输中确实存在 .part 残留物',
+      );
+
+      // 清空全部（确认对话框最后一个 TextButton = 确认键，同既有用例定位约定）
+      await tester.tap(find.textContaining('清空'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsOneWidget);
+      await tester.tap(
+          find
+              .descendant(
+                  of: find.byType(AlertDialog),
+                  matching: find.byWidgetPredicate((w) => w is TextButton))
+              .last,
+          warnIfMissed: false);
+      await tester.pumpAndSettle();
+
+      expect(find.text('clearme.mp3'), findsNothing, reason: '行已从列表消失');
+      expect(await env.dao.findByLocation(1, '/clearme.mp3'), isNull,
+          reason: '行已从 DB 删除（取消标志已在删行前打好，见 S5 F1 用例）');
     });
 
     testWidgets('DL-01-S9: 无活跃连接 → 「请先连接 NAS」空态，不渲染任务行', (tester) async {

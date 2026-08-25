@@ -46,6 +46,11 @@ typedef DownloadCredentialResolver = Future<DownloadCredentials?> Function(
 
 /// Filesystem abstraction for the download root (INV4 port).
 abstract class DownloadFileSystem {
+  /// Waits until [downloadRoot] is safe to read (F2/check-log R1: closes the
+  /// async warm-up race where an early pump read a not-yet-resolved root and
+  /// got a StateError → spurious failed row). No-op for eagerly-ready impls.
+  Future<void> ensureReady();
+
   /// Absolute path of the downloads root directory.
   String get downloadRoot;
 
@@ -59,12 +64,13 @@ abstract class DownloadFileSystem {
 /// Production [DownloadFileSystem] rooted at `<documents>/downloads`.
 class IoDownloadFileSystem implements DownloadFileSystem {
   String? _root;
+  Future<void>? _warmingUp;
 
   /// Resolves the real application documents directory asynchronously; the
-  /// root becomes available shortly after construction (first access before
-  /// warm-up completes throws — callers treat that as a transient failure).
+  /// root becomes available shortly after construction. [ensureReady] awaits
+  /// the same warm-up, so callers never observe a half-initialised root.
   IoDownloadFileSystem() {
-    unawaited(_resolveDefaultRoot().then((root) => _root = root));
+    _warmingUp = _resolveDefaultRoot().then((root) => _root = root);
   }
 
   /// Test/preview constructor with a known root.
@@ -74,6 +80,12 @@ class IoDownloadFileSystem implements DownloadFileSystem {
   static Future<String> _resolveDefaultRoot() async {
     final docs = await getApplicationDocumentsDirectory();
     return p.join(docs.path, 'downloads');
+  }
+
+  @override
+  Future<void> ensureReady() {
+    if (_root != null) return Future<void>.value();
+    return _warmingUp ??= _resolveDefaultRoot().then((root) => _root = root);
   }
 
   @override
@@ -259,6 +271,8 @@ class DownloadManager {
     final fresh = await _dao.findById(id);
     if (fresh == null || _cancelRequested.contains(id)) return;
 
+    // F2/check-log R1: root warm-up must be settled before any path math.
+    await _fs.ensureReady();
     final dir = p.join(_fs.downloadRoot, '${entry.connectionId}');
     final baseName = sanitizeBaseName(entry.file.path);
     final uniqueName = resolveCollision(
@@ -375,9 +389,20 @@ class DownloadManager {
 
   /// Removes every entry of [connectionId]: local files and `.part` residues
   /// first, then the rows.
+  ///
+  /// F1/check-log R1 (S9 否定断言「进行中任务一并取消」): in-flight transfers
+  /// are flagged into [_cancelRequested] BEFORE the rows go away, so the
+  /// engine aborts at its next progress tick / post-transfer re-check,
+  /// discards artifacts via [_cleanupTransferArtifacts] and skips the
+  /// failed-marking — same cooperative-cancel semantics as [cancel]. Without
+  /// this, a surviving transfer would rename its `.part` onto disk after the
+  /// row is gone, leaving an invisible orphan file.
   Future<void> clearAll(int connectionId) async {
     final rows = await _dao.listByConnection(connectionId);
     for (final rec in rows) {
+      if (rec.status == DownloadStatus.downloading && rec.id != null) {
+        _cancelRequested.add(rec.id!);
+      }
       _fs.delete(rec.localPath);
       _fs.delete('${rec.localPath}.part');
     }

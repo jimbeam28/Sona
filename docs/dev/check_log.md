@@ -370,3 +370,38 @@ cancelScan 后内容区显示「无匹配结果」仍属 spec 未定义面（S9 
 ### 行动
 
 `dev-status.sh pass MSEL-01` + `coverage-check.sh refresh`（基线单调上行 91.77% → 91.92%）。
+
+## [2026-08-25 10:03] DL-01 - 第 1 轮 dev-check
+
+### 总 verdict: FAIL
+
+审计对象：commit 7592c9f。从 spec §1.0 推回：B5 离线下载九条裁决（双入口/DB v3+Documents+.part 原子/无续传/串行/done 且本地存在才走本地/零新鲜度/手动管理/孤儿标 failed/无前台 Service）+ 入口形态变更声明（文件级入口移入长按菜单）逐条对应 U1~U9 → S1~S10 落地核验。
+
+**检查 1 测试空壳 — PASS**：S1 迁移含 v2→v3/v1→v3 双路径 + 四旧表行数列集合零改动否定面 + DDL 层 UNIQUE 拒绝；S2 十方法全行为锁定（upsert 只更新三列、findDoneLocalPath 四态矩阵、markAllNonDoneFailed 时间戳否定面）；S3 本机 HttpServer 假源六用例（黄金分块/无 Content-Length/401/404/中途断流/chunk 静默死链，Range 与 If-Modified-Since 否定头断言在位）；S5 head-block 技术钉死 pending-at-rest、INV2 maxConcurrent==1、节流双档（1 天/0）补偿 §5.3；S6 调用序 log 锁定 INV1 + resolver 挂起 superseded 竞态；ALG1 十一格穷举 + ALG2 探针调用序逐个锁定。无占位断言。
+
+**检查 2 实现语义忠实 — FAIL ×1**（见下方清单）。其余逐条对审通过：S6 else 分支原文保留（INV1）、resolver==null 时零新增 gate 检查点、本地命中跳过 readPassword/buildWithBasePath 有 reader.calls==0 断言；INV3/INV4 端口注入成立；INV5 三重闸（.part 原子改名/findDoneLocalPath 仅 done/updateProgress 仅 downloading）无可违反路径；§1.0 九句期待全部有对应 Scenario 且落地；入口形态变更已按 spec 声明留用户复核。
+
+**检查 3 跨模块破坏 — PASS**：cross-imports all clean（仅基线 legacy debt）；impact 引用方全在 §7 声明域（PLY/BRW/SETTINGS/DB）；cov-gate 全量回归 2700 用例全绿（ply_02~08/net1 族 INV1 回归网未破）。
+
+**机械项 — 全绿**：spec-scan exit 0（ALG 行 `-` 为脚本固定口径，与 MSEL-01 先例一致）；coverage-check check-check 总覆盖 91.49% vs 基线 91.92%，降幅 0.43% ≤ 容忍；flutter analyze 0 error；repro-test 不适用（非 Bug 项）。
+
+### FAIL 问题清单
+
+1. **clearAll 不取消进行中任务，留下无记录孤儿文件**（检查项 2，@DL-01-S9）
+   - 证据：lib/core/services/download_manager.dart:378-385（clearAll 只删已知 localPath 与行，无任何 _cancelRequested 协调）；lib/features/downloads/downloads_screen.dart:151（确认对话框文案承诺「进行中的任务一并取消」）；docs/features/DL-01.md:280（S9 否定断言「清空全部…进行中任务一并取消」）
+   - 现象：downloading 行的 local_path 在完成前恒为 ''（仅 setStatus(done) 才写入），clearAll 对该行实际没删到任何产物；deleteByConnection 删行后，in-flight 传输继续 → 成功路径 rename .part→saveTo 落盘，setStatus(done) 打在已删除行上静默 no-op → 磁盘留下 UI 不可见、无 DB 记录的孤儿文件（存储泄漏至卸载）；失败路径虽自清 .part 但传输本身未被中止。可复现路径：管理页存在挂起型下载条目 → 点清空全部并确认 → 放行挂起的传输 → saveTo 文件残留且 totalBytes/列表均不可见。
+   - 修复指令：在 `DownloadManager.clearAll`（download_manager.dart:378）遍历 rows 时，对 `rec.status == DownloadStatus.downloading && rec.id != null` 的行先执行 `_cancelRequested.add(rec.id!)` 再删文件，最后照旧 `deleteByConnection`。语义依据：引擎 onProgress（:301）与传输后复查（:321）已消费该标志，会在下一进度刻度抛 `_DownloadCancelled` 并走 `_cleanupTransferArtifacts(saveTo)` 兜底删净 .part+成品，drainPump catch（:212）因标志在场跳过 setStatus(failed)——与单条 cancel(id) 的协作取消语义完全一致。并在 dl_01_download_test.dart S9 组补一用例：hangGate 脚本令泵停在 downloading → clearAll → complete 放行 → 断言 `findByLocation` 为 null、`_allFilesUnder(fs.downloadRoot)` 为空（无成品无 .part）、泵安静退出。
+2. **IoDownloadFileSystem 异步 warm-up 竞态可把首条任务误标 failed**（检查项 2，@DL-01-S5，FRAGILE 级）
+   - 证据：lib/core/services/download_manager.dart:80-85（root 未就绪时 `downloadRoot` getter 抛 StateError）；lib/features/downloads/downloads_provider.dart:36-37（provider 首读即构造，`_resolveDefaultRoot` 异步回填）
+   - 现象：provider 构建后极短窗口内 enqueueMany 触发 pump，`_transfer` 读 `_fs.downloadRoot` 可能 StateError → 被 drainPump catch 标 failed，用户看到假失败需手动重试。概率低但真实（慢 IO 首启）。
+   - 修复指令：给 `DownloadFileSystem` 端口加 `Future<void> ensureReady()`（IoDownloadFileSystem 实现：await 内部 root future；_TempDirFs/fake 为立即完成的 no-op），`_transfer` 在计算 dir 前先 `await _fs.ensureReady()`。不改任何测试断言，仅在 dl 测试 fake 补一个空实现。
+
+### 非阻断观察（不随本轮处理）
+
+1. IDownloadDao 在 spec 十方法外新增 findById / listPending（database_contract.dart:145-158）——串行泵「取最早 pending 一条」（S5）所需查询基础设施，只读、无行为外溢，不计自由发挥。
+2. WebDavClient.downloadFile 绕过注入 `_httpClient` 自建 IOClient 并以空 HttpOverrides 脱离测试全局 mock（webdav_client.dart 新增 `_RealHttpOverrides` 段）——manager 层 INV4 注入端口不受影响，生产环境空 overrides 等价默认行为；每次下载新建连接属串行队列下的可接受取舍，已注释文档化。
+3. `updateProgress` 以 unawaited 落库——sqflite 单写队列保序，风险可忽略；若未来换异步多通道存储需改 await。
+
+### 行动
+
+FAIL → `dev-status.sh bump-round DL-01`（impl/test 回 pending，check=round_1）。请手动启动 dev-exe DL-01 重做：仅需处理上述 2 条问题清单（修复指令已精确到函数），其余实现与测试保持原样，勿动既有断言。
