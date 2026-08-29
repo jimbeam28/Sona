@@ -253,4 +253,51 @@ void main() {
       sub.close();
     });
   });
+
+  test('BUG-33 修复: 重叠扫描——旧扫描 A 迟到超时不得 clobber 新在途扫描 B 的 running', () {
+    // 必须 sync fakeAsync：async fakeAsync 回调会吞掉 expect 失败（实证
+    // fakeAsync((async) async {...}) 内 expect(false,isTrue) 恒 pass，
+    // 测试变空壳——check_log 修复指令 4 明文警告）。
+    fakeAsync((async) {
+      final storage = HangingFakeSecureStorage(hangRead: true);
+      final client = _TreeDavClient()
+        ..put('/', [testDir('a', '/a')])
+        ..put('/a', [testAudio('hit.mp3', '/a/hit.mp3')]);
+
+      final container = ProviderContainer(overrides: [
+        activeConnectionProvider.overrideWith((ref) async => conn),
+        secureStorageProvider.overrideWithValue(storage),
+        webDavClientProvider.overrideWithValue(client),
+      ]);
+      final sub = container.listen(searchSessionProvider, (_, __) {});
+      final notifier = container.read(searchSessionProvider.notifier);
+
+      notifier.openPanel();
+      notifier.onQueryChanged('a');
+      async.elapse(const Duration(milliseconds: 600)); // A 启动并挂起在密码读
+      expect(container.read(searchSessionProvider).running, isTrue,
+          reason: '前置：扫描 A 已启动并挂起在 safeStorageRead');
+
+      notifier.onQueryChanged('ab');
+      async.elapse(const Duration(milliseconds: 600)); // B 启动并挂起在密码读
+      expect(container.read(searchSessionProvider).running, isTrue,
+          reason: '前置：扫描 B 已接管并挂起在 safeStorageRead');
+
+      // 逐段推进跨过 A 的 5s 超时点（A safeStorageRead 于 t=500ms 启动，
+      // 5s 超时落在 t=5500ms；B 于 t=1100ms 启动，超时落在 t=6100ms）：
+      // 4200ms → t=5400、200ms → t=5600（A 超时已过，B 仍在飞行）、
+      // 100ms → t=5700（仍早于 B 的 6100ms 超时点）。
+      async.elapse(const Duration(milliseconds: 4200));
+      async.elapse(const Duration(milliseconds: 200));
+      async.elapse(const Duration(milliseconds: 100));
+
+      final s = container.read(searchSessionProvider);
+      expect(s.running, isTrue,
+          reason: '否定断言：旧扫描 A 的迟到超时不得把新在途扫描 B 打回 false（epoch 守卫）');
+      expect(s.query, 'ab', reason: 'B 的 query 保留，A 的迟到超时零残留');
+
+      container.dispose();
+      sub.close();
+    });
+  });
 }

@@ -377,6 +377,10 @@ class SearchSessionNotifier extends AutoDisposeNotifier<SearchSessionState> {
   Timer? _debounce;
   StreamSubscription<SearchEvent>? _sub;
   bool _disposed = false;
+  // BUG-33 check_log 修复指令 1：扫描世代号——每次 _startScan 启动递增。
+  // 迟到的装配结果（成功/超时异常）只允许落位到「仍是最新扫描」的情形，
+  // 新扫描已接管（epoch 递增）则不得写 running / 重建订阅。
+  int _scanEpoch = 0;
 
   @override
   SearchSessionState build() {
@@ -422,6 +426,9 @@ class SearchSessionNotifier extends AutoDisposeNotifier<SearchSessionState> {
 
   Future<void> _startScan(String q) async {
     if (_disposed) return;
+    // BUG-33 check_log 修复指令 2：本扫描领取唯一世代号；旧扫描迟到超时
+    // （5s safeStorageRead）在 catch 里凭 epoch 失配被丢弃，不写 running。
+    final epoch = ++_scanEpoch;
     // S5 否定断言：新扫描启动前旧订阅必须被取消——同一时刻至多一条活跃流。
     _sub?.cancel();
     // hits 属于当前 query 的活跃流（S6 归约前提）：新一轮扫描启动即清空
@@ -454,13 +461,25 @@ class SearchSessionNotifier extends AutoDisposeNotifier<SearchSessionState> {
       );
     } catch (e) {
       debugPrint('[Search] scan session assembly failed: $e');
+      // BUG-33 check_log 修复指令 3：迟到异常只允许落位到「仍是最新扫描」的
+      // 情形——新扫描已接管（epoch 递增）则不得写 running，否则旧扫描 A 的
+      // 迟到超时会 clobber 新在途扫描 B 的 running（bug_33_repro 重叠测试）。
+      if (_disposed || epoch != _scanEpoch) return;
       state = state.copyWith(running: false);
       return;
     }
     // P14 async-gap：await 期间 notifier 可能被释放（连接切换 closePanel）或
     // 已被新一轮 _startScan 抢占（query 变更）——迟到的装配结果不得重建
     // 已取消/已过期的订阅。守卫保持在此 try 之后、订阅之前，顺序不变。
-    if (_disposed || !state.running || state.query != q) return;
+    // BUG-33 check_log 修复指令 5（加固）：epoch 失配同样丢弃——闭合同 query
+    // 重输（清空后重打同词）下 A 迟到成功与 B 双重订阅的边角；!state.running
+    // 保留（cancelScan/closePanel 不递增 epoch，仍须以此拦下）。
+    if (_disposed ||
+        epoch != _scanEpoch ||
+        !state.running ||
+        state.query != q) {
+      return;
+    }
     if (fetchDir == null) {
       state = state.copyWith(running: false);
       return;

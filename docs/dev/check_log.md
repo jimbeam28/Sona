@@ -505,3 +505,48 @@ FAIL → `dev-status.sh bump-round DL-01`（impl/test 回 pending，check=round_
 ### 行动
 
 FAIL → `dev-status.sh bump-round BUG-33` + `dev-status.sh bump-round DL-01`（impl/test 回 pending）。REF-28 全项通过 → `dev-status.sh pass REF-28` + `coverage-check.sh refresh`。请手动启动 dev-exe 重做：仅需处理问题清单 1（修复指令已精确到函数与测试补位），其余实现与测试保持原样，勿动既有断言。
+
+## [2026-08-29 19:35] BUG-33 - 第 2 轮 dev-check / DL-01 - 第 2 轮 dev-check（commit 673dadc 返工增量）
+
+### 总 verdict: BUG-33 FAIL ×1（新增）；DL-01 PASS
+
+审计对象：commit 673dadc（第 1 轮问题清单 1 的唯一修复靶点）。从 spec §1.0 推回：F1 三句期待 + 第 1 轮 FAIL 指令「会话装配段密码读超时须落位各调用点既有错误分支」逐字核验三个调用点。
+
+**第 1 轮修复靶点核验（检查 2 核心，对抗式）**：
+
+- **_scanFolderWithLoading（browser_screen.dart:1079-1094）**：catch 执行与 collectFolderAudio catch 完全相同的三步（pop loading + 固定文案 + return null）✅。三个消费方（DL-01-S8 `_downloadFolder` :921-922、BRW-01 `_playFromFolder` :1126-1127、播放单 `_addToPlaylistFlow` :1155-1156）对 null 均 `return`（文案由 scan 已显示），DL-01-S8 下载路径装配超时正确中止、无泄漏。此路径无共享 running 类状态，无并发窗口，无 clobber 类比问题 ✅。
+- **_playSearchHit（browser_screen.dart:574-594）**：catch → 固定文案 SnackBar + return，无状态写入、无导航副作用，与 collectFolderAudio 失败分支同款 ✅。
+- **_startScan（browser_provider.dart:447-459）**：catch → `running=false` + return，单扫描挂起用例（bug_33_repro_test 新增）真实断言复位成功 ✅。**但此处发现第 1 轮修复引入的新竞态缺陷——见下方问题清单 1。**
+
+**检查 1 测试空壳 — PASS**：两个新增用例均为真状态断言、非占位——
+- bug_33_repro_test「密码读超时 → _startScan 复位 running」（sync fakeAsync）：前置锚（running 挂起 true）→ 推进 5s → running 置 false + query 保留 + panelOpen 保持 + hits 空 → 二次触发证明面板不卡（重新挂起→再次超时复位）✅。
+- brw_01「扫描装配段密码读超时 → _scanFolderWithLoading」：loading 对话框前置锚 → 推进 5s → 固定文案 + Dialog findsNothing + CircularProgressIndicator findsNothing + Player findsNothing + 双队列 provider null 五重否定面 ✅。
+- 但新测试仅覆盖「单扫描挂起」，未覆盖「重叠扫描 A 迟到超时 clobber B」——缺口见问题清单 1。
+
+**检查 3 跨模块破坏 — PASS**：cross-imports all clean（仅基线 legacy debt）；impact 引用方全在 browser 声明域（§7 BRW/DL 内）；cov-gate --only test 全量 2720 用例全绿（含 dl_01_download_test、srch_01、brw_01 回归网）。
+
+**机械项 — 全绿**：spec-scan rc=0（S/INV/ALG 矩阵无缺项，ALG 行 `-` 为脚本固定口径）；repro-test bug_33 pass ✓；coverage-check check-check 总覆盖 91.78% vs 基线 91.80%，降幅 0.02% ≤ 容忍，critical 单文件零漂移。
+
+### FAIL 问题清单
+
+1. **_startScan catch 无条件写 running=false：旧扫描迟到超时 clobber 新在途扫描的 running**（检查项 2，@BUG-33-S2 修改点③，兼及 SRCH-01-S6 迟事件语义）
+   - 证据：lib/features/browser/browser_provider.dart:455-459（catch 在 P14 守卫 :463 之前直接 `state.copyWith(running: false)`）；同函数 fetchDir==null 分支 :464-467 与成功路径均在守卫之后——catch 是唯一绕过守卫的状态写。
+   - 现象：搜索扫描装配段挂起 ≥5s（正是本轮修复目标场景）期间用户改输入 → 新 query 的 `_startScan` B 已启动（running=true, query='ab'，仍挂起在其自身密码读）→ 旧扫描 A 的 safeStorageRead 5s 超时到达 → A 的 catch 无条件把 running 打回 false → B 的后续装配结果被守卫 `!state.running` 丢弃（B 成功则永不订阅，B 超时则空等）→ 面板显示「无匹配结果」（hits 空且 done）假阴性。**修复前（8177b90）此重叠场景 B 正常完成**——本修复把单挂起卡死换成重叠场景的新回归。可复现：sync fakeAsync 双扫描重叠测试实证（A 挂起→改输入→B 挂起→推进 5s 后 running 恒 false 且 B 被丢弃）。
+   - 修复指令（精确到函数，dev-exe 照单执行）：
+     1. `SearchSessionNotifier`（browser_provider.dart:374）新增字段 `int _scanEpoch = 0;`（放 `_disposed` 之后）。
+     2. `_startScan`（:423）首行 `if (_disposed) return;` 之后加 `final epoch = ++_scanEpoch;`。
+     3. catch（:455-459）在 `state = state.copyWith(running: false);` 之前加守卫：`if (_disposed || epoch != _scanEpoch) return;`——迟到异常只允许落位到「仍是最新扫描」的情形，新扫描已接管（epoch 递增）则不得写 running。P14 守卫（:463）与 fetchDir==null 分支、订阅顺序一律不动。
+     4. 测试补（bug_33_repro_test.dart 增一用例，必须 sync fakeAsync——**async fakeAsync 回调会吞掉 expect 失败**，实证 exp：`fakeAsync((async) async {...})` 内 `expect(false,isTrue)` 恒 pass，测试变空壳）：
+        - 前置：`HangingFakeSecureStorage(hangRead: true)`；`activeConnectionProvider.overrideWith((ref) async => conn)` + `secureStorageProvider` + `webDavClientProvider` 三个 override（与既有挂起用例同夹具，无需 prefs）。
+        - 步骤：`openPanel` → `onQueryChanged('a')` → `elapse(600ms)`（A 启动挂起）→ `onQueryChanged('ab')` → `elapse(600ms)`（B 启动挂起）→ 逐段 `elapse(4200ms)` + `elapse(200ms)` + `elapse(100ms)` 跨过 A 的 5s 超时点（B 仍在飞行）→ 断言 `running == true`（旧扫描 A 的迟到超时不得把 B 打回 false）。
+        - 修复前该断言 FAIL（running 恒 false），修复后 PASS——真红真绿门禁。
+     5. 可选加固（不阻塞，建议一并做，同样 2 行）：成功路径守卫 :463 改 `if (_disposed || epoch != _scanEpoch || state.query != q) return;`——闭合同 query 重输（清空后重打同词）下 A 迟到成功与 B 双重订阅的边角。若 dev-exe 判定风险，仅完成 1-4 亦达标。
+   - 不违反 BUG-33-S3：S3 否定面约束的是逐层 listDirectory 错误的成败语义（search skip / folder throw 一行未动）；本守卫属 S2 会话装配段错误处理的正确性修正，非覆盖层。
+
+### 非阻断观察（不随本轮处理）
+
+1. **INFO**：BRW-01/SRCH-01 与 DL-01 同受本轮 BUG-33 修复影响（`_scanFolderWithLoading`/`_startScan` 换 fetchDir），round-1 已登记夹具机械适配全绿；本轮新发现仅落在 `_startScan`（搜索路径），DL-01-S8 文件夹下载路径（`_scanFolderWithLoading`）无此竞态——单模态对话框无共享 running 状态，已核验三个消费方 null 处理完整。
+
+### 行动
+
+BUG-33 FAIL → `dev-status.sh bump-round BUG-33`（impl/test 回 pending，check_round=2）。DL-01 全项通过 → `dev-status.sh pass DL-01` + `coverage-check.sh refresh`。请手动启动 dev-exe BUG-33 重做：仅需处理问题清单 1（修复指令已精确到函数与测试补位，含 sync fakeAsync 教训），其余实现与测试保持原样，勿动既有断言。
