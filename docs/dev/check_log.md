@@ -455,3 +455,53 @@ FAIL → `dev-status.sh bump-round DL-01`（impl/test 回 pending，check=round_
 ### 行动
 
 `dev-status.sh pass DL-01` + `coverage-check.sh refresh`（基线 91.45% → 91.47%）。
+
+## [2026-08-29 18:39] DL-01 / BUG-33 / REF-28 - 第 1 轮 dev-check（commit 8177b90 折叠批次）
+
+### 总 verdict: FAIL（BUG-33 + DL-01 打回；REF-28 通过）
+
+审计对象：commit 8177b90（dev-exe 一次提交实现三项：DL-01 折叠 S11/S12/S13 + S8 目录下载接线；BUG-33 扫描会话 fetchDir 重构；REF-28 两处 ValueKey）。从各 spec §1.0 推回：
+- **DL-01**：U10（真实下载能完成）→ S11 生产接线；D1 → S12 收敛 Dao；D3 → S13 时钟注入。B5-8 启动恢复语义不变。
+- **BUG-33**：F1 三句期待（一次密码读 / 不挤缓存 / 切连接行为不变）→ S2/S3 落地。
+- **REF-28**：D2 用户裁决「修」→ S1/S2 补键。
+
+**检查 1 测试空壳 — PASS**（新测试全部真断言，无占位）：
+- bug_33_repro_test：F1 锚（3 层扫描 readCalls==1）+ S2 否定（扫描前后 directoryCacheProvider size 不变）+ ALG1（跨层 listDirectory 密码一致且读恰一次）。
+- bug_b1_wiring_repro_test：T1 载体，build 真实 downloadManagerProvider，`calledUrls.single == webDavEffectiveBaseUrl(conn.url, basePath)`，前置 pending→done 完成等待。
+- dl_01_download_test 新增：S11 双连接基址逐条正确（`['http://conn1','http://conn2']`）+ 否定（resolver null → 占位 + failed）；S12 空表 [] + 跨连接恢复矩阵（pending/downloading→failed、done/failed 不动）；S13 固定时钟落库 createdAt/updatedAt；S12 Dao 去重 {1,2}。
+- ref_28_value_key_test×2：真实 id 从 dao 读回（禁止猜测），byKey 断言到位。
+- 空壳缺口见下方 FAIL 问题 1（无安全存储超时注入用例）。
+
+**检查 2 实现语义忠实 — FAIL ×1**（见下方问题清单）。其余逐条对审通过：
+- S11：`_remoteUrlResolver` 签名改 per-connection `Future<String?> Function(int)`；`baseUrl` 按 `entry.connectionId` 解析（`_nextPendingEntry` 从 DB 行取 connectionId，泵跨连接不串凭证）；downloads_provider 零 activeConnectionProvider 引用（否定①）；null → 保底占位 → failed 不崩（否定③，有专测）。②生产装配按 spec 逐字落地。
+- S12：`listDistinctConnections` 入 IDownloadDao + DownloadDao 实现，'downloads' 表名字面量在 download_manager.dart 唯一残留为本地目录名 `p.join(docs.path,'downloads')`（:81，非 SQL 表名，合法）；recoverOrphanDownloads 改 `dao.listDistinctConnections()` 循环 markAllNonDoneFailed，catch-log 保留（:432 原样）。
+- S13：构造注入 `clock`（默认 DateTime.now）；enqueueMany `:190` 与 onProgress `:327` 的 now 改经 `_clock()`；生产装配不传 clock（行为零变化）。见非阻断 1（spec 内部文字矛盾）。
+- BUG-33-S2：`buildScanFetchDir` 提取 + `_filterDirectoryEntries` 单一来源（directoryContentsProvider 与扫描共用同一函数，:133/:149 同码）；搜索 `_startScan`、`_scanFolderWithLoading`、`_playSearchHit` 三处换线；`_collectFolder` 系旧注释（spec :568-570 实指 `_playSearchHit` 内 collectFolderAudio），实际两处扫描调用点均已接线。
+- BUG-33-S3：searchFolderSubtree 单层 catch→skipped++（folder_searcher.dart:70-72）、collectFolderAudio 整体上抛原样；未新增逐层 try/catch。
+- REF-28：S1 `key: ValueKey(record.id)` + `_DownloadRow` 补 `super.key`，回调接线零改动；S2 `key: ValueKey(hit.file.path)` 单行插入。INV1 键值来源均为业务 ID。
+- buildScanFetchDir 签名偏离 spec 的 `WidgetRef ref` 形态改显式依赖注入——注释已论证（search notifier 的 ref 非 WidgetRef），行为等价、否定断言全保持，判机械适配不计自由发挥。
+
+**检查 3 跨模块破坏 — PASS**：cross-imports all clean（仅基线 legacy debt）；impact 引用方全在 §7 声明域（browser_screen/breadcrumb_bar 属 BRW、downloads_screen/main 属 DL）；cov-gate --only test 全量 2718 用例全绿（brw_01/srch_01/ply 族回归网未破，含改动后需补 webDav/secureStorage override 的 srch/brw/dl widget 夹具机械适配）。
+
+**机械项 — 全绿**：spec-scan rc=0×3（DL-01 矩阵 S1~S13/INV1~5 全命中，ALG 行 `-` 为脚本固定口径）；repro-test bug_33 / bug_b1 双 pass ✓；coverage-check check-check 总覆盖 91.80% vs 基线 91.47%（上行），critical 单文件零漂移。
+
+### FAIL 问题清单
+
+1. **buildScanFetchDir 的 safeStorageRead 超时抛 SecureStorageTimeoutException，三个调用点均落于既有错误处理之外——文件夹扫描 loading 卡死 / 搜索面板永久「扫描中」**（检查项 2，@BUG-33-S2，兼及 DL-01-S8 / BRW-01 / SRCH-01 调用方）
+   - 证据：lib/features/browser/browser_provider.dart:442-455（`_startScan` 在 `state.copyWith(running:true)` 之后 await，throw 则 running 恒 true）；browser_screen.dart:1060-1072（`_scanFolderWithLoading` 的 `await buildScanFetchDir` 在 try/catch(collectFolderAudio) 之前，throw 则 :1045 `barrierDismissible:false` 的 loading 对话框永不 pop）；browser_screen.dart:569-580（`_playSearchHit` 同前，throw 则无 SnackBar）；对照同文件 directoryContentsProvider:117-124 将 `SecureStorageTimeoutException` 显式转为 `WebDavException('读取密码超时，请重试')`。
+   - 现象：safeStorageRead（storage_utils.dart:28-31）文档化地抛 `SecureStorageTimeoutException`（5s 平台通道挂起——正是 F1 所述真实通道延迟类、也是该超时包装存在的唯一理由）。修复前扫描任一层存储超时 → directoryContentsProvider 抛 WebDavException → 文件夹扫描被 collectFolderAudio catch 兜住（pop+固定文案）、搜索被 searchFolderSubtree 单层 skip（folder_searcher.dart:70-72）。修复后密码读上移为**会话装配段一次读**（S2 设计使然），但三调用点均无兜底：文件夹扫描 loading 卡死 + unhandled async error；搜索 running 卡 true 面板假死（后续 query 也无法复位）；搜索命中播放静默无反馈。可复现：`_startScan`/文件夹扫描期间 secure-storage 读挂起 ≥5s。
+   - 修复指令（精确到函数，dev-exe 照单执行）：
+     1. `_scanFolderWithLoading`（browser_screen.dart:1060）：把 `final scanFetchDir = await buildScanFetchDir(...)` 包进 try/catch；catch 内执行与下方 collectFolderAudio catch（:1080-1086）完全相同的三步：`navigator.pop(); messenger.showSnackBar(const SnackBar(content: Text('无法读取文件夹内容，请检查连接'))); return null;`。`null` 分支（:1066-1072）不动。
+     2. `_playSearchHit`（browser_screen.dart:569）：包进 try/catch；catch 内 `messenger.showSnackBar(const SnackBar(content: Text('无法读取文件夹内容，请检查连接'))); return;`。`null` 分支（:575-580）不动。
+     3. `_startScan`（browser_provider.dart:442）：包进 try/catch；catch 内 `state = state.copyWith(running: false); return;`（与 fetchDir==null 分支 :452-454 同错误落位，query 已保留）。P14 守卫（:451 `_disposed || !state.running || state.query != q`）保持在此 try 之后、订阅之前，顺序不动。
+     4. 测试补：bug_33_repro_test.dart 增一用例——`HangingFakeSecureStorage(hangRead: true)` 驱动 `_startScan`（fake_async 或真实 5s 超时推进），断言搜索 running 最终置 false 且不抛异常、面板不卡；文件夹扫描侧同构（`_scanFolderWithLoading` 返回 null + 对话框关闭 + 固定文案）可选其一并在用例注释说明共享兜底。注意：安全存储挂起对 `safeStorageRead` 是 5s 超时抛异常（非 null），fake 需让 read future 永不完成（hangRead 已满足），测试内推进超时或直接以 `ReadThrowingFakeSecureStorage` 代理等价路径。
+     5. 明确不违反 BUG-33-S3 否定断言「不引入新的 try/catch 覆盖层」：S3 否定面约束的是**逐层 listDirectory 错误**的成败语义（search skip / folder throw 原样保留，一行未动）；会话装配段的**一次性密码读**是 S2 新增的独立前置步骤，其失败须落位到各调用点既有错误分支——与 directoryContentsProvider 的 WebDavException 转换同族，非覆盖层。
+
+### 非阻断观察（不随本轮处理）
+
+1. **spec 内部文字矛盾（DL-01-S13，请 dev-plan 修订）**：Then 写「:306 lastWriteAt 初值改经 _clock()」，同场景否定断言写「节流锚点 lastWriteAt 初值、进度写判断逻辑不变」。实现保留 `lastWriteAt = DateTime.fromMillisecondsSinceEpoch(0)`（epoch 锚点）仅改 `now` 来源。若按 Then 字面改 lastWriteAt 经 `_clock()`，首回调 `now.difference(lastWriteAt)≈0 < throttle` → 首回调不落库，直接破坏 dl_01_download_test.dart:1594-1613「首回调立即写库」与引擎注释「First progress callback always lands (epoch anchor)」。实现取否定断言分支，正确。建议 spec 修订为「:185/:318 的 now 改经 _clock()；lastWriteAt 保持 epoch 锚定不变」。
+2. **INFO**：srch_01 / brw_01 / dl_01 既有 widget 测试的搜索与文件夹扫描夹具需补 webDav/secureStorage/activeConnection override（因扫描 fetchDir 从 directoryContentsProvider 改道 webDavClientProvider）——纯测试装配机械适配，断言语义原样保留，已全绿。
+
+### 行动
+
+FAIL → `dev-status.sh bump-round BUG-33` + `dev-status.sh bump-round DL-01`（impl/test 回 pending）。REF-28 全项通过 → `dev-status.sh pass REF-28` + `coverage-check.sh refresh`。请手动启动 dev-exe 重做：仅需处理问题清单 1（修复指令已精确到函数与测试补位），其余实现与测试保持原样，勿动既有断言。

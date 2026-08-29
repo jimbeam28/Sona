@@ -16,6 +16,7 @@
 //     用户浏览路径缓存不被扫描挤掉。
 //   - BUG-33-ALG1：同一会话多次 fetchDir→listDirectory 收到同一次解析密码（INV2）。
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nas_audio_player/core/network/webdav_client.dart';
@@ -202,5 +203,54 @@ void main() {
     expect(client.passwords.toSet(), {'pw'},
         reason: 'ALG1：同一会话内所有 listDirectory 收到同一次解析的密码（密码一致复用）');
     expect(storage.readCalls, 1, reason: 'ALG1：整会话密码读取恰一次，不随层数增长（INV2）');
+  });
+
+  test('BUG-33 修复: 密码读超时 → _startScan 复位 running、不抛异常、面板不卡（fakeAsync 推进 5s）',
+      () {
+    fakeAsync((async) {
+      // 挂起式 secure storage：read future 永不完成 → safeStorageRead 的
+      // 5s 超时包装必然抛 SecureStorageTimeoutException（非 null）——
+      // 即 F1 所述真实平台通道挂起（≥5s）的等价路径（check_log 修复指令 4）。
+      final storage = HangingFakeSecureStorage(hangRead: true);
+      final client = _TreeDavClient()
+        ..put('/', [testDir('a', '/a')])
+        ..put('/a', [testAudio('hit.mp3', '/a/hit.mp3')]);
+
+      final container = ProviderContainer(overrides: [
+        activeConnectionProvider.overrideWith((ref) async => conn),
+        secureStorageProvider.overrideWithValue(storage),
+        webDavClientProvider.overrideWithValue(client),
+      ]);
+      final sub = container.listen(searchSessionProvider, (_, __) {});
+      final notifier = container.read(searchSessionProvider.notifier);
+
+      notifier.openPanel();
+      notifier.onQueryChanged('hit');
+      async.elapse(const Duration(milliseconds: 600)); // debounce 触发 _startScan
+      expect(container.read(searchSessionProvider).running, isTrue,
+          reason: '前置：_startScan 已启动并挂起在 safeStorageRead 上');
+
+      // 推进 5s → safeStorageRead 超时 → SecureStorageTimeoutException 上抛 →
+      // _startScan 新 catch 必须复位 running=false（修复前恒 true → 面板假死）。
+      async.elapse(const Duration(seconds: 5));
+      var s = container.read(searchSessionProvider);
+      expect(s.running, isFalse,
+          reason: '超时后 running 必须复位为 false——不抛异常且面板不卡在扫描中');
+      expect(s.query, 'hit', reason: 'query 已保留（与 fetchDir==null 分支同错误落位）');
+      expect(s.panelOpen, isTrue, reason: '面板保持打开（非卡死态）');
+      expect(s.hits, isEmpty, reason: '零命中、无残留');
+
+      // 面板不卡：后续查询仍可再次发起扫描（再次挂起→再次超时复位）。
+      notifier.onQueryChanged('hit');
+      async.elapse(const Duration(milliseconds: 600));
+      expect(container.read(searchSessionProvider).running, isTrue,
+          reason: '否定断言：面板不卡——新查询能重新触发扫描（再次挂起在密码读）');
+      async.elapse(const Duration(seconds: 5));
+      s = container.read(searchSessionProvider);
+      expect(s.running, isFalse, reason: '第二轮超时同样复位，循环不卡死');
+
+      container.dispose();
+      sub.close();
+    });
   });
 }

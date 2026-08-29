@@ -565,13 +565,27 @@ Future<void> _playSearchHit(
   // 建队收集的 fetchDir 与主列表「从此处播放」（_collectFolder）同款缓存读，
   // 失败面完全一致（spec S10② 镜像）；collectFolderAudio 整体失败语义不变。
   // BUG-33-S2（cr F1）：扫描会话走不经缓存的轻量 fetchDir（密码读一次）。
+  //
+  // BUG-33 check-log 修复指令 2：会话装配段密码读可能抛
+  // SecureStorageTimeoutException（safeStorageRead 5s 平台通道超时）——包进
+  // try/catch，catch 与下方 collectFolderAudio 失败分支同款固定文案 SnackBar
+  // 并 return，否则点击搜索命中静默无反馈。
   FolderScanResult? collected;
-  final scanFetchDir = await buildScanFetchDir(
-    activeConnection: () => ref.read(activeConnectionProvider.future),
-    storage: ref.read(secureStorageProvider),
-    client: ref.read(webDavClientProvider),
-    sort: ref.read(sortOptionProvider),
-  );
+  final Future<List<NasFile>> Function(String)? scanFetchDir;
+  try {
+    scanFetchDir = await buildScanFetchDir(
+      activeConnection: () => ref.read(activeConnectionProvider.future),
+      storage: ref.read(secureStorageProvider),
+      client: ref.read(webDavClientProvider),
+      sort: ref.read(sortOptionProvider),
+    );
+  } catch (e) {
+    debugPrint('[Browser] search play: scan session assembly failed: $e');
+    messenger.showSnackBar(
+      const SnackBar(content: Text('无法读取文件夹内容，请检查连接')),
+    );
+    return;
+  }
   if (scanFetchDir == null) {
     messenger.showSnackBar(
       const SnackBar(content: Text('无法读取文件夹内容，请检查连接')),
@@ -1057,12 +1071,27 @@ Future<FolderScanResult?> _scanFolderWithLoading(
   );
   // BUG-33-S2（cr F1）：扫描会话走不经缓存的轻量 fetchDir（密码读一次、
   // 不写 directoryCache）。无活跃连接/密码 → 既有错误分支语义。
-  final scanFetchDir = await buildScanFetchDir(
-    activeConnection: () => ref.read(activeConnectionProvider.future),
-    storage: ref.read(secureStorageProvider),
-    client: ref.read(webDavClientProvider),
-    sort: ref.read(sortOptionProvider),
-  );
+  //
+  // BUG-33 check-log 修复指令 1：会话装配段密码读可能抛
+  // SecureStorageTimeoutException（safeStorageRead 5s 平台通道超时）——包进
+  // try/catch，catch 执行与 collectFolderAudio 失败分支完全相同的三步
+  // （pop loading + 固定文案 + return null），否则 loading 对话框永不关闭。
+  final Future<List<NasFile>> Function(String)? scanFetchDir;
+  try {
+    scanFetchDir = await buildScanFetchDir(
+      activeConnection: () => ref.read(activeConnectionProvider.future),
+      storage: ref.read(secureStorageProvider),
+      client: ref.read(webDavClientProvider),
+      sort: ref.read(sortOptionProvider),
+    );
+  } catch (e) {
+    debugPrint('[Browser] folder scan assembly failed: $e');
+    navigator.pop();
+    messenger.showSnackBar(
+      const SnackBar(content: Text('无法读取文件夹内容，请检查连接')),
+    );
+    return null;
+  }
   if (scanFetchDir == null) {
     navigator.pop();
     messenger.showSnackBar(

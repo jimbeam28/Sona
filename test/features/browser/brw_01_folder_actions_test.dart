@@ -561,6 +561,54 @@ void main() {
           reason: '失败路径下 lastQueueConnectionIdProvider 不得被写');
     });
 
+    testWidgets(
+        'BUG-33 修复: 扫描装配段密码读超时 → _scanFolderWithLoading 返回 null、'
+        '对话框关闭、固定文案、不导航不建队（与 S6 共享 catch 兜底）', (tester) async {
+      // 挂起式 secure storage：buildScanFetchDir 会话装配段 safeStorageRead
+      // 挂起 ≥5s → 超时抛 SecureStorageTimeoutException。主列表浏览走
+      // tree.override（directoryContentsProvider 直供），不触碰 secureStorage；
+      // 仅扫描会话经 buildScanFetchDir 读它——与 F1 所述平台通道挂起同族。
+      final tree = _Tree()
+        ..put('/', [testDir('Music', '/Music')])
+        ..put('/Music', [testAudio('a.mp3', '/Music/a.mp3')]);
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final hanging = HangingFakeSecureStorage(hangRead: true);
+      final overrides = [
+        tree.override,
+        tree.webDavOverride,
+        secureStorageProvider.overrideWithValue(hanging),
+        activeConnectionProvider.overrideWith((ref) async => _conn),
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        audioPlayerProvider.overrideWithValue(MockAudioPlayer()),
+        progressDaoProvider.overrideWithValue(_NoProgressDao()),
+      ];
+
+      final container = await _pumpBrowser(tester, overrides);
+
+      await _openFolderMenu(tester, 'Music');
+      await tester.tap(find.text('从此处播放'));
+      await tester.pump();
+      expect(find.byType(Dialog), findsOneWidget, reason: '前置：loading 对话框在弹');
+
+      // 推进 5s → safeStorageRead 超时 → SecureStorageTimeoutException →
+      // _scanFolderWithLoading 新 catch 必须执行与 collectFolderAudio catch
+      // 完全相同的三步（pop + 固定文案 + return null）。
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+
+      expect(find.text('无法读取文件夹内容，请检查连接'), findsOneWidget,
+          reason: '超时失败面与 collectFolderAudio 失败面完全一致（固定文案）');
+      expect(find.byType(Dialog), findsNothing, reason: '超时分支同样关 loading 对话框');
+      expect(find.byType(CircularProgressIndicator), findsNothing,
+          reason: 'loading 无残留遮罩');
+      expect(find.text('Player'), findsNothing, reason: '失败不得 push /player');
+      expect(container.read(currentPlayQueueProvider), isNull,
+          reason: '失败路径下 currentPlayQueueProvider 不得被写');
+      expect(container.read(lastQueueConnectionIdProvider), isNull,
+          reason: '失败路径下 lastQueueConnectionIdProvider 不得被写');
+    });
+
     testWidgets('BRW-01-INV3: 文件夹入口产生的队列 startPositionMs 恒为 null',
         (tester) async {
       final tree = _Tree()

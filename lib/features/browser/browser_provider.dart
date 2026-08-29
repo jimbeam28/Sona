@@ -439,15 +439,27 @@ class SearchSessionNotifier extends AutoDisposeNotifier<SearchSessionState> {
     // deep-tree search reads the password once and never evicts the user's
     // browse cache. No active connection / missing password → fall into the
     // existing error position (running=false, query preserved).
-    final fetchDir = await buildScanFetchDir(
-      activeConnection: () => ref.read(activeConnectionProvider.future),
-      storage: ref.read(secureStorageProvider),
-      client: ref.read(webDavClientProvider),
-      sort: ref.read(sortOptionProvider),
-    );
+    //
+    // BUG-33 check-log 修复指令 3：会话装配段密码读可能抛
+    // SecureStorageTimeoutException（safeStorageRead 5s 平台通道超时，非 null）——
+    // 必须 catch 并落位到与 fetchDir==null 分支相同的错误位置（running=false、
+    // query 保留），否则 running 恒 true、搜索面板永久「扫描中」。
+    Future<List<NasFile>> Function(String)? fetchDir;
+    try {
+      fetchDir = await buildScanFetchDir(
+        activeConnection: () => ref.read(activeConnectionProvider.future),
+        storage: ref.read(secureStorageProvider),
+        client: ref.read(webDavClientProvider),
+        sort: ref.read(sortOptionProvider),
+      );
+    } catch (e) {
+      debugPrint('[Search] scan session assembly failed: $e');
+      state = state.copyWith(running: false);
+      return;
+    }
     // P14 async-gap：await 期间 notifier 可能被释放（连接切换 closePanel）或
     // 已被新一轮 _startScan 抢占（query 变更）——迟到的装配结果不得重建
-    // 已取消/已过期的订阅。
+    // 已取消/已过期的订阅。守卫保持在此 try 之后、订阅之前，顺序不变。
     if (_disposed || !state.running || state.query != q) return;
     if (fetchDir == null) {
       state = state.copyWith(running: false);
