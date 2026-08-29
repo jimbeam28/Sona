@@ -23,12 +23,47 @@ import 'package:nas_audio_player/shared/models/nas_file.dart';
 import 'package:nas_audio_player/shared/models/play_progress.dart';
 import 'package:nas_audio_player/shared/models/play_queue.dart';
 
+import '../../helpers/fake_secure_storage.dart';
 import '../../helpers/mock_audio_player.dart';
 import '../../helpers/test_factories.dart';
 import '../../helpers/widget_helpers.dart';
 
 NasFile _plain(String name, String path) =>
     NasFile(name: name, path: path, isDirectory: false);
+
+class _ScanDavClient implements WebDavClientInterface {
+  _ScanDavClient(this._tree);
+  final _SearchTree _tree;
+
+  @override
+  Future<List<NasFile>> listDirectory({
+    required String url,
+    required String username,
+    required String password,
+    required String path,
+  }) =>
+      _tree.fetch(path);
+
+  @override
+  Future<WebDavValidationResult> validate({
+    required String url,
+    required String username,
+    required String password,
+    String basePath = '/',
+  }) =>
+      throw UnimplementedError('not needed');
+
+  @override
+  Future<void> downloadFile({
+    required String url,
+    required String filePath,
+    required String username,
+    required String password,
+    required String saveTo,
+    void Function(int received, int? total)? onProgress,
+  }) =>
+      throw UnimplementedError('not needed');
+}
 
 class _SearchTree {
   final Map<String, List<NasFile>> listings = {};
@@ -69,6 +104,17 @@ class _SearchTree {
 
   Override get override =>
       directoryContentsProvider.overrideWith((ref, path) => fetch(path));
+
+  // BUG-33（cr F1）：扫描会话的 fetchDir 已从 directoryContentsProvider 移到
+  // 直接走 webDavClientProvider——同一棵树经 _ScanDavClient 适配器供给 webDav
+  // 端口（主列表浏览仍走 directoryContentsProvider 的 tree.override）。
+  Override get webDavOverride =>
+      webDavClientProvider.overrideWithValue(_ScanDavClient(this));
+
+  /// 扫描会话装配（BUG-33）：secureStorage 密码 + 活跃连接，与
+  /// buildScanFetchDir 的依赖集合一一对应。
+  Override get scanStorageOverride => secureStorageProvider.overrideWithValue(
+      FakeSecureStorage()..setPassword(testConnection().id ?? 1, 'pw'));
 }
 
 class _ScanRecord {
@@ -427,8 +473,14 @@ void main() {
             testAudio('晴天版.mp3', '/leaf/晴天版.mp3'),
             testAudio('rain.mp3', '/leaf/rain.mp3'),
           ]);
-        final container =
-            ProviderContainer(overrides: [tree.override, navRoot('/leaf')]);
+        final container = ProviderContainer(overrides: [
+          tree.override,
+          tree.webDavOverride,
+          tree.scanStorageOverride,
+          activeConnectionProvider
+              .overrideWith((ref) async => testConnection()),
+          navRoot('/leaf'),
+        ]);
         container.listen(searchSessionProvider, (prev, next) {});
         final notifier = container.read(searchSessionProvider.notifier);
 
@@ -454,8 +506,14 @@ void main() {
       fakeAsync((async) {
         final tree = _SearchTree()
           ..put('/g', [testAudio('abc_hit.mp3', '/g/abc_hit.mp3')]);
-        final container =
-            ProviderContainer(overrides: [tree.override, navRoot('/g')]);
+        final container = ProviderContainer(overrides: [
+          tree.override,
+          tree.webDavOverride,
+          tree.scanStorageOverride,
+          activeConnectionProvider
+              .overrideWith((ref) async => testConnection()),
+          navRoot('/g'),
+        ]);
         container.listen(searchSessionProvider, (prev, next) {});
         final notifier = container.read(searchSessionProvider.notifier);
 
@@ -495,8 +553,14 @@ void main() {
             testAudio('sunny2.mp3', '/sw/sunny2.mp3'),
             testAudio('rainy.mp3', '/sw/rainy.mp3'),
           ]);
-        final container =
-            ProviderContainer(overrides: [tree.override, navRoot('/sw')]);
+        final container = ProviderContainer(overrides: [
+          tree.override,
+          tree.webDavOverride,
+          tree.scanStorageOverride,
+          activeConnectionProvider
+              .overrideWith((ref) async => testConnection()),
+          navRoot('/sw'),
+        ]);
         container.listen(searchSessionProvider, (prev, next) {});
         final notifier = container.read(searchSessionProvider.notifier);
 
@@ -526,8 +590,14 @@ void main() {
       fakeAsync((async) {
         final tree = _SearchTree()
           ..put('/bz', [testAudio('hit_bz.mp3', '/bz/hit_bz.mp3')]);
-        final container =
-            ProviderContainer(overrides: [tree.override, navRoot('/bz')]);
+        final container = ProviderContainer(overrides: [
+          tree.override,
+          tree.webDavOverride,
+          tree.scanStorageOverride,
+          activeConnectionProvider
+              .overrideWith((ref) async => testConnection()),
+          navRoot('/bz'),
+        ]);
         container.listen(searchSessionProvider, (prev, next) {});
         final notifier = container.read(searchSessionProvider.notifier);
 
@@ -561,8 +631,14 @@ void main() {
       fakeAsync((async) {
         final tree = _SearchTree()
           ..put('/r', [testAudio('seed.mp3', '/r/seed.mp3')]);
-        final container =
-            ProviderContainer(overrides: [tree.override, navRoot('/r')]);
+        final container = ProviderContainer(overrides: [
+          tree.override,
+          tree.webDavOverride,
+          tree.scanStorageOverride,
+          activeConnectionProvider
+              .overrideWith((ref) async => testConnection()),
+          navRoot('/r'),
+        ]);
         container.listen(searchSessionProvider, (prev, next) {});
         final notifier = container.read(searchSessionProvider.notifier);
 
@@ -607,8 +683,14 @@ void main() {
           ..put('/m/sub', [testAudio('target_b.mp3', '/m/sub/target_b.mp3')]);
         // query='_'：恰好命中 m2_x.mp3×2 与 target_b.mp3（三者含下划线，
         // m1.mp3 不含被排除）——原 'b' 与期望命中集数学上不相容。
-        final container =
-            ProviderContainer(overrides: [tree.override, navRoot('/m')]);
+        final container = ProviderContainer(overrides: [
+          tree.override,
+          tree.webDavOverride,
+          tree.scanStorageOverride,
+          activeConnectionProvider
+              .overrideWith((ref) async => testConnection()),
+          navRoot('/m'),
+        ]);
         final states = <SearchSessionState>[];
         container.listen(
             searchSessionProvider, (prev, next) => states.add(next));
@@ -648,8 +730,14 @@ void main() {
             testDir('sub', '/m/sub'),
           ])
           ..put('/m/sub', [testAudio('target_b.mp3', '/m/sub/target_b.mp3')]);
-        final container =
-            ProviderContainer(overrides: [tree.override, navRoot('/m')]);
+        final container = ProviderContainer(overrides: [
+          tree.override,
+          tree.webDavOverride,
+          tree.scanStorageOverride,
+          activeConnectionProvider
+              .overrideWith((ref) async => testConnection()),
+          navRoot('/m'),
+        ]);
         container.listen(searchSessionProvider, (prev, next) {});
         final notifier = container.read(searchSessionProvider.notifier);
 
@@ -690,8 +778,14 @@ void main() {
       fakeAsync((async) {
         final tree = _SearchTree()
           ..put('/c', [testAudio('cx.mp3', '/c/cx.mp3')]);
-        final container =
-            ProviderContainer(overrides: [tree.override, navRoot('/c')]);
+        final container = ProviderContainer(overrides: [
+          tree.override,
+          tree.webDavOverride,
+          tree.scanStorageOverride,
+          activeConnectionProvider
+              .overrideWith((ref) async => testConnection()),
+          navRoot('/c'),
+        ]);
         container.listen(searchSessionProvider, (prev, next) {});
         final notifier = container.read(searchSessionProvider.notifier);
 
@@ -735,8 +829,14 @@ void main() {
       fakeAsync((async) {
         final tree = _SearchTree()
           ..put('/ro', [testAudio('ro_hit.mp3', '/ro/ro_hit.mp3')]);
-        final container =
-            ProviderContainer(overrides: [tree.override, navRoot('/ro')]);
+        final container = ProviderContainer(overrides: [
+          tree.override,
+          tree.webDavOverride,
+          tree.scanStorageOverride,
+          activeConnectionProvider
+              .overrideWith((ref) async => testConnection()),
+          navRoot('/ro'),
+        ]);
         container.listen(searchSessionProvider, (prev, next) {});
         final q0 = container.read(currentPlayQueueProvider);
         final c0 = container.read(lastQueueConnectionIdProvider);
@@ -772,6 +872,8 @@ void main() {
         Scaffold(body: BrowserScreen()),
         overrides: [
           tree.override,
+          tree.webDavOverride,
+          tree.scanStorageOverride,
           activeConnectionProvider
               .overrideWith((ref) async => testConnection()),
           progressDaoProvider.overrideWithValue(_MapProgressDao(progressStore)),
@@ -1267,6 +1369,8 @@ void main() {
         Scaffold(body: BrowserScreen()),
         overrides: [
           tree.override,
+          tree.webDavOverride,
+          tree.scanStorageOverride,
           activeConnectionProvider.overrideWith((ref) async {
             final id = ref.watch(connIdHolder);
             return testConnection(id: id);

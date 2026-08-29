@@ -23,6 +23,7 @@ import 'package:nas_audio_player/shared/models/play_progress.dart';
 import 'package:nas_audio_player/shared/models/playlist.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../helpers/fake_secure_storage.dart';
 import '../../helpers/mock_audio_player.dart';
 import '../../helpers/test_factories.dart';
 import '../../helpers/widget_helpers.dart';
@@ -73,6 +74,50 @@ class _Tree {
 
   Override get override =>
       directoryContentsProvider.overrideWith((ref, path) => fetch(path));
+
+  // BUG-33（cr F1）：扫描会话 fetchDir 改走 webDavClientProvider（不经缓存）——
+  // 同一棵树经适配器供给 webDav 端口；主列表浏览仍走 directoryContentsProvider。
+  Override get webDavOverride =>
+      webDavClientProvider.overrideWithValue(_TreeScanDavClient(this));
+
+  /// 扫描会话装配（BUG-33）：secureStorage 密码 + 活跃连接。
+  Override get scanStorageOverride => secureStorageProvider
+      .overrideWithValue(FakeSecureStorage()..setPassword(_conn.id ?? 1, 'pw'));
+}
+
+/// BUG-33：把 [Tree] 的 fetch 供给 WebDAV 端口（扫描直连路径）。
+class _TreeScanDavClient implements WebDavClientInterface {
+  _TreeScanDavClient(this._tree);
+  final _Tree _tree;
+
+  @override
+  Future<List<NasFile>> listDirectory({
+    required String url,
+    required String username,
+    required String password,
+    required String path,
+  }) =>
+      _tree.fetch(path);
+
+  @override
+  Future<WebDavValidationResult> validate({
+    required String url,
+    required String username,
+    required String password,
+    String basePath = '/',
+  }) =>
+      throw UnimplementedError('not needed');
+
+  @override
+  Future<void> downloadFile({
+    required String url,
+    required String filePath,
+    required String username,
+    required String password,
+    required String saveTo,
+    void Function(int received, int? total)? onProgress,
+  }) =>
+      throw UnimplementedError('not needed');
 }
 
 class _NoProgressDao extends ProgressDao {
@@ -101,6 +146,8 @@ Future<List<Override>> _baseOverrides(_Tree tree) async {
   final prefs = await SharedPreferences.getInstance();
   return [
     tree.override,
+    tree.webDavOverride,
+    tree.scanStorageOverride,
     activeConnectionProvider.overrideWith((ref) async => _conn),
     sharedPreferencesProvider.overrideWithValue(prefs),
     audioPlayerProvider.overrideWithValue(MockAudioPlayer()),

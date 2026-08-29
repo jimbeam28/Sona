@@ -458,6 +458,7 @@ class _SearchResultsView extends ConsumerWidget {
             tooltip: playNextEnabled ? '加入下一曲' : '请先开始播放后再用此功能',
           );
           return ListTile(
+            key: ValueKey(hit.file.path),
             leading: Icon(_searchLeadingIcon(hit.file),
                 color: _searchLeadingColor(hit.file)),
             title: Text(
@@ -563,11 +564,24 @@ Future<void> _playSearchHit(
 
   // 建队收集的 fetchDir 与主列表「从此处播放」（_collectFolder）同款缓存读，
   // 失败面完全一致（spec S10② 镜像）；collectFolderAudio 整体失败语义不变。
+  // BUG-33-S2（cr F1）：扫描会话走不经缓存的轻量 fetchDir（密码读一次）。
   FolderScanResult? collected;
+  final scanFetchDir = await buildScanFetchDir(
+    activeConnection: () => ref.read(activeConnectionProvider.future),
+    storage: ref.read(secureStorageProvider),
+    client: ref.read(webDavClientProvider),
+    sort: ref.read(sortOptionProvider),
+  );
+  if (scanFetchDir == null) {
+    messenger.showSnackBar(
+      const SnackBar(content: Text('无法读取文件夹内容，请检查连接')),
+    );
+    return;
+  }
   try {
     collected = await collectFolderAudio(
       rootPath: hit.parentDirPath,
-      fetchDir: (p) => ref.read(directoryContentsProvider(p).future),
+      fetchDir: scanFetchDir,
     );
   } catch (e) {
     debugPrint('[Browser] search play: folder collect failed: '
@@ -1041,10 +1055,25 @@ Future<FolderScanResult?> _scanFolderWithLoading(
       ),
     ),
   );
+  // BUG-33-S2（cr F1）：扫描会话走不经缓存的轻量 fetchDir（密码读一次、
+  // 不写 directoryCache）。无活跃连接/密码 → 既有错误分支语义。
+  final scanFetchDir = await buildScanFetchDir(
+    activeConnection: () => ref.read(activeConnectionProvider.future),
+    storage: ref.read(secureStorageProvider),
+    client: ref.read(webDavClientProvider),
+    sort: ref.read(sortOptionProvider),
+  );
+  if (scanFetchDir == null) {
+    navigator.pop();
+    messenger.showSnackBar(
+      const SnackBar(content: Text('无法读取文件夹内容，请检查连接')),
+    );
+    return null;
+  }
   try {
     final result = await collectFolderAudio(
       rootPath: dir.path,
-      fetchDir: (p) => ref.read(directoryContentsProvider(p).future),
+      fetchDir: scanFetchDir,
     );
     navigator.pop();
     return result;

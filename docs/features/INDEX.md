@@ -29,17 +29,19 @@
 | BRW-01 | 文件夹级操作（递归播放与加入播放单） | active | 2026-08-23 | lib/features/browser/browser_screen.dart | 9/4/1 | pending / pending / pending | false（扫描耗时/限速 2 条进 backlog） | ✅ |
 | SRCH-01 | 文件搜索（子树 · 立即播放/下一曲） | active | 2026-08-23 | lib/features/browser/browser_screen.dart | 11/4/1 | pending / pending / pending | false（扫描耗时 1 条进 backlog） | ✅ |
 | MSEL-01 | 批量多选（跨目录勾选） | active | 2026-08-23 | lib/features/browser/browser_screen.dart | 8/4/1 | pending / pending / pending | false | ✅ |
-| DL-01 | 离线下载（串行队列 · 本地播放） | active | 2026-08-23 | lib/features/player/domain/playback_orchestrator.dart | 10/5/2 | pending / pending / pending | true | ✅ |
+| DL-01 | 离线下载（串行队列 · 本地播放） | active | 2026-08-29 | lib/features/player/domain/playback_orchestrator.dart | 13/5/2 | pending / pending / pending | true | ✅ |
 
 ## Refactoring 文档
 
 | ID | 名称 | 状态 | 最近更新 | 主锚点文件 | 跨模块影响 | S/INV/ALG | impl / test / check |
 |---|---|---|---|---|---|---|---|
+| REF-28 | 两处列表项补业务 ValueKey | active | 2026-08-29 | lib/features/downloads/downloads_screen.dart | DL, BRW | 2/1/0 | pending / pending / pending |
 
 ## Bug 文档
 
 | ID | 名称 | 状态 | 最近更新 | 主锚点文件 | 主归属 feature | 跨模块影响 | S/INV/ALG | impl / test / check |
 |---|---|---|---|---|---|---|---|---|
+| BUG-33 | 扫描类操作逐层放大 secure-storage 读与目录缓存冲刷 | active | 2026-08-29 | lib/features/browser/browser_provider.dart | null（跨模块） | BRW, SRCH, DL | 3/3/1 | pending / pending / pending |---|
 
 ## TEST-GAP 文档
 
@@ -49,10 +51,10 @@
 ## 状态汇总
 
 - 功能文档：6 份（PLY-01 / TMR-01 / BRW-01 / SRCH-01 / MSEL-01 / DL-01）
-- Refactoring 文档：0 份
-- Bug 文档：0 份
+- Refactoring 文档：1 份（REF-28）
+- Bug 文档：1 份（BUG-33）
 - TEST-GAP 文档：0 份
-- 待 dev-exe：6 份（依赖序：PLY-01 → TMR-01 → BRW-01 → SRCH-01 → MSEL-01 → DL-01；SRCH/MSEL/DL 均依赖 BRW-01 的收集器与菜单）
+- 待 dev-exe：3 份（DL-01 重新挂起含 S11~S13 fold；BUG-33；REF-28）
 
 ## 折叠归并备注（cr-20260816-0802 F1）
 
@@ -65,6 +67,7 @@
 
 ## changelog
 
+- 2026-08-29（cr-20260826-0027 复核分流落地）：**DL-01 修订 fold**（B1 Critical 生产装配缺 remoteUrlResolver → DL-01-S11 status:new，fix 按 entry.connectionId 解析 effective base URL，per-entry 端口取代全局活跃连接；回归锚即 T1，测试载体 `bug_b1_wiring_repro_test.dart` 实测 FAIL=占位基址→修复后应 PASS；D1 recoverOrphanDownloads 直查表 → DL-01-S12；D3 DownloadManager 时间源 → DL-01-S13）。**新增 BUG-33**（F1 扫描放大：buildScanFetchDir 会话级密码读一次 + 不经目录缓存，search/collectFolder 双接线；repro 门禁 bug_33_repro_test.dart 实测 FAIL=3 层扫描 readCalls==3→修复后应 ==1）。**新增 REF-28**（D2 两处列表项补 ValueKey：下载行 record.id / 搜索命中 file.path）。repro 两门禁均以 repro-test.sh fail 确认真实 FAIL；DESIGN 条目（D1/D2/D3）无 repro 门禁要求。
 - 2026-08-23（第二批）: 新增 SRCH-01 / MSEL-01 / DL-01 三份功能 spec（B 批功能，访谈裁决全部按推荐执行）。SRCH-01：folder_searcher 纯 Dart 流式扫描（事件流 HitFound/ScanProgress/ScanDone，200 目录上限截断、**单层失败跳过不整体终止——与 BRW-01 整体失败语义有意相反** §3.0）、行点击=立即播放（收集器建队+进度恢复对话框三分支复刻 onFileTap :139-176）、「下一首播」复用 insertAfterCurrentProvider 带同款置灰门禁；MSEL-01：跨目录勾选 store=插入序 Map（组间序=首次进入序、组内序=当前排序快照、快照淘汰回退字典序 ALG1），以此播放 startPositionMs 恒 null，加入播放单单点复用 BRW-01 picker，退出多选模式即清空；DL-01：DB v3 downloads 表 + IDownloadDao + WebDavClient.downloadFile（GET 流式、chunk 30s 静默超时、.part 原子改名）+ 串行泵状态机（ALG1 迁移表穷举）+ loadAndPlay 注入 localSourceResolver 本地优先（命中免密码读，缺失静默回退远程标 failed）+ /downloads 管理页与启动孤儿恢复。**入口变更声明待用户复核**：文件下载入口从"行按钮"移入长按菜单（trailing 被下一首播常驻占用）。DL-01 §8-R2 AudioSource.file 需 dev-exe 最小冒烟验证后回填。spec-scan --neg 全 0；六条目依赖链 PLY→TMR→BRW→SRCH→MSEL→DL。
 
 - 2026-08-23: 新增 PLY-01 / TMR-01 / BRW-01 三份功能 spec（用户采纳建议批次 A2/A3/A4；A1「继续收听」经访谈裁决砍掉——冷启动恢复链路 browser_provider.dart:191-266 + player_provider.dart:216-242 + audio_source_builder.dart:167/177 已覆盖单本续听场景，增量仅剩"多内容并行切换"非用户模式）。PLY-01：QueueSheet 加 ReorderableListView 拖动重排（shuffle 双闸禁用 S4/S8）+ PlayQueue.move 纯模型方法（ALG1 含 currentIndex 跟随映射表）；TMR-01：IAudioPlayer 契约扩 setVolume（adapter/mockito 依据登记 §8-R1/R2）+ fade_policy 纯函数 + timerTickWithFadeProvider 合并四驱动点（S6），到期单 tick 完成 setVolume(0)→pause→setVolume(1.0)（S3/INV4）；BRW-01：folder_collector DFS 先序收集（上限 kFolderScanMaxFiles=500，S2 截断/S3 错误透传整体失败）+ 目录长按双入口（从此处播放复刻 onFileTap 建队形态 startPositionMs=null / 加入播放单含新建即加入路径，createPlaylist 经 playlistServiceProvider 直连取 id——createPlaylistProvider 包装丢 id 的勘察发现）。三份 spec-scan --neg 全 0，dev-status 三条目 pending 入队。

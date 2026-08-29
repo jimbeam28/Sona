@@ -7,10 +7,12 @@ import 'package:flutter/widgets.dart' show BuildContext;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart' show GoRouter;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/contracts/storage_contract.dart';
 import '../../core/network/webdav_client.dart';
 import '../../core/services/audio_source_builder.dart';
 import '../../core/services/storage_utils.dart';
 import '../../shared/models/nas_file.dart';
+import '../../shared/models/connection_config.dart';
 import '../../shared/models/play_queue.dart';
 import '../../shared/webdav_paths.dart';
 import '../../shared/di/providers.dart';
@@ -128,18 +130,58 @@ final directoryContentsProvider =
       username: conn.username,
       password: pw,
       path: path);
-  final reqPath = path.endsWith('/') ? path : '$path/';
-  final filtered = entries.where((e) {
-    if (e.path == path || e.path == reqPath || '${e.path}/' == reqPath)
-      return false;
-    return e.isDirectory || e.audioType != null;
-  }).toList();
+  final filtered = _filterDirectoryEntries(entries, path);
   final sorted = sortFiles(filtered, sortOption);
   ref.read(directoryCacheProvider.notifier).update((s) =>
       const CachePolicy<List<NasFile>>().put(s, cacheKey,
           CacheEntry<List<NasFile>>(value: sorted, createdAt: clock())));
   return sorted;
 });
+
+/// Directory-listing filter shared by the regular browse provider and scan
+/// sessions (BUG-33-INV3: single source of truth). Self-references to [path]
+/// are dropped; only directories and audio files survive.
+List<NasFile> _filterDirectoryEntries(List<NasFile> entries, String path) {
+  final reqPath = path.endsWith('/') ? path : '$path/';
+  return entries.where((e) {
+    if (e.path == path || e.path == reqPath || '${e.path}/' == reqPath)
+      return false;
+    return e.isDirectory || e.audioType != null;
+  }).toList();
+}
+
+/// BUG-33-S2 (cr F1): builds a scan-session fetchDir that reads the password
+/// exactly once and lists directories straight through the WebDAV client,
+/// bypassing the directory cache entirely (INV1) — deep-tree scans neither
+/// multiply secure-storage reads nor evict the user's browse cache.
+///
+/// Returns null when there is no active connection or no stored password
+/// (callers fall into their existing error semantics).
+///
+/// Dependencies are passed in explicitly (rather than a `WidgetRef`) so the
+/// same helper serves both the widget layer (browser_screen, a `WidgetRef`)
+/// and the search notifier (whose `ref` is a provider `Ref`, not a
+/// `WidgetRef`) — mechanical adaptation of the spec's `WidgetRef ref` shape.
+Future<Future<List<NasFile>> Function(String)?> buildScanFetchDir({
+  required Future<ConnectionConfig?> Function() activeConnection,
+  required ISecureStorage storage,
+  required WebDavClientInterface client,
+  required SortOption sort,
+}) async {
+  final conn = await activeConnection();
+  if (conn == null) return null;
+  final pw =
+      await safeStorageRead(storage, key: 'connection_password_${conn.id}');
+  if (pw == null || pw.isEmpty) return null;
+  return (path) async {
+    final entries = await client.listDirectory(
+        url: webDavEffectiveBaseUrl(conn.url, conn.basePath),
+        username: conn.username,
+        password: pw,
+        path: path);
+    return sortFiles(_filterDirectoryEntries(entries, path), sort);
+  };
+}
 
 final navigationStackProvider =
     StateNotifierProvider<NavigationStackNotifier, List<String>>(
@@ -378,7 +420,7 @@ class SearchSessionNotifier extends AutoDisposeNotifier<SearchSessionState> {
     _debounce = Timer(_debounceDuration, () => _startScan(q));
   }
 
-  void _startScan(String q) {
+  Future<void> _startScan(String q) async {
     if (_disposed) return;
     // S5 否定断言：新扫描启动前旧订阅必须被取消——同一时刻至多一条活跃流。
     _sub?.cancel();
@@ -393,10 +435,28 @@ class SearchSessionNotifier extends AutoDisposeNotifier<SearchSessionState> {
       query: q,
     );
     final rootPath = ref.read(navigationStackProvider).last;
+    // BUG-33-S2 (cr F1): scan sessions use the cache-bypassing fetchDir so a
+    // deep-tree search reads the password once and never evicts the user's
+    // browse cache. No active connection / missing password → fall into the
+    // existing error position (running=false, query preserved).
+    final fetchDir = await buildScanFetchDir(
+      activeConnection: () => ref.read(activeConnectionProvider.future),
+      storage: ref.read(secureStorageProvider),
+      client: ref.read(webDavClientProvider),
+      sort: ref.read(sortOptionProvider),
+    );
+    // P14 async-gap：await 期间 notifier 可能被释放（连接切换 closePanel）或
+    // 已被新一轮 _startScan 抢占（query 变更）——迟到的装配结果不得重建
+    // 已取消/已过期的订阅。
+    if (_disposed || !state.running || state.query != q) return;
+    if (fetchDir == null) {
+      state = state.copyWith(running: false);
+      return;
+    }
     _sub = searchFolderSubtree(
       rootPath: rootPath,
       query: q,
-      fetchDir: (p) => ref.read(directoryContentsProvider(p).future),
+      fetchDir: fetchDir,
     ).listen(_onEvent);
   }
 

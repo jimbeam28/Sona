@@ -17,6 +17,10 @@
 //   DL-01-S8  目录菜单第三项「下载此文件夹」widget 测试
 //   DL-01-S9  /downloads 管理页 widget 测试
 //   DL-01-S10 recoverOrphanDownloads 启动孤儿恢复
+//   DL-01-S11 生产 provider 接线 per-connection remoteUrlResolver
+//            （回归锚=bug_b1_wiring_repro_test.dart；本文件补 per-connection 语义测试）
+//   DL-01-S12 recoverOrphanDownloads 收敛 Dao——listDistinctConnections 去重连接 id
+//   DL-01-S13 DownloadManager 时钟注入（clock 单点）
 //   DL-01-INV1~INV5 / DL-01-ALG1 / DL-01-ALG2
 //
 // §5.3 盲点补偿锚点：
@@ -65,6 +69,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 // 机械修正：包内库文件名为 sqflite_ffi.dart（sqflite_common_ffi.dart 不存在）。
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import '../../helpers/fake_secure_storage.dart';
 import '../../helpers/mock_audio_player.dart';
 import '../../helpers/test_database.dart';
 import '../../helpers/test_factories.dart';
@@ -274,7 +279,8 @@ typedef _ManagerEnv = ({
 
 Future<_ManagerEnv> _makeManagerEnv({
   Duration progressThrottle = const Duration(milliseconds: 250),
-  String Function()? remoteUrlResolver,
+  Future<String?> Function(int connectionId)? remoteUrlResolver,
+  DateTime Function()? clock,
   Map<String, _ScriptedDownload>? scripts,
   bool hangByDefault = false,
 }) async {
@@ -297,6 +303,7 @@ Future<_ManagerEnv> _makeManagerEnv({
     fs: fs,
     progressThrottle: progressThrottle,
     remoteUrlResolver: remoteUrlResolver,
+    clock: clock,
   );
   return (
     manager: manager,
@@ -600,6 +607,50 @@ class _Tree {
 
   Override get override =>
       directoryContentsProvider.overrideWith((ref, path) => fetch(path));
+
+  // BUG-33（cr F1）：扫描会话 fetchDir 改走 webDavClientProvider——同一棵树
+  // 经适配器供给 webDav 端口；主列表浏览仍走 directoryContentsProvider。
+  Override get webDavOverride =>
+      webDavClientProvider.overrideWithValue(_TreeScanDavClient(this));
+
+  /// 扫描会话装配（BUG-33）：secureStorage 密码 + 活跃连接。
+  Override get scanStorageOverride => secureStorageProvider
+      .overrideWithValue(FakeSecureStorage()..setPassword(_conn.id ?? 1, 'pw'));
+}
+
+/// BUG-33：把 [_Tree] 的 fetch 供给 WebDAV 端口（扫描直连路径）。
+class _TreeScanDavClient implements WebDavClientInterface {
+  _TreeScanDavClient(this._tree);
+  final _Tree _tree;
+
+  @override
+  Future<List<NasFile>> listDirectory({
+    required String url,
+    required String username,
+    required String password,
+    required String path,
+  }) =>
+      _tree.fetch(path);
+
+  @override
+  Future<WebDavValidationResult> validate({
+    required String url,
+    required String username,
+    required String password,
+    String basePath = '/',
+  }) =>
+      throw UnimplementedError('not needed');
+
+  @override
+  Future<void> downloadFile({
+    required String url,
+    required String filePath,
+    required String username,
+    required String password,
+    required String saveTo,
+    void Function(int received, int? total)? onProgress,
+  }) =>
+      throw UnimplementedError('not needed');
 }
 
 class _NoProgressDao extends ProgressDao {
@@ -616,6 +667,8 @@ Future<List<Override>> _browserOverrides(_Tree tree, _WidgetEnv env,
   final prefs = await SharedPreferences.getInstance();
   return [
     tree.override,
+    tree.webDavOverride,
+    tree.scanStorageOverride,
     activeConnectionProvider.overrideWith((ref) async => _conn),
     sharedPreferencesProvider.overrideWithValue(prefs),
     audioPlayerProvider.overrideWithValue(MockAudioPlayer()),
@@ -1049,6 +1102,27 @@ void main() {
       expect(byPath['/f.mp3']!.status, DownloadStatus.failed);
       expect(byPath['/f.mp3']!.updatedAt, _ts - 10,
           reason: '否定断言：failed 行 updated_at 不变');
+    });
+
+    test(
+        'DL-01-S12: listDistinctConnections 返回跨连接去重连接 id——多连接多行 {1,2}，空表返回 [] 不抛错',
+        () async {
+      final (db: db, :dao) = await _daoEnv();
+      expect(await dao.listDistinctConnections(), isEmpty,
+          reason: '否定断言：空表返回 [] 不抛错');
+
+      await dao.upsert(_rec('/a.mp3', DownloadStatus.pending));
+      await dao.upsert(_rec('/b.mp3', DownloadStatus.done));
+      // 连接 2：_daoEnv 只 seed 了 id=1，须补 seed 以满足 FK
+      await seedConnection(db, id: 2);
+      await dao.upsert(_rec('/c.mp3', DownloadStatus.pending, connectionId: 2));
+      await dao.upsert(_rec('/d.mp3', DownloadStatus.failed, connectionId: 2));
+
+      final ids = await dao.listDistinctConnections();
+      expect(ids, hasLength(2), reason: '去重：两连接多行只出现各自的连接 id');
+      expect(ids, containsAll([1, 2]),
+          reason: 'S12：SELECT DISTINCT connection_id 语义——恰为 {1,2}（顺序无要求）');
+      expect(ids, isNot(contains(0)), reason: '不含任何哨兵 id');
     });
   });
 
@@ -1719,12 +1793,73 @@ void main() {
 
       // 自定义 resolver
       final envCustom = await _makeManagerEnv(
-          remoteUrlResolver: () => 'http://nas.example.com:5005/dav');
+          remoteUrlResolver: (_) async => 'http://nas.example.com:5005/dav');
       await envCustom.dao.upsert(_rec('/u2.mp3', DownloadStatus.pending));
       await envCustom.manager.pump();
       expect(
           envCustom.client.calledUrls.single, 'http://nas.example.com:5005/dav',
           reason: '自定义 resolver 产出的有效基址原样透传');
+    });
+
+    test(
+        'DL-01-S11: per-connection resolver——分属连接 1/2 的任务各用各自连接基址，泵跨连接取任务不得用全局活跃连接 URL',
+        () async {
+      final env = await _makeManagerEnv(
+        remoteUrlResolver: (connectionId) async =>
+            connectionId == 1 ? 'http://conn1' : 'http://conn2',
+      );
+      // 连接 2 行：spec 要求两条任务分属两个连接，均须存在对应 connection 行（FK）
+      await seedConnection(await DatabaseHelper.instance.database, id: 2);
+      final n = await env.manager.enqueueMany([
+        (1, testAudio('one.mp3', '/one.mp3')),
+        (2, testAudio('two.mp3', '/two.mp3')),
+      ]);
+      expect(n, 2);
+      await env.manager.pump();
+
+      expect(env.client.calledUrls, ['http://conn1', 'http://conn2'],
+          reason: 'S11：泵跨连接取任务——每条按 entry.connectionId 解析各自连接'
+              '基址，禁止用「全局活跃连接」的 URL（多连接用户不得拿 A 凭证下 B 地址）');
+    });
+
+    test(
+        'DL-01-S11 否定: resolver 返回 null → 保底占位基址 http://localhost，标 failed，不崩溃不静默成功',
+        () async {
+      // 注：fake client 无真实网络，「localhost 不可达」由注入错误代理
+      //（真实生产下 http://localhost 必然失败，语义一致）。
+      final env = await _makeManagerEnv(
+        remoteUrlResolver: (_) async => null,
+        scripts: {
+          '/x.mp3': _ScriptedDownload(error: WebDavException('localhost 不可达')),
+        },
+      );
+      await env.dao.upsert(_rec('/x.mp3', DownloadStatus.pending));
+      await env.manager.pump();
+
+      expect(env.client.calledUrls.single, 'http://localhost',
+          reason: 'S11 否定：resolver 返回 null 时保底占位基址（仅防御性，生产恒接线）');
+      final rec = await env.dao.findByLocation(1, '/x.mp3');
+      expect(rec!.status, DownloadStatus.failed,
+          reason: 'S11 否定：占位基址不可达 → 下载标 failed，不崩溃、不静默成功');
+    });
+
+    test(
+        'DL-01-S13: 注入固定时钟——enqueueMany 落库的 createdAt/updatedAt 等于注入时钟值而非真实 now',
+        () async {
+      final fixed = DateTime(2020, 1, 1, 0, 0, 0);
+      final env = await _makeManagerEnv(
+        clock: () => fixed,
+        hangByDefault: true,
+      );
+      await env.manager
+          .enqueueMany([(1, testAudio('clocked.mp3', '/clocked.mp3'))]);
+      final rec = await env.dao.findByLocation(1, '/clocked.mp3');
+
+      expect(rec, isNotNull);
+      expect(rec!.createdAt, fixed.millisecondsSinceEpoch,
+          reason: 'S13：enqueueMany 的 now 必须经注入时钟 _clock()，而非真实 DateTime.now()');
+      expect(rec.updatedAt, fixed.millisecondsSinceEpoch,
+          reason: 'S13：now 与 lastWriteAt 初值均改经 _clock()——updatedAt 同为注入时钟值');
     });
 
     test(
@@ -2527,6 +2662,75 @@ void main() {
 
       // 绝不抛出：内部 catch 后 debugPrint 静默返回
       await expectLater(recoverOrphanDownloads(), completes);
+    });
+
+    test(
+        'DL-01-S12: recoverOrphanDownloads 经 listDistinctConnections 收敛——跨连接 pending/downloading 全 failed，done/failed 不动',
+        () async {
+      final db = await openTestDatabase(TestSchema.full);
+      addTearDown(db.close);
+      await seedConnection(db, id: 1);
+      await seedConnection(db, id: 2);
+
+      // 连接 1：pending + done
+      await db.insert('downloads', {
+        'connection_id': 1,
+        'file_path': '/c1_pending.mp3',
+        'file_name': 'c1_pending.mp3',
+        'remote_size': 1,
+        'local_path': '/x1',
+        'status': 'pending',
+        'bytes_downloaded': 0,
+        'created_at': _ts,
+        'updated_at': _ts,
+      });
+      await db.insert('downloads', {
+        'connection_id': 1,
+        'file_path': '/c1_done.mp3',
+        'file_name': 'c1_done.mp3',
+        'remote_size': 1,
+        'local_path': '/x2',
+        'status': 'done',
+        'bytes_downloaded': 99,
+        'created_at': _ts,
+        'updated_at': _ts,
+      });
+      // 连接 2：downloading + failed
+      await db.insert('downloads', {
+        'connection_id': 2,
+        'file_path': '/c2_downloading.mp3',
+        'file_name': 'c2_downloading.mp3',
+        'remote_size': 1,
+        'local_path': '/x3',
+        'status': 'downloading',
+        'bytes_downloaded': 33,
+        'created_at': _ts,
+        'updated_at': _ts,
+      });
+      await db.insert('downloads', {
+        'connection_id': 2,
+        'file_path': '/c2_failed.mp3',
+        'file_name': 'c2_failed.mp3',
+        'remote_size': 1,
+        'local_path': '/x4',
+        'status': 'failed',
+        'bytes_downloaded': 0,
+        'created_at': _ts,
+        'updated_at': _ts,
+      });
+
+      await recoverOrphanDownloads();
+
+      final rows = await db.query('downloads');
+      final byPath = {for (final r in rows) r['file_path'] as String: r};
+      expect(byPath['/c1_pending.mp3']!['status'], DownloadStatus.failed,
+          reason: 'S12：连接 1 的 pending 必须标 failed');
+      expect(byPath['/c2_downloading.mp3']!['status'], DownloadStatus.failed,
+          reason: 'S12：连接 2 的 downloading 必须标 failed');
+      expect(byPath['/c1_done.mp3']!['status'], DownloadStatus.done,
+          reason: 'S12 否定断言：done 是终态，跨连接恢复同样不动');
+      expect(byPath['/c2_failed.mp3']!['status'], DownloadStatus.failed,
+          reason: 'S12 否定断言：failed 行保持不动');
     });
   });
 

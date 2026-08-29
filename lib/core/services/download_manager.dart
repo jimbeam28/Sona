@@ -25,7 +25,6 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../contracts/database_contract.dart';
-import '../database/database_helper.dart';
 import '../database/dao/download_dao.dart';
 import '../network/webdav_client.dart';
 import '../../shared/models/nas_file.dart';
@@ -139,12 +138,19 @@ class DownloadManager {
   /// Minimum interval between progress-driven DB writes (DL-01-S9 节流).
   final Duration _progressThrottle;
 
-  /// Produces the effective base URL for downloads; null → placeholder
-  /// ('http://localhost', URL 注记裁决).
-  final String Function()? _remoteUrlResolver;
+  /// Produces the effective base URL for a download's owning connection;
+  /// null → placeholder ('http://localhost', URL 注记裁决). Keyed by
+  /// [entry.connectionId] so a cross-connection pump never uses a "global
+  /// active connection" URL (DL-01-S11, cr B1).
+  final Future<String?> Function(int connectionId)? _remoteUrlResolver;
 
   /// Resolves per-connection credentials; null resolver → empty credentials.
   final DownloadCredentialResolver? _credentialResolver;
+
+  /// Injectable "now" source (DL-01-S13, cr D3): enqueue timestamps and the
+  /// progress throttle clock route through here; production defaults to
+  /// [DateTime.now] so behaviour is unchanged.
+  final DateTime Function() _clock;
 
   Future<void>? _pumpRunning;
 
@@ -160,14 +166,16 @@ class DownloadManager {
     required IDownloadDao dao,
     required DownloadFileSystem fs,
     Duration progressThrottle = const Duration(milliseconds: 250),
-    String Function()? remoteUrlResolver,
+    Future<String?> Function(int connectionId)? remoteUrlResolver,
     DownloadCredentialResolver? credentialResolver,
+    DateTime Function()? clock,
   })  : _client = client,
         _dao = dao,
         _fs = fs,
         _progressThrottle = progressThrottle,
         _remoteUrlResolver = remoteUrlResolver,
-        _credentialResolver = credentialResolver;
+        _credentialResolver = credentialResolver,
+        _clock = clock ?? DateTime.now;
 
   // ── Enqueue ────────────────────────────────────────────────────────────────
 
@@ -182,7 +190,7 @@ class DownloadManager {
       if (existing != null && existing.status != DownloadStatus.failed) {
         continue;
       }
-      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      final nowMs = _clock().millisecondsSinceEpoch;
       await _dao.upsert(DownloadRecord(
         connectionId: connectionId,
         filePath: file.path,
@@ -299,7 +307,8 @@ class DownloadManager {
       password = credentials.password;
     }
 
-    final baseUrl = _remoteUrlResolver?.call() ?? 'http://localhost';
+    final baseUrl = await _remoteUrlResolver?.call(entry.connectionId) ??
+        'http://localhost';
 
     // First progress callback always lands (epoch anchor); later callbacks
     // are throttled into one DB write per window.
@@ -315,7 +324,7 @@ class DownloadManager {
           if (_cancelRequested.contains(id)) {
             throw _DownloadCancelled();
           }
-          final now = DateTime.now();
+          final now = _clock();
           if (now.difference(lastWriteAt) >= _progressThrottle) {
             lastWriteAt = now;
             unawaited(_dao.updateProgress(id, receivedBytes));
@@ -419,15 +428,13 @@ class DownloadManager {
 /// NOT pump — resuming after a restart requires an explicit user retry.
 Future<void> recoverOrphanDownloads() async {
   try {
-    final db = await DatabaseHelper.instance.database;
-    final rows =
-        await db.rawQuery('SELECT DISTINCT connection_id FROM downloads');
     final dao = DownloadDao();
-    for (final row in rows) {
-      final connectionId = row['connection_id'];
-      if (connectionId is int) {
-        await dao.markAllNonDoneFailed(connectionId);
-      }
+    // DL-01-S12 (cr D1): distinct-connection discovery lives in the DAO
+    // (single point of table-name knowledge); the manager only drives the
+    // per-connection recovery loop.
+    final ids = await dao.listDistinctConnections();
+    for (final connectionId in ids) {
+      await dao.markAllNonDoneFailed(connectionId);
     }
   } catch (e) {
     debugPrint('[Download] recoverOrphanDownloads skipped: $e');

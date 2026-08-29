@@ -203,4 +203,15 @@ class DownloadDao implements IDownloadDao {
       ],
     );
   }
+
+  @override
+  Future<List<int>> listDistinctConnections() async {
+    final db = await _db;
+    final rows =
+        await db.rawQuery('SELECT DISTINCT connection_id FROM downloads');
+    return rows
+        .map((r) => r['connection_id'])
+        .whereType<int>()
+        .toList(growable: false);
+  }
 }

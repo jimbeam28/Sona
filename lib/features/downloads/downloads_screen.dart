@@ -125,6 +125,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
         }
         final record = _rows[index];
         return _DownloadRow(
+          key: ValueKey(record.id),
           record: record,
           onCancel: () =>
               unawaited(_actThenReload((m) => m.cancel(record.id!))),
@@ -177,6 +178,7 @@ class _DownloadRow extends StatelessWidget {
   final VoidCallback onDelete;
 
   const _DownloadRow({
+    super.key,
     required this.record,
     required this.onCancel,
     required this.onRetry,

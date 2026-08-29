@@ -187,6 +187,12 @@ abstract class IDownloadDao {
   /// Moves every pending/downloading record of [connectionId] to failed
   /// (startup orphan recovery, B5-8). done/failed rows are untouched.
   Future<void> markAllNonDoneFailed(int connectionId);
+
+  /// Returns the distinct connection ids that own at least one `downloads`
+  /// row, across all connections (startup orphan recovery driver, DL-01-S12,
+  /// cr D1). Empty table yields an empty list — the table-name knowledge stays
+  /// inside the DAO (single point).
+  Future<List<int>> listDistinctConnections();
 }
 
 /// Thrown when attempting to delete the last remaining connection (CON-T32).

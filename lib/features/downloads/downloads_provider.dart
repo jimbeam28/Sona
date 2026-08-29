@@ -16,6 +16,7 @@ import '../../core/database/dao/download_dao.dart';
 import '../../core/services/download_manager.dart';
 import '../../core/services/storage_utils.dart';
 import '../../shared/di/providers.dart';
+import '../../shared/webdav_paths.dart';
 
 /// Singleton [IDownloadDao] for the `downloads` table.
 final downloadDaoProvider = Provider<IDownloadDao>((ref) => DownloadDao());
@@ -44,6 +45,14 @@ final downloadManagerProvider = Provider<DownloadManager>((ref) {
       final connection = await connectionDao.findById(connectionId);
       if (connection == null) return null;
       return (username: connection.username, password: password);
+    },
+    remoteUrlResolver: (connectionId) async {
+      // DL-01-S11 (cr B1): resolve the effective base URL from the row's own
+      // connection — never a "global active connection" URL (the pump takes
+      // tasks across connections).
+      final connection = await connectionDao.findById(connectionId);
+      if (connection == null) return null;
+      return webDavEffectiveBaseUrl(connection.url, connection.basePath);
     },
   );
 });
