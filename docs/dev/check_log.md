@@ -550,3 +550,37 @@ FAIL → `dev-status.sh bump-round BUG-33` + `dev-status.sh bump-round DL-01`（
 ### 行动
 
 BUG-33 FAIL → `dev-status.sh bump-round BUG-33`（impl/test 回 pending，check_round=2）。DL-01 全项通过 → `dev-status.sh pass DL-01` + `coverage-check.sh refresh`。请手动启动 dev-exe BUG-33 重做：仅需处理问题清单 1（修复指令已精确到函数与测试补位，含 sync fakeAsync 教训），其余实现与测试保持原样，勿动既有断言。
+
+## [2026-08-29 20:36] BUG-33 - 第 3 轮 dev-check（commit 460df83 返工增量）
+
+### 总 verdict: PASS
+
+审计对象：commit 460df83（第 2 轮问题清单 1 的唯一修复靶点——epoch 守卫）。从 spec §1.0 推回：F1 三句期待 + 第 2 轮 FAIL 指令「迟到超时不得 clobber 新在途扫描的 running」逐字核验 `SearchSessionNotifier._startScan`。
+
+**第 2 轮修复靶点核验（检查 2 核心，对抗式）**：
+
+- `int _scanEpoch = 0;` 字段（browser_provider.dart:383）放 `_disposed` 之后 ✅（指令 1）。
+- `_startScan` 首行 `if (_disposed) return;` 之后 `final epoch = ++_scanEpoch;`（:431）✅（指令 2）。
+- catch（:462-470）在 `state = state.copyWith(running: false);` 之前加 `if (_disposed || epoch != _scanEpoch) return;` ✅（指令 3）——旧扫描 A 迟到超时凭 epoch 失配丢弃，不写 running。
+- P14 守卫（:477-482）加 `epoch != _scanEpoch` + 保留 `!state.running`（cancelScan/closePanel 不递增 epoch，仍须以此拦下）✅（指令 5 加固）。
+- fetchDir==null 分支（:483-486）与订阅顺序（:487-491）未动 ✅。
+- 未自由发挥：git diff 仅 `_startScan` 区域 + bug_33_repro_test 增补，无 §3 外行为。
+
+**SRCH-01 语义零回归推演**：cancelScan/closePanel/blank-query 均不递增 epoch，仍由 `!state.running` 拦下（守卫注释已明示）；单挂起复位（epoch 匹配仍落位 running=false）逻辑一致；cov-gate 全量实证绿。
+
+**检查 1 测试空壳 — PASS**：重叠扫描用例（bug_33_repro_test.dart:257-302）——
+- 前置锚（A 启动挂起 running==true :278、B 接管挂起 running==true :283）+ 核心断言（running==true :295 + query=='ab' :297）均为真状态断言，非占位。
+- sync fakeAsync（含「async fakeAsync 吞 expect 失败」实证警告注释，round-2 教训已落实）。
+- 红绿门禁成立（时序推演）：A safeStorageRead 起于 t≈500 超时落 t≈5500；B 起于 t≈1100 超时落 t≈6100；断言点 t=5700 恰在 A 超时后、B 超时前——修复前 A 的 catch 无条件 running=false → 断言 FAIL（真红）；修复后 epoch 失配丢弃 → PASS（真绿）。
+
+**检查 3 跨模块破坏 — PASS**：cross-imports impact/all rc=0（仅基线 legacy debt，引用方全在 §7 声明域）；cov-gate --only test 全量 2721 用例全绿（含 srch_01/brw_01/dl_01 回归网）。
+
+**机械项 — 全绿**：spec-scan BUG-33 rc=0（S/INV/ALG 矩阵无缺项）；repro-test bug_33 pass ✓；coverage-check check-check rc=0（当前 91.80% vs 基线 91.78%，critical 单文件零漂移）；flutter analyze 改动文件 0 warnings/0 errors。
+
+### 非阻断观察（不随本轮处理）
+
+1. **过程提醒（dev-exe）**：提交 460df83 直接改动 `docs/dev/baseline-coverage.json`（baseline_overall 91.80 → 91.78、browser_screen 96.14 → 95.75）——按 SCHEMA §1.2，基线刷新是 dev-check `pass` + `coverage-check.sh refresh` 的职责，dev-exe 不得手动改写。本轮无损（真实当前覆盖 91.80% 即使按旧基线 91.80 也在 1.0% 容忍内），本 PASS 的 refresh 会把基线正确拉回 91.80 单调上行，同时纠正 per-file 值。
+
+### 行动
+
+全 PASS → `dev-status.sh pass BUG-33` + `coverage-check.sh refresh`（基线 91.78 → 91.80，单调上行）。
